@@ -1,0 +1,16 @@
+stages:
+  - build
+
+build_backend:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  before_script:
+    - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+  script:
+    - docker build -t ghcr.io/$GHCR_USER/server-image:latest ./apps/server
+    - docker push ghcr.io/$GHCR_USER/server-image:latest
+  only:
+    - master
+    - develop
