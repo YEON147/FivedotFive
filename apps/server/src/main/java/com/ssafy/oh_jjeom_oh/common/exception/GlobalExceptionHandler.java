@@ -2,61 +2,46 @@ package com.ssafy.oh_jjeom_oh.common.exception;
 
 import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 
-@Slf4j
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
-    // CustomException 처리
-    @ExceptionHandler(CustomException.class)
-    public ResponseEntity<ApiResponse<?>> handleCustomException(CustomException e) {
-        ErrorCode errorCode = e.getErrorCode();
+    @ExceptionHandler(Exception.class)
+    protected ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
+        log.error("Internal Server Error: ", e);
         return ResponseEntity
-                .status(errorCode.getStatus())
-                .body(ApiResponse.fail(errorCode.getMessage()));
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.fail("서버 내부 오류가 발생했습니다."));
     }
 
-    // @Valid 검증 실패 처리
+    // 1. @Valid 유효성 검사 실패 시 (아이디 길이, 비번 형식 등)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<?>> handleValidationException(MethodArgumentNotValidException e) {
-        String message = e.getBindingResult().getFieldErrors().stream()
-                .findFirst()
-                .map(FieldError::getDefaultMessage)
-                .orElse(ErrorCode.INVALID_INPUT.getMessage());
+    protected ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.fail(message));
     }
 
-    // 요청 파라미터 누락 처리
-    @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse<?>> handleMissingParam(MissingServletRequestParameterException e) {
+    // 2. 비즈니스 예외 발생 시 (아이디 중복 등)
+    @ExceptionHandler(CustomException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e) {
         return ResponseEntity
-                .badRequest()
-                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT.getMessage()));
+                .status(e.getErrorCode().getStatus())
+                .body(ApiResponse.fail(e.getErrorCode().getMessage()));
     }
 
-    // JSON 파싱 실패 처리
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<?>> handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
+    // 3. 기타 런타임 예외
+    @ExceptionHandler(IllegalArgumentException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT.getMessage()));
-    }
-
-    // 그 외 모든 예외 처리
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<?>> handleException(Exception e) {
-        log.error("Unhandled exception: ", e);
-        return ResponseEntity
-                .internalServerError()
-                .body(ApiResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
+                .body(ApiResponse.fail(e.getMessage()));
     }
 }
