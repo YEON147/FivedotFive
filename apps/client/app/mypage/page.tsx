@@ -9,9 +9,6 @@ export default function MyPagePage() {
     errors,
     isLoading,
     isLoaded,
-    isPreviewMode,
-    loadMessage,
-    loadSuccess,
     saveMessage,
     saveSuccess,
     isSaving,
@@ -29,7 +26,21 @@ export default function MyPagePage() {
     selectSchool,
     submit,
     resetChanges,
-    reload,
+
+    nicknameCheckStatus,
+    nicknameCheckMessage,
+    checkNickname,
+
+    isPasswordModalOpen,
+    passwordValues,
+    passwordErrors,
+    passwordMessage,
+    passwordSuccess,
+    isPasswordSaving,
+    openPasswordModal,
+    closePasswordModal,
+    updatePasswordField,
+    submitPasswordChange,
   } = useMyPageForm();
 
   return (
@@ -40,9 +51,6 @@ export default function MyPagePage() {
           errors={errors}
           isLoading={isLoading}
           isLoaded={isLoaded}
-          isPreviewMode={isPreviewMode}
-          loadMessage={loadMessage}
-          loadSuccess={loadSuccess}
           saveMessage={saveMessage}
           saveSuccess={saveSuccess}
           isSaving={isSaving}
@@ -54,13 +62,25 @@ export default function MyPagePage() {
           ignoreNextSchoolFocus={ignoreNextSchoolFocus}
           isDirty={isDirty}
           canSubmit={canSubmit}
-          onReload={reload}
+          nicknameCheckStatus={nicknameCheckStatus}
+          nicknameCheckMessage={nicknameCheckMessage}
           onChange={updateField}
+          onCheckNickname={checkNickname}
           onSelectSchool={selectSchool}
           onSetSchoolDropdownOpen={setIsSchoolDropdownOpen}
           onSetIgnoreNextSchoolFocus={setIgnoreNextSchoolFocus}
           onSubmit={submit}
           onReset={resetChanges}
+          isPasswordModalOpen={isPasswordModalOpen}
+          passwordValues={passwordValues}
+          passwordErrors={passwordErrors}
+          passwordMessage={passwordMessage}
+          passwordSuccess={passwordSuccess}
+          isPasswordSaving={isPasswordSaving}
+          onOpenPasswordModal={openPasswordModal}
+          onClosePasswordModal={closePasswordModal}
+          onChangePasswordField={updatePasswordField}
+          onSubmitPasswordChange={submitPasswordChange}
         />
       </section>
     </main>
