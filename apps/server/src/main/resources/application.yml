@@ -1,3 +1,5 @@
 spring:
   application:
     name: oh-jjeom-oh
+  profiles:
+    active: local
