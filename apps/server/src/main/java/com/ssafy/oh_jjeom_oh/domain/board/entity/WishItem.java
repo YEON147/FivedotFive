@@ -45,4 +45,15 @@ public class WishItem {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    // 슬롯 수정 (like_count 초기화)
+    public void update(String itemName) {
+        this.itemName = itemName;
+        this.likeCount = 0;
+    }
+
+    // 공감 +1
+    public void incrementLikeCount() {
+        this.likeCount++;
+    }
 }
