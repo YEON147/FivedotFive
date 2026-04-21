@@ -54,9 +54,12 @@ docs: 브랜치 전략 및 커밋 규칙 문서화
 
 ---
 
-## PR 설명 작성 규칙
+## MR 설명 작성 규칙
 
-PR에는 아래 내용을 반드시 포함한다.
+Merge Request(MR)에는 아래 내용을 반드시 포함한다.
+
+기본 템플릿 파일: `.gitlab/merge_request_templates/default.md`  
+MR 생성 시 **Choose a template**에서 `default`를 선택하면 아래 내용이 채워진다.
 
 ### 작성 템플릿
 
