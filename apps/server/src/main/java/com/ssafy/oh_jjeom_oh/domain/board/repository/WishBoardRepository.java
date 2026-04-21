@@ -12,7 +12,11 @@ public interface WishBoardRepository extends JpaRepository<WishBoard, Long> {
 
     Optional<WishBoard> findByUser(User user);
 
+    Optional<WishBoard> findByUser_Id(Long userId);
+
     boolean existsByUser(User user);
+
+    boolean existsByUser_Id(Long userId);
 
     boolean existsByBoardSlug(String boardSlug);
 }
