@@ -1,34 +1,31 @@
 package com.ssafy.oh_jjeom_oh.common.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
-@JsonInclude(JsonInclude.Include.NON_NULL) // data가 null이면 응답에서 제외
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
-    private final boolean success;
-    private final String message;
-    private final T data;
+    private boolean success;
+    private String message;
+    private T data;
 
-    private ApiResponse(boolean success, String message, T data) {
-        this.success = success;
-        this.message = message;
-        this.data = data;
+    public static <T> ApiResponse<T> success(SuccessMessage message, T data) {
+        return new ApiResponse<>(true, message.getMessage(), data);
     }
 
-    // 성공 - data 있음
-    public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(true, message, data);
+    public static <T> ApiResponse<T> success(SuccessMessage message) {
+        return new ApiResponse<>(true, message.getMessage(), null);
     }
 
-    // 성공 - data 없음
-    public static <T> ApiResponse<T> success(String message) {
-        return new ApiResponse<>(true, message, null);
-    }
-
-    // 실패
     public static <T> ApiResponse<T> fail(String message) {
         return new ApiResponse<>(false, message, null);
     }
+
 }
