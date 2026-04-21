@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "TmoneyRoundWind";
+  src: url("/fonts/TmoneyRoundWindRegular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "TmoneyRoundWind";
+  src: url("/fonts/TmoneyRoundWindExtraBold.otf") format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "MemomentKkukkukk";
+  src: url("/fonts/MemomentKkukkukk.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-point-blue: #a5cbfe;
+  --color-point-lime: #e3f689;
+  --color-point-coral: #ff9c87;
+  --color-bg-mint: #e3fffd;
+  --color-bg-cream: #fffcd8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-point-blue: var(--color-point-blue);
+  --color-point-lime: var(--color-point-lime);
+  --color-point-coral: var(--color-point-coral);
+  --color-bg-mint: var(--color-bg-mint);
+  --color-bg-cream: var(--color-bg-cream);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "TmoneyRoundWind", sans-serif;
+}
+
+@layer utilities {
+  .text-h1 {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .text-h2 {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+
+  .text-h3 {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+
+  .text-body {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .text-body-sm {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .text-button {
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .text-caption {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .text-wish-title {
+    font-family: "MemomentKkukkukk", sans-serif;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .text-wish-body {
+    font-family: "MemomentKkukkukk", sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
 }
