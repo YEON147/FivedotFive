@@ -149,10 +149,7 @@ async function requestWithAuth(
   const responseData = await parseResponseData(response.clone());
   const isRefreshEndpoint = toPath(input).includes(REFRESH_API_PATH);
 
-  if (
-    !isRefreshEndpoint &&
-    isTokenExpiredError(response, responseData)
-  ) {
+  if (!isRefreshEndpoint && isTokenExpiredError(response, responseData)) {
     try {
       const refreshedToken = await getRefreshedTokenSingleFlight();
 
@@ -200,11 +197,12 @@ export async function authApiClient<T>(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<T> {
-  const accessToken = getStoredAccessToken();
+  const accessToken = getAccessToken();
 
   const response = await fetch(input, {
     ...init,
     headers: buildHeaders(init, accessToken ?? undefined),
+    credentials: "include",
     cache: "no-store",
   });
 

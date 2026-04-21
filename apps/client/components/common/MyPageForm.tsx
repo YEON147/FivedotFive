@@ -42,9 +42,6 @@ export function MyPageForm({
   errors,
   isLoading,
   isLoaded,
-  isPreviewMode,
-  loadMessage,
-  loadSuccess,
   saveMessage,
   saveSuccess,
   isSaving,
@@ -56,7 +53,6 @@ export function MyPageForm({
   ignoreNextSchoolFocus,
   isDirty,
   canSubmit,
-  onReload,
   onChange,
   onSelectSchool,
   onSetSchoolDropdownOpen,
@@ -68,49 +64,10 @@ export function MyPageForm({
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <div className="flex flex-col gap-2">
+      <div>
         <h2 className="text-2xl font-bold text-slate-900">
           {displayName}님 안녕하세요
         </h2>
-        <p className="text-sm text-slate-500">
-          아래에서 학교, 성별, 학년을 수정할 수 있습니다.
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">회원 정보</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              이메일은 확인만 가능하며, 학교 · 성별 · 학년만 수정할 수 있습니다.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void onReload()}
-            disabled={isLoading || isSaving}
-            className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isLoading ? "불러오는 중..." : "다시 불러오기"}
-          </button>
-        </div>
-
-        {loadMessage ? (
-          <p
-            className={`mt-3 text-sm ${
-              loadSuccess ? "text-emerald-600" : "text-rose-600"
-            }`}
-          >
-            {loadMessage}
-          </p>
-        ) : null}
-
-        {isPreviewMode ? (
-          <p className="mt-2 text-xs text-amber-600">
-            현재는 백엔드 미연결 상태를 고려한 미리보기 모드도 함께 지원합니다.
-          </p>
-        ) : null}
       </div>
 
       <div className="flex flex-col gap-5">
@@ -122,7 +79,7 @@ export function MyPageForm({
           disabled
           readOnly
           className="cursor-not-allowed bg-slate-100 text-slate-500"
-          hint="이메일은 현재 확인만 가능하며 수정할 수 없습니다."
+          hint="이메일은 수정할 수 없습니다."
         />
 
         <div className="relative">
@@ -144,7 +101,6 @@ export function MyPageForm({
               }
             }}
             onChange={(event) => onChange("schoolName", event.target.value)}
-            hint="회원가입에서 사용한 학교 검색과 동일한 방식입니다."
           />
 
           {isSchoolDropdownOpen ? (
