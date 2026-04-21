@@ -1,4 +1,4 @@
-export type GenderType = "MALE" | "FEMALE" | "";
+export type GenderType = "MALE" | "FEMALE" | "OTHER" | "";
 export type GradeType =
   | "ELEM_1"
   | "ELEM_2"
@@ -29,7 +29,6 @@ export type SignupFormValues = {
   email: string;
   schoolName: string;
   schoolCode: string;
-  schoolOfficeCode: string;
   gender: GenderType;
   grade: GradeType;
 };
@@ -54,8 +53,7 @@ export type SignupRequest = {
   nickname: string;
   email: string;
   school?: string;
-  schoolCode?: string;
-  schoolOfficeCode?: string;
+  schoolcode?: string;
   gender?: Exclude<GenderType, "">;
   grade?: Exclude<GradeType, "">;
 };

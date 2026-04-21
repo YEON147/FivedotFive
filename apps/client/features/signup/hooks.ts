@@ -24,7 +24,6 @@ const INITIAL_VALUES: SignupFormValues = {
   email: "",
   schoolName: "",
   schoolCode: "",
-  schoolOfficeCode: "",
   gender: "",
   grade: "",
 };
@@ -75,8 +74,7 @@ function toSignupRequest(values: SignupFormValues): SignupRequest {
     nickname: values.nickname.trim(),
     email: values.email.trim(),
     school: values.schoolName.trim() || undefined,
-    schoolCode: values.schoolCode.trim() || undefined,
-    schoolOfficeCode: values.schoolOfficeCode.trim() || undefined,
+    schoolcode: values.schoolCode.trim() || undefined,
     gender: values.gender || undefined,
     grade: values.grade || undefined,
   };
@@ -86,7 +84,7 @@ export function useSignupForm() {
   const [values, setValues] = useState<SignupFormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<SignupFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isNicknameLoading, setIsNicknameLoading] = useState(true);
+  const [isNicknameLoading, setIsNicknameLoading] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
 
@@ -109,38 +107,6 @@ export function useSignupForm() {
   const [usernameCheckMessage, setUsernameCheckMessage] = useState<string | null>(
     null
   );
-
-  const loadRandomNickname = useCallback(async () => {
-    setIsNicknameLoading(true);
-
-    try {
-      const nickname = await getRandomNickname();
-
-      setValues((prev) => ({
-        ...prev,
-        nickname,
-      }));
-
-      setErrors((prev) => ({
-        ...prev,
-        nickname: undefined,
-      }));
-
-      setIsNicknameDirty(false);
-      setNicknameCheckStatus("idle");
-      setNicknameCheckMessage(null);
-    } catch (error) {
-      console.error("랜덤 닉네임 로드 실패:", error);
-      setSubmitMessage("랜덤 닉네임을 불러오지 못했습니다. 직접 입력해주세요.");
-      setSubmitSuccess(false);
-    } finally {
-      setIsNicknameLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadRandomNickname();
-  }, [loadRandomNickname]);
 
   useEffect(() => {
     const trimmed = schoolKeyword.trim();
@@ -210,16 +176,11 @@ export function useSignupForm() {
               ? "사용 가능한 아이디입니다."
               : "이미 사용 중인 아이디입니다.")
         );
-      } catch (error) {
+      } catch {
         if (values.username.trim() !== requestUsername) return;
 
-        const message =
-          error instanceof Error
-            ? error.message
-            : "아이디 확인 중 오류가 발생했습니다.";
-
-        setUsernameCheckStatus("unavailable");
-        setUsernameCheckMessage(message);
+        setUsernameCheckStatus("idle");
+        setUsernameCheckMessage("중복 확인은 백엔드 연결 후 가능합니다.");
       }
     }, 400);
 
@@ -273,16 +234,11 @@ export function useSignupForm() {
               ? "사용 가능한 닉네임입니다."
               : "이미 사용 중인 닉네임입니다.")
         );
-      } catch (error) {
+      } catch {
         if (values.nickname.trim() !== requestNickname) return;
 
-        const message =
-          error instanceof Error
-            ? error.message
-            : "닉네임 확인 중 오류가 발생했습니다.";
-
-        setNicknameCheckStatus("unavailable");
-        setNicknameCheckMessage(message);
+        setNicknameCheckStatus("idle");
+        setNicknameCheckMessage("중복 확인은 백엔드 연결 후 가능합니다.");
       }
     }, 400);
 
@@ -324,8 +280,9 @@ export function useSignupForm() {
   );
 
   const onRefetchNickname = useCallback(async () => {
-    await loadRandomNickname();
-  }, [loadRandomNickname]);
+    setSubmitMessage("랜덤 닉네임 기능은 백엔드 연결 후 사용할 수 있습니다.");
+    setSubmitSuccess(false);
+  }, []);
 
   const onSchoolKeywordChange = useCallback((value: string) => {
     setHasSelectedSchool(false);
@@ -336,7 +293,6 @@ export function useSignupForm() {
       ...prev,
       schoolName: value,
       schoolCode: "",
-      schoolOfficeCode: "",
     }));
   }, []);
 
@@ -345,7 +301,6 @@ export function useSignupForm() {
       ...prev,
       schoolName: school.schoolName,
       schoolCode: school.schoolCode,
-      schoolOfficeCode: school.officeCode,
     }));
 
     setSchoolKeyword(school.schoolName);
@@ -363,25 +318,33 @@ export function useSignupForm() {
       !!values.nickname.trim() &&
       !!values.email.trim();
 
-    const usernamePassed = usernameCheckStatus === "available";
+    const usernamePassed =
+      values.username.trim().length >= 2 &&
+      values.username.trim().length <= 12;
+
+    const passwordPassed = PASSWORD_REGEX.test(values.password);
+
+    const passwordConfirmPassed =
+      !!values.passwordConfirm.trim() &&
+      values.password === values.passwordConfirm;
+
+    const emailPassed = EMAIL_REGEX.test(values.email.trim());
+
     const nicknamePassed =
-      !isNicknameDirty || nicknameCheckStatus === "available";
+      values.nickname.trim().length >= 2 &&
+      values.nickname.trim().length <= 8;
 
     return (
       hasRequiredFields &&
       usernamePassed &&
+      passwordPassed &&
+      passwordConfirmPassed &&
+      emailPassed &&
       nicknamePassed &&
       !isSubmitting &&
       !isNicknameLoading
     );
-  }, [
-    values,
-    usernameCheckStatus,
-    isNicknameDirty,
-    nicknameCheckStatus,
-    isSubmitting,
-    isNicknameLoading,
-  ]);
+  }, [values, isSubmitting, isNicknameLoading]);
 
   const onSubmit = useCallback(async () => {
     const nextErrors = validateSignupForm(values);
@@ -389,18 +352,6 @@ export function useSignupForm() {
 
     if (Object.keys(nextErrors).length > 0) {
       setSubmitMessage("입력값을 다시 확인해주세요.");
-      setSubmitSuccess(false);
-      return;
-    }
-
-    if (usernameCheckStatus !== "available") {
-      setSubmitMessage("아이디 중복 확인을 통과한 뒤 회원가입이 가능합니다.");
-      setSubmitSuccess(false);
-      return;
-    }
-
-    if (isNicknameDirty && nicknameCheckStatus !== "available") {
-      setSubmitMessage("닉네임 중복 확인을 통과한 뒤 회원가입이 가능합니다.");
       setSubmitSuccess(false);
       return;
     }
@@ -426,7 +377,7 @@ export function useSignupForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [values, usernameCheckStatus, isNicknameDirty, nicknameCheckStatus]);
+  }, [values]);
 
   return {
     values,
