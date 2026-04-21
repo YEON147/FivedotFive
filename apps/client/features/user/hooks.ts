@@ -7,59 +7,63 @@ import {
   searchSchoolsForMyPage,
   updateMyProfile,
 } from "@/features/user/api";
-import { getStoredAccessToken } from "@/lib/api/client";
 import type {
-  MyPageFormErrors,
+  GenderType,
+  GradeType,
   MyPageFormValues,
+  MyProfile,
   UpdateMyProfileRequest,
 } from "@/features/user/types";
 import type { SchoolOption } from "@/features/signup/types";
+
+type FieldName = "schoolName" | "gender" | "grade";
+type FormErrors = Partial<Record<FieldName, string>>;
 
 const INITIAL_VALUES: MyPageFormValues = {
   username: "",
   email: "",
   schoolName: "",
-  schoolCode: "",
   gender: "",
   grade: "",
 };
 
-function isPreviewData(values: MyPageFormValues) {
-  return (
-    values.username === MY_PROFILE_PREVIEW_DATA.username &&
-    values.email === MY_PROFILE_PREVIEW_DATA.email &&
-    values.schoolName === MY_PROFILE_PREVIEW_DATA.school &&
-    values.gender === MY_PROFILE_PREVIEW_DATA.gender &&
-    values.grade === MY_PROFILE_PREVIEW_DATA.grade
-  );
-}
+function validateForm(values: MyPageFormValues): FormErrors {
+  const nextErrors: FormErrors = {};
 
-function validateMyPageForm(values: MyPageFormValues): MyPageFormErrors {
-  const errors: MyPageFormErrors = {};
-
-  if (values.schoolName.trim().length > 0 && values.schoolName.trim().length < 2) {
-    errors.schoolName = "학교명은 2자 이상 입력하거나 검색 결과에서 선택해주세요.";
+  if (!values.schoolName.trim()) {
+    nextErrors.schoolName = "학교를 선택해주세요.";
   }
 
-  return errors;
+  if (!values.gender) {
+    nextErrors.gender = "성별을 선택해주세요.";
+  }
+
+  if (!values.grade) {
+    nextErrors.grade = "학년을 선택해주세요.";
+  }
+
+  return nextErrors;
 }
 
-function toUpdateRequest(values: MyPageFormValues): UpdateMyProfileRequest {
+function mapProfileToValues(profile: MyProfile): MyPageFormValues {
   return {
-    school: values.schoolName.trim() || undefined,
-    gender: values.gender || undefined,
-    grade: values.grade || undefined,
+    username: profile.username ?? "",
+    email: profile.email ?? "",
+    schoolName: profile.school ?? "",
+    gender: profile.gender ?? "",
+    grade: profile.grade ?? "",
   };
 }
 
 export function useMyPageForm() {
+  const [originalProfile, setOriginalProfile] = useState<MyProfile | null>(null);
   const [values, setValues] = useState<MyPageFormValues>(INITIAL_VALUES);
-  const [initialValues, setInitialValues] = useState<MyPageFormValues>(INITIAL_VALUES);
-  const [errors, setErrors] = useState<MyPageFormErrors>({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+
   const [loadMessage, setLoadMessage] = useState<string | null>(null);
   const [loadSuccess, setLoadSuccess] = useState<boolean | null>(null);
 
@@ -74,88 +78,89 @@ export function useMyPageForm() {
   const [hasSelectedSchool, setHasSelectedSchool] = useState(false);
   const [ignoreNextSchoolFocus, setIgnoreNextSchoolFocus] = useState(false);
 
-  const loadMyProfile = useCallback(async () => {
+  const reload = useCallback(async () => {
     setIsLoading(true);
     setLoadMessage(null);
     setLoadSuccess(null);
 
     try {
       const profile = await getMyProfile();
-      const nextValues = {
-        username: profile.username,
-        email: profile.email,
-        schoolName: profile.school,
-        schoolCode: "",
-        gender: profile.gender,
-        grade: profile.grade,
-      } satisfies MyPageFormValues;
-      const hasToken = Boolean(getStoredAccessToken());
-      const previewMode = !hasToken || isPreviewData(nextValues);
+      const nextValues = mapProfileToValues(profile);
 
+      setOriginalProfile(profile);
       setValues(nextValues);
-      setInitialValues(nextValues);
-      setSchoolKeyword(profile.school ?? "");
-      setHasSelectedSchool(Boolean(profile.school));
+      setErrors({});
+      setSchoolKeyword(nextValues.schoolName);
       setSchoolResults([]);
       setIsSchoolDropdownOpen(false);
-      setIsPreviewMode(previewMode);
-      setLoadMessage(
-        previewMode
-          ? "백엔드 미연결 상태를 고려해 임시 미리보기 데이터를 표시합니다."
-          : "내 정보를 불러왔습니다."
-      );
-      setLoadSuccess(true);
-      setIsLoaded(true);
-    } catch (error) {
-      console.warn("내 정보 조회 실패, 미리보기 데이터로 대체합니다.", error);
-
-      const previewValues = {
-        username: MY_PROFILE_PREVIEW_DATA.username,
-        email: MY_PROFILE_PREVIEW_DATA.email,
-        schoolName: MY_PROFILE_PREVIEW_DATA.school,
-        schoolCode: "",
-        gender: MY_PROFILE_PREVIEW_DATA.gender,
-        grade: MY_PROFILE_PREVIEW_DATA.grade,
-      } satisfies MyPageFormValues;
-
-      setValues(previewValues);
-      setInitialValues(previewValues);
-      setSchoolKeyword(MY_PROFILE_PREVIEW_DATA.school);
       setHasSelectedSchool(true);
+      setIgnoreNextSchoolFocus(false);
+
+      const preview =
+        profile.username === MY_PROFILE_PREVIEW_DATA.username &&
+        profile.email === MY_PROFILE_PREVIEW_DATA.email &&
+        profile.school === MY_PROFILE_PREVIEW_DATA.school &&
+        profile.gender === MY_PROFILE_PREVIEW_DATA.gender &&
+        profile.grade === MY_PROFILE_PREVIEW_DATA.grade;
+
+      setIsPreviewMode(preview);
+      setIsLoaded(true);
+
+      if (preview) {
+        setLoadMessage("백엔드 미연결 상태이므로 임시 데이터로 표시 중입니다.");
+        setLoadSuccess(true);
+      } else {
+        setLoadMessage("회원 정보를 불러왔습니다.");
+        setLoadSuccess(true);
+      }
+    } catch (error) {
+      console.error("[mypage] reload failed", error);
+
+      const fallbackValues = mapProfileToValues(MY_PROFILE_PREVIEW_DATA);
+
+      setOriginalProfile(MY_PROFILE_PREVIEW_DATA);
+      setValues(fallbackValues);
+      setErrors({});
+      setSchoolKeyword(fallbackValues.schoolName);
       setSchoolResults([]);
       setIsSchoolDropdownOpen(false);
+      setHasSelectedSchool(true);
+      setIgnoreNextSchoolFocus(false);
       setIsPreviewMode(true);
-      setLoadMessage(
-        "백엔드 연결 전 상태이므로 로그인 확인 없이 임시 미리보기 데이터를 표시합니다."
-      );
-      setLoadSuccess(true);
       setIsLoaded(true);
+      setLoadMessage("백엔드 연결에 실패하여 임시 데이터로 표시 중입니다.");
+      setLoadSuccess(false);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadMyProfile();
-  }, [loadMyProfile]);
+    void reload();
+  }, [reload]);
 
   useEffect(() => {
-    const trimmed = schoolKeyword.trim();
+    if (!isLoaded) return;
 
-    if (!trimmed || hasSelectedSchool) {
-      setSchoolResults([]);
-      setIsSchoolDropdownOpen(false);
+    const trimmedKeyword = schoolKeyword.trim();
+
+    if (!trimmedKeyword || hasSelectedSchool) {
+      if (!trimmedKeyword) {
+        setSchoolResults([]);
+        setIsSchoolDropdownOpen(false);
+      }
       return;
     }
 
-    const timer = setTimeout(async () => {
+    const timeout = window.setTimeout(async () => {
       setIsSchoolSearching(true);
+
       try {
-        const result = await searchSchoolsForMyPage(trimmed);
-        setSchoolResults(result);
-        setIsSchoolDropdownOpen(result.length > 0);
+        const schools = await searchSchoolsForMyPage(trimmedKeyword);
+        setSchoolResults(schools);
+        setIsSchoolDropdownOpen(true);
       } catch (error) {
-        console.error("학교 검색 실패:", error);
+        console.error("[mypage] school search failed", error);
         setSchoolResults([]);
         setIsSchoolDropdownOpen(false);
       } finally {
@@ -163,99 +168,131 @@ export function useMyPageForm() {
       }
     }, 300);
 
-    return () => clearTimeout(timer);
-  }, [schoolKeyword, hasSelectedSchool]);
+    return () => window.clearTimeout(timeout);
+  }, [schoolKeyword, hasSelectedSchool, isLoaded]);
 
-  const isDirty = useMemo(() => {
-    return (
-      values.schoolName !== initialValues.schoolName ||
-      values.gender !== initialValues.gender ||
-      values.grade !== initialValues.grade
-    );
-  }, [initialValues, values]);
+  const updateField = useCallback((field: FieldName, value: string) => {
+    setValues((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
 
-  const canSubmit = useMemo(() => {
-    const nextErrors = validateMyPageForm(values);
-    return isDirty && Object.keys(nextErrors).length === 0 && !isSaving;
-  }, [isDirty, isSaving, values]);
+    setErrors((prev) => ({
+      ...prev,
+      [field]: undefined,
+    }));
 
-  const updateField = useCallback(
-    (field: keyof Pick<MyPageFormValues, "schoolName" | "gender" | "grade">, value: string) => {
-      setValues((prev) => ({ ...prev, [field]: value }));
-      setSaveMessage(null);
-      setSaveSuccess(null);
+    setSaveMessage(null);
+    setSaveSuccess(null);
 
-      if (field === "schoolName") {
-        setSchoolKeyword(value);
-        setHasSelectedSchool(false);
+    if (field === "schoolName") {
+      setSchoolKeyword(value);
+      setHasSelectedSchool(false);
+      if (!value.trim()) {
+        setSchoolResults([]);
+        setIsSchoolDropdownOpen(false);
       }
-    },
-    []
-  );
+    }
+  }, []);
 
   const selectSchool = useCallback((school: SchoolOption) => {
     setValues((prev) => ({
       ...prev,
       schoolName: school.schoolName,
-      schoolCode: school.schoolCode,
     }));
     setSchoolKeyword(school.schoolName);
+    setSchoolResults([]);
     setHasSelectedSchool(true);
     setIsSchoolDropdownOpen(false);
     setIgnoreNextSchoolFocus(true);
-    setErrors((prev) => ({ ...prev, schoolName: undefined }));
+
+    setErrors((prev) => ({
+      ...prev,
+      schoolName: undefined,
+    }));
   }, []);
 
+  const resetChanges = useCallback(() => {
+    if (!originalProfile) return;
+
+    const nextValues = mapProfileToValues(originalProfile);
+    setValues(nextValues);
+    setErrors({});
+    setSchoolKeyword(nextValues.schoolName);
+    setSchoolResults([]);
+    setHasSelectedSchool(true);
+    setIsSchoolDropdownOpen(false);
+    setIgnoreNextSchoolFocus(false);
+    setSaveMessage(null);
+    setSaveSuccess(null);
+  }, [originalProfile]);
+
   const submit = useCallback(async () => {
-    const nextErrors = validateMyPageForm(values);
+    const nextErrors = validateForm(values);
     setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      setSaveMessage("입력값을 다시 확인해주세요.");
+      setSaveSuccess(false);
+      return;
+    }
+
+    const payload: UpdateMyProfileRequest = {
+      school: values.schoolName.trim(),
+      gender: values.gender as GenderType,
+      grade: values.grade as GradeType,
+    };
+
+    setIsSaving(true);
     setSaveMessage(null);
     setSaveSuccess(null);
 
-    if (Object.keys(nextErrors).length > 0) {
-      setSaveMessage("입력값을 확인해주세요.");
-      setSaveSuccess(false);
-      return;
-    }
-
-    if (!isDirty) {
-      setSaveMessage("변경된 내용이 없습니다.");
-      setSaveSuccess(false);
-      return;
-    }
-
-    setIsSaving(true);
-
     try {
-      const payload = toUpdateRequest(values);
       const response = await updateMyProfile(payload);
 
-      setInitialValues(values);
-      setHasSelectedSchool(Boolean(values.schoolName.trim()));
-      setSaveMessage(response.message || "내 정보가 수정되었습니다.");
+      const updatedProfile: MyProfile = {
+        username: values.username,
+        email: values.email,
+        school: values.schoolName.trim(),
+        gender: values.gender as GenderType,
+        grade: values.grade as GradeType,
+      };
+
+      setOriginalProfile(updatedProfile);
+      setValues(mapProfileToValues(updatedProfile));
+      setSchoolKeyword(updatedProfile.school);
+      setHasSelectedSchool(true);
+      setIsSchoolDropdownOpen(false);
+      setSchoolResults([]);
+      setSaveMessage(response.message || "회원 정보가 수정되었습니다.");
       setSaveSuccess(true);
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "회원 정보 수정 중 오류가 발생했습니다.";
-      setSaveMessage(message);
+      console.error("[mypage] submit failed", error);
+      setSaveMessage("회원 정보 수정 중 오류가 발생했습니다.");
       setSaveSuccess(false);
     } finally {
       setIsSaving(false);
     }
-  }, [isDirty, values]);
+  }, [values]);
 
-  const resetChanges = useCallback(() => {
-    setValues(initialValues);
-    setSchoolKeyword(initialValues.schoolName);
-    setHasSelectedSchool(Boolean(initialValues.schoolName));
-    setSchoolResults([]);
-    setIsSchoolDropdownOpen(false);
-    setErrors({});
-    setSaveMessage(null);
-    setSaveSuccess(null);
-  }, [initialValues]);
+  const isDirty = useMemo(() => {
+    if (!originalProfile) return false;
+
+    return (
+      values.schoolName !== (originalProfile.school ?? "") ||
+      values.gender !== (originalProfile.gender ?? "") ||
+      values.grade !== (originalProfile.grade ?? "")
+    );
+  }, [originalProfile, values]);
+
+  const canSubmit = useMemo(() => {
+    return (
+      Boolean(values.schoolName.trim()) &&
+      Boolean(values.gender) &&
+      Boolean(values.grade) &&
+      !isSaving
+    );
+  }, [values, isSaving]);
 
   return {
     values,
@@ -282,6 +319,6 @@ export function useMyPageForm() {
     selectSchool,
     submit,
     resetChanges,
-    reload: loadMyProfile,
+    reload,
   };
 }
