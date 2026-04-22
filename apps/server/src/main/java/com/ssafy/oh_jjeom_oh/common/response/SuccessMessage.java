@@ -35,7 +35,18 @@ public enum SuccessMessage {
     BACKGROUND_DELETED("배경이 삭제되었습니다."),
     STICKER_FOUND("스티커 조회가 완료되었습니다."),
     STICKER_UPDATED("스티커가 변경되었습니다."),
-    STICKER_DELETED("스티커가 삭제되었습니다.");
+    STICKER_DELETED("스티커가 삭제되었습니다."),
+
+    // 댓글
+    COMMENT_LIST_FOUND("댓글 목록 조회가 완료되었습니다."),
+    COMMENT_CREATED("댓글이 작성되었습니다."),
+    COMMENT_UPDATED("댓글이 수정되었습니다."),
+    COMMENT_DELETED("댓글이 삭제되었습니다."),
+
+    // 댓글 스티커 (선물 아이콘)
+    COMMENT_STICKER_FOUND("선물 아이콘 조회가 완료되었습니다."),
+    COMMENT_STICKER_UPDATED("선물 아이콘이 변경되었습니다."),
+    COMMENT_STICKER_DELETED("선물 아이콘이 삭제되었습니다.");
 
     private final String message;
 }

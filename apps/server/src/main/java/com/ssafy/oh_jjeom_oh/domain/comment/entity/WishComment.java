@@ -39,8 +39,8 @@ public class WishComment {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "sticker_key", nullable = false, columnDefinition = "TEXT")
-    private String stickerKey; // 댓글 스티커 CDN 키
+    @Column(name = "sticker_key", columnDefinition = "TEXT")
+    private String stickerKey; // 댓글 스티커 CDN 키 (null 허용 - 스티커 없이 댓글 가능)
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -49,4 +49,16 @@ public class WishComment {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public void updateContent(String content) {
+        this.content = content;
+    }
+
+    public void updateStickerKey(String stickerKey) {
+        this.stickerKey = stickerKey;
+    }
+
+    public void clearStickerKey() {
+        this.stickerKey = null;
+    }
 }
