@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 @AllArgsConstructor
 public enum ErrorCode {
     DUPLICATE_ID(HttpStatus.BAD_REQUEST, "이미 사용 중인 아이디입니다."),
+    DUPLICATE_EMAIL(HttpStatus.BAD_REQUEST, "이미 사용 중인 이메일입니다."),
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "입력 값이 올바르지 않습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
 
@@ -18,6 +19,7 @@ public enum ErrorCode {
     REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "refresh token이 만료되었습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     NONE_ID(HttpStatus.BAD_REQUEST, "아이디를 입력해주세요."),
+    NONE_EMAIL(HttpStatus.BAD_REQUEST, "이메일을 입력해주세요."),
 
     // 위시보드
     BOARD_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 위시보드가 존재합니다."),
