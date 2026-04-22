@@ -8,17 +8,12 @@ import {
   UserCircle,
 } from "@phosphor-icons/react";
 import Image from "next/image";
-<<<<<<< HEAD
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-=======
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { clearAccessToken } from "@/lib/api/token-store";
->>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
+import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
 
 import {
   DESIGN_HEIGHT,
@@ -27,13 +22,9 @@ import {
   StickerSlots,
   type GiftLayoutCount,
 } from "@/components/wishlist/WishlistSlots";
-<<<<<<< HEAD
 import { getMyBoard } from "@/features/wishlist/api";
-import { getAccessToken } from "@/lib/api/token-store";
-=======
 import { fetchBackgroundAssets, type BackgroundAssetDto } from "@/lib/api/assets";
 import { getAssetImageUrl } from "@/lib/asset-url";
->>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
 
 type DecorTab = "background" | "sticker" | "wishlist";
 
@@ -55,25 +46,14 @@ function DefaultOptionButton({
   );
 }
 
-<<<<<<< HEAD
-const decorOptions = {
-  background: [
-    { id: "wallpaper1", label: "Wallpaper 1", src: "/wallpaper/wallpaper1.png" },
-    { id: "wallpaper2", label: "Wallpaper 2", src: "/wallpaper/wallpaper2.png" },
-    { id: "wallpaper3", label: "Wallpaper 3", src: "/wallpaper/wallpaper3.png" },
-    { id: "wallpaper4", label: "Wallpaper 4", src: "/wallpaper/wallpaper4.png" },
-  ],
-  sticker: [
-=======
 const decorStickerOptions = [
->>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
-    { id: "sticker1", label: "Sticker 1", src: "/sticker/sticker1.png" },
-    { id: "sticker2", label: "Sticker 2", src: "/sticker/sticker2.png" },
-    { id: "sticker3", label: "Sticker 3", src: "/sticker/sticker3.png" },
-    { id: "sticker4", label: "Sticker 4", src: "/sticker/sticker4.png" },
-    { id: "sticker5", label: "Sticker 5", src: "/sticker/sticker5.png" },
-    { id: "sticker6", label: "Sticker 6", src: "/sticker/sticker6.png" },
-  ] as const;
+  { id: "sticker1", label: "Sticker 1", src: "/sticker/sticker1.png" },
+  { id: "sticker2", label: "Sticker 2", src: "/sticker/sticker2.png" },
+  { id: "sticker3", label: "Sticker 3", src: "/sticker/sticker3.png" },
+  { id: "sticker4", label: "Sticker 4", src: "/sticker/sticker4.png" },
+  { id: "sticker5", label: "Sticker 5", src: "/sticker/sticker5.png" },
+  { id: "sticker6", label: "Sticker 6", src: "/sticker/sticker6.png" },
+] as const;
 
 const decorTabMeta: Record<DecorTab, { label: string; title: string; description: string }> = {
   background: {
@@ -103,8 +83,10 @@ export default function WishlistPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarPortalReady, setSidebarPortalReady] = useState(false);
   const [activeDecorTab, setActiveDecorTab] = useState<DecorTab>("background");
-<<<<<<< HEAD
   const [boardSlug, setBoardSlug] = useState<string | null>(null);
+  const [backgroundAssets, setBackgroundAssets] = useState<BackgroundAssetDto[]>([]);
+  const [backgroundsLoading, setBackgroundsLoading] = useState(false);
+  const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -116,11 +98,6 @@ export default function WishlistPage() {
       .then((data) => setBoardSlug(data.data.boardSlug))
       .catch(() => {});
   }, [router]);
-=======
-  const [backgroundAssets, setBackgroundAssets] = useState<BackgroundAssetDto[]>([]);
-  const [backgroundsLoading, setBackgroundsLoading] = useState(false);
-  const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
-  const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isBottomSheetOpen || activeDecorTab !== "background") {
@@ -157,7 +134,6 @@ export default function WishlistPage() {
       cancelled = true;
     };
   }, [isBottomSheetOpen, activeDecorTab]);
->>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
 
   const closeEditUi = () => {
     setIsFabOpen(false);
@@ -351,11 +327,7 @@ export default function WishlistPage() {
       </div>
 
       <section
-<<<<<<< HEAD
-        className={`absolute inset-x-0 bottom-0 z-30 max-h-[46dvh] rounded-t-[28px] bg-white px-5 pb-6 pt-4 shadow-[0_-12px_32px_rgba(0,0,0,0.14)] transition-transform duration-300 ease-out ${
-=======
         className={`absolute inset-x-0 bottom-0 z-30 max-h-[48dvh] rounded-t-[28px] bg-white px-5 pb-6 pt-4 shadow-[0_-12px_32px_rgba(0,0,0,0.14)] transition-transform duration-300 ease-out ${
->>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
           isBottomSheetOpen ? "translate-y-0" : "translate-y-full"
         }`}
         aria-hidden={!isBottomSheetOpen}
@@ -397,26 +369,6 @@ export default function WishlistPage() {
                   <p className="mt-2 text-[11px] leading-tight text-slate-700">Default</p>
                 </div>
 
-<<<<<<< HEAD
-                {decorOptions.background.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className="w-40 shrink-0 text-left transition hover:opacity-90"
-                  >
-                    <div className="relative aspect-[3/4] overflow-hidden rounded-xl">
-                      <Image
-                        src={option.src}
-                        alt={option.label}
-                        fill
-                        sizes="160px"
-                        className="object-contain"
-                      />
-                    </div>
-                    <p className="mt-2 text-[11px] leading-tight text-slate-700">{option.label}</p>
-                  </button>
-                ))}
-=======
                 {backgroundAssets.map((bg) => {
                   const src = getAssetImageUrl(bg.assetKey);
                   const label =
@@ -440,7 +392,6 @@ export default function WishlistPage() {
                     </button>
                   );
                 })}
->>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
               </div>
             </div>
           ) : null}
@@ -449,11 +400,7 @@ export default function WishlistPage() {
             <div className="mt-5 grid grid-cols-4 gap-3 overflow-y-auto pr-1">
               <DefaultOptionButton className="aspect-square w-full" />
 
-<<<<<<< HEAD
-              {decorOptions.sticker.map((option) => (
-=======
               {decorStickerOptions.map((option) => (
->>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
                 <button
                   key={option.id}
                   type="button"
@@ -474,7 +421,7 @@ export default function WishlistPage() {
           ) : null}
 
           {activeDecorTab === "wishlist" ? (
-            <div className="mt-5 space-y-4 overflow-y-auto pr-1 pb-2">
+            <div className="mt-5 space-y-4 overflow-y-auto pb-2 pr-1">
               {Array.from({ length: bigCircleCount }, (_, index) => (
                 <div key={`wish-input-${index + 1}`} className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -568,9 +515,9 @@ export default function WishlistPage() {
           </button>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 break-all">
+        <div className="mt-5 break-all rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
           {boardSlug
-            ? `${window.location.origin}/wishlist/${boardSlug}`
+            ? `${typeof window !== "undefined" ? window.location.origin : ""}/wishlist/${boardSlug}`
             : "링크를 불러오는 중..."}
         </div>
 
@@ -580,7 +527,7 @@ export default function WishlistPage() {
             disabled={!boardSlug}
             onClick={() => {
               if (!boardSlug) return;
-              navigator.clipboard.writeText(
+              void navigator.clipboard.writeText(
                 `${window.location.origin}/wishlist/${boardSlug}`,
               );
             }}
@@ -593,7 +540,7 @@ export default function WishlistPage() {
             disabled={!boardSlug}
             onClick={() => {
               if (!boardSlug || !navigator.share) return;
-              navigator.share({
+              void navigator.share({
                 title: "내 위시리스트",
                 url: `${window.location.origin}/wishlist/${boardSlug}`,
               });
