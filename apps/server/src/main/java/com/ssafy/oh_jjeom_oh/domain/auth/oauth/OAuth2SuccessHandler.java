@@ -34,7 +34,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .map(GrantedAuthority::getAuthority)
                 .orElse(Role.CHILD.name());
 
-        String accessToken = jwtUtil.createAccessToken(username, role);
+        String accessToken = jwtUtil.createAccessToken(oAuth2User.getUserId(), username, role);
         String refreshToken = UUID.randomUUID().toString();
 
         redisTemplate.opsForValue().set("RT:" + refreshToken, username, 604800, TimeUnit.SECONDS);

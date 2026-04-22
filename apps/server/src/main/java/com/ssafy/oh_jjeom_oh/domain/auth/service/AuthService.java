@@ -104,7 +104,7 @@ public class AuthService {
     }
 
     private TokenResponse generateTokenResponse(User user) {
-        String accessToken = jwtUtil.createAccessToken(user.getUsername(), String.valueOf(user.getRole()));
+        String accessToken = jwtUtil.createAccessToken(user.getId(), user.getUsername(), String.valueOf(user.getRole()));
         String refreshToken = UUID.randomUUID().toString();
 
         redisTemplate.opsForValue().set("RT:" + refreshToken, user.getUsername(), refreshExpiration, TimeUnit.SECONDS);

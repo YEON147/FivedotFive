@@ -31,10 +31,12 @@ deploy_backend:
     # EC2 서버에 원격 접속해서 실행할 명령어들
     - ssh -o StrictHostKeyChecking=no ubuntu@$EC2_HOST "
         echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin &&
-        docker pull ghcr.io/$GHCR_USER/server-image:latest &&
-        docker stop backend-server || true &&
-        docker rm backend-server || true &&
-        docker run -d --name backend-server -p 8080:8080 ghcr.io/$GHCR_USER/server-image:latest
+        cd /home/ubuntu/S14P31F205 &&
+        git pull origin develop &&
+        cd infra &&
+        export GHCR_USER=$GHCR_USER &&
+        docker-compose pull &&
+        docker-compose up -d --force-recreate --remove-orphans
       "
   only:
     - develop
