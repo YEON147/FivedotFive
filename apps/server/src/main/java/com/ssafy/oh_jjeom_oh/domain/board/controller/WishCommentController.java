@@ -2,7 +2,6 @@ package com.ssafy.oh_jjeom_oh.domain.board.controller;
 
 import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
 import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
-import com.ssafy.oh_jjeom_oh.common.security.CurrentUser;
 import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentStickerUpdateRequest;
@@ -42,7 +41,7 @@ public class WishCommentController {
     @PostMapping
     public ResponseEntity<ApiResponse<CommentCreateResponse>> createComment(
             @PathVariable String slug,
-            @CurrentUser UserPrincipal userPrincipal,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CommentCreateRequest request) {
 
         CommentCreateResponse data = wishCommentService.createComment(userPrincipal.getId(), slug, request);
@@ -55,7 +54,7 @@ public class WishCommentController {
     public ResponseEntity<ApiResponse<Void>> updateComment(
             @PathVariable String slug,
             @PathVariable Long commentId,
-            @CurrentUser UserPrincipal userPrincipal,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CommentUpdateRequest request) {
 
         wishCommentService.updateComment(userPrincipal.getId(), slug, commentId, request);
@@ -67,7 +66,7 @@ public class WishCommentController {
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @PathVariable String slug,
             @PathVariable Long commentId,
-            @CurrentUser UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
         wishCommentService.deleteComment(userPrincipal.getId(), slug, commentId);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_DELETED));
@@ -88,7 +87,7 @@ public class WishCommentController {
     public ResponseEntity<ApiResponse<Void>> updateSticker(
             @PathVariable String slug,
             @PathVariable Long commentId,
-            @CurrentUser UserPrincipal userPrincipal,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CommentStickerUpdateRequest request) {
 
         wishCommentService.updateSticker(userPrincipal.getId(), slug, commentId, request);
@@ -100,7 +99,7 @@ public class WishCommentController {
     public ResponseEntity<ApiResponse<Void>> deleteSticker(
             @PathVariable String slug,
             @PathVariable Long commentId,
-            @CurrentUser UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
         wishCommentService.deleteSticker(userPrincipal.getId(), slug, commentId);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_STICKER_DELETED));
