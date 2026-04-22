@@ -76,16 +76,22 @@ public class AuthService {
         if (isUsernameDuplicate(request.username())) {
             throw new CustomException(ErrorCode.DUPLICATE_ID);
         }
+        Gender gender = (request.gender() != null && !request.gender().isBlank())
+                ? Gender.valueOf(request.gender().toUpperCase())
+                : null;
+        String school = (request.school() != null && !request.school().isBlank()) ? request.school() : null;
+        String schoolcode = (request.schoolcode() != null && !request.schoolcode().isBlank()) ? request.schoolcode() : null;
+        String grade = (request.grade() != null && !request.grade().isBlank()) ? request.grade() : null;
 
         User user = User.builder()
                 .username(request.username())
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .nickname(request.nickname())
                 .email(request.email())
-                .school(request.school())
-                .schoolcode(request.schoolcode())
-                .gender(Gender.valueOf(request.gender().toUpperCase()))
-                .grade(request.grade())
+                .school(school)
+                .schoolcode(schoolcode)
+                .gender(gender)
+                .grade(grade)
                 .build();
         return userRepository.save(user).getId();
     }
