@@ -30,12 +30,15 @@ public enum SuccessMessage {
     WISH_ITEM_LIKED("공감이 반영되었습니다."),
 
     // 보드 에셋
+    BACKGROUND_LIST_FOUND("배경 목록 조회가 완료되었습니다."),
     BACKGROUND_FOUND("배경 조회가 완료되었습니다."),
     BACKGROUND_UPDATED("배경이 변경되었습니다."),
     BACKGROUND_DELETED("배경이 삭제되었습니다."),
+    STICKER_LIST_FOUND("스티커 목록 조회가 완료되었습니다."),
     STICKER_FOUND("스티커 조회가 완료되었습니다."),
     STICKER_UPDATED("스티커가 변경되었습니다."),
     STICKER_DELETED("스티커가 삭제되었습니다."),
+    GIFT_ICON_LIST_FOUND("선물 아이콘 목록 조회가 완료되었습니다."),
 
     // 댓글
     COMMENT_LIST_FOUND("댓글 목록 조회가 완료되었습니다."),

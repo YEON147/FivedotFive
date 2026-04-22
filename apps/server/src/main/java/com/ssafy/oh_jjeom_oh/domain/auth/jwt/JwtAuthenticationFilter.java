@@ -1,5 +1,7 @@
 package com.ssafy.oh_jjeom_oh.domain.auth.jwt;
 
+import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import jakarta.annotation.Nonnull;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -13,7 +15,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
 
 @Component
 @RequiredArgsConstructor
@@ -31,8 +32,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
             if (jwtUtil.validateToken(token)) {
+                Long userId = jwtUtil.getUserId(token);
                 String username = jwtUtil.getUsername(token);
-                Authentication auth = new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+                Role role = Role.valueOf(jwtUtil.getRole(token));
+                UserPrincipal principal = new UserPrincipal(userId, username, role);
+                Authentication auth = new UsernamePasswordAuthenticationToken(
+                        principal, null, principal.getAuthorities());
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }
