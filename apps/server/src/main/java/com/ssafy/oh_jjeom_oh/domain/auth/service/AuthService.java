@@ -9,6 +9,7 @@ import com.ssafy.oh_jjeom_oh.domain.auth.jwt.JwtUtil;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Gender;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
+import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final WishBoardRepository wishBoardRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final RedisTemplate<String, String> redisTemplate;
@@ -94,10 +96,13 @@ public class AuthService {
 
         redisTemplate.opsForValue().set("RT:" + refreshToken, user.getUsername(), refreshExpiration, TimeUnit.SECONDS);
 
+        boolean hasWishBoard = wishBoardRepository.existsByUser_Id(user.getId());
+
         return TokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .username(user.getUsername())
+                .hasWishBoard(hasWishBoard)
                 .build();
     }
 }
