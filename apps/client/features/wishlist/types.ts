@@ -34,7 +34,16 @@ export type WishItemData = {
   itemName: string | null;
   iconKey: string | null;
   likeCount: number;
-  status: string;
+  status: string | null;
+};
+
+/** GET /api/boards/me/items */
+export type MyWishItemsData = {
+  success: boolean;
+  message: string;
+  data: {
+    items: WishItemData[];
+  };
 };
 
 export type MyBoardData = {

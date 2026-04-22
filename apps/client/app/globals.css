@@ -25,28 +25,47 @@
 }
 
 :root {
-  --color-primary-main: #5b8def;
-  --color-primary-pressed: #3e6fcb;
-  --color-primary-light: #dce8ff;
-  --color-accent-pink: #ffb7d5;
-  --color-accent-mint: #b9f2e6;
-  --color-brand-blue: #a5cbfe;
-  --color-brand-green: #e3f689;
-  --color-brand-coral: #ff9c87;
-  --color-bg-base: #fffdf8;
-  --color-bg-subtle: #f6f7fb;
-  --color-bg-lavender: #f1ebff;
-  --color-surface: #ffffff;
-  --color-border: #d9deea;
-  --color-text-primary: #1f2937;
-  --color-text-secondary: #6b7280;
-  --color-text-disabled: #a8b0bf;
-  --color-text-inverse: #ffffff;
-  --color-point-blue: #a5cbfe;
-  --color-point-lime: #e3f689;
-  --color-point-coral: #ff9c87;
-  --color-bg-mint: #e3fffd;
-  --color-bg-cream: #fffcd8;
+  /* ========================
+     Primary (Core UI)
+  ======================== */
+  --color-primary-main: #7B61FF;
+  --color-primary-pressed: #6A52E0;
+  --color-primary-light: #E9E5FF;
+
+  /* ========================
+     Accent (Limited)
+  ======================== */
+  --color-accent-pink: #FFA6C9;
+  --color-accent-mint: #AEE9E1;
+
+  /* ========================
+     Brand
+  ======================== */
+  --color-brand-blue: #7FA8FF;
+  --color-brand-green: #DAF073;
+  --color-brand-coral: #FF8C6E;
+
+  /* ========================
+     Background
+  ======================== */
+  --color-bg-base: #F7F7FB;
+  --color-bg-subtle: #F2F3F7;
+  --color-bg-lavender: #F1EEFF;
+
+  /* ========================
+     Surface & Border
+  ======================== */
+  --color-surface: #FFFFFF;
+  --color-border: #EAEAF0;
+
+  /* ========================
+     Text
+  ======================== */
+  --color-text-primary: #222222;
+  --color-text-secondary: #666666;
+  --color-text-disabled: #BDBDBD;
+  --color-text-inverse: #FFFFFF;
+  
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -131,8 +150,8 @@ body {
   }
 
   .text-wish-title {
-    font-family: "MemomentKkukkukk", sans-serif;
-    font-size: 22px;
+    font-family: "TmoneyRoundWind", sans-serif;
+    font-size: 21px;
     font-weight: 400;
     line-height: 1.4;
   }

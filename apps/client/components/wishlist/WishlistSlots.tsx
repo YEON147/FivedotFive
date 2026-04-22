@@ -95,7 +95,7 @@ function SlotBubble({
       key={slot.id}
       type="button"
       onClick={() => onClick?.(slot.id)}
-      className="absolute aspect-square overflow-hidden rounded-full border border-white/70 bg-[#d9d9d9] text-slate-700 shadow-sm transition-transform hover:scale-[1.02]"
+      className="absolute z-10 aspect-square overflow-hidden rounded-full border border-white/70 bg-[#d9d9d9] text-slate-700 shadow-sm transition-transform hover:scale-[1.02]"
       style={{
         top: toYPercent(slot.top),
         left: toXPercent(slot.left),
