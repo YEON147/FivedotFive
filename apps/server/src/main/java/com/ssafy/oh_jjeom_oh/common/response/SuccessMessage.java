@@ -6,6 +6,9 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum SuccessMessage {
+    // 유저
+    USER_INFO_FOUND("유저 정보 조회가 완료되었습니다."),
+
     LOGIN_SUCCESS("로그인 되었습니다."),
     SIGNUP_SUCCESS("회원가입이 완료되었습니다."),
     CHECK_SUCCESS("조회가 완료되었습니다."),
