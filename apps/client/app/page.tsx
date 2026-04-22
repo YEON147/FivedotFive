@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { apiClient } from "@/lib/api/client";
+import { getAccessToken } from "@/lib/api/token-store";
 
 type CreateBoardResponse = {
   success: boolean;
@@ -23,23 +24,33 @@ export default function Home() {
       return;
     }
 
+    if (!getAccessToken()) {
+      router.push("/login");
+      return;
+    }
+
     setIsCreatingBoard(true);
     setCreateError(null);
 
     try {
-      await apiClient<CreateBoardResponse>("/api/boards", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-
+      // 이미 보드가 있으면 바로 이동
+      await apiClient<CreateBoardResponse>("/api/boards/me");
       router.push("/wishlist");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "위시리스트 생성 중 오류가 발생했습니다.";
-
-      setCreateError(message);
+    } catch {
+      // 보드가 없는 경우에만 생성
+      try {
+        await apiClient<CreateBoardResponse>("/api/boards", {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
+        router.push("/wishlist");
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "위시리스트 생성 중 오류가 발생했습니다.";
+        setCreateError(message);
+      }
     } finally {
       setIsCreatingBoard(false);
     }

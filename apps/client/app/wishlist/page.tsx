@@ -2,7 +2,8 @@
 
 import { Export, List, PencilSimple } from "@phosphor-icons/react";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   DESIGN_HEIGHT,
@@ -11,13 +12,11 @@ import {
   StickerSlots,
   type GiftLayoutCount,
 } from "@/components/wishlist/WishlistSlots";
+import { getMyBoard } from "@/features/wishlist/api";
+import { getAccessToken } from "@/lib/api/token-store";
 
 type DecorTab = "background" | "sticker" | "wishlist";
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ece4f57 (feat: 위시리스트 추가 버튼 생성)
 function DefaultOptionButton({
   className = "",
   label = "Default",
@@ -36,11 +35,6 @@ function DefaultOptionButton({
   );
 }
 
-<<<<<<< HEAD
-=======
->>>>>>> 905c8dc (feat: 위시리스트 꾸밈 바텀 시트 생성)
-=======
->>>>>>> ece4f57 (feat: 위시리스트 추가 버튼 생성)
 const decorOptions = {
   background: [
     { id: "wallpaper1", label: "Wallpaper 1", src: "/wallpaper/wallpaper1.png" },
@@ -60,30 +54,42 @@ const decorOptions = {
 
 const decorTabMeta: Record<DecorTab, { label: string; title: string; description: string }> = {
   background: {
-    label: "\uBC30\uACBD",
-    title: "\uBC30\uACBD",
+    label: "배경",
+    title: "배경",
     description: "Adjust the full board mood and colors.",
   },
   sticker: {
-    label: "\uC2A4\uD2F0\uCEE4",
-    title: "\uC2A4\uD2F0\uCEE4",
+    label: "스티커",
+    title: "스티커",
     description: "Change the decorative sticker style.",
   },
   wishlist: {
-    label: "\uC704\uC2DC",
-    title: "\uC704\uC2DC\uB9AC\uC2A4\uD2B8",
+    label: "위시",
+    title: "위시리스트",
     description: "Add wishes and change the visible item count.",
   },
 };
 
 export default function WishlistPage() {
+  const router = useRouter();
   const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(1);
   const [wishTexts, setWishTexts] = useState(["", "", ""]);
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [activeDecorTab, setActiveDecorTab] = useState<DecorTab>("background");
+  const [boardSlug, setBoardSlug] = useState<string | null>(null);
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!getAccessToken()) {
+      router.replace("/login");
+      return;
+    }
+    getMyBoard()
+      .then((data) => setBoardSlug(data.data.boardSlug))
+      .catch(() => {});
+  }, [router]);
 
   const closeEditUi = () => {
     setIsFabOpen(false);
@@ -239,15 +245,7 @@ export default function WishlistPage() {
       </div>
 
       <section
-<<<<<<< HEAD
-<<<<<<< HEAD
         className={`absolute inset-x-0 bottom-0 z-30 max-h-[46dvh] rounded-t-[28px] bg-white px-5 pb-6 pt-4 shadow-[0_-12px_32px_rgba(0,0,0,0.14)] transition-transform duration-300 ease-out ${
-=======
-        className={`absolute inset-x-0 bottom-0 z-30 max-h-[48dvh] rounded-t-[28px] bg-white px-5 pb-6 pt-4 shadow-[0_-12px_32px_rgba(0,0,0,0.14)] transition-transform duration-300 ease-out ${
->>>>>>> 905c8dc (feat: 위시리스트 꾸밈 바텀 시트 생성)
-=======
-        className={`absolute inset-x-0 bottom-0 z-30 max-h-[46dvh] rounded-t-[28px] bg-white px-5 pb-6 pt-4 shadow-[0_-12px_32px_rgba(0,0,0,0.14)] transition-transform duration-300 ease-out ${
->>>>>>> ece4f57 (feat: 위시리스트 추가 버튼 생성)
           isBottomSheetOpen ? "translate-y-0" : "translate-y-full"
         }`}
         aria-hidden={!isBottomSheetOpen}
@@ -269,13 +267,11 @@ export default function WishlistPage() {
               className="rounded-full bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700"
               aria-label="Close edit bottom sheet"
             >
-              {"\uB2EB\uAE30"}
+              닫기
             </button>
           </div>
 
           {activeDecorTab === "background" ? (
-<<<<<<< HEAD
-<<<<<<< HEAD
             <div className="mt-5 overflow-x-auto overflow-y-hidden pb-3">
               <div className="flex w-max gap-3 pr-1">
                 <div className="w-40 shrink-0 text-left">
@@ -283,19 +279,6 @@ export default function WishlistPage() {
                   <p className="mt-2 text-[11px] leading-tight text-slate-700">Default</p>
                 </div>
 
-=======
-            <div className="mt-5 overflow-x-auto overflow-y-hidden pb-2">
-              <div className="flex w-max gap-3 pr-1">
->>>>>>> 905c8dc (feat: 위시리스트 꾸밈 바텀 시트 생성)
-=======
-            <div className="mt-5 overflow-x-auto overflow-y-hidden pb-3">
-              <div className="flex w-max gap-3 pr-1">
-                <div className="w-40 shrink-0 text-left">
-                  <DefaultOptionButton className="aspect-[3/4] w-full rounded-xl" />
-                  <p className="mt-2 text-[11px] leading-tight text-slate-700">Default</p>
-                </div>
-
->>>>>>> ece4f57 (feat: 위시리스트 추가 버튼 생성)
                 {decorOptions.background.map((option) => (
                   <button
                     key={option.id}
@@ -319,19 +302,9 @@ export default function WishlistPage() {
           ) : null}
 
           {activeDecorTab === "sticker" ? (
-<<<<<<< HEAD
-<<<<<<< HEAD
             <div className="mt-5 grid grid-cols-4 gap-3 overflow-y-auto pr-1">
               <DefaultOptionButton className="aspect-square w-full" />
 
-=======
-            <div className="mt-5 grid grid-cols-4 gap-2 overflow-y-auto pr-1">
->>>>>>> 905c8dc (feat: 위시리스트 꾸밈 바텀 시트 생성)
-=======
-            <div className="mt-5 grid grid-cols-4 gap-3 overflow-y-auto pr-1">
-              <DefaultOptionButton className="aspect-square w-full" />
-
->>>>>>> ece4f57 (feat: 위시리스트 추가 버튼 생성)
               {decorOptions.sticker.map((option) => (
                 <button
                   key={option.id}
@@ -353,8 +326,6 @@ export default function WishlistPage() {
           ) : null}
 
           {activeDecorTab === "wishlist" ? (
-<<<<<<< HEAD
-<<<<<<< HEAD
             <div className="mt-5 space-y-4 overflow-y-auto pr-1 pb-2">
               {Array.from({ length: bigCircleCount }, (_, index) => (
                 <div key={`wish-input-${index + 1}`} className="space-y-2">
@@ -393,7 +364,7 @@ export default function WishlistPage() {
                       }`}
                       aria-label={`Delete wish ${index + 1}`}
                     >
-                      {"\uC0AD\uC81C"}
+                      삭제
                     </button>
                   </div>
 
@@ -417,105 +388,6 @@ export default function WishlistPage() {
                     </div>
                   ) : null}
                 </div>
-=======
-            <div className="mt-5 space-y-3 overflow-y-auto pr-1">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setBigCircleCount((prev) =>
-                      prev < 3 ? ((prev + 1) as GiftLayoutCount) : prev,
-                    )
-                  }
-                  disabled={bigCircleCount === 3}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    bigCircleCount === 3
-                      ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                      : "bg-[#2f3a35] text-white"
-                  }`}
-                >
-                  {bigCircleCount === 3 ? "\uCD5C\uB300 3\uAC1C" : "\uCD94\uAC00"}
-                </button>
-              </div>
-
-              {Array.from({ length: bigCircleCount }, (_, index) => (
-                <input
-                  key={`wish-input-${index + 1}`}
-                  type="text"
-                  value={wishTexts[index]}
-                  onChange={(event) => {
-                    const nextTexts = [...wishTexts];
-                    nextTexts[index] = event.target.value;
-                    setWishTexts(nextTexts);
-                  }}
-                  placeholder={`Wish ${index + 1}`}
-                  className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-                />
->>>>>>> 905c8dc (feat: 위시리스트 꾸밈 바텀 시트 생성)
-=======
-            <div className="mt-5 space-y-4 overflow-y-auto pr-1 pb-2">
-              {Array.from({ length: bigCircleCount }, (_, index) => (
-                <div key={`wish-input-${index + 1}`} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={wishTexts[index]}
-                      onChange={(event) => {
-                        const nextTexts = [...wishTexts];
-                        nextTexts[index] = event.target.value;
-                        setWishTexts(nextTexts);
-                      }}
-                      placeholder={`Wish ${index + 1}`}
-                      className="h-12 flex-1 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (bigCircleCount === 1) {
-                          return;
-                        }
-
-                        const nextTexts = [...wishTexts];
-                        nextTexts.splice(index, 1);
-                        nextTexts.push("");
-                        setWishTexts(nextTexts);
-                        setBigCircleCount((prev) =>
-                          prev > 1 ? ((prev - 1) as GiftLayoutCount) : prev,
-                        );
-                      }}
-                      disabled={bigCircleCount === 1}
-                      className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition ${
-                        bigCircleCount === 1
-                          ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                          : "bg-slate-200 text-slate-800"
-                      }`}
-                      aria-label={`Delete wish ${index + 1}`}
-                    >
-                      {"\uC0AD\uC81C"}
-                    </button>
-                  </div>
-
-                  {index === bigCircleCount - 1 && bigCircleCount < 3 ? (
-                    <div className="flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextTexts = [...wishTexts];
-                          nextTexts.splice(index + 1, 0, "");
-                          setWishTexts(nextTexts.slice(0, 3));
-                          setBigCircleCount((prev) =>
-                            prev < 3 ? ((prev + 1) as GiftLayoutCount) : prev,
-                          );
-                        }}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2f3a35] text-base font-semibold text-white transition"
-                        aria-label={`Add wish after ${index + 1}`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
->>>>>>> ece4f57 (feat: 위시리스트 추가 버튼 생성)
               ))}
             </div>
           ) : null}
@@ -548,20 +420,37 @@ export default function WishlistPage() {
           </button>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          http://localhost:3000/wishlist
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 break-all">
+          {boardSlug
+            ? `${window.location.origin}/wishlist/${boardSlug}`
+            : "링크를 불러오는 중..."}
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button
             type="button"
-            className="rounded-2xl bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white"
+            disabled={!boardSlug}
+            onClick={() => {
+              if (!boardSlug) return;
+              navigator.clipboard.writeText(
+                `${window.location.origin}/wishlist/${boardSlug}`,
+              );
+            }}
+            className="rounded-2xl bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             링크 복사
           </button>
           <button
             type="button"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+            disabled={!boardSlug}
+            onClick={() => {
+              if (!boardSlug || !navigator.share) return;
+              navigator.share({
+                title: "내 위시리스트",
+                url: `${window.location.origin}/wishlist/${boardSlug}`,
+              });
+            }}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
             공유하기
           </button>
