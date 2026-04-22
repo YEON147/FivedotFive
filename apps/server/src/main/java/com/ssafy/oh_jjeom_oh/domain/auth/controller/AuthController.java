@@ -43,6 +43,24 @@ public class AuthController {
                 ));
     }
 
+    @GetMapping("/check/useremail")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> checkUseremail(
+            @RequestParam(required = false) String useremail) {
+        if (useremail == null || useremail.isBlank()) {
+            throw new CustomException(ErrorCode.NONE_ID);
+        }
+        boolean isDuplicate = authService.isEmailDuplicate(useremail);
+        if (isDuplicate) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+
+        return ResponseEntity.ok()
+                .body(ApiResponse.success(
+                        SuccessMessage.AVAILABLE_EMAIL,
+                        Map.of("available", true)
+                ));
+    }
+
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<Map<String, Long>>> signup(@Valid @RequestBody SignupRequest request) {
         Long userId = authService.signup(request);
