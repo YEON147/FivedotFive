@@ -1,0 +1,37 @@
+stages:
+  - build
+  - deploy
+
+build_backend:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+    - docker build -t ghcr.io/$GHCR_USER/server-image:latest -f apps/server/Dockerfile .
+    - docker push ghcr.io/$GHCR_USER/server-image:latest
+  only:
+    - develop 
+
+deploy_backend:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    # EC2 접속을 위한 SSH 클라이언트 설치 및 키 등록
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$EC2_PEM_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    # EC2 서버에 원격 접속해서 실행할 명령어들
+    - ssh -o StrictHostKeyChecking=no ubuntu@$EC2_HOST "
+        echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin &&
+        docker pull ghcr.io/$GHCR_USER/server-image:latest &&
+        docker stop backend-server || true &&
+        docker rm backend-server || true &&
+        docker run -d --name backend-server -p 8080:8080 ghcr.io/$GHCR_USER/server-image:latest
+      "
+  only:
+    - develop
