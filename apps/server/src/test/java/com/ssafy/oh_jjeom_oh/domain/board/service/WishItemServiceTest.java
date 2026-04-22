@@ -14,8 +14,8 @@ import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItemStatus;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
-import com.ssafy.oh_jjeom_oh.domain.user.entity.UserRole;
-import com.ssafy.oh_jjeom_oh.domain.user.entity.UserStatus;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,12 +53,12 @@ class WishItemServiceTest {
     void setUp() {
         owner = User.builder()
                 .username("owner").nickname("주인").passwordHash("hashed")
-                .role(UserRole.CHILD).status(UserStatus.ACTIVE).build();
+                .role(Role.CHILD).status(Status.ACTIVE).build();
         ReflectionTestUtils.setField(owner, "id", 1L);
 
         other = User.builder()
                 .username("other").nickname("친구").passwordHash("hashed")
-                .role(UserRole.CHILD).status(UserStatus.ACTIVE).build();
+                .role(Role.CHILD).status(Status.ACTIVE).build();
         ReflectionTestUtils.setField(other, "id", 2L);
 
         board = WishBoard.builder()

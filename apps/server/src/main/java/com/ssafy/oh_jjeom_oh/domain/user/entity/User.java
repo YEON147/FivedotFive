@@ -1,5 +1,9 @@
 package com.ssafy.oh_jjeom_oh.domain.user.entity;
 
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Gender;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Provider;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -11,7 +15,7 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@AllArgsConstructor
 @Builder
 public class User {
 
@@ -22,11 +26,11 @@ public class User {
     @Column(nullable = false, unique = true, length = 12)
     private String username;
 
-    @Column(nullable = false, unique = true, length = 8)
-    private String nickname;
-
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
+
+    @Column(nullable = false, unique = true, length = 8)
+    private String nickname;
 
     @Column(unique = true, length = 100)
     private String email;
@@ -34,28 +38,33 @@ public class User {
     @Column(length = 100)
     private String school;
 
+    @Column(name = "school_code", length = 100)
+    private String schoolcode;
+
+    @Enumerated(EnumType.STRING)
     @Column(length = 10)
-    private String gender;
+    private Gender gender;
 
     @Column(length = 20)
     private String grade;
 
-    @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
     @Builder.Default
-    private String provider = "LOCAL";
+    @Column(nullable = false, length = 20)
+    private Provider provider = Provider.LOCAL;
 
     @Column(name = "provider_id", length = 100)
     private String providerId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     @Builder.Default
-    private UserRole role = UserRole.CHILD;
+    @Column(nullable = false, length = 20)
+    private Role role = Role.CHILD;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     @Builder.Default
-    private UserStatus status = UserStatus.ACTIVE;
+    @Column(nullable = false, length = 20)
+    private Status status = Status.ACTIVE;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

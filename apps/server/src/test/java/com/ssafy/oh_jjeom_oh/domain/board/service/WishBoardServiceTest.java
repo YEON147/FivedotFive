@@ -14,8 +14,8 @@ import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItemStatus;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
-import com.ssafy.oh_jjeom_oh.domain.user.entity.UserRole;
-import com.ssafy.oh_jjeom_oh.domain.user.entity.UserStatus;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -55,8 +55,8 @@ class WishBoardServiceTest {
                 .username("testuser")
                 .nickname("테스트")
                 .passwordHash("hashed")
-                .role(UserRole.CHILD)
-                .status(UserStatus.ACTIVE)
+                .role(Role.CHILD)
+                .status(Status.ACTIVE)
                 .build();
 
         board = WishBoard.builder()

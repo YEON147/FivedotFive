@@ -1,6 +1,6 @@
 package com.ssafy.oh_jjeom_oh.common.security;
 
-import com.ssafy.oh_jjeom_oh.domain.user.entity.UserRole;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,9 +18,9 @@ public class UserPrincipal implements UserDetails {
 
     private final Long id;
     private final String username;
-    private final UserRole role;
+    private final Role role;
 
-    public UserPrincipal(Long id, String username, UserRole role) {
+    public UserPrincipal(Long id, String username, Role role) {
         this.id = id;
         this.username = username;
         this.role = role;

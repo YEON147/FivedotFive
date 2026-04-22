@@ -8,6 +8,7 @@ export const GENDER_OPTIONS = [
   { label: "선택 안 함", value: "" },
   { label: "남성", value: "MALE" },
   { label: "여성", value: "FEMALE" },
+  { label: "기타", value: "OTHER" },
 ];
 
 export const GRADE_OPTIONS = [

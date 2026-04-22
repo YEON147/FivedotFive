@@ -1,0 +1,122 @@
+package com.ssafy.oh_jjeom_oh.domain.auth.controller;
+
+import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
+import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
+import com.ssafy.oh_jjeom_oh.domain.auth.controller.request.LoginRequest;
+import com.ssafy.oh_jjeom_oh.domain.auth.controller.request.SignupRequest;
+import com.ssafy.oh_jjeom_oh.domain.auth.controller.response.TokenResponse;
+import com.ssafy.oh_jjeom_oh.domain.auth.service.AuthService;
+import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
+import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+    private final AuthService authService;
+
+    @GetMapping("/check/username")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> checkUsername(
+            @RequestParam(required = false) String username) {
+        if (username == null || username.isBlank()) {
+            throw new CustomException(ErrorCode.NONE_ID);
+        }
+        boolean isDuplicate = authService.isUsernameDuplicate(username);
+        if (isDuplicate) {
+            throw new CustomException(ErrorCode.DUPLICATE_ID);
+        }
+
+        return ResponseEntity.ok()
+                .body(ApiResponse.success(
+                        SuccessMessage.AVAILABLE_ID,
+                        Map.of("available", true)
+                ));
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<ApiResponse<Map<String, Long>>> signup(@Valid @RequestBody SignupRequest request) {
+        Long userId = authService.signup(request);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success(SuccessMessage.SIGNUP_SUCCESS, Map.of("id", userId)));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<TokenResponse>> login(@Valid @RequestBody LoginRequest request,
+                                                            HttpServletResponse response) {
+        TokenResponse tokenResponse = authService.login(request);
+
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", tokenResponse.getRefreshToken())
+                .httpOnly(true)
+                .path("/api/auth")
+                .maxAge(604800)
+                .sameSite("None")
+                .secure(false) // 추후 https로 처리할예정 인프라에서
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return ResponseEntity.ok()
+                .body(ApiResponse.success(SuccessMessage.LOGIN_SUCCESS, tokenResponse));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<Map<String, String>>> refresh(
+            @CookieValue(value = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
+
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
+        }
+
+        TokenResponse tokenResponse = authService.refresh(refreshToken);
+
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", tokenResponse.getRefreshToken())
+                .httpOnly(true)
+                .path("/api/auth")
+                .maxAge(604800)
+                .sameSite("None")
+                .secure(false)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return ResponseEntity.ok()
+                .body(ApiResponse.success(
+                        SuccessMessage.REFRESH_SUCCESS,
+                        Map.of("accessToken", tokenResponse.getAccessToken())
+                ));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @CookieValue(value = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
+
+        if (refreshToken != null) {
+            authService.logout(refreshToken);
+        }
+
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .path("/api/auth")
+                .maxAge(0)
+                .sameSite("None")
+                .secure(false) // 추후 https로 처리할예정 인프라에서
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return ResponseEntity.ok()
+                .body(ApiResponse.success(SuccessMessage.LOGOUT_SUCCESS));
+    }
+}
