@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/login/oauth2/**", "/oauth2/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/assets/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments/*/sticker").permitAll()
                         // /api/boards/me 는 인증 필요 → 먼저 선언해서 아래 wildcard보다 우선 적용
