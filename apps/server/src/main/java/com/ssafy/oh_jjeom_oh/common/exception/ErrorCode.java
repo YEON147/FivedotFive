@@ -35,7 +35,13 @@ public enum ErrorCode {
 
     // 보드 에셋
     ASSET_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 에셋이 존재하지 않습니다."),
-    INVALID_STICKER_SLOT_INDEX(HttpStatus.BAD_REQUEST, "스티커 슬롯 번호는 1~6 사이여야 합니다.");
+    INVALID_STICKER_SLOT_INDEX(HttpStatus.BAD_REQUEST, "스티커 슬롯 번호는 1~6 사이여야 합니다."),
+
+    // 댓글
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다."),
+    COMMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "본인이 작성한 댓글만 수정/삭제할 수 있습니다."),
+    COMMENT_RATE_LIMIT(HttpStatus.TOO_MANY_REQUESTS, "댓글은 10초에 한 번만 작성할 수 있습니다."),
+    COMMENT_STICKER_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 댓글에 선물 아이콘이 없습니다.");
 
     private final HttpStatus status;
     private final String message;
