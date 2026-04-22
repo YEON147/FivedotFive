@@ -71,10 +71,17 @@ public class AuthService {
         return userRepository.existsByUsername(username);
     }
 
+    public boolean isEmailDuplicate(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
     @Transactional
     public Long signup(SignupRequest request) {
         if (isUsernameDuplicate(request.username())) {
             throw new CustomException(ErrorCode.DUPLICATE_ID);
+        }
+        if (isEmailDuplicate(request.email())) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
         }
         Gender gender = (request.gender() != null && !request.gender().isBlank())
                 ? Gender.valueOf(request.gender().toUpperCase())
