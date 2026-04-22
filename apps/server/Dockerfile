@@ -8,8 +8,8 @@ WORKDIR /workspace
 
 # 우리 프로젝트 구조에 맞게 경로 확인
 # apps/server 폴더 안에서 실행될 것이므로 현재 폴더(.)의 파일들을 복사합니다.
-COPY gradlew gradlew.bat settings.gradle* build.gradle* ./
-COPY gradle/ ./gradle/
+COPY apps/server/gradlew apps/server/gradlew.bat apps/server/settings.gradle* apps/server/build.gradle* ./
+COPY apps/server/gradle/ ./gradle/
 
 RUN chmod +x gradlew && sed -i 's/\r$//' gradlew
 
