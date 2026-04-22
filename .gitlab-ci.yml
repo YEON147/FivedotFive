@@ -34,10 +34,10 @@ deploy_backend:
         cd /home/ubuntu/S14P31F205 &&
         git pull origin develop &&
         cd infra &&
-        docker stop backend-server || true && docker rm backend-server || true &&
+        docker rm -f backend-server || true &&
         export GHCR_USER=$GHCR_USER &&
-        docker compose pull &&
-        docker compose up -d
+        docker-compose pull &&
+        docker-compose up -d
       "
   only:
     - develop
