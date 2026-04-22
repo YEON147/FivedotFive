@@ -1,6 +1,7 @@
 package com.ssafy.oh_jjeom_oh.domain.board.controller;
 
 import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
+import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
 import com.ssafy.oh_jjeom_oh.common.security.CurrentUser;
 import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
@@ -24,7 +25,7 @@ public class WishBoardController {
             @CurrentUser UserPrincipal userPrincipal) {
 
         WishBoardCreateResponse data = wishBoardService.createBoard(userPrincipal.getId());
-        return ResponseEntity.ok(ApiResponse.success("위시보드가 생성되었습니다.", data));
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_CREATED, data));
     }
 
     // GET /api/boards/me - 내 위시보드 조회 (CHILD)
@@ -33,7 +34,7 @@ public class WishBoardController {
             @CurrentUser UserPrincipal userPrincipal) {
 
         WishBoardResponse data = wishBoardService.getMyBoard(userPrincipal.getId());
-        return ResponseEntity.ok(ApiResponse.success("내 위시보드 조회가 완료되었습니다.", data));
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_FOUND, data));
     }
 
     // GET /api/boards/{slug} - slug로 위시보드 조회 (Anyone)
@@ -42,6 +43,6 @@ public class WishBoardController {
             @PathVariable String slug) {
 
         WishBoardPublicResponse data = wishBoardService.getBoardBySlug(slug);
-        return ResponseEntity.ok(ApiResponse.success("위시보드 조회가 완료되었습니다.", data));
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_FOUND, data));
     }
 }

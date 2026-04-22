@@ -1,6 +1,7 @@
 package com.ssafy.oh_jjeom_oh.domain.board.controller;
 
 import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
+import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
 import com.ssafy.oh_jjeom_oh.common.security.CurrentUser;
 import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.WishItemUpdateRequest;
@@ -24,7 +25,7 @@ public class WishItemController {
             @CurrentUser UserPrincipal userPrincipal) {
 
         WishItemListResponse data = wishItemService.getItems(userPrincipal.getId());
-        return ResponseEntity.ok(ApiResponse.success("위시 아이템 조회가 완료되었습니다.", data));
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.WISH_ITEM_FOUND, data));
     }
 
     // PATCH /api/boards/me/items/{slotIndex} - 위시 아이템 슬롯 수정 (CHILD)
@@ -35,7 +36,7 @@ public class WishItemController {
             @Valid @RequestBody WishItemUpdateRequest request) {
 
         wishItemService.updateItem(userPrincipal.getId(), slotIndex, request);
-        return ResponseEntity.ok(ApiResponse.success("위시 아이템이 수정되었습니다."));
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.WISH_ITEM_UPDATED));
     }
 
     // DELETE /api/boards/me/items/{slotIndex} - 위시 아이템 슬롯 비우기 (CHILD)
@@ -45,7 +46,7 @@ public class WishItemController {
             @PathVariable int slotIndex) {
 
         wishItemService.clearItem(userPrincipal.getId(), slotIndex);
-        return ResponseEntity.ok(ApiResponse.success("위시 아이템이 삭제되었습니다."));
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.WISH_ITEM_DELETED));
     }
 
     // POST /api/boards/{slug}/items/{slotIndex}/like - 위시 아이템 공감 (CHILD)
@@ -56,6 +57,6 @@ public class WishItemController {
             @PathVariable int slotIndex) {
 
         WishItemLikeResponse data = wishItemService.likeItem(userPrincipal.getId(), slug, slotIndex);
-        return ResponseEntity.ok(ApiResponse.success("공감이 반영되었습니다.", data));
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.WISH_ITEM_LIKED, data));
     }
 }
