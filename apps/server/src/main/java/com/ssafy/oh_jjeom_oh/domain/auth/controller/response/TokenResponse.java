@@ -10,6 +10,7 @@ import lombok.*;
 public class TokenResponse {
     private String accessToken;
     private String username;
+    private boolean hasWishBoard;
 
     @JsonIgnore
     private String refreshToken;

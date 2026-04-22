@@ -31,10 +31,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class WishBoardService {
 
-    private static final String DEFAULT_BACKGROUND_KEY = "default/background.png";
-    private static final String DEFAULT_STICKER_KEY    = "default/sticker.png";
-    private static final String DEFAULT_GIFT_STICKER_KEY = "default/gift_sticker.png";
-
     private final WishBoardRepository wishBoardRepository;
     private final WishItemRepository wishItemRepository;
     private final BoardAssetRepository boardAssetRepository;
@@ -62,9 +58,6 @@ public class WishBoardService {
                 .build();
         wishBoardRepository.save(board);
 
-        // 기본 board_assets 10개 생성 (BACKGROUND 1 + STICKER 6 + GIFT_STICKER 3)
-        createDefaultAssets(board);
-
         return WishBoardCreateResponse.of(slug);
     }
 
@@ -89,39 +82,6 @@ public class WishBoardService {
     }
 
     // ===== private helpers =====
-
-    private void createDefaultAssets(WishBoard board) {
-        List<BoardAsset> assets = new ArrayList<>();
-
-        // BACKGROUND 1개
-        assets.add(BoardAsset.builder()
-                .board(board)
-                .assetType(AssetType.BACKGROUND)
-                .assetKey(DEFAULT_BACKGROUND_KEY)
-                .build());
-
-        // STICKER 6개 (slot 1~6)
-        for (int i = 1; i <= 6; i++) {
-            assets.add(BoardAsset.builder()
-                    .board(board)
-                    .assetType(AssetType.STICKER)
-                    .assetKey(DEFAULT_STICKER_KEY)
-                    .slotIndex(i)
-                    .build());
-        }
-
-        // GIFT_STICKER 3개 (slot 1~3)
-        for (int i = 1; i <= 3; i++) {
-            assets.add(BoardAsset.builder()
-                    .board(board)
-                    .assetType(AssetType.GIFT_STICKER)
-                    .assetKey(DEFAULT_GIFT_STICKER_KEY)
-                    .slotIndex(i)
-                    .build());
-        }
-
-        boardAssetRepository.saveAll(assets);
-    }
 
     private WishBoardResponse buildWishBoardResponse(WishBoard board) {
         List<WishItemResponse> itemResponses = buildItemResponses(board);

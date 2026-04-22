@@ -76,14 +76,12 @@ class WishBoardServiceTest {
         given(userRepository.findById(any())).willReturn(Optional.of(user));
         given(wishBoardRepository.existsByBoardSlug(any())).willReturn(false);
         given(wishBoardRepository.save(any())).willReturn(board);
-        given(boardAssetRepository.saveAll(any())).willReturn(List.of());
 
         WishBoardCreateResponse response = wishBoardService.createBoard(1L);
 
         assertThat(response.getBoardSlug()).isNotBlank();
-        verify(boardAssetRepository).saveAll(argThat(assets ->
-                ((List<?>) assets).size() == 10 // BACKGROUND 1 + STICKER 6 + GIFT_STICKER 3
-        ));
+        // 보드 생성 시 기본 에셋을 선 생성하지 않음 (유저가 직접 설정할 때만 생성)
+        verify(wishBoardRepository).save(any());
     }
 
     @Test
