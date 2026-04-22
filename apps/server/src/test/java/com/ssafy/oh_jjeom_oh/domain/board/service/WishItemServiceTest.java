@@ -76,9 +76,9 @@ class WishItemServiceTest {
     void getItems_success() {
         given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardOrderBySlotIndex(board)).willReturn(List.of(item));
-        given(boardAssetRepository.findByBoardAndAssetType(board, AssetType.GIFT_STICKER))
+        given(boardAssetRepository.findByBoardAndAssetType(board, AssetType.GIFT_ICON))
                 .willReturn(List.of(
-                        BoardAsset.builder().board(board).assetType(AssetType.GIFT_STICKER)
+                        BoardAsset.builder().board(board).assetType(AssetType.GIFT_ICON)
                                 .assetKey("icon/toy.png").slotIndex(1).build()
                 ));
 
@@ -101,8 +101,8 @@ class WishItemServiceTest {
 
         given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
-        given(boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, 1))
-                .willReturn(Optional.of(BoardAsset.builder().board(board).assetType(AssetType.GIFT_STICKER)
+        given(boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_ICON, 1))
+                .willReturn(Optional.of(BoardAsset.builder().board(board).assetType(AssetType.GIFT_ICON)
                         .assetKey("old_key").slotIndex(1).build()));
 
         wishItemService.updateItem(1L, 1, request);
@@ -142,19 +142,19 @@ class WishItemServiceTest {
     @Test
     @DisplayName("위시 아이템 슬롯 비우기 성공")
     void clearItem_success() {
-        BoardAsset giftSticker = BoardAsset.builder()
-                .board(board).assetType(AssetType.GIFT_STICKER)
+        BoardAsset giftIcon = BoardAsset.builder()
+                .board(board).assetType(AssetType.GIFT_ICON)
                 .assetKey("icon/toy.png").slotIndex(1).build();
 
         given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
-        given(boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, 1))
-                .willReturn(Optional.of(giftSticker));
+        given(boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_ICON, 1))
+                .willReturn(Optional.of(giftIcon));
 
         wishItemService.clearItem(1L, 1);
 
         verify(wishItemRepository).delete(item);
-        assertThat(giftSticker.getAssetKey()).isEqualTo("default/gift_sticker.png"); // 기본값으로 초기화
+        assertThat(giftIcon.getAssetKey()).isEqualTo("default/gift_icon.png"); // 기본값으로 초기화
     }
 
     @Test
