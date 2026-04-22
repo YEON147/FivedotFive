@@ -54,6 +54,14 @@ public class WishComment {
         this.content = content;
     }
 
+    public void softDelete() {
+        this.senderName = "(알 수 없음)";
+        this.content = "삭제된 댓글입니다.";
+        this.stickerKey = null;
+        this.user = null;
+        this.isUser = false;
+    }
+
     public void updateStickerKey(String stickerKey) {
         this.stickerKey = stickerKey;
     }
