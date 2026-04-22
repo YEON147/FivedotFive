@@ -1,6 +1,7 @@
 export const SIGNUP_API_PATH = "/api/auth/signup";
 export const USERNAME_CHECK_API_PATH = "/api/auth/check/username";
 export const NICKNAME_CHECK_API_PATH = "/api/auth/check/nickname";
+export const USEREMAIL_CHECK_API_PATH = "/api/auth/check/useremail";
 export const RANDOM_NICKNAME_API_PATH = "/api/auth/nickname/random";
 export const SCHOOL_SEARCH_API_PATH = "/api/schools/search";
 

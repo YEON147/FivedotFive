@@ -1,5 +1,4 @@
 export type GenderType = "MALE" | "FEMALE" | "OTHER" | "";
-
 export type GradeType =
   | "ELEM_1"
   | "ELEM_2"
@@ -19,9 +18,10 @@ export type MyProfile = {
   username: string;
   email: string;
   nickname: string;
-  school: string;
-  gender: GenderType;
-  grade: GradeType;
+  school: string | null;
+  schoolcode: string | null;
+  gender: Exclude<GenderType, ""> | null;
+  grade: Exclude<GradeType, ""> | null;
 };
 
 export type MyProfileResponse = {
@@ -31,22 +31,33 @@ export type MyProfileResponse = {
     username?: string;
     email?: string;
     nickname?: string;
-    school?: string;
-    gender?: GenderType;
-    grade?: GradeType;
+    school?: string | null;
+    schoolcode?: string | null;
+    gender?: Exclude<GenderType, ""> | null;
+    grade?: Exclude<GradeType, ""> | null;
   };
 };
 
 export type UpdateMyProfileRequest = {
   nickname: string;
-  school?: string;
-  gender?: Exclude<GenderType, "">;
-  grade?: Exclude<GradeType, "">;
+  school: string | null;
+  schoolcode: string | null;
+  gender: Exclude<GenderType, ""> | null;
+  grade: Exclude<GradeType, ""> | null;
 };
 
 export type UpdateMyProfileResponse = {
   success: boolean;
   message: string;
+  data?: {
+    username?: string;
+    email?: string;
+    nickname?: string;
+    school?: string | null;
+    schoolcode?: string | null;
+    gender?: Exclude<GenderType, ""> | null;
+    grade?: Exclude<GradeType, ""> | null;
+  };
 };
 
 export type ChangePasswordRequest = {
@@ -57,7 +68,6 @@ export type ChangePasswordRequest = {
 export type ChangePasswordResponse = {
   success?: boolean;
   message?: string;
-  id?: number;
 };
 
 export type MyPageFormValues = {
@@ -65,6 +75,7 @@ export type MyPageFormValues = {
   email: string;
   nickname: string;
   schoolName: string;
+  schoolCode: string;
   gender: GenderType;
   grade: GradeType;
 };

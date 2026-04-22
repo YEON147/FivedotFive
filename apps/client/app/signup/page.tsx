@@ -23,6 +23,8 @@ export default function SignupPage() {
     ignoreNextSchoolFocus,
     usernameCheckStatus,
     usernameCheckMessage,
+    userEmailCheckStatus,
+    userEmailCheckMessage,
     nicknameCheckStatus,
     nicknameCheckMessage,
     isNicknameDirty,
@@ -58,6 +60,8 @@ export default function SignupPage() {
           ignoreNextSchoolFocus={ignoreNextSchoolFocus}
           usernameCheckStatus={usernameCheckStatus}
           usernameCheckMessage={usernameCheckMessage}
+          userEmailCheckStatus={userEmailCheckStatus}
+          userEmailCheckMessage={userEmailCheckMessage}
           nicknameCheckStatus={nicknameCheckStatus}
           nicknameCheckMessage={nicknameCheckMessage}
           isNicknameDirty={isNicknameDirty}

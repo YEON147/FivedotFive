@@ -177,12 +177,30 @@ export async function apiClient<T>(
   init?: RequestInit
 ): Promise<T> {
   const response = await requestWithAuth(input, init);
-  const data = await parseResponseData(response);
+
+  const rawText = await response.text();
+  let data: unknown = null;
+
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
 
   if (!response.ok) {
+    console.error("API 요청 실패", {
+      url: typeof input === "string" ? input : input.toString(),
+      method: init?.method ?? "GET",
+      status: response.status,
+      statusText: response.statusText,
+      requestBody: init?.body ?? null,
+      responseBody: rawText,
+    });
+
     const message =
       (data as ApiMessage | null)?.message ??
       `요청 처리 중 오류가 발생했습니다. (${response.status})`;
+
     throw new Error(message);
   }
 

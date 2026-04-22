@@ -5,7 +5,6 @@ import {
   changeMyPassword,
   checkNicknameForMyPage,
   getMyProfile,
-  MY_PROFILE_PREVIEW_DATA,
   searchSchoolsForMyPage,
   updateMyProfile,
 } from "@/features/user/api";
@@ -29,6 +28,7 @@ const INITIAL_VALUES: MyPageFormValues = {
   email: "",
   nickname: "",
   schoolName: "",
+  schoolCode: "",
   gender: "",
   grade: "",
 };
@@ -45,18 +45,6 @@ function validateForm(values: MyPageFormValues): FormErrors {
     nextErrors.nickname = "닉네임을 입력해주세요.";
   } else if (values.nickname.trim().length > 8) {
     nextErrors.nickname = "닉네임은 최대 8자까지 입력할 수 있습니다.";
-  }
-
-  if (!values.schoolName.trim()) {
-    nextErrors.schoolName = "학교를 선택해주세요.";
-  }
-
-  if (!values.gender) {
-    nextErrors.gender = "성별을 선택해주세요.";
-  }
-
-  if (!values.grade) {
-    nextErrors.grade = "학년을 선택해주세요.";
   }
 
   return nextErrors;
@@ -95,6 +83,7 @@ function mapProfileToValues(profile: MyProfile): MyPageFormValues {
     email: profile.email ?? "",
     nickname: profile.nickname ?? "",
     schoolName: profile.school ?? "",
+    schoolCode: profile.schoolcode ?? "",
     gender: profile.gender ?? "",
     grade: profile.grade ?? "",
   };
@@ -122,7 +111,9 @@ export function useMyPageForm() {
   const [nicknameCheckStatus, setNicknameCheckStatus] =
     useState<NicknameCheckStatus>("idle");
   const [nicknameCheckedValue, setNicknameCheckedValue] = useState("");
-  const [nicknameCheckMessage, setNicknameCheckMessage] = useState<string | null>(null);
+  const [nicknameCheckMessage, setNicknameCheckMessage] = useState<string | null>(
+    null
+  );
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordValues, setPasswordValues] =
@@ -145,7 +136,7 @@ export function useMyPageForm() {
       setSchoolKeyword(nextValues.schoolName);
       setSchoolResults([]);
       setIsSchoolDropdownOpen(false);
-      setHasSelectedSchool(true);
+      setHasSelectedSchool(Boolean(nextValues.schoolName));
       setIgnoreNextSchoolFocus(false);
 
       setNicknameCheckStatus("success");
@@ -155,22 +146,13 @@ export function useMyPageForm() {
       setIsLoaded(true);
     } catch (error) {
       console.error("[mypage] reload failed", error);
-
-      const fallbackValues = mapProfileToValues(MY_PROFILE_PREVIEW_DATA);
-      setOriginalProfile(MY_PROFILE_PREVIEW_DATA);
-      setValues(fallbackValues);
-      setErrors({});
-      setSchoolKeyword(fallbackValues.schoolName);
-      setSchoolResults([]);
-      setIsSchoolDropdownOpen(false);
-      setHasSelectedSchool(true);
-      setIgnoreNextSchoolFocus(false);
-
-      setNicknameCheckStatus("success");
-      setNicknameCheckedValue(fallbackValues.nickname);
-      setNicknameCheckMessage(null);
-
-      setIsLoaded(true);
+      setSaveMessage(
+        error instanceof Error
+          ? error.message
+          : "회원 정보를 불러오지 못했습니다."
+      );
+      setSaveSuccess(false);
+      setIsLoaded(false);
     } finally {
       setIsLoading(false);
     }
@@ -199,7 +181,7 @@ export function useMyPageForm() {
       try {
         const schools = await searchSchoolsForMyPage(trimmedKeyword);
         setSchoolResults(schools);
-        setIsSchoolDropdownOpen(true);
+        setIsSchoolDropdownOpen(schools.length > 0);
       } catch (error) {
         console.error("[mypage] school search failed", error);
         setSchoolResults([]);
@@ -218,6 +200,7 @@ export function useMyPageForm() {
     setValues((prev) => ({
       ...prev,
       [field]: nextValue,
+      ...(field === "schoolName" ? { schoolCode: "" } : {}),
     }));
 
     setErrors((prev) => ({
@@ -237,10 +220,7 @@ export function useMyPageForm() {
     if (field === "schoolName") {
       setSchoolKeyword(nextValue);
       setHasSelectedSchool(false);
-      if (!nextValue.trim()) {
-        setSchoolResults([]);
-        setIsSchoolDropdownOpen(false);
-      }
+      setIgnoreNextSchoolFocus(false);
     }
   }, []);
 
@@ -302,6 +282,7 @@ export function useMyPageForm() {
     setValues((prev) => ({
       ...prev,
       schoolName: school.schoolName,
+      schoolCode: school.schoolCode,
     }));
     setSchoolKeyword(school.schoolName);
     setSchoolResults([]);
@@ -323,7 +304,7 @@ export function useMyPageForm() {
     setErrors({});
     setSchoolKeyword(nextValues.schoolName);
     setSchoolResults([]);
-    setHasSelectedSchool(true);
+    setHasSelectedSchool(Boolean(nextValues.schoolName));
     setIsSchoolDropdownOpen(false);
     setIgnoreNextSchoolFocus(false);
     setSaveMessage(null);
@@ -344,7 +325,8 @@ export function useMyPageForm() {
       return;
     }
 
-    const nicknameChanged = values.nickname.trim() !== (originalProfile?.nickname ?? "");
+    const nicknameChanged =
+      values.nickname.trim() !== (originalProfile?.nickname ?? "");
 
     if (nicknameChanged && nicknameCheckedValue !== values.nickname.trim()) {
       setErrors((prev) => ({
@@ -356,11 +338,15 @@ export function useMyPageForm() {
       return;
     }
 
+    const schoolName = values.schoolName.trim();
+    const schoolCode = values.schoolCode.trim();
+
     const payload: UpdateMyProfileRequest = {
       nickname: values.nickname.trim(),
-      school: values.schoolName.trim(),
-      gender: values.gender as Exclude<GenderType, "">,
-      grade: values.grade as Exclude<GradeType, "">,
+      school: schoolName === "" ? null : schoolName,
+      schoolcode: schoolCode === "" ? null : schoolCode,
+      gender: values.gender === "" ? null : (values.gender as Exclude<GenderType, "">),
+      grade: values.grade === "" ? null : (values.grade as Exclude<GradeType, "">),
     };
 
     setIsSaving(true);
@@ -371,18 +357,19 @@ export function useMyPageForm() {
       const response = await updateMyProfile(payload);
 
       const updatedProfile: MyProfile = {
-        username: values.username,
-        email: values.email,
-        nickname: values.nickname.trim(),
-        school: values.schoolName.trim(),
-        gender: values.gender,
-        grade: values.grade,
+        username: response.data?.username ?? values.username,
+        email: response.data?.email ?? values.email,
+        nickname: response.data?.nickname ?? values.nickname.trim(),
+        school: response.data?.school ?? payload.school,
+        schoolcode: response.data?.schoolcode ?? payload.schoolcode,
+        gender: response.data?.gender ?? payload.gender,
+        grade: response.data?.grade ?? payload.grade,
       };
 
       setOriginalProfile(updatedProfile);
       setValues(mapProfileToValues(updatedProfile));
-      setSchoolKeyword(updatedProfile.school);
-      setHasSelectedSchool(true);
+      setSchoolKeyword(updatedProfile.school ?? "");
+      setHasSelectedSchool(Boolean(updatedProfile.school));
       setIsSchoolDropdownOpen(false);
       setSchoolResults([]);
 
@@ -478,13 +465,15 @@ export function useMyPageForm() {
     return (
       values.nickname !== (originalProfile.nickname ?? "") ||
       values.schoolName !== (originalProfile.school ?? "") ||
+      values.schoolCode !== (originalProfile.schoolcode ?? "") ||
       values.gender !== (originalProfile.gender ?? "") ||
       values.grade !== (originalProfile.grade ?? "")
     );
   }, [originalProfile, values]);
 
   const canSubmit = useMemo(() => {
-    const nicknameChanged = values.nickname.trim() !== (originalProfile?.nickname ?? "");
+    const nicknameChanged =
+      values.nickname.trim() !== (originalProfile?.nickname ?? "");
     const nicknameReady =
       !nicknameChanged || nicknameCheckedValue === values.nickname.trim();
 
@@ -492,9 +481,6 @@ export function useMyPageForm() {
       Boolean(values.nickname.trim()) &&
       values.nickname.trim().length <= 8 &&
       nicknameReady &&
-      Boolean(values.schoolName.trim()) &&
-      Boolean(values.gender) &&
-      Boolean(values.grade) &&
       !isSaving
     );
   }, [values, originalProfile, nicknameCheckedValue, isSaving]);
@@ -521,7 +507,6 @@ export function useMyPageForm() {
     selectSchool,
     submit,
     resetChanges,
-    reload,
 
     nicknameCheckStatus,
     nicknameCheckMessage,

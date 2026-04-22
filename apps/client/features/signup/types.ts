@@ -52,10 +52,10 @@ export type SignupRequest = {
   password: string;
   nickname: string;
   email: string;
-  school?: string;
-  schoolcode?: string;
-  gender?: Exclude<GenderType, "">;
-  grade?: Exclude<GradeType, "">;
+  school: string | null;
+  schoolcode: string | null;
+  gender: Exclude<GenderType, ""> | null;
+  grade: Exclude<GradeType, ""> | null;
 };
 
 export type SignupResponse = {
@@ -89,6 +89,14 @@ export type NicknameCheckResponse = {
 };
 
 export type UsernameCheckResponse = {
+  success: boolean;
+  message: string;
+  data?: {
+    available: boolean;
+  };
+};
+
+export type UserEmailCheckResponse = {
   success: boolean;
   message: string;
   data?: {
