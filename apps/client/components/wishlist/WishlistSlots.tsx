@@ -76,13 +76,19 @@ function SlotBubble({
   kind,
   size,
   onClick,
+  showPlaceholder = true,
 }: {
   slot: BaseSlot;
   kind: SlotKind;
   size: number;
   onClick?: (slotId: number) => void;
+  showPlaceholder?: boolean;
 }) {
   const hasImage = Boolean(slot.imageSrc);
+
+  if (!hasImage && !showPlaceholder) {
+    return null;
+  }
 
   return (
     <button
@@ -125,10 +131,12 @@ function GiftSlots({
   count,
   images,
   onSlotClick,
+  showPlaceholder,
 }: {
   count: GiftLayoutCount;
   images?: Partial<Record<number, string | null>>;
   onSlotClick?: (slotId: number) => void;
+  showPlaceholder?: boolean;
 }) {
   const slots = mergeSlotImages(giftLayouts[count], images);
 
@@ -139,6 +147,7 @@ function GiftSlots({
       kind="gift"
       size={slot.size}
       onClick={onSlotClick}
+      showPlaceholder={showPlaceholder}
     />
   ));
 }
@@ -146,9 +155,11 @@ function GiftSlots({
 function StickerSlots({
   images,
   onSlotClick,
+  showPlaceholder,
 }: {
   images?: Partial<Record<number, string | null>>;
   onSlotClick?: (slotId: number) => void;
+  showPlaceholder?: boolean;
 }) {
   const slots = mergeSlotImages(stickerSlots, images);
 
@@ -159,6 +170,7 @@ function StickerSlots({
       kind="sticker"
       size={STICKER_SIZE}
       onClick={onSlotClick}
+      showPlaceholder={showPlaceholder}
     />
   ));
 }

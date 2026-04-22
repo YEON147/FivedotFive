@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   checkNickname,
@@ -84,6 +85,7 @@ function toSignupRequest(values: SignupFormValues): SignupRequest {
 }
 
 export function useSignupForm() {
+  const router = useRouter();
   const [values, setValues] = useState<SignupFormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<SignupFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -443,6 +445,7 @@ export function useSignupForm() {
 
       setSubmitMessage(response.message ?? "회원가입이 완료되었습니다.");
       setSubmitSuccess(true);
+      router.push("/login");
     } catch (error) {
       const message =
         error instanceof Error
@@ -454,7 +457,7 @@ export function useSignupForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [values]);
+  }, [router, values]);
 
   return {
     values,

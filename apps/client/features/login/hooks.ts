@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { setAccessToken } from "@/lib/api/token-store";
 import { login } from "@/features/login/api";
@@ -36,6 +37,7 @@ function toLoginRequest(values: LoginFormValues): LoginRequest {
 }
 
 export function useLoginForm() {
+  const router = useRouter();
   const [values, setValues] = useState<LoginFormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +95,7 @@ export function useLoginForm() {
 
       setSubmitMessage(response.message ?? "로그인 되었습니다.");
       setSubmitSuccess(true);
+      router.push("/");
     } catch (error) {
       const message =
         error instanceof Error
@@ -103,7 +106,7 @@ export function useLoginForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [values]);
+  }, [router, values]);
 
   return {
     values,
