@@ -1,8 +1,56 @@
 import { apiClient } from "@/lib/api/client";
-import type { CommentCreateData, CommentListData, MyBoardData, PublicBoardData } from "./types";
+import type {
+  CommentCreateData,
+  CommentListData,
+  MyBoardData,
+  MyWishItemsData,
+  PublicBoardData,
+} from "./types";
 
 export async function getMyBoard(): Promise<MyBoardData> {
   return apiClient<MyBoardData>("/api/boards/me");
+}
+
+/** GET /api/boards/me/items — CHILD, 슬롯 3개 고정 */
+export async function getMyWishItems(): Promise<MyWishItemsData> {
+  return apiClient<MyWishItemsData>("/api/boards/me/items", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+export type PatchMyWishItemBody = {
+  itemName: string;
+  iconKey?: string;
+  /** 서버가 빈 `iconKey`로 아이콘 제거를 허용할 때 */
+  clearIcon?: boolean;
+};
+
+export type PatchMyWishItemResponse = {
+  success: boolean;
+  message: string;
+};
+
+/** PATCH /api/boards/me/items/:slotIndex — CHILD, slotIndex 1~3 */
+export async function patchMyWishItem(
+  slotIndex: number,
+  body: PatchMyWishItemBody,
+): Promise<PatchMyWishItemResponse> {
+  const payload: Record<string, string> = {
+    itemName: body.itemName,
+  };
+  if (body.clearIcon) {
+    payload.iconKey = "";
+  } else if (body.iconKey != null && body.iconKey.trim() !== "") {
+    payload.iconKey = body.iconKey.trim();
+  }
+
+  return apiClient<PatchMyWishItemResponse>(`/api/boards/me/items/${slotIndex}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
