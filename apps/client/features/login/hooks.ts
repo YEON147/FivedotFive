@@ -95,7 +95,10 @@ export function useLoginForm() {
 
       setSubmitMessage(response.message ?? "로그인 되었습니다.");
       setSubmitSuccess(true);
-      router.push("/");
+
+      const destination =
+        response.data?.hasWishBoard === true ? "/wishlist" : "/";
+      router.push(destination);
     } catch (error) {
       const message =
         error instanceof Error
