@@ -1,9 +1,24 @@
 "use client";
 
-import { Export, List, PencilSimple } from "@phosphor-icons/react";
+import {
+  Export,
+  PencilSimple,
+  SignOut,
+  TextAlignJustify,
+  UserCircle,
+} from "@phosphor-icons/react";
 import Image from "next/image";
+<<<<<<< HEAD
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+=======
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { clearAccessToken } from "@/lib/api/token-store";
+>>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
 
 import {
   DESIGN_HEIGHT,
@@ -12,8 +27,13 @@ import {
   StickerSlots,
   type GiftLayoutCount,
 } from "@/components/wishlist/WishlistSlots";
+<<<<<<< HEAD
 import { getMyBoard } from "@/features/wishlist/api";
 import { getAccessToken } from "@/lib/api/token-store";
+=======
+import { fetchBackgroundAssets, type BackgroundAssetDto } from "@/lib/api/assets";
+import { getAssetImageUrl } from "@/lib/asset-url";
+>>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
 
 type DecorTab = "background" | "sticker" | "wishlist";
 
@@ -35,6 +55,7 @@ function DefaultOptionButton({
   );
 }
 
+<<<<<<< HEAD
 const decorOptions = {
   background: [
     { id: "wallpaper1", label: "Wallpaper 1", src: "/wallpaper/wallpaper1.png" },
@@ -43,14 +64,16 @@ const decorOptions = {
     { id: "wallpaper4", label: "Wallpaper 4", src: "/wallpaper/wallpaper4.png" },
   ],
   sticker: [
+=======
+const decorStickerOptions = [
+>>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
     { id: "sticker1", label: "Sticker 1", src: "/sticker/sticker1.png" },
     { id: "sticker2", label: "Sticker 2", src: "/sticker/sticker2.png" },
     { id: "sticker3", label: "Sticker 3", src: "/sticker/sticker3.png" },
     { id: "sticker4", label: "Sticker 4", src: "/sticker/sticker4.png" },
     { id: "sticker5", label: "Sticker 5", src: "/sticker/sticker5.png" },
     { id: "sticker6", label: "Sticker 6", src: "/sticker/sticker6.png" },
-  ],
-} as const;
+  ] as const;
 
 const decorTabMeta: Record<DecorTab, { label: string; title: string; description: string }> = {
   background: {
@@ -77,7 +100,10 @@ export default function WishlistPage() {
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarPortalReady, setSidebarPortalReady] = useState(false);
   const [activeDecorTab, setActiveDecorTab] = useState<DecorTab>("background");
+<<<<<<< HEAD
   const [boardSlug, setBoardSlug] = useState<string | null>(null);
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -90,12 +116,87 @@ export default function WishlistPage() {
       .then((data) => setBoardSlug(data.data.boardSlug))
       .catch(() => {});
   }, [router]);
+=======
+  const [backgroundAssets, setBackgroundAssets] = useState<BackgroundAssetDto[]>([]);
+  const [backgroundsLoading, setBackgroundsLoading] = useState(false);
+  const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
+  const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!isBottomSheetOpen || activeDecorTab !== "background") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const load = async () => {
+      setBackgroundsLoading(true);
+      setBackgroundsError(null);
+      try {
+        const list = await fetchBackgroundAssets();
+        if (!cancelled) {
+          setBackgroundAssets(list);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setBackgroundAssets([]);
+          setBackgroundsError(
+            error instanceof Error ? error.message : "배경 목록을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setBackgroundsLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isBottomSheetOpen, activeDecorTab]);
+>>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
 
   const closeEditUi = () => {
     setIsFabOpen(false);
     setIsBottomSheetOpen(false);
     setIsShareModalOpen(false);
+    setIsSidebarOpen(false);
   };
+
+  const toggleSidebar = () => {
+    setIsFabOpen(false);
+    setIsBottomSheetOpen(false);
+    setIsShareModalOpen(false);
+    setIsSidebarOpen((prev) => !prev);
+  };
+
+  const handleLogout = () => {
+    clearAccessToken();
+    setIsSidebarOpen(false);
+    router.push("/login");
+  };
+
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    setSidebarPortalReady(true);
+  }, []);
 
   const openDecorSheet = (tab: DecorTab) => {
     setActiveDecorTab(tab);
@@ -157,14 +258,19 @@ export default function WishlistPage() {
               aria-label="Hold background for 1 second to edit"
             />
 
-            <header className="flex items-center justify-between pl-[8%] pr-[4%] pt-[8%]">
+            <header className="relative z-40 flex items-center justify-between pl-[8%] pr-[4%] pt-[8%]">
               <h1 className="text-wish-title">WishList</h1>
               <button
                 type="button"
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg"
-                aria-label="Open menu"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleSidebar();
+                }}
+                className="relative z-40 flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-slate-50"
+                aria-label="메뉴 열기"
+                aria-expanded={isSidebarOpen}
               >
-                <List size={22} weight="bold" />
+                <TextAlignJustify size={22} weight="bold" />
               </button>
             </header>
 
@@ -245,7 +351,11 @@ export default function WishlistPage() {
       </div>
 
       <section
+<<<<<<< HEAD
         className={`absolute inset-x-0 bottom-0 z-30 max-h-[46dvh] rounded-t-[28px] bg-white px-5 pb-6 pt-4 shadow-[0_-12px_32px_rgba(0,0,0,0.14)] transition-transform duration-300 ease-out ${
+=======
+        className={`absolute inset-x-0 bottom-0 z-30 max-h-[48dvh] rounded-t-[28px] bg-white px-5 pb-6 pt-4 shadow-[0_-12px_32px_rgba(0,0,0,0.14)] transition-transform duration-300 ease-out ${
+>>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
           isBottomSheetOpen ? "translate-y-0" : "translate-y-full"
         }`}
         aria-hidden={!isBottomSheetOpen}
@@ -273,12 +383,21 @@ export default function WishlistPage() {
 
           {activeDecorTab === "background" ? (
             <div className="mt-5 overflow-x-auto overflow-y-hidden pb-3">
+              {backgroundsLoading ? (
+                <p className="text-body-sm text-slate-500">배경 불러오는 중…</p>
+              ) : null}
+              {backgroundsError ? (
+                <p className="text-body-sm text-red-600" role="alert">
+                  {backgroundsError}
+                </p>
+              ) : null}
               <div className="flex w-max gap-3 pr-1">
                 <div className="w-40 shrink-0 text-left">
                   <DefaultOptionButton className="aspect-[3/4] w-full rounded-xl" />
                   <p className="mt-2 text-[11px] leading-tight text-slate-700">Default</p>
                 </div>
 
+<<<<<<< HEAD
                 {decorOptions.background.map((option) => (
                   <button
                     key={option.id}
@@ -297,6 +416,31 @@ export default function WishlistPage() {
                     <p className="mt-2 text-[11px] leading-tight text-slate-700">{option.label}</p>
                   </button>
                 ))}
+=======
+                {backgroundAssets.map((bg) => {
+                  const src = getAssetImageUrl(bg.assetKey);
+                  const label =
+                    bg.assetKey.split("/").pop()?.replace(/\.[^.]+$/, "") ?? `배경 ${bg.id}`;
+
+                  return (
+                    <button
+                      key={bg.id}
+                      type="button"
+                      className="w-40 shrink-0 text-left transition hover:opacity-90"
+                    >
+                      <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-slate-100">
+                        <img
+                          src={src}
+                          alt={label}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                      <p className="mt-2 text-[11px] leading-tight text-slate-700">{label}</p>
+                    </button>
+                  );
+                })}
+>>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
               </div>
             </div>
           ) : null}
@@ -305,7 +449,11 @@ export default function WishlistPage() {
             <div className="mt-5 grid grid-cols-4 gap-3 overflow-y-auto pr-1">
               <DefaultOptionButton className="aspect-square w-full" />
 
+<<<<<<< HEAD
               {decorOptions.sticker.map((option) => (
+=======
+              {decorStickerOptions.map((option) => (
+>>>>>>> ce13dd9b9fa06bfd0132210f293e32c6836398b8
                 <button
                   key={option.id}
                   type="button"
@@ -456,6 +604,60 @@ export default function WishlistPage() {
           </button>
         </div>
       </section>
+
+      {sidebarPortalReady
+        ? createPortal(
+            <>
+              <div
+                className={`fixed inset-0 z-[100] bg-black/35 transition-opacity duration-300 ${
+                  isSidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+                }`}
+                onClick={() => setIsSidebarOpen(false)}
+                aria-hidden={!isSidebarOpen}
+              />
+
+              <aside
+                className={`fixed inset-y-0 right-0 z-[101] flex w-[min(300px,88vw)] flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+                  isSidebarOpen ? "translate-x-0" : "translate-x-full"
+                }`}
+                aria-hidden={!isSidebarOpen}
+              >
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                  <span className="text-h3 text-slate-900">메뉴</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="rounded-full bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                    aria-label="메뉴 닫기"
+                  >
+                    닫기
+                  </button>
+                </div>
+
+                <nav className="flex flex-1 flex-col gap-1 p-3">
+                  <Link
+                    href="/mypage"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-body font-medium text-slate-800 transition hover:bg-slate-50"
+                  >
+                    <UserCircle size={22} weight="regular" className="shrink-0 text-[#7B61FF]" />
+                    내정보 조회
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
+                  >
+                    <SignOut size={22} weight="bold" className="shrink-0" />
+                    로그아웃
+                  </button>
+                </nav>
+              </aside>
+            </>,
+            document.body,
+          )
+        : null}
     </main>
   );
 }
