@@ -23,13 +23,13 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 12)
+    @Column(nullable = false, unique = true, length = 50)
     private String username;
 
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(nullable = false, unique = true, length = 8)
+    @Column(nullable = false, unique = true, length = 50)
     private String nickname;
 
     @Column(unique = true, length = 100)
