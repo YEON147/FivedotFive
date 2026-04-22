@@ -12,7 +12,18 @@ public enum SuccessMessage {
     AVAILABLE_ID("사용 가능한 아이디입니다."),
     DUPLICATE_ID("이미 사용 중인 아이디입니다."),
     LOGOUT_SUCCESS("로그아웃 되었습니다."),
-    REFRESH_SUCCESS("토큰이 재발급되었습니다.");
+    REFRESH_SUCCESS("토큰이 재발급되었습니다."),
+
+    // 위시보드
+    BOARD_CREATED("위시보드가 생성되었습니다."),
+    BOARD_FOUND("위시보드 조회가 완료되었습니다."),
+    BOARD_UPDATED("위시보드가 수정되었습니다."),
+
+    // 위시 아이템
+    WISH_ITEM_FOUND("위시 아이템 조회가 완료되었습니다."),
+    WISH_ITEM_UPDATED("위시 아이템이 수정되었습니다."),
+    WISH_ITEM_DELETED("위시 아이템이 삭제되었습니다."),
+    WISH_ITEM_LIKED("공감이 반영되었습니다.");
 
     private final String message;
 }
