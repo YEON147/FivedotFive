@@ -6,7 +6,7 @@ spring:
       host: localhost
       port: 6379
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres
+    url: jdbc:postgresql://localhost:5433/oh_jjeom_oh
     username: postgres
     password: '1234'
     driver-class-name: org.postgresql.Driver
