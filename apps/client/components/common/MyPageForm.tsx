@@ -13,6 +13,7 @@ import type { SchoolOption } from "@/features/signup/types";
 type MyPageFormProps = {
   values: MyPageFormValues;
   errors: Partial<Record<"nickname" | "schoolName" | "gender" | "grade", string>>;
+  isLoading: boolean;
   isLoaded: boolean;
   saveMessage: string | null;
   saveSuccess: boolean | null;
@@ -58,6 +59,7 @@ type MyPageFormProps = {
 export function MyPageForm({
   values,
   errors,
+  isLoading,
   isLoaded,
   saveMessage,
   saveSuccess,
@@ -92,6 +94,10 @@ export function MyPageForm({
 }: MyPageFormProps) {
   const displayName = values.username?.trim() || "회원";
 
+  if (isLoading && !isLoaded) {
+    return <p className="text-sm text-slate-500">회원 정보를 불러오는 중...</p>;
+  }
+
   return (
     <>
       <div className="flex w-full flex-col gap-6">
@@ -102,6 +108,16 @@ export function MyPageForm({
         </div>
 
         <div className="flex flex-col gap-5">
+          <TextField
+            id="mypage-username"
+            label="아이디"
+            value={values.username}
+            disabled
+            readOnly
+            className="cursor-not-allowed bg-slate-100 text-slate-500"
+            hint="아이디는 수정할 수 없습니다."
+          />
+
           <TextField
             id="mypage-email"
             type="email"
@@ -189,6 +205,7 @@ export function MyPageForm({
                 }
               }}
               onChange={(event) => onChange("schoolName", event.target.value)}
+              hint="선택 사항입니다."
             />
 
             {isSchoolDropdownOpen ? (
@@ -200,7 +217,10 @@ export function MyPageForm({
                     <button
                       key={`${school.schoolCode}-${school.officeCode}`}
                       type="button"
-                      onClick={() => onSelectSchool(school)}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        onSelectSchool(school);
+                      }}
                       className="flex w-full flex-col items-start gap-1 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 hover:bg-slate-50"
                     >
                       <span className="text-sm font-semibold text-slate-800">

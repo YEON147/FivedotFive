@@ -3,6 +3,7 @@ import {
   RANDOM_NICKNAME_API_PATH,
   SCHOOL_SEARCH_API_PATH,
   SIGNUP_API_PATH,
+  USEREMAIL_CHECK_API_PATH,
   USERNAME_CHECK_API_PATH,
 } from "@/lib/constants/signup";
 import type {
@@ -12,6 +13,7 @@ import type {
   SchoolSearchResponse,
   SignupRequest,
   SignupResponse,
+  UserEmailCheckResponse,
   UsernameCheckResponse,
 } from "@/features/signup/types";
 import { apiClient } from "@/lib/api/client";
@@ -57,6 +59,21 @@ export async function checkNickname(
 
   return apiClient<NicknameCheckResponse>(
     `${NICKNAME_CHECK_API_PATH}?${query}`,
+    {
+      method: "GET",
+    }
+  );
+}
+
+export async function checkUserEmail(
+  useremail: string
+): Promise<UserEmailCheckResponse> {
+  const query = new URLSearchParams({
+    useremail: useremail.trim(),
+  }).toString();
+
+  return apiClient<UserEmailCheckResponse>(
+    `${USEREMAIL_CHECK_API_PATH}?${query}`,
     {
       method: "GET",
     }

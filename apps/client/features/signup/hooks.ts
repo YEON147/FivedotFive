@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   checkNickname,
+  checkUserEmail,
   checkUsername,
-  getRandomNickname,
   searchSchools,
   signup,
 } from "@/features/signup/api";
@@ -68,15 +68,18 @@ function validateSignupForm(values: SignupFormValues): SignupFormErrors {
 }
 
 function toSignupRequest(values: SignupFormValues): SignupRequest {
+  const school = values.schoolName.trim();
+  const schoolcode = values.schoolCode.trim();
+
   return {
     username: values.username.trim(),
     password: values.password,
     nickname: values.nickname.trim(),
     email: values.email.trim(),
-    school: values.schoolName.trim() || undefined,
-    schoolcode: values.schoolCode.trim() || undefined,
-    gender: values.gender || undefined,
-    grade: values.grade || undefined,
+    school: school === "" ? null : school,
+    schoolcode: schoolcode === "" ? null : schoolcode,
+    gender: values.gender === "" ? null : values.gender,
+    grade: values.grade === "" ? null : values.grade,
   };
 }
 
@@ -105,6 +108,12 @@ export function useSignupForm() {
   const [usernameCheckStatus, setUsernameCheckStatus] =
     useState<CheckStatus>("idle");
   const [usernameCheckMessage, setUsernameCheckMessage] = useState<string | null>(
+    null
+  );
+
+  const [userEmailCheckStatus, setUserEmailCheckStatus] =
+    useState<CheckStatus>("idle");
+  const [userEmailCheckMessage, setUserEmailCheckMessage] = useState<string | null>(
     null
   );
 
@@ -176,16 +185,72 @@ export function useSignupForm() {
               ? "사용 가능한 아이디입니다."
               : "이미 사용 중인 아이디입니다.")
         );
-      } catch {
+      } catch (error) {
         if (values.username.trim() !== requestUsername) return;
 
-        setUsernameCheckStatus("idle");
-        setUsernameCheckMessage("중복 확인은 백엔드 연결 후 가능합니다.");
+        const message =
+          error instanceof Error
+            ? error.message
+            : "아이디 중복 확인 중 오류가 발생했습니다.";
+
+        setUsernameCheckStatus("unavailable");
+        setUsernameCheckMessage(message);
       }
     }, 400);
 
     return () => clearTimeout(timer);
   }, [values.username]);
+
+  useEffect(() => {
+    const trimmedEmail = values.email.trim();
+
+    if (!trimmedEmail) {
+      setUserEmailCheckStatus("idle");
+      setUserEmailCheckMessage(null);
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setUserEmailCheckStatus("idle");
+      setUserEmailCheckMessage("올바른 이메일 형식을 입력해주세요.");
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const requestEmail = trimmedEmail;
+
+      setUserEmailCheckStatus("checking");
+      setUserEmailCheckMessage("이메일 확인 중입니다.");
+
+      try {
+        const response = await checkUserEmail(requestEmail);
+
+        if (values.email.trim() !== requestEmail) return;
+
+        const available = !!response.data?.available;
+
+        setUserEmailCheckStatus(available ? "available" : "unavailable");
+        setUserEmailCheckMessage(
+          response.message ||
+            (available
+              ? "사용 가능한 이메일입니다."
+              : "이미 사용 중인 이메일입니다.")
+        );
+      } catch (error) {
+        if (values.email.trim() !== requestEmail) return;
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "이메일 중복 확인 중 오류가 발생했습니다.";
+
+        setUserEmailCheckStatus("unavailable");
+        setUserEmailCheckMessage(message);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [values.email]);
 
   useEffect(() => {
     const trimmedNickname = values.nickname.trim();
@@ -234,11 +299,16 @@ export function useSignupForm() {
               ? "사용 가능한 닉네임입니다."
               : "이미 사용 중인 닉네임입니다.")
         );
-      } catch {
+      } catch (error) {
         if (values.nickname.trim() !== requestNickname) return;
 
-        setNicknameCheckStatus("idle");
-        setNicknameCheckMessage("중복 확인은 백엔드 연결 후 가능합니다.");
+        const message =
+          error instanceof Error
+            ? error.message
+            : "닉네임 중복 확인 중 오류가 발생했습니다.";
+
+        setNicknameCheckStatus("unavailable");
+        setNicknameCheckMessage(message);
       }
     }, 400);
 
@@ -261,6 +331,11 @@ export function useSignupForm() {
       if (name === "username") {
         setUsernameCheckStatus("idle");
         setUsernameCheckMessage(null);
+      }
+
+      if (name === "email") {
+        setUserEmailCheckStatus("idle");
+        setUserEmailCheckMessage(null);
       }
 
       setErrors((prev) => {
@@ -362,6 +437,8 @@ export function useSignupForm() {
 
     try {
       const payload = toSignupRequest(values);
+      console.log("signup payload", payload);
+
       const response = await signup(payload);
 
       setSubmitMessage(response.message ?? "회원가입이 완료되었습니다.");
@@ -405,5 +482,7 @@ export function useSignupForm() {
     isNicknameDirty,
     usernameCheckStatus,
     usernameCheckMessage,
+    userEmailCheckStatus,
+    userEmailCheckMessage,
   };
 }

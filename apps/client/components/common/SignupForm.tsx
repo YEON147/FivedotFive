@@ -27,6 +27,8 @@ type SignupFormProps = {
   ignoreNextSchoolFocus: boolean;
   usernameCheckStatus: CheckStatus;
   usernameCheckMessage: string | null;
+  userEmailCheckStatus: CheckStatus;
+  userEmailCheckMessage: string | null;
   nicknameCheckStatus: CheckStatus;
   nicknameCheckMessage: string | null;
   isNicknameDirty: boolean;
@@ -66,6 +68,8 @@ export function SignupForm({
   ignoreNextSchoolFocus,
   usernameCheckStatus,
   usernameCheckMessage,
+  userEmailCheckStatus,
+  userEmailCheckMessage,
   nicknameCheckStatus,
   nicknameCheckMessage,
   isNicknameDirty,
@@ -81,6 +85,13 @@ export function SignupForm({
     usernameCheckStatus === "available"
       ? "text-emerald-600"
       : usernameCheckStatus === "unavailable"
+      ? "text-rose-600"
+      : "text-slate-500";
+
+  const userEmailStatusClass =
+    userEmailCheckStatus === "available"
+      ? "text-emerald-600"
+      : userEmailCheckStatus === "unavailable"
       ? "text-rose-600"
       : "text-slate-500";
 
@@ -153,7 +164,6 @@ export function SignupForm({
               placeholder="2~12자 입력 후 잠시 기다려주세요"
               value={values.username}
               error={errors.username}
-              hint="로그인 아이디로 사용됩니다."
               onChange={(event) => onChange("username", event.target.value)}
             />
 
@@ -224,17 +234,25 @@ export function SignupForm({
 
         {showEmail ? (
           <StepSection>
-            <TextField
-              id="email"
-              type="email"
-              label="이메일"
-              requiredMark
-              placeholder="example@email.com"
-              value={values.email}
-              error={errors.email}
-              hint="비밀번호 찾기에 사용됩니다."
-              onChange={(event) => onChange("email", event.target.value)}
-            />
+            <div className="flex flex-col gap-1">
+              <TextField
+                id="email"
+                type="email"
+                label="이메일"
+                requiredMark
+                placeholder="example@email.com"
+                value={values.email}
+                error={errors.email}
+                hint="비밀번호 찾기에 사용됩니다."
+                onChange={(event) => onChange("email", event.target.value)}
+              />
+
+              {userEmailCheckMessage ? (
+                <p className={`text-xs ${userEmailStatusClass}`}>
+                  {userEmailCheckMessage}
+                </p>
+              ) : null}
+            </div>
           </StepSection>
         ) : null}
 
