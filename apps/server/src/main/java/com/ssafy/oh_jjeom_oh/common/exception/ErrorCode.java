@@ -29,7 +29,11 @@ public enum ErrorCode {
     INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "슬롯 번호는 1~3 사이여야 합니다."),
     SLOT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 슬롯에 아이템이 없습니다."),
     SLOT_EMPTY(HttpStatus.NOT_FOUND, "해당 슬롯이 비어 있습니다."),
-    LIKE_OWN_BOARD(HttpStatus.FORBIDDEN, "자신의 위시보드에는 공감할 수 없습니다.");
+    LIKE_OWN_BOARD(HttpStatus.FORBIDDEN, "자신의 위시보드에는 공감할 수 없습니다."),
+
+    // 보드 에셋
+    ASSET_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 에셋이 존재하지 않습니다."),
+    INVALID_STICKER_SLOT_INDEX(HttpStatus.BAD_REQUEST, "스티커 슬롯 번호는 1~6 사이여야 합니다.");
 
     private final HttpStatus status;
     private final String message;

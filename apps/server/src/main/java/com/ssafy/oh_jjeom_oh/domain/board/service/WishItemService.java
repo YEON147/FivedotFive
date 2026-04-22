@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class WishItemService {
 
-    private static final String DEFAULT_GIFT_STICKER_KEY = "default/gift_sticker.png";
+    private static final String DEFAULT_GIFT_ICON_KEY = "default/gift_icon.png";
 
     private final WishBoardRepository wishBoardRepository;
     private final WishItemRepository wishItemRepository;
@@ -60,12 +60,12 @@ public class WishItemService {
             wishItemRepository.save(newItem);
         }
 
-        // iconKey가 있으면 GIFT_STICKER 업데이트
+        // iconKey가 있으면 GIFT_ICON 업데이트
         if (request.getIconKey() != null && !request.getIconKey().isBlank()) {
-            BoardAsset giftSticker = boardAssetRepository
-                    .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, slotIndex)
+            BoardAsset giftIcon = boardAssetRepository
+                    .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_ICON, slotIndex)
                     .orElseGet(() -> createGiftSticker(board, slotIndex));
-            giftSticker.updateAssetKey(request.getIconKey());
+            giftIcon.updateAssetKey(request.getIconKey());
         }
     }
 
@@ -81,9 +81,9 @@ public class WishItemService {
 
         wishItemRepository.delete(item);
 
-        // GIFT_STICKER를 기본값으로 초기화
-        boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, slotIndex)
-                .ifPresent(asset -> asset.updateAssetKey(DEFAULT_GIFT_STICKER_KEY));
+        // GIFT_ICON를 기본값으로 초기화
+        boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_ICON, slotIndex)
+                .ifPresent(asset -> asset.updateAssetKey(DEFAULT_GIFT_ICON_KEY));
     }
 
     // POST /api/boards/{slug}/items/{slotIndex}/like - 공감
@@ -122,8 +122,8 @@ public class WishItemService {
     private BoardAsset createGiftSticker(WishBoard board, int slotIndex) {
         BoardAsset asset = BoardAsset.builder()
                 .board(board)
-                .assetType(AssetType.GIFT_STICKER)
-                .assetKey(DEFAULT_GIFT_STICKER_KEY)
+                .assetType(AssetType.GIFT_ICON)
+                .assetKey(DEFAULT_GIFT_ICON_KEY)
                 .slotIndex(slotIndex)
                 .build();
         return boardAssetRepository.save(asset);
@@ -131,9 +131,9 @@ public class WishItemService {
 
     private List<WishItemResponse> buildItemResponses(WishBoard board) {
         List<WishItem> items = wishItemRepository.findByBoardOrderBySlotIndex(board);
-        List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.GIFT_STICKER);
+        List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.GIFT_ICON);
 
-        Map<Integer, String> giftStickerMap = assets.stream()
+        Map<Integer, String> giftIconMap = assets.stream()
                 .collect(Collectors.toMap(BoardAsset::getSlotIndex, BoardAsset::getAssetKey));
         Map<Integer, WishItem> itemMap = items.stream()
                 .collect(Collectors.toMap(WishItem::getSlotIndex, i -> i));
@@ -142,7 +142,7 @@ public class WishItemService {
         for (int slot = 1; slot <= 3; slot++) {
             WishItem item = itemMap.get(slot);
             if (item != null) {
-                result.add(WishItemResponse.from(item, giftStickerMap.get(slot)));
+                result.add(WishItemResponse.from(item, giftIconMap.get(slot)));
             } else {
                 result.add(WishItemResponse.empty(slot));
             }
