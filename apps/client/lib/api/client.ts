@@ -5,8 +5,6 @@ import {
 } from "@/lib/api/token-store";
 
 const REFRESH_API_PATH = "/api/auth/refresh";
-const TOKEN_EXPIRED_CODES = new Set(["TOKEN_EXPIRED", "ACCESS_TOKEN_EXPIRED"]);
-
 type ApiMessage = {
   code?: string;
   message?: string;
@@ -72,10 +70,13 @@ function getErrorCode(data: unknown): string | null {
   );
 }
 
-function isTokenExpiredError(response: Response, data: unknown): boolean {
-  if (response.status !== 401) return false;
+function shouldAttemptRefresh(response: Response, data: unknown): boolean {
+  if (response.status !== 401) {
+    return false;
+  }
+
   const code = getErrorCode(data);
-  return !!code && TOKEN_EXPIRED_CODES.has(code);
+  return !code || code === "TOKEN_EXPIRED" || code === "ACCESS_TOKEN_EXPIRED";
 }
 
 function runSessionExpiredFlow() {
@@ -149,7 +150,7 @@ async function requestWithAuth(
   const responseData = await parseResponseData(response.clone());
   const isRefreshEndpoint = toPath(input).includes(REFRESH_API_PATH);
 
-  if (!isRefreshEndpoint && isTokenExpiredError(response, responseData)) {
+  if (!isRefreshEndpoint && shouldAttemptRefresh(response, responseData)) {
     try {
       const refreshedToken = await getRefreshedTokenSingleFlight();
 

@@ -1,0 +1,4 @@
+NEIS_API_KEY=598fa7860f6d411bb2e35211b36ba3c4
+NEIS_API_BASE_URL=https://open.neis.go.kr/hub
+
+NEXT_PUBLIC_API_URL=http://localhost:8080
