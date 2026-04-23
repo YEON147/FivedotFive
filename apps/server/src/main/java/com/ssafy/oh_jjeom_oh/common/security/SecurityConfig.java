@@ -35,14 +35,6 @@ public class SecurityConfig {
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final CustomOAuth2UserService customOAuth2UserService;
 
-//    @Bean
-//    public WebSecurityCustomizer webSecurityCustomizer() {
-//        return (web) -> web.ignoring()
-//                .requestMatchers("/api/health", "/health")
-//                .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/check/**")
-//                .requestMatchers("/favicon.ico", "/error");
-//    }
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -54,7 +46,7 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/auth/**").permitAll()
-                        .requestMatchers("/api/health", "/health", "/login/oauth2/**", "/oauth2/**", "/share/**").permitAll()
+                        .requestMatchers("/api/health", "/health", "/api/oauth2/**", "/login/oauth2/**", "/oauth2/**", "/api/login/oauth2/**", "/share/**").permitAll()
                         .requestMatchers("/api/auth/nickname/random", "/auth/nickname/random").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/assets/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rankings/**").permitAll()
