@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
+import { CaretLeftIcon, CaretRightIcon, ChatCircleDots } from "@phosphor-icons/react";
 import Image from "next/image";
 import { use, useCallback, useEffect, useRef, useState } from "react";
 
@@ -343,45 +343,47 @@ export default function PublicWishlistPage({
               </div>
             ))}
           </div>
-        </div>
 
-        {/* ── 하단 컨트롤 ── */}
-        <div className="flex w-full max-w-[390px] items-center justify-between px-1">
-          {/* 이전 / 페이지 표시 / 다음 */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigateTo(currentVisualPage - 1)}
-              disabled={currentVisualPage === 0}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm disabled:opacity-30"
-              aria-label="이전 페이지"
-            >
-              <CaretLeftIcon size={16} weight="bold" className="text-slate-600" />
-            </button>
-            <span className="min-w-[40px] text-center text-xs font-semibold text-slate-600">
-              {currentVisualPage + 1} / {totalVisualPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => navigateTo(currentVisualPage + 1)}
-              disabled={currentVisualPage === totalVisualPages - 1}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm disabled:opacity-30"
-              aria-label="다음 페이지"
-            >
-              <CaretRightIcon size={16} weight="bold" className="text-slate-600" />
-            </button>
+          {/* 배너(푸터) 위 · 위시리스트 꾸미기 화면의 연필/공유 FAB와 동일 톤 */}
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-[calc(max(6%,2.5rem)+12px)] z-20 flex items-end justify-between px-[4%]"
+          >
+            <div className="pointer-events-auto flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => navigateTo(currentVisualPage - 1)}
+                disabled={currentVisualPage === 0}
+                className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                aria-label="이전 페이지"
+              >
+                <CaretLeftIcon size={23} weight="bold" />
+              </button>
+              <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
+                {currentVisualPage + 1} / {totalVisualPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => navigateTo(currentVisualPage + 1)}
+                disabled={currentVisualPage === totalVisualPages - 1}
+                className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                aria-label="다음 페이지"
+              >
+                <CaretRightIcon size={23} weight="bold" />
+              </button>
+            </div>
+
+            {currentVisualPage === 0 ? (
+              <button
+                type="button"
+                onClick={handleGoToLastCommentPage}
+                className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
+                aria-label="댓글 작성하러 가기"
+                title="댓글 작성하러 가기"
+              >
+                <ChatCircleDots size={23} weight="bold" />
+              </button>
+            ) : null}
           </div>
-
-          {/* 댓글 작성하러 가기 — 주인 페이지(0)에서만 보임 */}
-          {currentVisualPage === 0 && (
-            <button
-              type="button"
-              onClick={handleGoToLastCommentPage}
-              className="rounded-full bg-[#7B61FF] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-[#6b52e0]"
-            >
-              댓글 작성하러 가기
-            </button>
-          )}
         </div>
       </div>
 
