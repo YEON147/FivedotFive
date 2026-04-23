@@ -43,6 +43,8 @@ public enum SuccessMessage {
     BACKGROUND_UPDATED("배경이 변경되었습니다."),
     BACKGROUND_DELETED("배경이 삭제되었습니다."),
     STICKER_LIST_FOUND("스티커 목록 조회가 완료되었습니다."),
+    STICKER_FOLDER_LIST_FOUND("스티커 폴더 목록 조회가 완료되었습니다."),
+    STICKER_FOLDER_FOUND("스티커 폴더 조회가 완료되었습니다."),
     STICKER_FOUND("스티커 조회가 완료되었습니다."),
     STICKER_UPDATED("스티커가 변경되었습니다."),
     STICKER_DELETED("스티커가 삭제되었습니다."),
