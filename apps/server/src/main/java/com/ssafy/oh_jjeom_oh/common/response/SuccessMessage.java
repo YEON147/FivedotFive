@@ -64,7 +64,10 @@ public enum SuccessMessage {
     // 랭킹
     SCHOOL_USER_RANKING_FOUND("학교별 사용자 수 랭킹 조회가 완료되었습니다."),
     SCHOOL_COMMENT_RANKING_FOUND("학교별 댓글 수 랭킹 조회가 완료되었습니다."),
-    USER_COMMENT_RANKING_FOUND("개인별 댓글 수 랭킹 조회가 완료되었습니다.");
+    USER_COMMENT_RANKING_FOUND("개인별 댓글 수 랭킹 조회가 완료되었습니다."),
+
+    // 공유 링크
+    SHARE_LINK_CREATED("공유 링크가 생성되었습니다.");
 
     private final String message;
 }
