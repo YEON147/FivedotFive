@@ -236,7 +236,7 @@ body {
     line-height: 1.6;
   }
 
-  /** 랭킹 목록 스크롤 상단 도달 시 살짝 튕김 — 키프레임은 레이어 밖 */
+  /** 랭킹 목록 스크롤 상단 도달 시 살짝 튕김 — 키프레임은 레이어 밖 */ 
   .ranking-list-scroll-bounce {
     animation: ranking-list-top-bounce 0.48s cubic-bezier(0.34, 1.35, 0.64, 1) both;
   }
