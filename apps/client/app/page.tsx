@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { apiClient } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/token-store";
@@ -16,8 +16,17 @@ type CreateBoardResponse = {
 
 export default function Home() {
   const router = useRouter();
+  const [isGuestLanding, setIsGuestLanding] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (getAccessToken()) {
+      router.replace("/wishlist");
+      return;
+    }
+    setIsGuestLanding(true);
+  }, [router]);
 
   const handleCreateBoard = async () => {
     if (isCreatingBoard) {
@@ -33,11 +42,9 @@ export default function Home() {
     setCreateError(null);
 
     try {
-      // 이미 보드가 있으면 바로 이동
       await apiClient<CreateBoardResponse>("/api/boards/me");
       router.push("/wishlist");
     } catch {
-      // 보드가 없는 경우에만 생성
       try {
         await apiClient<CreateBoardResponse>("/api/boards", {
           method: "POST",
@@ -55,6 +62,14 @@ export default function Home() {
       setIsCreatingBoard(false);
     }
   };
+
+  if (!isGuestLanding) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[var(--color-bg-mint)] px-6 py-10">
+        <p className="text-body-sm text-black/60">이동 중…</p>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--color-bg-mint)] px-6 py-10">

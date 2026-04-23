@@ -22,28 +22,43 @@ type SlotKind = "gift" | "sticker";
 
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 680;
-const STICKER_SIZE = 68;
+/** 스티커 슬롯 원 지름(px, 디자인 좌표 기준) — 선물보다 한 단계 작게 유지 */
+const STICKER_SIZE = 66;
 
+/** 선물 지름은 항상 스티커보다 큼 (`STICKER_SIZE` 대비 여유) */
+const MIN_GIFT_SIZE = STICKER_SIZE + 12;
+
+/**
+ * 디자인 캔버스(320×680) 기준 선물 배치.
+ * - 슬롯 수가 늘수록 지름은 줄이되 `MIN_GIFT_SIZE` 이상 유지
+ * - `stickerSlots` 원형과 선물 원형이 겹치지 않도록 좌표·크기 조정됨
+ */
 const giftLayouts: Record<GiftLayoutCount, GiftSlot[]> = {
-  1: [{ id: 1, top: 330, left: 160, size: 138 }],
+  1: [{ id: 1, top: 352, left: 160, size: 130 }],
+  /** 2개: ②는 ①의 대각선 좌하단(왼쪽·아래). 세로 나열은 하단 스티커(S5·S6)와 겹치기 쉬움 */
   2: [
-    { id: 1, top: 260, left: 148, size: 110 },
-    { id: 2, top: 395, left: 130, size: 110 },
+    { id: 1, top: 268, left: 188, size: 98 },
+    { id: 2, top: 398, left: 110, size: 98 },
   ],
   3: [
-    { id: 1, top: 270, left: 112, size: 100 },
-    { id: 2, top: 395, left: 110, size: 100 },
-    { id: 3, top: 340, left: 214, size: 100 },
+    { id: 1, top: 268, left: 122, size: 90 },
+    { id: 2, top: 428, left: 112, size: 90 },
+    { id: 3, top: 348, left: 208, size: 90 },
   ],
 };
 
+/**
+ * 스티커는 크기 고정 — 코너·가장자리로 살짝 붙여 중앙 선물 영역과 간섭 최소화
+ * (GiftSlots 가 StickerSlots 보다 위 z-index 이므로 겹치면 선물이 클릭 우선)
+ */
 const stickerSlots: StickerSlot[] = [
-  { id: 1, top: 180, left: 52 },
-  { id: 2, top: 128, left: 170 },
-  { id: 3, top: 195, left: 256 },
-  { id: 4, top: 455, left: 256 },
-  { id: 5, top: 515, left: 52 },
-  { id: 6, top: 555, left: 156 },
+  { id: 1, top: 200, left: 48 },
+  { id: 2, top: 122, left: 168 },
+  { id: 3, top: 188, left: 262 },
+  { id: 4, top: 448, left: 270 },
+  { id: 5, top: 524, left: 46 },
+  /** 하단·가운데 조각 UI(선물 추가 버튼)와 겹치지 않도록 간격 유지 */
+  { id: 6, top: 554, left: 170 },
 ];
 
 function toXPercent(px: number) {
@@ -90,12 +105,23 @@ function SlotBubble({
     return null;
   }
 
+  const hoverClass =
+    kind === "gift"
+      ? "transition-transform hover:scale-100 active:scale-[0.99]"
+      : "transition-transform hover:scale-[1.02]";
+
+  /** 투명 슬롯용 — 점선 전: 연한 흰 테두리 + 반투명 + 블러 */
+  const slotChrome =
+    "border border-white/35 bg-white/15 shadow-sm backdrop-blur-[4px] text-slate-800";
+
   return (
     <button
       key={slot.id}
       type="button"
       onClick={() => onClick?.(slot.id)}
-      className="absolute z-10 aspect-square overflow-hidden rounded-full border border-white/70 bg-[#d9d9d9] text-slate-700 shadow-sm transition-transform hover:scale-[1.02]"
+      className={`absolute aspect-square overflow-hidden rounded-full ${slotChrome} ${
+        kind === "gift" ? "z-20" : "z-[12]"
+      } ${hoverClass}`}
       style={{
         top: toYPercent(slot.top),
         left: toXPercent(slot.left),
@@ -145,7 +171,7 @@ function GiftSlots({
       key={slot.id}
       slot={slot}
       kind="gift"
-      size={slot.size}
+      size={Math.max(slot.size, MIN_GIFT_SIZE)}
       onClick={onSlotClick}
       showPlaceholder={showPlaceholder}
     />
@@ -180,6 +206,7 @@ export {
   DESIGN_WIDTH,
   GiftSlots,
   StickerSlots,
+  STICKER_SIZE,
   giftLayouts,
   stickerSlots,
   toXPercent,

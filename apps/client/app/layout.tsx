@@ -9,6 +9,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  /** 웹뷰·노치 기기에서 safe-area env()가 올바르게 잡히도록 */
+  viewportFit: "cover",
+  themeColor: "#7B61FF",
 };
 
 export default function RootLayout({

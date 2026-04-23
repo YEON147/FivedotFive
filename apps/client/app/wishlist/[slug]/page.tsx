@@ -10,6 +10,7 @@ import {
   DESIGN_WIDTH,
   GiftSlots,
   StickerSlots,
+  STICKER_SIZE,
   stickerSlots,
   toXPercent,
   toYPercent,
@@ -23,8 +24,6 @@ import {
   updateComment,
 } from "@/features/wishlist/api";
 import type { BoardAssetData, CommentData, StickerOption, WishItemData } from "@/features/wishlist/types";
-
-const STICKER_SIZE = 68;
 
 const STICKER_OPTIONS: StickerOption[] = [
   { id: "sticker1", label: "Sticker 1", src: "/sticker/sticker1.png" },
@@ -153,7 +152,7 @@ function CommentBoardPage({
                 alt={comment?.senderName ?? "comment"}
                 fill
                 unoptimized
-                sizes="68px"
+                sizes={`${STICKER_SIZE}px`}
                 className="object-cover"
               />
             ) : (
@@ -299,19 +298,20 @@ export default function PublicWishlistPage({
   };
 
   return (
-    <main className="fixed inset-0 h-[100dvh] overflow-hidden bg-[#e6e6e6] p-3">
+    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col bg-[var(--color-bg-base)] px-4 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-5">
       {/* 팝업 백드롭 */}
       {selectedSlot !== null && (
         <div className="fixed inset-0 z-20 bg-black/40" onClick={handleClosePopup} />
       )}
 
-      <div className="relative flex h-[calc(100dvh-1.5rem)] flex-col items-center justify-center gap-3">
+      <div className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-3 px-1 py-1">
         {/* ── 슬라이딩 보드 ── */}
         <div
-          className="relative w-full max-w-[390px] overflow-hidden rounded-sm"
+          className="relative w-full max-w-[372px] overflow-hidden rounded-[14px] shadow-[0_8px_40px_rgba(0,0,0,0.08)]"
           style={{
             aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
-            maxHeight: "calc(100dvh - 5rem)",
+            maxHeight:
+              "calc(100svh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem)",
           }}
         >
           <div

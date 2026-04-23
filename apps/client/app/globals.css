@@ -70,6 +70,12 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
+
+  /**
+   * 논리 뷰포트가 이보다 좁아지면 레이아웃이 더 줄어들지 않음.
+   * (일반 플로우는 html/body min-width, 고정 전체 화면은 .app-shell-viewport-floor)
+   */
+  --app-min-viewport-width: 360px;
 }
 
 @theme inline {
@@ -99,11 +105,68 @@
   --color-bg-cream: var(--color-bg-cream);
 }
 
+html {
+  min-width: var(--app-min-viewport-width);
+  overflow-x: auto;
+}
+
 body {
   margin: 0;
+  min-width: var(--app-min-viewport-width);
   background: var(--background);
   color: var(--foreground);
   font-family: "TmoneyRoundWind", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+/**
+ * 고정(`position: fixed`)으로 꽉 채우는 화면 — 너비 하한으로 줄바꿈·찌그러짐 방지.
+ * 뷰포트가 min보다 좁으면 문서 가로 스크롤로 전체 폭 유지.
+ */
+.app-shell-viewport-floor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  min-width: var(--app-min-viewport-width);
+  width: max(100vw, var(--app-min-viewport-width));
+  height: 100dvh;
+  max-height: 100dvh;
+  max-height: 100svh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/**
+ * 위시리스트 루트 — 연보라 + 연하늘 오로라 (보기·꾸미기 공통)
+ */
+.wishlist-page-root {
+  background:
+    radial-gradient(ellipse 130% 85% at 18% 12%, rgba(214, 236, 255, 0.72) 0%, transparent 58%),
+    radial-gradient(ellipse 95% 75% at 92% 38%, rgba(236, 228, 255, 0.78) 0%, transparent 52%),
+    radial-gradient(ellipse 110% 70% at 42% 95%, rgba(199, 228, 255, 0.42) 0%, transparent 48%),
+    linear-gradient(
+      168deg,
+      #f3f8ff 0%,
+      var(--color-bg-lavender) 36%,
+      #dceeff 68%,
+      #ebe4ff 100%
+    );
+}
+
+/** 내 위시 보드 영역 — 페이지와 같은 오로라 팔레트 */
+.wishlist-board-frame--decorate {
+  background:
+    radial-gradient(ellipse 115% 80% at 22% 18%, rgba(210, 234, 255, 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse 90% 72% at 90% 48%, rgba(232, 224, 255, 0.62) 0%, transparent 54%),
+    linear-gradient(
+      168deg,
+      #eef5ff 0%,
+      var(--color-bg-lavender) 50%,
+      #e0ecff 100%
+    );
 }
 
 @layer utilities {
@@ -151,9 +214,19 @@ body {
 
   .text-wish-title {
     font-family: "TmoneyRoundWind", sans-serif;
-    font-size: 21px;
+    font-size: 22px;
     font-weight: 400;
     line-height: 1.4;
+    letter-spacing: 0.045em;
+  }
+
+  /** 위시리스트 보조 타이틀 (필요 시) */
+  .text-wish-title-sm {
+    font-family: "TmoneyRoundWind", sans-serif;
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 1.38;
+    letter-spacing: 0.045em;
   }
 
   .text-wish-body {
