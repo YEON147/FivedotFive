@@ -38,3 +38,6 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-expiration: 3600000 # 1시간 (ms)
   refresh-token-expiration: 604800 # 7일 (seconds, Redis용)
+
+app:
+  frontend-url: ${FRONTEND_URL:https://fivedotfive.co.kr}
