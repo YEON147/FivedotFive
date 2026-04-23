@@ -23,7 +23,7 @@ spring:
             client-secret: ${KAKAO_CLIENT_SECRET}
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
-            redirect-uri: "http://localhost:8080/login/oauth2/code/kakao"
+            redirect-uri: "https://fivedotfive.co.kr/api/login/oauth2/code/kakao"
             scope: profile_nickname, account_email
             client-name: Kakao
         provider:
