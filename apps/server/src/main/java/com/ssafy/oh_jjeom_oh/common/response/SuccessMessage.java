@@ -57,7 +57,12 @@ public enum SuccessMessage {
     // 댓글 스티커 (선물 아이콘)
     COMMENT_STICKER_FOUND("선물 아이콘 조회가 완료되었습니다."),
     COMMENT_STICKER_UPDATED("선물 아이콘이 변경되었습니다."),
-    COMMENT_STICKER_DELETED("선물 아이콘이 삭제되었습니다.");
+    COMMENT_STICKER_DELETED("선물 아이콘이 삭제되었습니다."),
+
+    // 랭킹
+    SCHOOL_USER_RANKING_FOUND("학교별 사용자 수 랭킹 조회가 완료되었습니다."),
+    SCHOOL_COMMENT_RANKING_FOUND("학교별 댓글 수 랭킹 조회가 완료되었습니다."),
+    USER_COMMENT_RANKING_FOUND("개인별 댓글 수 랭킹 조회가 완료되었습니다.");
 
     private final String message;
 }
