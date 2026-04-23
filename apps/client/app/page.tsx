@@ -3,16 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-<<<<<<< Updated upstream
-import { createMyBoard } from "@/features/wishlist/api";
-import { getMyProfile } from "@/features/user/api";
-=======
 import {
   getWishlistCtaTrafficContext,
   trackWishlistCreateClick,
 } from "@/lib/analytics/wishlistCta";
 import { apiClient } from "@/lib/api/client";
->>>>>>> Stashed changes
 import { getAccessToken } from "@/lib/api/token-store";
 
 export default function Home() {
