@@ -2,7 +2,7 @@
 
 import { CaretLeftIcon, CaretRightIcon, ChatCircleDots } from "@phosphor-icons/react";
 import Image from "next/image";
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { CommentPopup } from "@/components/wishlist/CommentPopup";
 import {
@@ -14,7 +14,6 @@ import {
   stickerSlots,
   toXPercent,
   toYPercent,
-  type GiftLayoutCount,
 } from "@/components/wishlist/WishlistSlots";
 import {
   createComment,
@@ -23,7 +22,9 @@ import {
   getPublicBoard,
   updateComment,
 } from "@/features/wishlist/api";
+import { deriveWishSlotState } from "@/features/wishlist/wish-slot-state";
 import type { BoardAssetData, CommentData, StickerOption, WishItemData } from "@/features/wishlist/types";
+import { getAssetImageUrl } from "@/lib/asset-url";
 
 const STICKER_OPTIONS: StickerOption[] = [
   { id: "sticker1", label: "Sticker 1", src: "/sticker/sticker1.png" },
@@ -36,90 +37,140 @@ const STICKER_OPTIONS: StickerOption[] = [
 
 type PopupMode = "view" | "write" | "edit";
 
-/** 공통 보드 배경 + 선물 슬롯 레이아웃 */
-function BoardBase({
+/**
+ * `app/wishlist/page.tsx` 꾸미기·보드 영역과 동일 (`WISHLIST_BOARD_PAGE_WRAP`) — 흰 카드 셸 없음.
+ */
+const PUBLIC_WISHLIST_BOARD_WRAP =
+  "relative flex h-full min-h-0 max-h-full w-full max-w-[372px] flex-1 flex-col overflow-hidden bg-transparent";
+
+/**
+ * 공개 보드 바깥 프레임 — `app/wishlist/page.tsx` 꾸미기 보드 프레임과 동일.
+ * 배경 에셋이 없을 때도 오로라 그라데이션(`wishlist-board-frame--decorate`)이 깔림.
+ */
+const PUBLIC_BOARD_FRAME_OUTER =
+  "relative isolate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 overflow-hidden rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
+
+/** 배경 이미지는 위 레이어 — 없을 때는 바깥 프레임 오로라만 보임 */
+const PUBLIC_BOARD_INNER =
+  "relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-transparent";
+
+const PUBLIC_PROFILE_HEADER_ROW =
+  "relative z-40 flex items-center gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+
+const PUBLIC_WISHLIST_APP_FOOTER =
+  "flex min-h-10 w-full shrink-0 items-center justify-center border-t border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-xs text-[var(--color-text-secondary)]";
+
+function PublicBoardProfileHeader({ ownerName }: { ownerName: string }) {
+  const displayName = ownerName.trim() || "회원";
+
+  return (
+    <header className={PUBLIC_PROFILE_HEADER_ROW}>
+      <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
+        <span className="block">
+          <span className="inline-flex items-baseline gap-0.5">
+            <span className="font-bold text-[#7B61FF]">{displayName}</span>
+            <span className="text-[18px] font-light leading-none text-slate-900">님의</span>
+          </span>
+        </span>
+        <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">
+          위시리스트
+        </span>
+      </h1>
+    </header>
+  );
+}
+
+/**
+ * 보드 한 면 — 배경·선물·헤더는 내 위시리스트와 동일 규칙(`getAssetImageUrl`, `deriveWishSlotState`).
+ */
+function BoardFrame({
+  ownerName,
   boardAssets,
   boardItems,
   children,
 }: {
+  ownerName: string;
   boardAssets: BoardAssetData[];
   boardItems: WishItemData[];
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
-  const backgroundAsset = boardAssets.find((a) => a.assetType === "BACKGROUND");
+  const backgroundUrl = useMemo(() => {
+    const bg = boardAssets.find((a) => a.assetType === "BACKGROUND");
+    return bg ? getAssetImageUrl(bg.assetKey) : null;
+  }, [boardAssets]);
 
-  const giftCount = Math.max(
-    1,
-    Math.min(3, boardItems.filter((i) => i.itemName).length),
-  ) as GiftLayoutCount;
+  const { bigCircleCount, wishGiftIconKeys } = useMemo(
+    () => deriveWishSlotState(boardItems),
+    [boardItems],
+  );
 
-  const giftImages = boardAssets
-    .filter((a) => a.assetType === "GIFT_ICON" && a.slotIndex !== null)
-    .reduce<Record<number, string>>((acc, a) => {
-      if (a.slotIndex !== null) acc[a.slotIndex] = a.assetKey;
-      return acc;
-    }, {});
+  const giftImages = useMemo(() => {
+    const out: Partial<Record<number, string>> = {};
+    for (let i = 0; i < bigCircleCount; i++) {
+      const key = wishGiftIconKeys[i]?.trim();
+      if (key) {
+        out[i + 1] = getAssetImageUrl(key);
+      }
+    }
+    return out;
+  }, [bigCircleCount, wishGiftIconKeys]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-sm bg-[#efefef]">
-      {backgroundAsset && (
-        <Image
-          src={backgroundAsset.assetKey}
-          alt="board background"
-          fill
-          unoptimized
-          sizes="390px"
-          className="object-cover"
-          priority
+    <div className={PUBLIC_BOARD_INNER}>
+      {backgroundUrl ? (
+        <img
+          src={backgroundUrl}
+          alt=""
+          className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
         />
-      )}
+      ) : null}
 
-      <header className="relative flex items-center pl-[8%] pt-[8%]">
-        <h1 className="text-wish-title">WishList</h1>
-      </header>
+      <PublicBoardProfileHeader ownerName={ownerName} />
 
-      <GiftSlots count={giftCount} images={giftImages} showPlaceholder={true} />
+      <GiftSlots count={bigCircleCount} images={giftImages} showPlaceholder />
 
       {children}
-
-      <footer className="absolute bottom-0 left-0 flex h-[6%] min-h-10 w-full items-center bg-[#d2d2d2] px-6">
-        <span className="text-body-sm">Ad Banner</span>
-      </footer>
     </div>
   );
 }
 
-/** 페이지 0: 주인의 위시리스트 원본 */
+/** 페이지 0: 주인의 위시리스트 — 스티커 장식 표시 */
 function MainBoardPage({
+  ownerName,
   boardAssets,
   boardItems,
 }: {
+  ownerName: string;
   boardAssets: BoardAssetData[];
   boardItems: WishItemData[];
 }) {
-  const stickerImages = boardAssets
-    .filter((a) => a.assetType === "STICKER" && a.slotIndex !== null)
-    .reduce<Record<number, string>>((acc, a) => {
-      if (a.slotIndex !== null) acc[a.slotIndex] = a.assetKey;
-      return acc;
-    }, {});
+  const stickerImages = useMemo(() => {
+    const acc: Partial<Record<number, string>> = {};
+    for (const a of boardAssets) {
+      if (a.assetType === "STICKER" && a.slotIndex !== null) {
+        acc[a.slotIndex] = getAssetImageUrl(a.assetKey);
+      }
+    }
+    return acc;
+  }, [boardAssets]);
 
   return (
-    <BoardBase boardAssets={boardAssets} boardItems={boardItems}>
-      {/* 주인이 설정한 스티커 장식 (클릭 불가) */}
+    <BoardFrame ownerName={ownerName} boardAssets={boardAssets} boardItems={boardItems}>
       <StickerSlots images={stickerImages} showPlaceholder={false} />
-    </BoardBase>
+    </BoardFrame>
   );
 }
 
 /** 페이지 1+: 댓글 슬롯 */
 function CommentBoardPage({
+  ownerName,
   boardAssets,
   boardItems,
   comments,
   isLoading,
   onSlotClick,
 }: {
+  ownerName: string;
   boardAssets: BoardAssetData[];
   boardItems: WishItemData[];
   comments: CommentData[];
@@ -127,10 +178,11 @@ function CommentBoardPage({
   onSlotClick: (slotId: number) => void;
 }) {
   return (
-    <BoardBase boardAssets={boardAssets} boardItems={boardItems}>
+    <BoardFrame ownerName={ownerName} boardAssets={boardAssets} boardItems={boardItems}>
       {stickerSlots.map((slot, index) => {
         const comment = comments[index] ?? null;
-        const imageSrc = comment?.stickerKey ?? null;
+        const rawKey = comment?.stickerKey?.trim();
+        const imageSrc = rawKey ? getAssetImageUrl(rawKey) : null;
 
         return (
           <button
@@ -163,7 +215,7 @@ function CommentBoardPage({
           </button>
         );
       })}
-    </BoardBase>
+    </BoardFrame>
   );
 }
 
@@ -176,20 +228,16 @@ export default function PublicWishlistPage({
 
   const [boardItems, setBoardItems] = useState<WishItemData[]>([]);
   const [boardAssets, setBoardAssets] = useState<BoardAssetData[]>([]);
+  const [ownerName, setOwnerName] = useState("");
 
-  // 댓글 페이지 캐시: 댓글 페이지 인덱스(0-based) → 댓글 목록
   const [commentCache, setCommentCache] = useState<Record<number, CommentData[]>>({});
   const [loadingPages, setLoadingPages] = useState<Set<number>>(new Set());
-  // 댓글 페이지 수 (최소 1 — 빈 상태도 댓글 쓸 수 있는 1페이지 존재)
   const [commentTotalPages, setCommentTotalPages] = useState(1);
 
-  // 현재 보이는 슬라이드 인덱스
-  // 0 = 주인 위시리스트 / 1+ = 댓글 페이지 (댓글 인덱스 = currentVisualPage - 1)
   const [currentVisualPage, setCurrentVisualPage] = useState(0);
 
   const totalVisualPages = 1 + commentTotalPages;
 
-  // 팝업
   const [popupCommentPage, setPopupCommentPage] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [popupMode, setPopupMode] = useState<PopupMode>("view");
@@ -205,7 +253,6 @@ export default function PublicWishlistPage({
       try {
         const data = await getComments(slug, commentPageIdx);
         setCommentCache((prev) => ({ ...prev, [commentPageIdx]: data.data.comments }));
-        // totalPages=0 이면 빈 첫 페이지도 존재하므로 최소 1
         setCommentTotalPages(Math.max(1, data.data.totalPages || 1));
       } finally {
         setLoadingPages((prev) => {
@@ -218,20 +265,18 @@ export default function PublicWishlistPage({
     [slug, commentCache, loadingPages],
   );
 
-  // 보드 데이터 초기 로드
   useEffect(() => {
     getPublicBoard(slug)
       .then((data) => {
         setBoardItems(data.data.items);
         setBoardAssets(data.data.assets);
+        setOwnerName(data.data.username ?? "");
       })
       .catch(() => {});
 
-    // 첫 번째 댓글 페이지도 미리 로드
     fetchCommentPage(0);
   }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 현재 시각적 페이지가 변경될 때 해당 댓글 페이지 + 인접 페이지 로드
   useEffect(() => {
     if (currentVisualPage === 0) return;
     const commentIdx = currentVisualPage - 1;
@@ -244,10 +289,11 @@ export default function PublicWishlistPage({
     if (visualPage < 0 || visualPage >= totalVisualPages || isSliding.current) return;
     isSliding.current = true;
     setCurrentVisualPage(visualPage);
-    setTimeout(() => { isSliding.current = false; }, 350);
+    setTimeout(() => {
+      isSliding.current = false;
+    }, 350);
   };
 
-  // 댓글 작성하러 가기 → 마지막 댓글 페이지 (visual index = totalVisualPages - 1)
   const handleGoToLastCommentPage = () => navigateTo(totalVisualPages - 1);
 
   const handleSlotClick = (slotId: number, commentPageIdx: number) => {
@@ -298,97 +344,103 @@ export default function PublicWishlistPage({
   };
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col bg-[var(--color-bg-base)] px-4 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-5">
-      {/* 팝업 백드롭 */}
-      {selectedSlot !== null && (
+    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+      {selectedSlot !== null ? (
         <div className="fixed inset-0 z-20 bg-black/40" onClick={handleClosePopup} />
-      )}
+      ) : null}
 
-      <div className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-3 px-1 py-1">
-        {/* ── 슬라이딩 보드 ── */}
-        <div
-          className="relative w-full max-w-[372px] overflow-hidden rounded-[14px] shadow-[0_8px_40px_rgba(0,0,0,0.08)]"
-          style={{
-            aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
-            maxHeight:
-              "calc(100svh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem)",
-          }}
-        >
-          <div
-            className="flex h-full transition-transform duration-300 ease-out"
-            style={{
-              width: `${totalVisualPages * 100}%`,
-              transform: `translateX(calc(-${currentVisualPage} * (100% / ${totalVisualPages})))`,
-            }}
-          >
-            {/* 페이지 0: 주인 위시리스트 */}
-            <div className="relative h-full" style={{ width: `${100 / totalVisualPages}%` }}>
-              <MainBoardPage boardAssets={boardAssets} boardItems={boardItems} />
-            </div>
-
-            {/* 페이지 1+: 댓글 페이지 */}
-            {Array.from({ length: commentTotalPages }, (_, commentIdx) => (
+      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
+        <section className={`${PUBLIC_WISHLIST_BOARD_WRAP} mx-auto w-full`}>
+          <div className="relative flex min-h-0 flex-1 flex-col p-0">
+            <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-center">
               <div
-                key={commentIdx}
-                className="relative h-full"
-                style={{ width: `${100 / totalVisualPages}%` }}
+                className={PUBLIC_BOARD_FRAME_OUTER}
+                style={{
+                  aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
+                }}
               >
-                <CommentBoardPage
-                  boardAssets={boardAssets}
-                  boardItems={boardItems}
-                  comments={commentCache[commentIdx] ?? []}
-                  isLoading={loadingPages.has(commentIdx)}
-                  onSlotClick={(slotId) => handleSlotClick(slotId, commentIdx)}
-                />
-              </div>
-            ))}
-          </div>
+                <div
+                  className="absolute inset-0 flex h-full min-h-0 transition-transform duration-300 ease-out"
+                  style={{
+                    width: `${totalVisualPages * 100}%`,
+                    transform: `translateX(calc(-${currentVisualPage} * (100% / ${totalVisualPages})))`,
+                  }}
+                >
+                  <div
+                    className="relative h-full min-h-0 p-0"
+                    style={{ width: `${100 / totalVisualPages}%` }}
+                  >
+                    <MainBoardPage
+                      ownerName={ownerName}
+                      boardAssets={boardAssets}
+                      boardItems={boardItems}
+                    />
+                  </div>
 
-          {/* 배너(푸터) 위 · 위시리스트 꾸미기 화면의 연필/공유 FAB와 동일 톤 */}
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-[calc(max(6%,2.5rem)+12px)] z-20 flex items-end justify-between px-[4%]"
-          >
-            <div className="pointer-events-auto flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => navigateTo(currentVisualPage - 1)}
-                disabled={currentVisualPage === 0}
-                className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                aria-label="이전 페이지"
-              >
-                <CaretLeftIcon size={23} weight="bold" />
-              </button>
-              <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
-                {currentVisualPage + 1} / {totalVisualPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => navigateTo(currentVisualPage + 1)}
-                disabled={currentVisualPage === totalVisualPages - 1}
-                className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                aria-label="다음 페이지"
-              >
-                <CaretRightIcon size={23} weight="bold" />
-              </button>
+                  {Array.from({ length: commentTotalPages }, (_, commentIdx) => (
+                    <div
+                      key={commentIdx}
+                      className="relative h-full min-h-0 p-0"
+                      style={{ width: `${100 / totalVisualPages}%` }}
+                    >
+                      <CommentBoardPage
+                        ownerName={ownerName}
+                        boardAssets={boardAssets}
+                        boardItems={boardItems}
+                        comments={commentCache[commentIdx] ?? []}
+                        isLoading={loadingPages.has(commentIdx)}
+                        onSlotClick={(slotId) => handleSlotClick(slotId, commentIdx)}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex items-end justify-between px-[4%]">
+                  <div className="pointer-events-auto flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => navigateTo(currentVisualPage - 1)}
+                      disabled={currentVisualPage === 0}
+                      className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                      aria-label="이전 페이지"
+                    >
+                      <CaretLeftIcon size={23} weight="bold" />
+                    </button>
+                    <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
+                      {currentVisualPage + 1} / {totalVisualPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigateTo(currentVisualPage + 1)}
+                      disabled={currentVisualPage === totalVisualPages - 1}
+                      className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                      aria-label="다음 페이지"
+                    >
+                      <CaretRightIcon size={23} weight="bold" />
+                    </button>
+                  </div>
+
+                  {currentVisualPage === 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleGoToLastCommentPage}
+                      className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
+                      aria-label="댓글 작성하러 가기"
+                      title="댓글 작성하러 가기"
+                    >
+                      <ChatCircleDots size={23} weight="bold" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
 
-            {currentVisualPage === 0 ? (
-              <button
-                type="button"
-                onClick={handleGoToLastCommentPage}
-                className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
-                aria-label="댓글 작성하러 가기"
-                title="댓글 작성하러 가기"
-              >
-                <ChatCircleDots size={23} weight="bold" />
-              </button>
-            ) : null}
+            <footer className={PUBLIC_WISHLIST_APP_FOOTER}>광고 중...</footer>
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* 댓글 팝업 */}
-      {selectedSlot !== null && (
+      {selectedSlot !== null ? (
         <CommentPopup
           mode={popupMode}
           comment={selectedComment}
@@ -399,7 +451,7 @@ export default function PublicWishlistPage({
           onUpdate={handleUpdate}
           onDelete={handleDelete}
         />
-      )}
+      ) : null}
     </main>
   );
 }
