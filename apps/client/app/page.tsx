@@ -7,8 +7,9 @@ import {
   getWishlistCtaTrafficContext,
   trackWishlistCreateClick,
 } from "@/lib/analytics/wishlistCta";
-import { apiClient } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/token-store";
+import { createMyBoard } from "@/features/wishlist/api";
+import { getMyProfile } from "@/features/user/api";
 
 export default function Home() {
   const router = useRouter();
