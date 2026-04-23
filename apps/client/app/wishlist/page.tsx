@@ -12,7 +12,14 @@ import {
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
@@ -24,8 +31,13 @@ import {
   StickerSlots,
   type GiftLayoutCount,
 } from "@/components/wishlist/WishlistSlots";
-import { deleteMyWishItem, getMyBoard, patchMyWishItem } from "@/features/wishlist/api";
-import type { BoardAssetData, WishItemData } from "@/features/wishlist/types";
+import {
+  createMyBoard,
+  deleteMyWishItem,
+  getMyBoard,
+  patchMyWishItem,
+} from "@/features/wishlist/api";
+import type { BoardAssetData, MyBoardData, WishItemData } from "@/features/wishlist/types";
 import { getMyProfile } from "@/features/user/api";
 import {
   fetchBackgroundAssets,
@@ -236,12 +248,28 @@ export default function WishlistPage() {
   const [wishSlotsLoaded, setWishSlotsLoaded] = useState(false);
   const [allWishSlotsEmpty, setAllWishSlotsEmpty] = useState(false);
   const [bypassEmptyState, setBypassEmptyState] = useState(false);
+  /** 초기 GET /api/boards/me 성공 여부 — 실패 시 보드 없음·일시 오류 구분 없이 생성 플로우 허용 */
+  const [hasMyBoard, setHasMyBoard] = useState(false);
+  const [decorateStartLoading, setDecorateStartLoading] = useState(false);
+  const [decorateStartError, setDecorateStartError] = useState<string | null>(null);
   const [viewerName, setViewerName] = useState("회원");
   const [backgroundAssets, setBackgroundAssets] = useState<BackgroundAssetDto[]>([]);
   const [backgroundsLoading, setBackgroundsLoading] = useState(false);
   const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
   const [stickerModalTab, setStickerModalTab] = useState<StickerModalTabId>("all");
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyLoadedBoard = useCallback((board: MyBoardData) => {
+    const { items, assets, boardSlug } = board.data;
+    setBoardSlug(boardSlug);
+    setBoardAssets(assets);
+
+    const derived = deriveWishSlotState(items);
+    setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
+    setWishTexts(derived.wishTexts);
+    setWishGiftIconKeys(derived.wishGiftIconKeys);
+    setBigCircleCount(derived.bigCircleCount);
+  }, []);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -256,7 +284,6 @@ export default function WishlistPage() {
       setGiftIconsLoading(true);
       try {
         const settled = await Promise.allSettled([
-          getMyBoard(),
           getMyProfile(),
           fetchGiftIcons(),
         ]);
@@ -265,15 +292,9 @@ export default function WishlistPage() {
           return;
         }
 
-        const profileResult = settled[1];
-        if (profileResult.status === "fulfilled") {
-          const profile = profileResult.value;
-          setViewerName(
-            profile.nickname?.trim() || profile.username?.trim() || "회원",
-          );
-        }
+        const profileResult = settled[0];
+        const giftIconsResult = settled[1];
 
-        const giftIconsResult = settled[2];
         if (giftIconsResult.status === "fulfilled") {
           setGiftIcons(giftIconsResult.value);
           setGiftIconsError(null);
@@ -286,24 +307,53 @@ export default function WishlistPage() {
           );
         }
 
-        const boardResult = settled[0];
-        if (boardResult.status !== "fulfilled") {
-          setAllWishSlotsEmpty(true);
-          setBoardAssets([]);
+        if (profileResult.status === "fulfilled") {
+          const profile = profileResult.value;
+          setViewerName(
+            profile.nickname?.trim() || profile.username?.trim() || "회원",
+          );
+
+          if (!profile.hasWishBoard) {
+            setHasMyBoard(false);
+            setAllWishSlotsEmpty(true);
+            setBoardAssets([]);
+            return;
+          }
+
+          try {
+            const board = await getMyBoard();
+            if (cancelled) {
+              return;
+            }
+            applyLoadedBoard(board);
+            setHasMyBoard(true);
+          } catch {
+            if (!cancelled) {
+              setHasMyBoard(false);
+              setAllWishSlotsEmpty(true);
+              setBoardAssets([]);
+            }
+          }
           return;
         }
 
-        const { items, assets, boardSlug } = boardResult.value.data;
-        setBoardSlug(boardSlug);
-        setBoardAssets(assets);
-
-        const derived = deriveWishSlotState(items);
-        setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
-        setWishTexts(derived.wishTexts);
-        setWishGiftIconKeys(derived.wishGiftIconKeys);
-        setBigCircleCount(derived.bigCircleCount);
+        try {
+          const board = await getMyBoard();
+          if (cancelled) {
+            return;
+          }
+          applyLoadedBoard(board);
+          setHasMyBoard(true);
+        } catch {
+          if (!cancelled) {
+            setHasMyBoard(false);
+            setAllWishSlotsEmpty(true);
+            setBoardAssets([]);
+          }
+        }
       } catch {
         if (!cancelled) {
+          setHasMyBoard(false);
           setAllWishSlotsEmpty(true);
           setBoardAssets([]);
         }
@@ -320,7 +370,7 @@ export default function WishlistPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, applyLoadedBoard]);
 
   /**
    * 빈 슬롯이면 꾸미기 시작 카드로 돌아갈 수 있게 bypass 해제.
@@ -492,23 +542,30 @@ export default function WishlistPage() {
     try {
       await patchMyWishItem(slotIndexApi, patchBody);
 
-      setWishTexts((prev) => {
-        const next = [...prev];
-        next[idx0] = name;
-        return next;
-      });
-      setWishGiftIconKeys((prev) => {
-        const next = [...prev];
-        next[idx0] = nextIconKeyForLocal;
-        return next;
-      });
+      try {
+        const board = await getMyBoard();
+        applyLoadedBoard(board);
+        setHasMyBoard(true);
+      } catch {
+        setWishTexts((prev) => {
+          const next = [...prev];
+          next[idx0] = name;
+          return next;
+        });
+        setWishGiftIconKeys((prev) => {
+          const next = [...prev];
+          next[idx0] = nextIconKeyForLocal;
+          return next;
+        });
 
-      if (
-        giftModalMode === "add" &&
-        idx0 === bigCircleCount &&
-        bigCircleCount < 3
-      ) {
-        setBigCircleCount((c) => ((c + 1) as GiftLayoutCount));
+        if (
+          giftModalMode === "add" &&
+          idx0 === bigCircleCount &&
+          bigCircleCount < 3
+        ) {
+          setBigCircleCount((c) => ((c + 1) as GiftLayoutCount));
+        }
+        setAllWishSlotsEmpty(false);
       }
 
       closeGiftModal();
@@ -753,6 +810,44 @@ export default function WishlistPage() {
     router.push("/login");
   };
 
+  const handleStartDecorate = async () => {
+    if (decorateStartLoading) {
+      return;
+    }
+
+    setDecorateStartError(null);
+
+    if (hasMyBoard) {
+      setBypassEmptyState(true);
+      setIsDecorateMode(true);
+      return;
+    }
+
+    setDecorateStartLoading(true);
+    try {
+      try {
+        await createMyBoard();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (!msg.includes("이미 위시보드가 존재합니다")) {
+          throw e;
+        }
+      }
+
+      const board = await getMyBoard();
+      applyLoadedBoard(board);
+      setHasMyBoard(true);
+      setBypassEmptyState(true);
+      setIsDecorateMode(true);
+    } catch (e) {
+      setDecorateStartError(
+        e instanceof Error ? e.message : "위시보드를 준비하지 못했습니다.",
+      );
+    } finally {
+      setDecorateStartLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isSidebarOpen) {
       return;
@@ -849,15 +944,18 @@ export default function WishlistPage() {
                     <span className="mt-1 block">받고싶은 선물들을 모아볼까요?</span>
                   </p>
                 </div>
+                {decorateStartError ? (
+                  <p className="w-full max-w-[272px] text-center text-xs text-rose-600">
+                    {decorateStartError}
+                  </p>
+                ) : null}
                 <button
                   type="button"
-                  onClick={() => {
-                    setBypassEmptyState(true);
-                    setIsDecorateMode(true);
-                  }}
-                  className="w-full max-w-[272px] rounded-[16px] bg-[#7B61FF] py-3 text-sm font-bold text-white shadow-md transition active:opacity-90 touch-manipulation hover:opacity-95"
+                  onClick={() => void handleStartDecorate()}
+                  disabled={decorateStartLoading}
+                  className="w-full max-w-[272px] rounded-[16px] bg-[#7B61FF] py-3 text-sm font-bold text-white shadow-md transition enabled:active:opacity-90 touch-manipulation enabled:hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  위시리스트 꾸미기 시작하기
+                  {decorateStartLoading ? "준비 중…" : "위시리스트 꾸미기 시작하기"}
                 </button>
               </div>
             </div>
