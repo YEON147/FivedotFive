@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+
+import { AdsenseBootstrap } from "@/components/AdsenseBootstrap";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -43,14 +45,9 @@ export default function RootLayout({
         </noscript>
         {/* End Google Tag Manager (noscript) */}
 
-        {/* GTM·AdSense: raw <script> in <head>는 로더가 DOM을 바꿔 hydration 불일치 유발 → next/script 사용 */}
+        {/* GTM만 next/script — AdSense는 data-nscript 미부착을 위해 AdsenseBootstrap */}
         <Script id="google-tag-manager" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: GTM_SCRIPT }} />
-        <Script
-          async
-          strategy="afterInteractive"
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2280190033939879"
-          crossOrigin="anonymous"
-        />
+        <AdsenseBootstrap />
 
         {children}
       </body>
