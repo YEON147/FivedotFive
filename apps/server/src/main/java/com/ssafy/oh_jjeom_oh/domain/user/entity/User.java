@@ -73,4 +73,41 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public void registerProfile(String school, Gender gender, String grade) {
+        this.school = school;
+        this.gender = gender;
+        this.grade = grade;
+    }
+
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public void updateSchool(String school) {
+        this.school = school;
+    }
+
+    public void updateGender(Gender gender) {
+        this.gender = gender;
+    }
+
+    public void updateGrade(String grade) {
+        this.grade = grade;
+    }
+
+    public void withdraw() {
+        this.status = Status.DELETED; // Status.INACTIVE
+    }
+
+    public void updateProfile(String school, String nickname, Gender gender, String grade) {
+        this.school = school;
+        this.nickname = nickname;
+        this.gender = gender;
+        this.grade = grade;
+    }
 }
