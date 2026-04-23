@@ -6,12 +6,11 @@ import {
   checkNickname,
   checkUserEmail,
   checkUsername,
-  searchSchools,
+  getRandomNickname,
   signup,
 } from "@/features/signup/api";
 import type {
   CheckStatus,
-  SchoolOption,
   SignupFormErrors,
   SignupFormValues,
   SignupRequest,
@@ -93,58 +92,24 @@ export function useSignupForm() {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
 
-  const [schoolKeyword, setSchoolKeyword] = useState("");
-  const [schoolResults, setSchoolResults] = useState<SchoolOption[]>([]);
-  const [isSchoolSearching, setIsSchoolSearching] = useState(false);
-  const [isSchoolDropdownOpen, setIsSchoolDropdownOpen] = useState(false);
-  const [hasSelectedSchool, setHasSelectedSchool] = useState(false);
-  const [ignoreNextSchoolFocus, setIgnoreNextSchoolFocus] = useState(false);
-
   const [isNicknameDirty, setIsNicknameDirty] = useState(false);
   const [nicknameCheckStatus, setNicknameCheckStatus] =
     useState<CheckStatus>("idle");
   const [nicknameCheckMessage, setNicknameCheckMessage] = useState<string | null>(
-    null
+    null,
   );
 
   const [usernameCheckStatus, setUsernameCheckStatus] =
     useState<CheckStatus>("idle");
   const [usernameCheckMessage, setUsernameCheckMessage] = useState<string | null>(
-    null
+    null,
   );
 
   const [userEmailCheckStatus, setUserEmailCheckStatus] =
     useState<CheckStatus>("idle");
   const [userEmailCheckMessage, setUserEmailCheckMessage] = useState<string | null>(
-    null
+    null,
   );
-
-  useEffect(() => {
-    const trimmed = schoolKeyword.trim();
-
-    if (!trimmed || hasSelectedSchool) {
-      setSchoolResults([]);
-      setIsSchoolDropdownOpen(false);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsSchoolSearching(true);
-      try {
-        const result = await searchSchools(trimmed);
-        setSchoolResults(result);
-        setIsSchoolDropdownOpen(result.length > 0);
-      } catch (error) {
-        console.error("학교 검색 실패:", error);
-        setSchoolResults([]);
-        setIsSchoolDropdownOpen(false);
-      } finally {
-        setIsSchoolSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [schoolKeyword, hasSelectedSchool]);
 
   useEffect(() => {
     const trimmedUsername = values.username.trim();
@@ -185,7 +150,7 @@ export function useSignupForm() {
           response.message ||
             (available
               ? "사용 가능한 아이디입니다."
-              : "이미 사용 중인 아이디입니다.")
+              : "이미 사용 중인 아이디입니다."),
         );
       } catch (error) {
         if (values.username.trim() !== requestUsername) return;
@@ -236,7 +201,7 @@ export function useSignupForm() {
           response.message ||
             (available
               ? "사용 가능한 이메일입니다."
-              : "이미 사용 중인 이메일입니다.")
+              : "이미 사용 중인 이메일입니다."),
         );
       } catch (error) {
         if (values.email.trim() !== requestEmail) return;
@@ -299,7 +264,7 @@ export function useSignupForm() {
           response.message ||
             (available
               ? "사용 가능한 닉네임입니다."
-              : "이미 사용 중인 닉네임입니다.")
+              : "이미 사용 중인 닉네임입니다."),
         );
       } catch (error) {
         if (values.nickname.trim() !== requestNickname) return;
@@ -324,12 +289,6 @@ export function useSignupForm() {
         [name]: value,
       }));
 
-      if (name === "nickname") {
-        setIsNicknameDirty(true);
-        setNicknameCheckStatus("idle");
-        setNicknameCheckMessage(null);
-      }
-
       if (name === "username") {
         setUsernameCheckStatus("idle");
         setUsernameCheckMessage(null);
@@ -338,6 +297,12 @@ export function useSignupForm() {
       if (name === "email") {
         setUserEmailCheckStatus("idle");
         setUserEmailCheckMessage(null);
+      }
+
+      if (name === "nickname") {
+        setIsNicknameDirty(true);
+        setNicknameCheckStatus("idle");
+        setNicknameCheckMessage(null);
       }
 
       setErrors((prev) => {
@@ -353,38 +318,29 @@ export function useSignupForm() {
         setSubmitSuccess(null);
       }
     },
-    [submitMessage]
+    [submitMessage],
   );
 
   const onRefetchNickname = useCallback(async () => {
-    setSubmitMessage("랜덤 닉네임 기능은 백엔드 연결 후 사용할 수 있습니다.");
-    setSubmitSuccess(false);
-  }, []);
-
-  const onSchoolKeywordChange = useCallback((value: string) => {
-    setHasSelectedSchool(false);
-    setIgnoreNextSchoolFocus(false);
-    setSchoolKeyword(value);
-
-    setValues((prev) => ({
-      ...prev,
-      schoolName: value,
-      schoolCode: "",
-    }));
-  }, []);
-
-  const onSelectSchool = useCallback((school: SchoolOption) => {
-    setValues((prev) => ({
-      ...prev,
-      schoolName: school.schoolName,
-      schoolCode: school.schoolCode,
-    }));
-
-    setSchoolKeyword(school.schoolName);
-    setSchoolResults([]);
-    setIsSchoolDropdownOpen(false);
-    setHasSelectedSchool(true);
-    setIgnoreNextSchoolFocus(true);
+    setIsNicknameLoading(true);
+    try {
+      const nickname = await getRandomNickname();
+      setValues((prev) => ({ ...prev, nickname }));
+      setIsNicknameDirty(true);
+      setNicknameCheckStatus("idle");
+      setNicknameCheckMessage(null);
+      setSubmitMessage(null);
+      setSubmitSuccess(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "랜덤 닉네임을 불러오지 못했습니다.";
+      setSubmitMessage(message);
+      setSubmitSuccess(false);
+    } finally {
+      setIsNicknameLoading(false);
+    }
   }, []);
 
   const canSubmit = useMemo(() => {
@@ -411,6 +367,11 @@ export function useSignupForm() {
       values.nickname.trim().length >= 2 &&
       values.nickname.trim().length <= 8;
 
+    const duplicateChecksOk =
+      usernameCheckStatus === "available" &&
+      userEmailCheckStatus === "available" &&
+      nicknameCheckStatus === "available";
+
     return (
       hasRequiredFields &&
       usernamePassed &&
@@ -418,10 +379,18 @@ export function useSignupForm() {
       passwordConfirmPassed &&
       emailPassed &&
       nicknamePassed &&
+      duplicateChecksOk &&
       !isSubmitting &&
       !isNicknameLoading
     );
-  }, [values, isSubmitting, isNicknameLoading]);
+  }, [
+    values,
+    isSubmitting,
+    isNicknameLoading,
+    usernameCheckStatus,
+    userEmailCheckStatus,
+    nicknameCheckStatus,
+  ]);
 
   const onSubmit = useCallback(async () => {
     const nextErrors = validateSignupForm(values);
@@ -433,14 +402,22 @@ export function useSignupForm() {
       return;
     }
 
+    if (
+      usernameCheckStatus !== "available" ||
+      userEmailCheckStatus !== "available" ||
+      nicknameCheckStatus !== "available"
+    ) {
+      setSubmitMessage("아이디·이메일·닉네임 중복 확인을 완료해주세요.");
+      setSubmitSuccess(false);
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitMessage(null);
     setSubmitSuccess(null);
 
     try {
       const payload = toSignupRequest(values);
-      console.log("signup payload", payload);
-
       const response = await signup(payload);
 
       setSubmitMessage(response.message ?? "회원가입이 완료되었습니다.");
@@ -457,7 +434,7 @@ export function useSignupForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [router, values]);
+  }, [router, values, usernameCheckStatus, userEmailCheckStatus, nicknameCheckStatus]);
 
   return {
     values,
@@ -470,22 +447,12 @@ export function useSignupForm() {
     onChange,
     onSubmit,
     onRefetchNickname,
-    schoolKeyword,
-    schoolResults,
-    isSchoolSearching,
-    isSchoolDropdownOpen,
-    hasSelectedSchool,
-    ignoreNextSchoolFocus,
-    onSchoolKeywordChange,
-    onSelectSchool,
-    setIsSchoolDropdownOpen,
-    setIgnoreNextSchoolFocus,
-    nicknameCheckStatus,
-    nicknameCheckMessage,
-    isNicknameDirty,
     usernameCheckStatus,
     usernameCheckMessage,
     userEmailCheckStatus,
     userEmailCheckMessage,
+    nicknameCheckStatus,
+    nicknameCheckMessage,
+    isNicknameDirty,
   };
 }
