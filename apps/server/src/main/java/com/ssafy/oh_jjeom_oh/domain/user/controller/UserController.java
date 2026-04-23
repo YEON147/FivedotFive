@@ -100,4 +100,5 @@ public class UserController {
         userService.withdraw(principal.getId(), request.password());
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.USER_INFO_DELETED, null));
     }
+
 }

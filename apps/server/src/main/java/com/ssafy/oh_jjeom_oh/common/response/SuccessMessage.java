@@ -15,6 +15,8 @@ public enum SuccessMessage {
     NICKNAME_UPDATED("닉네임이 변경되었습니다."),
     GRADE_UPDATED("학년이 변경되었습니다."),
     USER_INFO_DELETED("회원 탈퇴가 완료되었습니다."),
+    NICKNAME_VALID("사용 가능한 닉네임입니다."),
+    NICKNAME_CREATED("랜덤 닉네임이 생성되었습니다."),
 
     LOGIN_SUCCESS("로그인 되었습니다."),
     SIGNUP_SUCCESS("회원가입이 완료되었습니다."),

@@ -8,6 +8,7 @@ import com.ssafy.oh_jjeom_oh.domain.auth.controller.response.TokenResponse;
 import com.ssafy.oh_jjeom_oh.domain.auth.service.AuthService;
 import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
 import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
+import com.ssafy.oh_jjeom_oh.domain.auth.service.NicknameService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthController {
     private final AuthService authService;
+    private final NicknameService nicknameService;
 
     @GetMapping("/check/username")
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> checkUsername(
@@ -136,5 +138,25 @@ public class AuthController {
 
         return ResponseEntity.ok()
                 .body(ApiResponse.success(SuccessMessage.LOGOUT_SUCCESS));
+    }
+
+    @GetMapping("/check/nickname")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> checkNickname(
+            @RequestParam(required = false) String nickname) {
+        if (nickname == null || nickname.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_NICKNAME);
+        }
+        boolean isDuplicate = authService.isNicknameDuplicate(nickname);
+        if (isDuplicate) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.NICKNAME_VALID, Map.of("available", true)));
+    }
+
+    @GetMapping("/nickname/random")
+    public ResponseEntity<ApiResponse<Map<String, String>>> getRandomNickname() {
+        String randomNickname = nicknameService.generateRandomNickname();
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.NICKNAME_CREATED, Map.of("nickname", randomNickname)));
     }
 }

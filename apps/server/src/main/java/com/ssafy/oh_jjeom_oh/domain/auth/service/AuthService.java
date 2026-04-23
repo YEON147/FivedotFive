@@ -75,6 +75,10 @@ public class AuthService {
         return userRepository.existsByEmail(email);
     }
 
+    public boolean isNicknameDuplicate(String nickname) {
+        return userRepository.existsByNickname(nickname);
+    }
+
     @Transactional
     public Long signup(SignupRequest request) {
         if (isUsernameDuplicate(request.username())) {
