@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { trackSignupIntentClick } from "@/lib/analytics/conversion";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import type {
@@ -79,7 +80,11 @@ export function LoginForm({
 
       <div className="mt-3 text-center">
         <p className="text-body-sm text-[#8b8b8b]">계정이 없으신가요 ?</p>
-        <Link href="/signup" className="text-body-sm text-[#6e6e6e]">
+        <Link
+          href="/signup"
+          className="text-body-sm text-[#6e6e6e]"
+          onClick={() => trackSignupIntentClick()}
+        >
           회원가입
         </Link>
       </div>

@@ -9,6 +9,7 @@ import {
   getRandomNickname,
   signup,
 } from "@/features/signup/api";
+import { trackSignUp } from "@/lib/analytics/conversion";
 import type {
   CheckStatus,
   SignupFormErrors,
@@ -419,6 +420,8 @@ export function useSignupForm() {
     try {
       const payload = toSignupRequest(values);
       const response = await signup(payload);
+
+      trackSignUp("email");
 
       setSubmitMessage(response.message ?? "회원가입이 완료되었습니다.");
       setSubmitSuccess(true);
