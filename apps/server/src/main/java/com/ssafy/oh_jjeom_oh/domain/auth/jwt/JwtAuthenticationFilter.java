@@ -30,7 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
 
         // 로그를 찍어서 배포 후 실제로 어떤 경로가 들어오는지 확인
-        log.info("[Filter Check] Incoming Request Path: {}", path);
+        log.info("[Filter Check] Request Path: {}", path);
 
         return path.contains("/auth/check/") ||
                 path.contains("/auth/signup") ||
