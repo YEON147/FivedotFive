@@ -53,16 +53,8 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .exceptionHandling(e -> e.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
-<<<<<<< Updated upstream
                         .requestMatchers("/api/auth/**", "/auth/**").permitAll()
                         .requestMatchers("/api/health", "/health", "/login/oauth2/**", "/oauth2/**", "/share/**").permitAll()
-=======
-                        // 회원가입 중복 검사·랜덤 닉네임 등 비로그인 허용 (명시)
-                        .requestMatchers(HttpMethod.GET, "/api/auth/check/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/nickname/random").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/signup").permitAll()
-                        .requestMatchers("/api/auth/**", "/login/oauth2/**", "/oauth2/**").permitAll()
->>>>>>> Stashed changes
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/assets/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rankings/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments").permitAll()
