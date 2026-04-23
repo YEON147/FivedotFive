@@ -35,6 +35,9 @@ deploy_backend:
         git pull origin develop &&
         cd infra &&
         export GHCR_USER=$GHCR_USER &&
+        export JWT_SECRET=$JWT_SECRET &&
+        export KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID &&
+        export KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET &&
         docker-compose pull &&
         docker-compose up -d --force-recreate --remove-orphans
       "
