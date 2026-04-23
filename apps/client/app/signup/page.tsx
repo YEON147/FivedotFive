@@ -1,13 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { SignupForm } from "@/components/common/SignupForm";
 import { useSignupForm } from "@/features/signup/hooks";
-import { getAccessToken } from "@/lib/api/token-store";
 
 export default function SignupPage() {
-  const router = useRouter();
   const {
     values,
     errors,
@@ -37,11 +33,6 @@ export default function SignupPage() {
     setIsSchoolDropdownOpen,
     setIgnoreNextSchoolFocus,
   } = useSignupForm();
-
-  useEffect(() => {
-    if (!getAccessToken()) return;
-    router.replace("/");
-  }, [router]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-6 py-12">
