@@ -53,6 +53,21 @@ export async function patchMyWishItem(
   });
 }
 
+export type DeleteMyWishItemResponse = {
+  success: boolean;
+  message: string;
+};
+
+/** DELETE /api/boards/me/items/:slotIndex — CHILD, 슬롯 비우기 (slotIndex 1~3) */
+export async function deleteMyWishItem(slotIndex: number): Promise<DeleteMyWishItemResponse> {
+  return apiClient<DeleteMyWishItemResponse>(`/api/boards/me/items/${slotIndex}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
   return apiClient<PublicBoardData>(`/api/boards/${slug}`);
 }

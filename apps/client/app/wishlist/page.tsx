@@ -7,11 +7,12 @@ import {
   PencilSimple,
   SignOut,
   TextAlignJustify,
+  TrashSimple,
   UserCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
@@ -23,7 +24,7 @@ import {
   StickerSlots,
   type GiftLayoutCount,
 } from "@/components/wishlist/WishlistSlots";
-import { getMyBoard, patchMyWishItem } from "@/features/wishlist/api";
+import { deleteMyWishItem, getMyBoard, patchMyWishItem } from "@/features/wishlist/api";
 import type { BoardAssetData, WishItemData } from "@/features/wishlist/types";
 import { getMyProfile } from "@/features/user/api";
 import {
@@ -40,6 +41,8 @@ const GIFT_ICON_PAGE_SIZE = 8;
 const GIFT_MODAL_FIRST_PAGE_API_COUNT = GIFT_ICON_PAGE_SIZE - 2;
 /** PATCH·로컬 상태와 동일하게 쓰는 선물 프리셋 아이콘 키 (`public/icon/present.png`) */
 const GIFT_MODAL_PRESET_PRESENT_KEY = "icon/present.png";
+/** 서버 `WishItemService` 기본 GIFT_ICON 키 — 이름 없을 때는 빈 슬롯으로 간주 */
+const SERVER_DEFAULT_GIFT_ICON_KEY = "default/gift_icon.png";
 
 type GiftModalSpecial = "clear" | "present" | null;
 
@@ -57,11 +60,124 @@ const STICKER_MODAL_GRID_COLS = 6;
 /** 6열 × 3행 */
 const STICKER_MODAL_SLOT_COUNT = STICKER_MODAL_GRID_COLS * 3;
 
+/** 빈 안내·로딩용 — 둥근 흰 카드 셸 */
+const WISHLIST_APP_SHELL =
+  "relative flex w-full max-w-[372px] flex-col overflow-hidden rounded-[18px] bg-[var(--color-surface)] shadow-[0_8px_40px_rgba(0,0,0,0.08)]";
+/** 보드(보기·꾸미기) — 바깥 흰 박스 없음, 폭은 디자인 기준 372px로 공개 보드와 동일 */
+const WISHLIST_BOARD_PAGE_WRAP =
+  "relative flex h-full min-h-0 max-h-full w-full max-w-[372px] flex-1 flex-col overflow-hidden bg-transparent";
+/** 로딩 플레이스홀더만 한 번 카드 높이 상한 — 본문은 flex-1으로 뷰포트를 채움 */
+const WISHLIST_APP_SHELL_MAX_LOADING =
+  "max-h-[min(680px,calc(100svh-var(--safe-area-top)-var(--safe-area-bottom)-0.75rem))]";
+const WISHLIST_BOARD_FRAME_BASE =
+  "relative isolate overflow-hidden rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1";
+const WISHLIST_MENU_BUTTON =
+  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
+const WISHLIST_APP_FOOTER =
+  "flex min-h-10 w-full shrink-0 items-center justify-center border-t border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-xs text-[var(--color-text-secondary)]";
+
+/** 꾸미기 보드 헤더와 동일 — 비율 패딩·타이포 */
+const WISHLIST_PROFILE_HEADER_ROW =
+  "relative z-40 flex items-center justify-between gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+
+function WishlistProfileTitleHeader({
+  viewerName,
+  isSidebarOpen,
+  onMenuClick,
+}: {
+  viewerName: string;
+  isSidebarOpen: boolean;
+  onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <header className={WISHLIST_PROFILE_HEADER_ROW}>
+      <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
+        <span className="block">
+          <span className="inline-flex items-baseline gap-0.5">
+            <span className="font-bold text-[#7B61FF]">{viewerName}</span>
+            <span className="text-[18px] font-light leading-none text-slate-900">
+              님의
+            </span>
+          </span>
+        </span>
+        <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">
+          위시리스트
+        </span>
+      </h1>
+      <button
+        type="button"
+        onClick={onMenuClick}
+        className={WISHLIST_MENU_BUTTON}
+        aria-label="메뉴 열기"
+        aria-expanded={isSidebarOpen}
+      >
+        <TextAlignJustify size={23} weight="bold" />
+      </button>
+    </header>
+  );
+}
+
+/**
+ * 선물 이름이 없고, 아이콘도 없거나 서버·클라 ‘기본’ 아이콘만 있으면 빈 슬롯.
+ * (백엔드가 빈 칸에도 `default/gift_icon.png` 를 붙이는 경우 `iconKey`만으로는 빈 칸 판별 불가)
+ */
+function isWishSlotSemanticallyEmpty(row: WishItemData): boolean {
+  if (row.itemName?.trim()) {
+    return false;
+  }
+  const icon = row.iconKey?.trim() ?? "";
+  if (!icon) {
+    return true;
+  }
+  const lower = icon.toLowerCase();
+  if (lower.includes("default/gift") || lower.endsWith("gift_icon.png")) {
+    return true;
+  }
+  if (icon === GIFT_MODAL_PRESET_PRESENT_KEY || lower.endsWith("/present.png")) {
+    return true;
+  }
+  if (lower === SERVER_DEFAULT_GIFT_ICON_KEY.toLowerCase()) {
+    return true;
+  }
+  return false;
+}
+
 function areAllWishSlotsEmpty(items: WishItemData[]): boolean {
   if (items.length === 0) {
     return true;
   }
-  return items.every((row) => !row.itemName?.trim() && !row.iconKey?.trim());
+  return items.every(isWishSlotSemanticallyEmpty);
+}
+
+function deriveWishSlotState(items: WishItemData[]) {
+  const allWishSlotsEmpty = areAllWishSlotsEmpty(items);
+  if (allWishSlotsEmpty) {
+    return {
+      wishTexts: ["", "", ""],
+      wishGiftIconKeys: ["", "", ""],
+      bigCircleCount: 1 as GiftLayoutCount,
+      allWishSlotsEmpty,
+    };
+  }
+
+  const texts = ["", "", ""];
+  const keys = ["", "", ""];
+  for (const item of items) {
+    const idx = item.slotIndex - 1;
+    if (idx >= 0 && idx < 3) {
+      texts[idx] = item.itemName ?? "";
+      keys[idx] = item.iconKey ?? "";
+    }
+  }
+
+  const filled = items.filter((i) => !isWishSlotSemanticallyEmpty(i)).length;
+
+  return {
+    wishTexts: texts,
+    wishGiftIconKeys: keys,
+    bigCircleCount: Math.max(1, Math.min(3, filled)) as GiftLayoutCount,
+    allWishSlotsEmpty,
+  };
 }
 
 function DefaultOptionButton({
@@ -99,6 +215,7 @@ export default function WishlistPage() {
   const [giftIconsLoading, setGiftIconsLoading] = useState(false);
   const [giftIconsError, setGiftIconsError] = useState<string | null>(null);
   const [giftModalSaving, setGiftModalSaving] = useState(false);
+  const [giftModalDeleting, setGiftModalDeleting] = useState(false);
   const [giftModalSaveError, setGiftModalSaveError] = useState<string | null>(null);
   const [giftModalSpecial, setGiftModalSpecial] = useState<GiftModalSpecial>(null);
   const [giftIconPage, setGiftIconPage] = useState(0);
@@ -180,26 +297,11 @@ export default function WishlistPage() {
         setBoardSlug(boardSlug);
         setBoardAssets(assets);
 
-        const empty = areAllWishSlotsEmpty(items);
-        setAllWishSlotsEmpty(empty);
-
-        if (!empty) {
-          const texts = ["", "", ""];
-          const keys = ["", "", ""];
-          for (const item of items) {
-            const idx = item.slotIndex - 1;
-            if (idx >= 0 && idx < 3) {
-              texts[idx] = item.itemName ?? "";
-              keys[idx] = item.iconKey ?? "";
-            }
-          }
-          const filled = items.filter(
-            (i) => Boolean(i.itemName?.trim()) || Boolean(i.iconKey?.trim()),
-          ).length;
-          setWishTexts(texts);
-          setWishGiftIconKeys(keys);
-          setBigCircleCount(Math.max(1, Math.min(3, filled)) as GiftLayoutCount);
-        }
+        const derived = deriveWishSlotState(items);
+        setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
+        setWishTexts(derived.wishTexts);
+        setWishGiftIconKeys(derived.wishGiftIconKeys);
+        setBigCircleCount(derived.bigCircleCount);
       } catch {
         if (!cancelled) {
           setAllWishSlotsEmpty(true);
@@ -219,6 +321,17 @@ export default function WishlistPage() {
       cancelled = true;
     };
   }, [router]);
+
+  /**
+   * 빈 슬롯이면 꾸미기 시작 카드로 돌아갈 수 있게 bypass 해제.
+   * 꾸미기 모드가 켜져 있을 때만 유지(보드 유지), 끄면 안내 카드 표시.
+   */
+  useEffect(() => {
+    if (!wishSlotsLoaded || !allWishSlotsEmpty || isDecorateMode) {
+      return;
+    }
+    setBypassEmptyState(false);
+  }, [wishSlotsLoaded, allWishSlotsEmpty, isDecorateMode]);
 
   useEffect(() => {
     if (!isCompactBackgroundOpen) {
@@ -270,6 +383,7 @@ export default function WishlistPage() {
     setIsSidebarOpen(false);
     setIsGiftModalOpen(false);
     setGiftModalSaving(false);
+    setGiftModalDeleting(false);
     setGiftModalSaveError(null);
     setGiftModalSpecial(null);
   };
@@ -281,6 +395,7 @@ export default function WishlistPage() {
     setIsShareModalOpen(false);
     setIsGiftModalOpen(false);
     setGiftModalSaving(false);
+    setGiftModalDeleting(false);
     setGiftModalSaveError(null);
     setGiftModalSpecial(null);
     setIsSidebarOpen((prev) => !prev);
@@ -289,6 +404,7 @@ export default function WishlistPage() {
   const closeGiftModal = () => {
     setIsGiftModalOpen(false);
     setGiftModalSaving(false);
+    setGiftModalDeleting(false);
     setGiftModalSaveError(null);
     setGiftModalSpecial(null);
   };
@@ -327,7 +443,7 @@ export default function WishlistPage() {
 
   const handleSaveGiftModal = async () => {
     const name = modalGiftName.trim();
-    if (!name || giftModalSaving) {
+    if (!name || giftModalSaving || giftModalDeleting) {
       return;
     }
 
@@ -402,6 +518,48 @@ export default function WishlistPage() {
       );
     } finally {
       setGiftModalSaving(false);
+    }
+  };
+
+  const handleResetGiftModal = async () => {
+    if (giftModalSaving || giftModalDeleting) {
+      return;
+    }
+
+    if (giftModalMode === "add") {
+      setModalGiftName("");
+      setModalSelectedIconId(null);
+      setGiftModalSpecial(null);
+      setGiftIconPage(0);
+      setGiftModalSaveError(null);
+      return;
+    }
+
+    setGiftModalDeleting(true);
+    setGiftModalSaveError(null);
+
+    try {
+      await deleteMyWishItem(giftModalSlotIndex + 1);
+      const board = await getMyBoard();
+      const { items, assets, boardSlug } = board.data;
+      setBoardSlug(boardSlug);
+      setBoardAssets(assets);
+      const derived = deriveWishSlotState(items);
+      setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
+      setWishTexts(derived.wishTexts);
+      setWishGiftIconKeys(derived.wishGiftIconKeys);
+      setBigCircleCount(derived.bigCircleCount);
+      if (derived.allWishSlotsEmpty) {
+        setBypassEmptyState(false);
+        setIsDecorateMode(false);
+      }
+      closeGiftModal();
+    } catch (error) {
+      setGiftModalSaveError(
+        error instanceof Error ? error.message : "초기화에 실패했습니다.",
+      );
+    } finally {
+      setGiftModalDeleting(false);
     }
   };
 
@@ -534,8 +692,43 @@ export default function WishlistPage() {
   }, [giftModalSpecial, modalSelectedIconId, giftModalMode, giftIcons]);
 
   const canSaveGiftModal = useMemo(() => {
-    return Boolean(modalGiftName.trim()) && !giftModalSaving;
-  }, [modalGiftName, giftModalSaving]);
+    return Boolean(modalGiftName.trim()) && !giftModalSaving && !giftModalDeleting;
+  }, [giftModalDeleting, modalGiftName, giftModalSaving]);
+
+  const canResetGiftModal = useMemo(() => {
+    if (giftModalSaving || giftModalDeleting) {
+      return false;
+    }
+
+    const firstIconId = giftIcons[0]?.id ?? null;
+    const addFormTouched =
+      Boolean(modalGiftName.trim()) ||
+      giftModalSpecial !== null ||
+      (modalSelectedIconId != null &&
+        firstIconId != null &&
+        modalSelectedIconId !== firstIconId);
+
+    if (giftModalMode === "add") {
+      return addFormTouched;
+    }
+
+    const slotHasContent =
+      Boolean(wishTexts[giftModalSlotIndex]?.trim()) ||
+      Boolean(wishGiftIconKeys[giftModalSlotIndex]?.trim());
+
+    return slotHasContent || addFormTouched;
+  }, [
+    giftIcons,
+    giftModalMode,
+    giftModalSaving,
+    giftModalSlotIndex,
+    giftModalSpecial,
+    modalGiftName,
+    modalSelectedIconId,
+    giftModalDeleting,
+    wishGiftIconKeys,
+    wishTexts,
+  ]);
 
   useEffect(() => {
     if (!isGiftModalOpen || giftIcons.length === 0 || giftModalResolvedIconId == null) {
@@ -610,7 +803,7 @@ export default function WishlistPage() {
   const showSlotPlaceholders = isDecorateMode;
 
   return (
-    <main className="fixed inset-0 h-[100dvh] overflow-hidden bg-[#e6e6e6] p-3">
+    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
       <div
         className={`fixed inset-0 z-20 bg-black/20 transition-opacity duration-300 ${
           isCompactBackgroundOpen || isShareModalOpen
@@ -620,114 +813,67 @@ export default function WishlistPage() {
         onClick={closeEditUi}
       />
 
-      <div className="relative grid h-[calc(100dvh-1.5rem)] place-items-center transition-all duration-300 ease-out">
+      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start transition-all duration-300 ease-out">
         {!wishSlotsLoaded ? (
-          <div className="flex min-h-[400px] w-full max-w-[390px] items-center justify-center rounded-lg bg-white px-8 shadow-sm">
-            <p className="text-body-sm text-slate-600">위시 슬롯을 불러오는 중…</p>
+          <div
+            className={`${WISHLIST_APP_SHELL} ${WISHLIST_APP_SHELL_MAX_LOADING} flex min-h-[min(400px,70dvh)] w-full shrink-0 items-center justify-center px-8`}
+          >
+            <p className="text-body-sm text-[var(--color-text-secondary)]">
+              위시 슬롯을 불러오는 중…
+            </p>
           </div>
         ) : showEmptyWishlistHero ? (
-          <section className="relative flex min-h-[min(680px,85dvh)] w-full max-w-[390px] flex-col overflow-hidden rounded-lg bg-white shadow-[0_8px_40px_rgba(0,0,0,0.08)]">
-            <header className="relative z-40 flex items-start justify-between gap-3 px-5 pt-6">
-              <div className="min-w-0 flex-1 text-left text-[16px] leading-snug">
-                <p className="leading-tight">
-                  <span className="block">
-                    <span className="inline-flex items-baseline gap-0.5">
-                      <span className="font-bold text-[#7B61FF]">{viewerName}</span>
-                      <span className="text-[16px] font-light leading-none text-slate-900">
-                        님의
-                      </span>
-                    </span>
-                  </span>
-                  <span className="mt-0.5 block text-[16px] font-light leading-snug text-slate-900">
-                    위시리스트
-                  </span>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggleSidebar();
-                }}
-                className="relative z-40 flex size-[38.4px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200"
-                aria-label="메뉴 열기"
-                aria-expanded={isSidebarOpen}
-              >
-                <TextAlignJustify size={18} weight="bold" />
-              </button>
-            </header>
+          <section
+            className={`${WISHLIST_APP_SHELL} flex h-full min-h-0 max-h-full w-full max-w-[372px] flex-1 flex-col overflow-hidden`}
+          >
+            <WishlistProfileTitleHeader
+              viewerName={viewerName}
+              isSidebarOpen={isSidebarOpen}
+              onMenuClick={(event) => {
+                event.stopPropagation();
+                toggleSidebar();
+              }}
+            />
 
-            <div className="flex flex-1 flex-col items-center justify-center px-6 pb-28 pt-2">
-              <img
-                src="/logo.png"
-                alt="오쩜오 로고"
-                className="mx-auto h-auto max-h-[7rem] w-auto max-w-[52.5%] object-contain"
-              />
-              <div className="mt-8 w-full max-w-[320px] rounded-2xl border border-dashed border-[#7B61FF] bg-transparent px-4 py-5 text-center">
-                <p className="text-sm text-slate-500">아직 위시리스트가 없어요!</p>
-                <p className="mt-3 text-[15px] font-bold leading-snug text-[#7B61FF]">
-                  <span className="block">오쩜오와 함께</span>
-                  <span className="mt-1 block">
-                    받고싶은 선물들을 모아볼까요? <span aria-hidden>&gt;</span>
-                  </span>
-                </p>
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+              <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 py-6">
+                <img
+                  src="/logo.png"
+                  alt="오쩜오 로고"
+                  className="mx-auto h-auto max-h-[5.25rem] w-auto max-w-[46%] object-contain"
+                />
+                <div className="w-full max-w-[272px] rounded-[16px] border border-dashed border-[#7B61FF] bg-transparent px-3 py-4 text-center">
+                  <p className="text-xs text-[#7B61FF]">아직 위시리스트가 없어요!</p>
+                  <p className="mt-2.5 text-[13px] font-bold leading-snug text-[#7B61FF]">
+                    <span className="block">오쩜오와 함께</span>
+                    <span className="mt-1 block">받고싶은 선물들을 모아볼까요?</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBypassEmptyState(true);
+                    setIsDecorateMode(true);
+                  }}
+                  className="w-full max-w-[272px] rounded-[16px] bg-[#7B61FF] py-3 text-sm font-bold text-white shadow-md transition active:opacity-90 touch-manipulation hover:opacity-95"
+                >
+                  위시리스트 꾸미기 시작하기
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setBypassEmptyState(true);
-                  setIsDecorateMode(true);
-                }}
-                className="mt-8 w-full max-w-[320px] rounded-2xl bg-[#7B61FF] py-4 text-base font-bold text-white shadow-md transition hover:opacity-95"
-              >
-                위시리스트 꾸미기 시작하기
-              </button>
             </div>
 
-            <footer className="absolute bottom-0 left-0 flex h-[6%] min-h-10 w-full items-center justify-center border-t border-slate-100 bg-white px-6 text-slate-500">
-              <span className="text-body-sm">광고 중...</span>
-            </footer>
-
-            <div
-              className={`absolute z-30 flex flex-col items-end gap-3 transition-opacity duration-200 ${
-                isBottomSheetOpen || isCompactBackgroundOpen
-                  ? "pointer-events-none opacity-0"
-                  : "pointer-events-none opacity-100"
-              }`}
-              style={{ right: "4%", bottom: "12%" }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setBypassEmptyState(true);
-                  setIsDecorateMode((prev) => !prev);
-                }}
-                className={`pointer-events-auto flex size-[38.4px] items-center justify-center rounded-full text-body shadow-lg transition ${
-                  isDecorateMode
-                    ? "bg-[#7B61FF] text-white ring-2 ring-[#7B61FF]/40"
-                    : "bg-white text-[#7B61FF]"
-                }`}
-                aria-label={isDecorateMode ? "꾸미기 종료" : "꾸미기 시작"}
-                aria-pressed={isDecorateMode}
-              >
-                <PencilSimple size={18} weight="bold" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsShareModalOpen(true)}
-                className="pointer-events-auto flex size-[38.4px] items-center justify-center rounded-full bg-[#7B61FF] text-body text-white shadow-lg"
-                aria-label="Share wishlist"
-              >
-                <Export size={18} weight="bold" />
-              </button>
-            </div>
+            <footer className={WISHLIST_APP_FOOTER}>광고 중...</footer>
           </section>
         ) : (
-          <section
-            className="relative h-full w-auto max-w-[390px] overflow-hidden rounded-sm"
-            style={{ aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}` }}
-          >
-            <div className="relative h-full w-full overflow-hidden rounded-sm bg-[#efefef]">
+          <section className={`${WISHLIST_BOARD_PAGE_WRAP} mx-auto w-full`}>
+            <div className="relative flex min-h-0 flex-1 flex-col p-0">
+              <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-center">
+                <div
+                  className={`${WISHLIST_BOARD_FRAME_BASE} wishlist-board-frame--decorate relative mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 overflow-hidden ring-violet-200/55`}
+                  style={{
+                    aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
+                  }}
+                >
               {boardBackgroundDisplayUrl ? (
                 <img
                   src={boardBackgroundDisplayUrl}
@@ -752,33 +898,14 @@ export default function WishlistPage() {
                 }
               />
 
-              <header className="relative z-40 flex items-center justify-between pl-[8%] pr-[4%] pt-[8%]">
-                <h1 className="text-wish-title leading-tight">
-                  <span className="block">
-                    <span className="inline-flex items-baseline gap-0.5 text-slate-900">
-                      <span className="font-bold text-[#7B61FF]">{viewerName}</span>
-                      <span className="text-[16px] font-light leading-none text-slate-900">
-                        님의
-                      </span>
-                    </span>
-                  </span>
-                  <span className="mt-0.5 block text-[16px] font-light leading-snug text-slate-900">
-                    위시리스트
-                  </span>
-                </h1>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleSidebar();
-                  }}
-                  className="relative z-40 flex size-[38.4px] items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-slate-50"
-                  aria-label="메뉴 열기"
-                  aria-expanded={isSidebarOpen}
-                >
-                  <TextAlignJustify size={18} weight="bold" />
-                </button>
-              </header>
+              <WishlistProfileTitleHeader
+                viewerName={viewerName}
+                isSidebarOpen={isSidebarOpen}
+                onMenuClick={(event) => {
+                  event.stopPropagation();
+                  toggleSidebar();
+                }}
+              />
 
               <GiftSlots
                 count={bigCircleCount}
@@ -803,28 +930,21 @@ export default function WishlistPage() {
               />
 
               {isDecorateMode && bigCircleCount < 3 ? (
-                <div className="absolute bottom-[10%] left-0 right-0 z-[25] flex justify-center px-[8%]">
+                <div className="pointer-events-none absolute bottom-[5%] left-0 right-0 z-[24] flex justify-center px-[8%]">
                   <button
                     type="button"
                     onClick={() => openGiftModalAdd()}
-                    className="rounded-full border border-dashed border-[#7B61FF]/60 bg-white/90 px-4 py-2 text-xs font-semibold text-[#7B61FF] shadow-sm backdrop-blur-sm transition hover:bg-white"
+                    className="pointer-events-auto rounded-full border border-dashed border-[#7B61FF]/60 bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-[#7B61FF] shadow-sm backdrop-blur-sm transition hover:bg-white"
                   >
                     + 선물 추가 ({bigCircleCount}/3)
                   </button>
                 </div>
               ) : null}
 
-              <footer className="absolute bottom-0 left-0 flex h-[6%] min-h-10 w-full items-center bg-[#d2d2d2] px-6">
-                <span className="text-body-sm">Ad Banner</span>
-              </footer>
-
               <div
-                className={`absolute z-30 flex flex-col items-end gap-3 transition-opacity duration-200 ${
-                  isBottomSheetOpen || isCompactBackgroundOpen
-                    ? "pointer-events-none opacity-0"
-                    : "pointer-events-none opacity-100"
+                className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end gap-2.5 transition-opacity duration-200 ${
+                  isBottomSheetOpen || isCompactBackgroundOpen ? "opacity-0" : "opacity-100"
                 }`}
-                style={{ right: "4%", bottom: "12%" }}
               >
                 <button
                   type="button"
@@ -838,7 +958,7 @@ export default function WishlistPage() {
                     }
                     setIsDecorateMode(true);
                   }}
-                  className={`pointer-events-auto flex size-[38.4px] items-center justify-center rounded-full text-body shadow-lg transition ${
+                  className={`pointer-events-auto flex size-[42px] items-center justify-center rounded-full text-body shadow-lg transition ${
                     isDecorateMode
                       ? "bg-[#7B61FF] text-white ring-2 ring-[#7B61FF]/40"
                       : "bg-white text-[#7B61FF]"
@@ -846,30 +966,34 @@ export default function WishlistPage() {
                   aria-label={isDecorateMode ? "보기 모드로 전환" : "꾸미기 모드로 전환"}
                   aria-pressed={isDecorateMode}
                 >
-                  <PencilSimple size={18} weight="bold" />
+                  <PencilSimple size={23} weight="bold" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsShareModalOpen(true)}
-                  className="pointer-events-auto flex size-[38.4px] items-center justify-center rounded-full bg-[#7B61FF] text-body text-white shadow-lg"
-                  aria-label="Share wishlist"
+                  className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-body text-white shadow-lg"
+                  aria-label="위시리스트 공유"
                 >
-                  <Export size={18} weight="bold" />
+                  <Export size={23} weight="bold" />
                 </button>
               </div>
+                </div>
+              </div>
             </div>
+
+            <footer className={WISHLIST_APP_FOOTER}>광고 중...</footer>
           </section>
         )}
       </div>
 
       <section
-        className={`fixed inset-x-0 bottom-0 z-[31] max-h-[36vh] rounded-t-[20px] border border-slate-100 bg-white px-4 pb-5 pt-3 shadow-[0_-8px_28px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+        className={`fixed inset-x-0 bottom-0 z-[31] max-h-[36vh] rounded-t-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 pb-[max(0.5rem,var(--safe-area-bottom))] pt-3 shadow-[0_-8px_28px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-out ${
           isCompactBackgroundOpen ? "translate-y-0" : "translate-y-full"
         }`}
         aria-hidden={!isCompactBackgroundOpen}
       >
-        <div className="mx-auto w-full max-w-[390px]">
+        <div className="mx-auto w-full max-w-[372px]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-900">배경 선택</p>
@@ -940,7 +1064,7 @@ export default function WishlistPage() {
       </section>
 
       <section
-        className={`fixed left-1/2 top-1/2 z-30 w-[min(320px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-white px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.18)] transition-all duration-300 ${
+        className={`fixed left-1/2 top-1/2 z-30 w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.14)] transition-all duration-300 ${
           isShareModalOpen
             ? "pointer-events-auto scale-100 opacity-100"
             : "pointer-events-none scale-95 opacity-0"
@@ -965,7 +1089,7 @@ export default function WishlistPage() {
           </button>
         </div>
 
-        <div className="mt-5 break-all rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <div className="mt-5 break-all rounded-[14px] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
           {boardSlug
             ? `${typeof window !== "undefined" ? window.location.origin : ""}/wishlist/${boardSlug}`
             : "링크를 불러오는 중..."}
@@ -981,7 +1105,7 @@ export default function WishlistPage() {
                 `${window.location.origin}/wishlist/${boardSlug}`,
               );
             }}
-            className="rounded-2xl bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             링크 복사
           </button>
@@ -995,7 +1119,7 @@ export default function WishlistPage() {
                 url: `${window.location.origin}/wishlist/${boardSlug}`,
               });
             }}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 disabled:opacity-40"
+            className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] disabled:opacity-40"
           >
             공유하기
           </button>
@@ -1017,10 +1141,37 @@ export default function WishlistPage() {
                 aria-modal="true"
                 aria-labelledby="gift-modal-title"
               >
-                <div className="border-b border-slate-100 px-5 py-4">
+                <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
                   <h2 id="gift-modal-title" className="text-h3 text-slate-900">
                     {giftModalMode === "add" ? "받고싶은 선물 추가" : "선물 수정"}
                   </h2>
+                  <button
+                    type="button"
+                    onClick={() => void handleResetGiftModal()}
+                    disabled={!canResetGiftModal}
+                    title={
+                      giftModalMode === "add"
+                        ? "입력 내용 지우기"
+                        : "슬롯 초기화 (이름·아이콘 삭제)"
+                    }
+                    aria-label={
+                      giftModalDeleting
+                        ? "초기화 중"
+                        : giftModalMode === "add"
+                          ? "입력 내용 지우기"
+                          : "위시 슬롯 초기화"
+                    }
+                    aria-busy={giftModalDeleting}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {giftModalDeleting ? (
+                      <span className="text-xs font-semibold tabular-nums text-slate-400">
+                        …
+                      </span>
+                    ) : (
+                      <TrashSimple size={22} weight="bold" aria-hidden />
+                    )}
+                  </button>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -1254,13 +1405,13 @@ export default function WishlistPage() {
               />
 
               <aside
-                className={`fixed inset-y-0 right-0 z-[101] flex w-[min(300px,88vw)] flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+                className={`fixed inset-y-0 right-0 z-[101] flex w-[min(300px,88vw)] flex-col rounded-l-[18px] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-[-12px_0_40px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-out ${
                   isSidebarOpen ? "translate-x-0" : "translate-x-full"
                 }`}
                 aria-hidden={!isSidebarOpen}
               >
-                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                  <span className="text-h3 text-slate-900">메뉴</span>
+                <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+                  <span className="text-h3 text-[var(--color-text-primary)]">메뉴</span>
                   <button
                     type="button"
                     onClick={() => setIsSidebarOpen(false)}
@@ -1275,7 +1426,7 @@ export default function WishlistPage() {
                   <Link
                     href="/mypage"
                     onClick={() => setIsSidebarOpen(false)}
-                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-body font-medium text-slate-800 transition hover:bg-slate-50"
+                    className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
                   >
                     <UserCircle size={22} weight="regular" className="shrink-0 text-[#7B61FF]" />
                     내정보 조회
@@ -1284,7 +1435,7 @@ export default function WishlistPage() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
+                    className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
                   >
                     <SignOut size={22} weight="bold" className="shrink-0" />
                     로그아웃
