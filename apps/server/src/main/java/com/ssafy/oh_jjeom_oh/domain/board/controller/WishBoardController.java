@@ -5,6 +5,7 @@ import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
 import com.ssafy.oh_jjeom_oh.common.security.CurrentUser;
 import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.service.WishBoardService;

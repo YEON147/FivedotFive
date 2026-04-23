@@ -364,6 +364,8 @@ export function useMyPageForm() {
         schoolcode: response.data?.schoolcode ?? payload.schoolcode,
         gender: response.data?.gender ?? payload.gender,
         grade: response.data?.grade ?? payload.grade,
+        hasWishBoard: originalProfile?.hasWishBoard ?? false,
+        role: originalProfile?.role ?? null,
       };
 
       setOriginalProfile(updatedProfile);

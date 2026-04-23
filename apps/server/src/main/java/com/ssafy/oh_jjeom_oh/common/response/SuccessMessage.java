@@ -28,6 +28,7 @@ public enum SuccessMessage {
     // 위시보드
     BOARD_CREATED("위시보드가 생성되었습니다."),
     BOARD_FOUND("위시보드 조회가 완료되었습니다."),
+    BOARD_EXISTS_CHECKED("위시보드 존재 여부 조회가 완료되었습니다."),
     BOARD_UPDATED("위시보드가 수정되었습니다."),
 
     // 위시 아이템

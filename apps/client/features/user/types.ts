@@ -22,6 +22,9 @@ export type MyProfile = {
   schoolcode: string | null;
   gender: Exclude<GenderType, ""> | null;
   grade: Exclude<GradeType, ""> | null;
+  /** 내정보 API `data.hasWishBoard` */
+  hasWishBoard: boolean;
+  role: "CHILD" | "PARENT" | null;
 };
 
 export type MyProfileResponse = {
@@ -35,6 +38,8 @@ export type MyProfileResponse = {
     schoolcode?: string | null;
     gender?: Exclude<GenderType, ""> | null;
     grade?: Exclude<GradeType, ""> | null;
+    hasWishBoard?: boolean;
+    role?: string | null;
   };
 };
 

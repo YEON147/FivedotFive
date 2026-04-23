@@ -11,6 +11,23 @@ export async function getMyBoard(): Promise<MyBoardData> {
   return apiClient<MyBoardData>("/api/boards/me");
 }
 
+/** POST /api/boards 응답 — 슬롯·에셋은 GET /api/boards/me 로 조회 */
+export type CreateBoardApiResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    boardSlug: string;
+  };
+};
+
+/** POST /api/boards — 내 위시보드 생성 */
+export async function createMyBoard(): Promise<CreateBoardApiResponse> {
+  return apiClient<CreateBoardApiResponse>("/api/boards", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 /** GET /api/boards/me/items — CHILD, 슬롯 3개 고정 */
 export async function getMyWishItems(): Promise<MyWishItemsData> {
   return apiClient<MyWishItemsData>("/api/boards/me/items", {
