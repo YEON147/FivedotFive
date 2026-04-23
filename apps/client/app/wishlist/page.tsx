@@ -39,15 +39,18 @@ import {
 } from "@/features/wishlist/api";
 import {
   deriveWishSlotState,
-  GIFT_MODAL_PRESET_PRESENT_KEY,
+  matchesGiftPresetIcon,
 } from "@/features/wishlist/wish-slot-state";
 import type { BoardAssetData, MyBoardData, WishItemData } from "@/features/wishlist/types";
 import { getMyProfile } from "@/features/user/api";
 import {
   fetchBackgroundAssets,
   fetchGiftIcons,
+  fetchStickerAssets,
+  fetchStickersByFolder,
   type BackgroundAssetDto,
   type GiftIconDto,
+  type StickerAssetDto,
 } from "@/lib/api/assets";
 import { getAssetImageUrl } from "@/lib/asset-url";
 
@@ -57,19 +60,21 @@ const GIFT_ICON_PAGE_SIZE = 8;
 const GIFT_MODAL_FIRST_PAGE_API_COUNT = GIFT_ICON_PAGE_SIZE - 2;
 type GiftModalSpecial = "clear" | "present" | null;
 
-/** 스티커 모달 카테고리 탭 자리표시자 — 백엔드 연동 시 교체 */
+/** 스티커 폴더명(`assets/stickers/{id}/`)과 동일한 id — 한글은 UI 표시용 */
 const STICKER_MODAL_TABS = [
   { id: "all", label: "전체" },
-  { id: "c1", label: "카테고리1" },
-  { id: "c2", label: "카테고리2" },
-  { id: "c3", label: "카테고리3" },
+  { id: "balloon", label: "풍선" },
+  { id: "bubble", label: "버블" },
+  { id: "cute", label: "귀여운" },
+  { id: "dinosaur", label: "공룡" },
+  { id: "felt", label: "펠트" },
+  { id: "food", label: "음식" },
+  { id: "lego", label: "레고" },
+  { id: "message", label: "메시지" },
+  { id: "universe", label: "우주" },
 ] as const;
 
 type StickerModalTabId = (typeof STICKER_MODAL_TABS)[number]["id"];
-
-const STICKER_MODAL_GRID_COLS = 6;
-/** 6열 × 3행 */
-const STICKER_MODAL_SLOT_COUNT = STICKER_MODAL_GRID_COLS * 3;
 
 /** 빈 안내·로딩용 — 둥근 흰 카드 셸 */
 const WISHLIST_APP_SHELL =
@@ -193,7 +198,15 @@ export default function WishlistPage() {
   const [backgroundsLoading, setBackgroundsLoading] = useState(false);
   const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
   const [stickerModalTab, setStickerModalTab] = useState<StickerModalTabId>("all");
+  const [stickerSheetList, setStickerSheetList] = useState<StickerAssetDto[]>([]);
+  const [stickerSheetLoading, setStickerSheetLoading] = useState(false);
+  const [stickerSheetError, setStickerSheetError] = useState<string | null>(null);
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 선물 수정 모달: 목록 최초 로드 시에만 프리셋 여부 동기화(재선택 덮어쓰기 방지) */
+  const giftEditPresetSyncRef = useRef<{ slot: number; done: boolean }>({
+    slot: -1,
+    done: false,
+  });
 
   const applyLoadedBoard = useCallback((board: MyBoardData) => {
     const { items, assets, boardSlug } = board.data;
@@ -217,30 +230,13 @@ export default function WishlistPage() {
 
     const load = async () => {
       setWishSlotsLoaded(false);
-      setGiftIconsLoading(true);
       try {
-        const settled = await Promise.allSettled([
-          getMyProfile(),
-          fetchGiftIcons(),
-        ]);
+        const profileResult = await Promise.allSettled([getMyProfile()]).then(
+          (r) => r[0],
+        );
 
         if (cancelled) {
           return;
-        }
-
-        const profileResult = settled[0];
-        const giftIconsResult = settled[1];
-
-        if (giftIconsResult.status === "fulfilled") {
-          setGiftIcons(giftIconsResult.value);
-          setGiftIconsError(null);
-        } else {
-          setGiftIcons([]);
-          setGiftIconsError(
-            giftIconsResult.reason instanceof Error
-              ? giftIconsResult.reason.message
-              : "선물 아이콘을 불러오지 못했습니다.",
-          );
         }
 
         if (profileResult.status === "fulfilled") {
@@ -294,7 +290,6 @@ export default function WishlistPage() {
           setBoardAssets([]);
         }
       } finally {
-        setGiftIconsLoading(false);
         if (!cancelled) {
           setWishSlotsLoaded(true);
         }
@@ -307,6 +302,74 @@ export default function WishlistPage() {
       cancelled = true;
     };
   }, [router, applyLoadedBoard]);
+
+  /** 선물 슬롯 클릭으로 모달이 열릴 때 — `/api/assets/gift-icons`(assetKey → `assets/icons/…`) 로드 */
+  useEffect(() => {
+    if (!isGiftModalOpen) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadGiftIcons = async () => {
+      setGiftIconsLoading(true);
+      setGiftIconsError(null);
+      try {
+        const list = await fetchGiftIcons();
+        if (!cancelled) {
+          setGiftIcons(list);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setGiftIcons([]);
+          setGiftIconsError(
+            error instanceof Error
+              ? error.message
+              : "선물 아이콘을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setGiftIconsLoading(false);
+        }
+      }
+    };
+
+    void loadGiftIcons();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isGiftModalOpen]);
+
+  /** 목록 최초 로드 후 — 저장된 키가 카탈로그 첫 항목과 같으면 「기본 선물」로 표시 */
+  useEffect(() => {
+    if (!isGiftModalOpen || giftModalMode !== "edit") {
+      giftEditPresetSyncRef.current = { slot: -1, done: false };
+      return;
+    }
+    if (giftEditPresetSyncRef.current.slot !== giftModalSlotIndex) {
+      giftEditPresetSyncRef.current = {
+        slot: giftModalSlotIndex,
+        done: false,
+      };
+    }
+    if (giftIcons.length === 0 || giftEditPresetSyncRef.current.done) {
+      return;
+    }
+    const key = wishGiftIconKeys[giftModalSlotIndex]?.trim() ?? "";
+    const first = giftIcons[0]?.assetKey?.trim();
+    giftEditPresetSyncRef.current.done = true;
+    if (first && key && matchesGiftPresetIcon(key, first)) {
+      setGiftModalSpecial("present");
+    }
+  }, [
+    isGiftModalOpen,
+    giftModalMode,
+    giftModalSlotIndex,
+    giftIcons,
+    wishGiftIconKeys,
+  ]);
 
   /**
    * 빈 슬롯이면 꾸미기 시작 카드로 돌아갈 수 있게 bypass 해제.
@@ -355,11 +418,51 @@ export default function WishlistPage() {
     };
   }, [isCompactBackgroundOpen]);
 
+  /** 스티커 바텀시트: 탭(전체 / 폴더)에 맞게 API 조회 */
   useEffect(() => {
-    if (isBottomSheetOpen) {
-      setStickerModalTab("all");
+    if (!isBottomSheetOpen) {
+      return;
     }
-  }, [isBottomSheetOpen]);
+
+    let cancelled = false;
+
+    const run = async () => {
+      setStickerSheetLoading(true);
+      setStickerSheetError(null);
+      try {
+        if (stickerModalTab === "all") {
+          const list = await fetchStickerAssets();
+          if (!cancelled) {
+            setStickerSheetList(list);
+          }
+        } else {
+          const list = await fetchStickersByFolder(stickerModalTab);
+          if (!cancelled) {
+            setStickerSheetList(list);
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStickerSheetList([]);
+          setStickerSheetError(
+            error instanceof Error
+              ? error.message
+              : "스티커를 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setStickerSheetLoading(false);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isBottomSheetOpen, stickerModalTab]);
 
   const closeEditUi = () => {
     setIsBottomSheetOpen(false);
@@ -418,7 +521,7 @@ export default function WishlistPage() {
     const key = wishGiftIconKeys[slotIndex]?.trim() ?? "";
     if (!key) {
       setGiftModalSpecial("clear");
-    } else if (key === GIFT_MODAL_PRESET_PRESENT_KEY) {
+    } else if (matchesGiftPresetIcon(key, giftIcons[0]?.assetKey)) {
       setGiftModalSpecial("present");
     } else {
       setGiftModalSpecial(null);
@@ -456,8 +559,15 @@ export default function WishlistPage() {
       patchBody = { itemName: name, clearIcon: true };
       nextIconKeyForLocal = "";
     } else if (giftModalSpecial === "present") {
-      patchBody = { itemName: name, iconKey: GIFT_MODAL_PRESET_PRESENT_KEY };
-      nextIconKeyForLocal = GIFT_MODAL_PRESET_PRESENT_KEY;
+      const presetKey = giftIcons[0]?.assetKey?.trim();
+      if (!presetKey) {
+        setGiftModalSaveError(
+          "기본 선물 아이콘을 쓰려면 목록을 불러온 뒤 다시 시도해 주세요.",
+        );
+        return;
+      }
+      patchBody = { itemName: name, iconKey: presetKey };
+      nextIconKeyForLocal = presetKey;
     } else {
       const resolvedIconId =
         modalSelectedIconId ??
@@ -805,6 +915,7 @@ export default function WishlistPage() {
 
   const openStickerPickerForSlot = (slotId: number) => {
     setStickerTargetSlotId(slotId);
+    setStickerModalTab("all");
     setIsBottomSheetOpen(true);
   };
 
@@ -1271,12 +1382,18 @@ export default function WishlistPage() {
                             aria-label="기본 선물 아이콘"
                             aria-pressed={giftModalSpecial === "present"}
                           >
-                            <img
-                              src={getAssetImageUrl(GIFT_MODAL_PRESET_PRESENT_KEY)}
-                              alt=""
-                              className="h-full w-full object-contain p-1"
-                              loading="lazy"
-                            />
+                            {giftIcons[0]?.assetKey ? (
+                              <img
+                                src={getAssetImageUrl(giftIcons[0].assetKey)}
+                                alt=""
+                                className="h-full w-full object-contain p-1"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
+                                로딩
+                              </span>
+                            )}
                           </button>
                           {pagedGiftIcons.map((icon) => {
                             const src = getAssetImageUrl(icon.assetKey);
@@ -1409,17 +1526,40 @@ export default function WishlistPage() {
                 </div>
 
                 <div className="px-2 pb-3 pt-2">
-                  <div className="grid grid-cols-6 gap-1">
-                    {Array.from({ length: STICKER_MODAL_SLOT_COUNT }, (_, i) => (
-                      <button
-                        key={`sticker-slot-${i}`}
-                        type="button"
-                        disabled
-                        className="aspect-square rounded-md border border-dashed border-slate-200 bg-slate-50"
-                        aria-label={`스티커 칸 ${i + 1}`}
-                      />
-                    ))}
-                  </div>
+                  {stickerSheetLoading ? (
+                    <div className="flex min-h-[200px] items-center justify-center">
+                      <p className="text-body-sm text-slate-500">스티커 불러오는 중…</p>
+                    </div>
+                  ) : stickerSheetError ? (
+                    <p className="min-h-[200px] px-1 text-center text-body-sm text-red-600" role="alert">
+                      {stickerSheetError}
+                    </p>
+                  ) : stickerSheetList.length === 0 ? (
+                    <p className="min-h-[200px] px-1 text-center text-body-sm text-slate-500">
+                      이 탭에 표시할 스티커가 없습니다.
+                    </p>
+                  ) : (
+                    <div className="max-h-[min(320px,50vh)] overflow-y-auto">
+                      <div className="grid grid-cols-6 gap-1">
+                        {stickerSheetList.map((sticker) => (
+                          <button
+                            key={sticker.id}
+                            type="button"
+                            disabled
+                            className="aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+                            aria-label={`스티커 ${sticker.id}`}
+                          >
+                            <img
+                              src={getAssetImageUrl(sticker.assetKey)}
+                              alt=""
+                              className="h-full w-full object-contain p-0.5"
+                              loading="lazy"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>,
