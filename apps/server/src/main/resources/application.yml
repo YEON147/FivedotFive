@@ -34,6 +34,6 @@ spring:
             user-name-attribute: id
 
 jwt:
-  secret: your-very-long-secret-key-that-is-at-least-32-bytes-long-and-secure
+  secret: ${JWT_SECRET}
   access-token-expiration: 3600000 # 1시간 (ms)
   refresh-token-expiration: 604800 # 7일 (seconds, Redis용)
