@@ -8,6 +8,7 @@ import com.ssafy.oh_jjeom_oh.domain.asset.entity.BoardAsset;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.BoardAssetResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishItemResponse;
@@ -59,6 +60,11 @@ public class WishBoardService {
         wishBoardRepository.save(board);
 
         return WishBoardCreateResponse.of(slug);
+    }
+
+    /** GET /api/boards/me/exists — 보드 유무만 (없어도 예외 없음) */
+    public WishBoardExistsResponse getMyBoardExists(Long userId) {
+        return WishBoardExistsResponse.of(wishBoardRepository.existsByUser_Id(userId));
     }
 
     // GET /api/boards/me - 내 위시보드 조회
