@@ -11,6 +11,12 @@ const backendOrigin =
   process.env.BACKEND_REWRITE_TARGET?.replace(/\/$/, "") ||
   "http://127.0.0.1:8080";
 
+if (process.env.NODE_ENV === "production" && !process.env.BACKEND_REWRITE_TARGET) {
+  console.warn(
+    "[next.config] BACKEND_REWRITE_TARGET 미설정: /api 요청이 127.0.0.1:8080으로 리라이트됩니다. Spring이 다른 호스트면 반드시 환경 변수를 설정하세요.",
+  );
+}
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "192.168.31.153",
