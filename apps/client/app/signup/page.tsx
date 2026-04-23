@@ -15,23 +15,12 @@ export default function SignupPage() {
     onChange,
     onSubmit,
     onRefetchNickname,
-    schoolKeyword,
-    schoolResults,
-    isSchoolSearching,
-    isSchoolDropdownOpen,
-    hasSelectedSchool,
-    ignoreNextSchoolFocus,
     usernameCheckStatus,
     usernameCheckMessage,
     userEmailCheckStatus,
     userEmailCheckMessage,
     nicknameCheckStatus,
     nicknameCheckMessage,
-    isNicknameDirty,
-    onSchoolKeywordChange,
-    onSelectSchool,
-    setIsSchoolDropdownOpen,
-    setIgnoreNextSchoolFocus,
   } = useSignupForm();
 
   return (
@@ -40,7 +29,7 @@ export default function SignupPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-900">회원가입</h1>
           <p className="mt-2 text-sm text-slate-500">
-            필수 정보를 입력하고 회원가입을 진행해주세요.
+            아이디·이메일·닉네임 중복 확인 후 회원가입을 완료해 주세요.
           </p>
         </div>
 
@@ -52,25 +41,14 @@ export default function SignupPage() {
           canSubmit={canSubmit}
           submitMessage={submitMessage}
           submitSuccess={submitSuccess}
-          schoolKeyword={schoolKeyword}
-          schoolResults={schoolResults}
-          isSchoolSearching={isSchoolSearching}
-          isSchoolDropdownOpen={isSchoolDropdownOpen}
-          hasSelectedSchool={hasSelectedSchool}
-          ignoreNextSchoolFocus={ignoreNextSchoolFocus}
           usernameCheckStatus={usernameCheckStatus}
           usernameCheckMessage={usernameCheckMessage}
           userEmailCheckStatus={userEmailCheckStatus}
           userEmailCheckMessage={userEmailCheckMessage}
           nicknameCheckStatus={nicknameCheckStatus}
           nicknameCheckMessage={nicknameCheckMessage}
-          isNicknameDirty={isNicknameDirty}
           onChange={onChange}
-          onSchoolKeywordChange={onSchoolKeywordChange}
-          onSelectSchool={onSelectSchool}
           onRefetchNickname={onRefetchNickname}
-          setIsSchoolDropdownOpen={setIsSchoolDropdownOpen}
-          setIgnoreNextSchoolFocus={setIgnoreNextSchoolFocus}
           onSubmit={onSubmit}
         />
       </section>

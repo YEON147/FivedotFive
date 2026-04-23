@@ -6,7 +6,6 @@ import { TextField } from "@/components/ui/TextField";
 import { GENDER_OPTIONS, GRADE_OPTIONS } from "@/lib/constants/signup";
 import type {
   CheckStatus,
-  SchoolOption,
   SignupFormErrors,
   SignupFormValues,
 } from "@/features/signup/types";
@@ -19,25 +18,14 @@ type SignupFormProps = {
   canSubmit: boolean;
   submitMessage: string | null;
   submitSuccess: boolean | null;
-  schoolKeyword: string;
-  schoolResults?: SchoolOption[];
-  isSchoolSearching: boolean;
-  isSchoolDropdownOpen: boolean;
-  hasSelectedSchool: boolean;
-  ignoreNextSchoolFocus: boolean;
   usernameCheckStatus: CheckStatus;
   usernameCheckMessage: string | null;
   userEmailCheckStatus: CheckStatus;
   userEmailCheckMessage: string | null;
   nicknameCheckStatus: CheckStatus;
   nicknameCheckMessage: string | null;
-  isNicknameDirty: boolean;
   onChange: (name: keyof SignupFormValues, value: string) => void;
-  onSchoolKeywordChange: (value: string) => void;
-  onSelectSchool: (school: SchoolOption) => void;
   onRefetchNickname: () => Promise<void>;
-  setIsSchoolDropdownOpen: (open: boolean) => void;
-  setIgnoreNextSchoolFocus: (value: boolean) => void;
   onSubmit: () => Promise<unknown>;
 };
 
@@ -60,47 +48,36 @@ export function SignupForm({
   canSubmit,
   submitMessage,
   submitSuccess,
-  schoolKeyword,
-  schoolResults = [],
-  isSchoolSearching,
-  isSchoolDropdownOpen,
-  hasSelectedSchool,
-  ignoreNextSchoolFocus,
   usernameCheckStatus,
   usernameCheckMessage,
   userEmailCheckStatus,
   userEmailCheckMessage,
   nicknameCheckStatus,
   nicknameCheckMessage,
-  isNicknameDirty,
   onChange,
-  onSchoolKeywordChange,
-  onSelectSchool,
   onRefetchNickname,
-  setIsSchoolDropdownOpen,
-  setIgnoreNextSchoolFocus,
   onSubmit,
 }: SignupFormProps) {
   const usernameStatusClass =
     usernameCheckStatus === "available"
       ? "text-emerald-600"
       : usernameCheckStatus === "unavailable"
-      ? "text-rose-600"
-      : "text-slate-500";
+        ? "text-rose-600"
+        : "text-slate-500";
 
   const userEmailStatusClass =
     userEmailCheckStatus === "available"
       ? "text-emerald-600"
       : userEmailCheckStatus === "unavailable"
-      ? "text-rose-600"
-      : "text-slate-500";
+        ? "text-rose-600"
+        : "text-slate-500";
 
   const nicknameStatusClass =
     nicknameCheckStatus === "available"
       ? "text-emerald-600"
       : nicknameCheckStatus === "unavailable"
-      ? "text-rose-600"
-      : "text-slate-500";
+        ? "text-rose-600"
+        : "text-slate-500";
 
   const [debouncedUsername, setDebouncedUsername] = useState(values.username);
   const [debouncedPassword, setDebouncedPassword] = useState(values.password);
@@ -168,14 +145,10 @@ export function SignupForm({
             />
 
             {usernameCheckMessage ? (
-              <p className={`text-xs ${usernameStatusClass}`}>
-                {usernameCheckMessage}
-              </p>
+              <p className={`text-xs ${usernameStatusClass}`}>{usernameCheckMessage}</p>
             ) : values.username.trim().length > 0 &&
               values.username.trim().length < 2 ? (
-              <p className="text-xs text-slate-500">
-                아이디를 2자 이상 입력해주세요.
-              </p>
+              <p className="text-xs text-slate-500">아이디를 2자 이상 입력해주세요.</p>
             ) : null}
           </div>
         </StepSection>
@@ -267,29 +240,25 @@ export function SignupForm({
                 placeholder="2~8자 닉네임을 입력해주세요"
                 value={values.nickname}
                 error={errors.nickname}
-                hint="현재는 백엔드 미연결 상태라 직접 입력 기준으로 진행합니다."
-                disabled={false}
+                hint="서비스에서 표시되는 이름입니다."
                 onChange={(event) => onChange("nickname", event.target.value)}
               />
 
-              <div className="flex items-center justify-between gap-3">
-                {isNicknameDirty && nicknameCheckMessage ? (
-                  <p className={`text-xs ${nicknameStatusClass}`}>
-                    {nicknameCheckMessage}
-                  </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {nicknameCheckMessage ? (
+                  <p className={`text-xs ${nicknameStatusClass}`}>{nicknameCheckMessage}</p>
                 ) : (
                   <p className="text-xs text-slate-500">
-                    현재는 자동 생성 없이 직접 입력으로 진행합니다.
+                    입력 후 자동으로 중복 여부를 확인합니다.
                   </p>
                 )}
-
                 <button
                   type="button"
                   onClick={() => void onRefetchNickname()}
-                  disabled
-                  className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-400 opacity-60"
+                  disabled={isNicknameLoading}
+                  className="shrink-0 rounded-lg border border-[#7B61FF]/40 bg-white px-3 py-2 text-xs font-semibold text-[#7B61FF] shadow-sm transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  랜덤 닉네임 준비중
+                  {isNicknameLoading ? "불러오는 중…" : "랜덤 닉네임"}
                 </button>
               </div>
             </div>
@@ -300,69 +269,19 @@ export function SignupForm({
           <StepSection>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-4">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  추가 정보
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  아래 항목은 선택 입력입니다.
-                </p>
+                <h2 className="text-sm font-semibold text-slate-900">추가 정보</h2>
+                <p className="mt-1 text-xs text-slate-500">아래 항목은 선택 입력입니다.</p>
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
-                <div className="relative md:col-span-2">
+                <div className="md:col-span-2">
                   <TextField
                     id="school"
                     label="학교"
-                    placeholder="학교명을 검색해주세요"
-                    value={schoolKeyword}
-                    onFocus={() => {
-                      if (ignoreNextSchoolFocus) {
-                        setIgnoreNextSchoolFocus(false);
-                        return;
-                      }
-
-                      if (!hasSelectedSchool && schoolResults.length > 0) {
-                        setIsSchoolDropdownOpen(true);
-                      }
-                    }}
-                    onChange={(event) =>
-                      onSchoolKeywordChange(event.target.value)
-                    }
-                    hint="학교 검색 결과에서 선택해주세요."
+                    placeholder="학교명을 입력해 주세요 (선택)"
+                    value={values.schoolName}
+                    onChange={(event) => onChange("schoolName", event.target.value)}
                   />
-
-                  {isSchoolDropdownOpen ? (
-                    <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-                      {isSchoolSearching ? (
-                        <div className="px-4 py-3 text-sm text-slate-500">
-                          검색 중...
-                        </div>
-                      ) : schoolResults.length > 0 ? (
-                        schoolResults.map((school) => (
-                          <button
-                            key={`${school.officeCode}-${school.schoolCode}`}
-                            type="button"
-                            className="flex w-full flex-col px-4 py-3 text-left hover:bg-slate-50"
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              onSelectSchool(school);
-                            }}
-                          >
-                            <span className="text-sm font-semibold text-slate-900">
-                              {school.schoolName}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {school.address || "주소 정보 없음"}
-                            </span>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-slate-500">
-                          검색 결과가 없습니다.
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
                 </div>
 
                 <SelectField
@@ -405,7 +324,9 @@ export function SignupForm({
             disabled={!canSubmit}
             className="h-12 w-full rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {isSubmitting ? "회원가입 처리 중..." : "회원가입"}
+            {isSubmitting || isNicknameLoading
+              ? "처리 중..."
+              : "회원가입"}
           </button>
         </StepSection>
       ) : null}
