@@ -212,6 +212,54 @@ export async function apiClient<T>(
   return data as T;
 }
 
+/**
+ * Authorization 헤더·토큰 재발급 없이 호출합니다.
+ * 회원가입 중복 검사 등 로그인 없이 사용해야 하는 API에 사용합니다.
+ */
+export async function publicApiClient<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(input, {
+    ...init,
+    headers: buildHeaders(init, undefined),
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  const rawText = await response.text();
+  let data: unknown = null;
+
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    console.error("API 요청 실패", {
+      url: typeof input === "string" ? input : input.toString(),
+      method: init?.method ?? "GET",
+      status: response.status,
+      statusText: response.statusText,
+      requestBody: init?.body ?? null,
+      responseBody: rawText,
+    });
+
+    const message =
+      (data as ApiMessage | null)?.message ??
+      `요청 처리 중 오류가 발생했습니다. (${response.status})`;
+
+    throw new Error(message);
+  }
+
+  if (!data) {
+    throw new Error("서버 응답이 비어 있거나 JSON 형식이 아닙니다.");
+  }
+
+  return data as T;
+}
+
 export async function authApiClient<T>(
   input: RequestInfo | URL,
   init?: RequestInit
