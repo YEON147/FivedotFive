@@ -26,17 +26,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getServletPath();
-        if (path.startsWith("/api/auth/check/") || path.startsWith("/auth/check/")) {
-            return true;
-        }
-        if ("/api/auth/nickname/random".equals(path) || "/auth/nickname/random".equals(path)) {
-            return true;
-        }
-        if ("/api/auth/signup".equals(path) || "/auth/signup".equals(path)) {
-            return true;
-        }
-        return false;
+        // getServletPath() 대신 getRequestURI() 사용 (가장 확실함)
+        String path = request.getRequestURI();
+
+        // 로그를 찍어서 배포 후 실제로 어떤 경로가 들어오는지 확인
+        log.info("[Filter Check] Incoming Request Path: {}", path);
+
+        // contains를 사용하면 앞에 /api가 붙든 안 붙든 다 잡아냅니다.
+        return path.contains("/api/auth/check/") ||
+                path.contains("/api/auth/signup") ||
+                path.contains("/api/auth/login") ||
+                path.contains("/api/auth/nickname/random");
     }
 
 
