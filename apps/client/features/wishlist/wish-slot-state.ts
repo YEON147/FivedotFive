@@ -1,10 +1,35 @@
 import type { GiftLayoutCount } from "@/components/wishlist/WishlistSlots";
 import type { WishItemData } from "@/features/wishlist/types";
 
-/** PATCH·클라와 동일하게 쓰는 선물 프리셋 아이콘 키 (`public/icon/present.png`) */
-export const GIFT_MODAL_PRESET_PRESENT_KEY = "icon/present.png";
-/** 서버 `WishItemService` 기본 GIFT_ICON 키 */
+/** 서버 `WishItemService` 기본 GIFT_ICON 키 — 빈 슬롯 판별용 */
 export const SERVER_DEFAULT_GIFT_ICON_KEY = "default/gift_icon.png";
+
+/** 예전 클라에서 하드코딩하던 프리셋 경로 — DB에 남아 있을 수 있음 */
+const LEGACY_PRESET_ICON_KEYS = [
+  "icon/present.png",
+  "assets/icons/icon-100.png",
+] as const;
+
+/**
+ * 모달「기본 선물」과 동일한 아이콘인지.
+ * - 전체 조회 목록의 첫 `assetKey`와 같으면 프리셋으로 간주
+ * - 또는 레거시 하드코딩 키
+ */
+export function matchesGiftPresetIcon(
+  storedKey: string,
+  catalogFirstAssetKey?: string | null,
+): boolean {
+  const s = storedKey.trim();
+  if (!s) {
+    return false;
+  }
+  const first = catalogFirstAssetKey?.trim();
+  if (first && s === first) {
+    return true;
+  }
+  const lower = s.toLowerCase();
+  return LEGACY_PRESET_ICON_KEYS.some((k) => k.toLowerCase() === lower);
+}
 
 /**
  * 선물 이름이 없고, 아이콘도 없거나 서버·클라 ‘기본’ 아이콘만 있으면 빈 슬롯.
@@ -18,13 +43,16 @@ export function isWishSlotSemanticallyEmpty(row: WishItemData): boolean {
     return true;
   }
   const lower = icon.toLowerCase();
+  if (lower === SERVER_DEFAULT_GIFT_ICON_KEY.toLowerCase()) {
+    return true;
+  }
+  if (matchesGiftPresetIcon(icon, undefined)) {
+    return true;
+  }
   if (lower.includes("default/gift") || lower.endsWith("gift_icon.png")) {
     return true;
   }
-  if (icon === GIFT_MODAL_PRESET_PRESENT_KEY || lower.endsWith("/present.png")) {
-    return true;
-  }
-  if (lower === SERVER_DEFAULT_GIFT_ICON_KEY.toLowerCase()) {
+  if (lower.endsWith("/present.png")) {
     return true;
   }
   return false;
