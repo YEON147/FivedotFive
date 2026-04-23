@@ -8,6 +8,13 @@ import lombok.Getter;
 public enum SuccessMessage {
     // 유저
     USER_INFO_FOUND("유저 정보 조회가 완료되었습니다."),
+    USER_INFO_REGISTER("내 정보가 등록되었습니다."),
+    USER_INFO_UPDATED("내 정보가 수정되었습니다."),
+    SCHOOL_UPDATED("학교가 변경되었습니다."),
+    GENDER_UPDATED("성별이 변경되었습니다."),
+    NICKNAME_UPDATED("닉네임이 변경되었습니다."),
+    GRADE_UPDATED("학년이 변경되었습니다."),
+    USER_INFO_DELETED("회원 탈퇴가 완료되었습니다."),
 
     LOGIN_SUCCESS("로그인 되었습니다."),
     SIGNUP_SUCCESS("회원가입이 완료되었습니다."),

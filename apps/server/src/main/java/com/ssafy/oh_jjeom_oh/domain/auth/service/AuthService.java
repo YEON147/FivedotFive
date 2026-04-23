@@ -38,7 +38,7 @@ public class AuthService {
         User user = userRepository.findByUsername(request.username())
                 .orElseThrow(() -> new CustomException(ErrorCode.LOGIN_FAILED));
 
-        if (Status.BANNED.equals(user.getStatus()) || Status.INACTIVE.equals(user.getStatus())) {
+        if (Status.BANNED.equals(user.getStatus()) || Status.INACTIVE.equals(user.getStatus()) || Status.DELETED.equals(user.getStatus())) {
             throw new CustomException(ErrorCode.USER_FORBIDDEN);
         }
 
