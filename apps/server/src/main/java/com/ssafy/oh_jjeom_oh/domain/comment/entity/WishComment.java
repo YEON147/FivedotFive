@@ -1,5 +1,6 @@
 package com.ssafy.oh_jjeom_oh.domain.comment.entity;
 
+import com.ssafy.oh_jjeom_oh.common.constant.CommentConstants;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import jakarta.persistence.*;
@@ -49,6 +50,14 @@ public class WishComment {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public void softDelete() {
+        this.senderName = CommentConstants.DELETED_SENDER_NAME;
+        this.content = CommentConstants.DELETED_CONTENT;
+        this.stickerKey = null;
+        this.user = null;
+        this.isUser = false;
+    }
 
     public void updateContent(String content) {
         this.content = content;
