@@ -14,6 +14,7 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -76,6 +77,23 @@ public class SecurityConfig {
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * 회원가입 중복 검사 등은 OAuth2/JWT 필터 체인 밖에서 처리합니다.
+     * 일부 게이트웨이에서 경로가 달라지는 경우를 위해 /api 유무 패턴을 모두 허용합니다.
+     */
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return (web) -> web.ignoring()
+                .requestMatchers(
+                        "/api/auth/check/**",
+                        "/auth/check/**",
+                        "/api/auth/nickname/random",
+                        "/auth/nickname/random",
+                        "/api/auth/signup",
+                        "/auth/signup"
+                );
     }
 
     @Bean

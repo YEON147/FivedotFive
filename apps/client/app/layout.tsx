@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 
-import { AdsenseBootstrap } from "@/components/AdsenseBootstrap";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,7 +30,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        {/* AdSense — SSR HTML에 포함되어 크롤러·검증 도구가 스크립트를 즉시 확인할 수 있음 */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2280190033939879"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         {/* Google Tag Manager (noscript) */}
         <noscript>
@@ -45,9 +52,7 @@ export default function RootLayout({
         </noscript>
         {/* End Google Tag Manager (noscript) */}
 
-        {/* GTM만 next/script — AdSense는 data-nscript 미부착을 위해 AdsenseBootstrap */}
         <Script id="google-tag-manager" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: GTM_SCRIPT }} />
-        <AdsenseBootstrap />
 
         {children}
       </body>

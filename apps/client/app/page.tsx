@@ -3,8 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { createMyBoard } from "@/features/wishlist/api";
-import { getMyProfile } from "@/features/user/api";
+import {
+  getWishlistCtaTrafficContext,
+  trackWishlistCreateClick,
+} from "@/lib/analytics/wishlistCta";
+import { apiClient } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/token-store";
 
 export default function Home() {
@@ -25,6 +28,8 @@ export default function Home() {
     if (isCreatingBoard) {
       return;
     }
+
+    trackWishlistCreateClick(getWishlistCtaTrafficContext());
 
     if (!getAccessToken()) {
       router.push("/login");
