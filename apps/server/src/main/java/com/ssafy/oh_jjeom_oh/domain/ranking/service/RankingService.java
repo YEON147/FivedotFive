@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
@@ -29,20 +30,52 @@ public class RankingService {
     private static final String CACHE_KEY_SCHOOL_COMMENT = "ranking:school:comments";
     private static final String CACHE_KEY_USER_COMMENT   = "ranking:user:comments";
 
+    private static final String LOCK_KEY_INIT      = "lock:ranking:init";
+    private static final String LOCK_KEY_SCHEDULED = "lock:ranking:scheduled";
+    private static final long   LOCK_TTL_SECONDS   = 55;
+
     private final RankingRepository rankingRepository;
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
-    // 앱 시작 시 초기 캐시 적재
+    // 앱 시작 시 초기 캐시 적재 (분산 락으로 단일 인스턴스만 실행)
     @PostConstruct
     public void initCache() {
-        refreshAllRankings();
+        try {
+            Boolean acquired = redisTemplate.opsForValue()
+                    .setIfAbsent(LOCK_KEY_INIT, "locked", LOCK_TTL_SECONDS, TimeUnit.SECONDS);
+            if (!Boolean.TRUE.equals(acquired)) {
+                log.info("다른 인스턴스가 초기 랭킹 캐시 적재 중 - 건너뜀");
+                return;
+            }
+            try {
+                doRefreshAllRankings();
+            } finally {
+                redisTemplate.delete(LOCK_KEY_INIT);
+            }
+        } catch (Exception e) {
+            log.warn("초기 랭킹 캐시 적재 실패 (Redis 연결 불가 등): {}", e.getMessage());
+        }
     }
 
-    // 매 1분마다 캐시 갱신 (테스트용, 운영 시 "0 0 * * * *"으로 변경)
+    // 매 1분마다 캐시 갱신 (테스트용, 운영 시 "0 0 * * * *"으로 변경) - 분산 락 적용
     @Scheduled(cron = "0 * * * * *")
     @Transactional(readOnly = true)
     public void refreshAllRankings() {
+        Boolean acquired = redisTemplate.opsForValue()
+                .setIfAbsent(LOCK_KEY_SCHEDULED, "locked", LOCK_TTL_SECONDS, TimeUnit.SECONDS);
+        if (!Boolean.TRUE.equals(acquired)) {
+            log.debug("다른 인스턴스가 랭킹 캐시 갱신 중 - 건너뜀");
+            return;
+        }
+        try {
+            doRefreshAllRankings();
+        } finally {
+            redisTemplate.delete(LOCK_KEY_SCHEDULED);
+        }
+    }
+
+    private void doRefreshAllRankings() {
         refreshSchoolUserRanking();
         refreshSchoolCommentRanking();
         refreshUserCommentRanking();

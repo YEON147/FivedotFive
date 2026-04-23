@@ -22,10 +22,10 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
@@ -121,8 +121,10 @@ class RankingServiceTest {
     // ===================== refreshAllRankings =====================
 
     @Test
-    @DisplayName("캐시 갱신 - DB 쿼리 후 Redis에 저장")
-    void refreshAllRankings_savesToRedis() {
+    @DisplayName("캐시 갱신 - 분산 락 획득 성공 시 DB 쿼리 후 Redis에 저장")
+    void refreshAllRankings_lockAcquired_savesToRedis() {
+        given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
+                .willReturn(true);
         given(rankingRepository.findSchoolUserRanking()).willReturn(List.of(
                 mockSchoolUserRow("소강초등학교", 42L)
         ));
@@ -136,11 +138,28 @@ class RankingServiceTest {
         rankingService.refreshAllRankings();
 
         verify(valueOperations, times(3)).set(anyString(), anyString());
+        verify(redisTemplate).delete("lock:ranking:scheduled");
+    }
+
+    @Test
+    @DisplayName("캐시 갱신 - 분산 락 획득 실패 시 DB 쿼리 건너뜀")
+    void refreshAllRankings_lockNotAcquired_skipsDbQuery() {
+        given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
+                .willReturn(false);
+
+        rankingService.refreshAllRankings();
+
+        verify(rankingRepository, never()).findSchoolUserRanking();
+        verify(rankingRepository, never()).findSchoolCommentRanking();
+        verify(rankingRepository, never()).findUserCommentRanking();
+        verify(valueOperations, never()).set(anyString(), anyString());
     }
 
     @Test
     @DisplayName("캐시 갱신 - rank 번호가 1부터 순서대로 부여됨")
     void refreshAllRankings_rankNumberAssignedCorrectly() throws Exception {
+        given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
+                .willReturn(true);
         given(rankingRepository.findSchoolUserRanking()).willReturn(List.of(
                 mockSchoolUserRow("소강초등학교", 42L),
                 mockSchoolUserRow("한강초등학교", 38L),
@@ -151,7 +170,6 @@ class RankingServiceTest {
 
         rankingService.refreshAllRankings();
 
-        // Redis에 저장된 값 캡처
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(valueOperations).set(eq("ranking:school:users"), captor.capture());
 
