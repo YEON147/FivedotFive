@@ -37,6 +37,10 @@ import {
   getMyBoard,
   patchMyWishItem,
 } from "@/features/wishlist/api";
+import {
+  deriveWishSlotState,
+  GIFT_MODAL_PRESET_PRESENT_KEY,
+} from "@/features/wishlist/wish-slot-state";
 import type { BoardAssetData, MyBoardData, WishItemData } from "@/features/wishlist/types";
 import { getMyProfile } from "@/features/user/api";
 import {
@@ -51,11 +55,6 @@ import { getAssetImageUrl } from "@/lib/asset-url";
 const GIFT_ICON_PAGE_SIZE = 8;
 /** 고정 슬롯 2개(삭제 · 기본 선물) 제외 후 첫 페이지에 넣을 API 아이콘 수 */
 const GIFT_MODAL_FIRST_PAGE_API_COUNT = GIFT_ICON_PAGE_SIZE - 2;
-/** PATCH·로컬 상태와 동일하게 쓰는 선물 프리셋 아이콘 키 (`public/icon/present.png`) */
-const GIFT_MODAL_PRESET_PRESENT_KEY = "icon/present.png";
-/** 서버 `WishItemService` 기본 GIFT_ICON 키 — 이름 없을 때는 빈 슬롯으로 간주 */
-const SERVER_DEFAULT_GIFT_ICON_KEY = "default/gift_icon.png";
-
 type GiftModalSpecial = "clear" | "present" | null;
 
 /** 스티커 모달 카테고리 탭 자리표시자 — 백엔드 연동 시 교체 */
@@ -127,69 +126,6 @@ function WishlistProfileTitleHeader({
       </button>
     </header>
   );
-}
-
-/**
- * 선물 이름이 없고, 아이콘도 없거나 서버·클라 ‘기본’ 아이콘만 있으면 빈 슬롯.
- * (백엔드가 빈 칸에도 `default/gift_icon.png` 를 붙이는 경우 `iconKey`만으로는 빈 칸 판별 불가)
- */
-function isWishSlotSemanticallyEmpty(row: WishItemData): boolean {
-  if (row.itemName?.trim()) {
-    return false;
-  }
-  const icon = row.iconKey?.trim() ?? "";
-  if (!icon) {
-    return true;
-  }
-  const lower = icon.toLowerCase();
-  if (lower.includes("default/gift") || lower.endsWith("gift_icon.png")) {
-    return true;
-  }
-  if (icon === GIFT_MODAL_PRESET_PRESENT_KEY || lower.endsWith("/present.png")) {
-    return true;
-  }
-  if (lower === SERVER_DEFAULT_GIFT_ICON_KEY.toLowerCase()) {
-    return true;
-  }
-  return false;
-}
-
-function areAllWishSlotsEmpty(items: WishItemData[]): boolean {
-  if (items.length === 0) {
-    return true;
-  }
-  return items.every(isWishSlotSemanticallyEmpty);
-}
-
-function deriveWishSlotState(items: WishItemData[]) {
-  const allWishSlotsEmpty = areAllWishSlotsEmpty(items);
-  if (allWishSlotsEmpty) {
-    return {
-      wishTexts: ["", "", ""],
-      wishGiftIconKeys: ["", "", ""],
-      bigCircleCount: 1 as GiftLayoutCount,
-      allWishSlotsEmpty,
-    };
-  }
-
-  const texts = ["", "", ""];
-  const keys = ["", "", ""];
-  for (const item of items) {
-    const idx = item.slotIndex - 1;
-    if (idx >= 0 && idx < 3) {
-      texts[idx] = item.itemName ?? "";
-      keys[idx] = item.iconKey ?? "";
-    }
-  }
-
-  const filled = items.filter((i) => !isWishSlotSemanticallyEmpty(i)).length;
-
-  return {
-    wishTexts: texts,
-    wishGiftIconKeys: keys,
-    bigCircleCount: Math.max(1, Math.min(3, filled)) as GiftLayoutCount,
-    allWishSlotsEmpty,
-  };
 }
 
 function DefaultOptionButton({
