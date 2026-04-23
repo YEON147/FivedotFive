@@ -42,7 +42,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=https://k14f205.p.ssafy.io/api
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     networks:
       - oh-jjeom-oh-net
     restart: always
