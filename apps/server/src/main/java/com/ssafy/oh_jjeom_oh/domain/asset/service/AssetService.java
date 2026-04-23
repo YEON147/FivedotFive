@@ -4,6 +4,8 @@ import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.AssetItemResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.BackgroundListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.GiftIconListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerCatalogListResponse;
+import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderListResponse;
+import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.AssetType;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.AssetRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,20 @@ public class AssetService {
                 .map(AssetItemResponse::of)
                 .toList();
         return StickerCatalogListResponse.of(items);
+    }
+
+    public StickerFolderListResponse getStickerFolders() {
+        List<String> folders = assetRepository.findDistinctStickerFolders();
+        return StickerFolderListResponse.of(folders);
+    }
+
+    public StickerFolderResponse getStickersByFolder(String folder) {
+        List<AssetItemResponse> items = assetRepository
+                .findStickersByFolder(folder)
+                .stream()
+                .map(AssetItemResponse::of)
+                .toList();
+        return StickerFolderResponse.of(folder, items);
     }
 
     public GiftIconListResponse getGiftIcons() {

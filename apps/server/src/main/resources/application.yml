@@ -1,19 +1,20 @@
 spring:
   application:
     name: oh-jjeom-oh
-  data:
-    redis:
-      host: oh-jjeom-oh-redis
-      port: 6379
   datasource:
-    url: jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
-    username: postgres
-    password: '1234'
+    url: ${DB_URL:jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:12345678}
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   security:
     oauth2:
       client:
@@ -23,7 +24,7 @@ spring:
             client-secret: ${KAKAO_CLIENT_SECRET}
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
-            redirect-uri: "http://localhost:8080/login/oauth2/code/kakao"
+            redirect-uri: "https://fivedotfive.co.kr/api/login/oauth2/code/kakao"
             scope: profile_nickname, account_email
             client-name: Kakao
         provider:
@@ -34,6 +35,9 @@ spring:
             user-name-attribute: id
 
 jwt:
-  secret: your-very-long-secret-key-that-is-at-least-32-bytes-long-and-secure
+  secret: ${JWT_SECRET}
   access-token-expiration: 3600000 # 1시간 (ms)
   refresh-token-expiration: 604800 # 7일 (seconds, Redis용)
+
+app:
+  frontend-url: ${FRONTEND_URL:https://fivedotfive.co.kr}

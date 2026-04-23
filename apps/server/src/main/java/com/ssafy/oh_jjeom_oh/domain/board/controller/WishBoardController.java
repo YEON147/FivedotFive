@@ -2,14 +2,15 @@ package com.ssafy.oh_jjeom_oh.domain.board.controller;
 
 import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
 import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
-import com.ssafy.oh_jjeom_oh.common.security.CurrentUser;
 import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.service.WishBoardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -22,7 +23,7 @@ public class WishBoardController {
     // POST /api/boards - 위시보드 생성 (CHILD)
     @PostMapping
     public ResponseEntity<ApiResponse<WishBoardCreateResponse>> createBoard(
-            @CurrentUser UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
         WishBoardCreateResponse data = wishBoardService.createBoard(userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_CREATED, data));
@@ -31,7 +32,7 @@ public class WishBoardController {
     // GET /api/boards/me - 내 위시보드 조회 (CHILD)
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<WishBoardResponse>> getMyBoard(
-            @CurrentUser UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
         WishBoardResponse data = wishBoardService.getMyBoard(userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_FOUND, data));

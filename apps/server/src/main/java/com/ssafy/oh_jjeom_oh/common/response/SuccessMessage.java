@@ -28,6 +28,7 @@ public enum SuccessMessage {
     // 위시보드
     BOARD_CREATED("위시보드가 생성되었습니다."),
     BOARD_FOUND("위시보드 조회가 완료되었습니다."),
+    BOARD_EXISTS_CHECKED("위시보드 존재 여부 조회가 완료되었습니다."),
     BOARD_UPDATED("위시보드가 수정되었습니다."),
 
     // 위시 아이템
@@ -42,6 +43,8 @@ public enum SuccessMessage {
     BACKGROUND_UPDATED("배경이 변경되었습니다."),
     BACKGROUND_DELETED("배경이 삭제되었습니다."),
     STICKER_LIST_FOUND("스티커 목록 조회가 완료되었습니다."),
+    STICKER_FOLDER_LIST_FOUND("스티커 폴더 목록 조회가 완료되었습니다."),
+    STICKER_FOLDER_FOUND("스티커 폴더 조회가 완료되었습니다."),
     STICKER_FOUND("스티커 조회가 완료되었습니다."),
     STICKER_UPDATED("스티커가 변경되었습니다."),
     STICKER_DELETED("스티커가 삭제되었습니다."),
@@ -56,7 +59,15 @@ public enum SuccessMessage {
     // 댓글 스티커 (선물 아이콘)
     COMMENT_STICKER_FOUND("선물 아이콘 조회가 완료되었습니다."),
     COMMENT_STICKER_UPDATED("선물 아이콘이 변경되었습니다."),
-    COMMENT_STICKER_DELETED("선물 아이콘이 삭제되었습니다.");
+    COMMENT_STICKER_DELETED("선물 아이콘이 삭제되었습니다."),
+
+    // 랭킹
+    SCHOOL_USER_RANKING_FOUND("학교별 사용자 수 랭킹 조회가 완료되었습니다."),
+    SCHOOL_COMMENT_RANKING_FOUND("학교별 댓글 수 랭킹 조회가 완료되었습니다."),
+    USER_COMMENT_RANKING_FOUND("개인별 댓글 수 랭킹 조회가 완료되었습니다."),
+
+    // 공유 링크
+    SHARE_LINK_CREATED("공유 링크가 생성되었습니다.");
 
     private final String message;
 }

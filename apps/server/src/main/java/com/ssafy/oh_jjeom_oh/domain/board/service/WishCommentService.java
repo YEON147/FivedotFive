@@ -101,7 +101,7 @@ public class WishCommentService {
     @Transactional
     public void deleteComment(Long userId, String slug, Long commentId) {
         WishComment comment = getCommentAndValidateOwner(commentId, userId, slug);
-        wishCommentRepository.delete(comment);
+        comment.softDelete();
     }
 
     // GET /api/boards/{slug}/comments/{commentId}/sticker - 선물 아이콘 조회 (Anyone)

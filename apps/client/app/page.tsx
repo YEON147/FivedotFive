@@ -3,16 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { apiClient } from "@/lib/api/client";
+import { createMyBoard } from "@/features/wishlist/api";
+import { getMyProfile } from "@/features/user/api";
 import { getAccessToken } from "@/lib/api/token-store";
-
-type CreateBoardResponse = {
-  success: boolean;
-  message?: string;
-  data?: {
-    boardSlug?: string;
-  };
-};
 
 export default function Home() {
   const router = useRouter();
@@ -42,22 +35,19 @@ export default function Home() {
     setCreateError(null);
 
     try {
-      await apiClient<CreateBoardResponse>("/api/boards/me");
-      router.push("/wishlist");
-    } catch {
-      try {
-        await apiClient<CreateBoardResponse>("/api/boards", {
-          method: "POST",
-          body: JSON.stringify({}),
-        });
+      const profile = await getMyProfile();
+      if (profile.hasWishBoard) {
         router.push("/wishlist");
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "위시리스트 생성 중 오류가 발생했습니다.";
-        setCreateError(message);
+        return;
       }
+      await createMyBoard();
+      router.push("/wishlist");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "위시리스트 생성 중 오류가 발생했습니다.";
+      setCreateError(message);
     } finally {
       setIsCreatingBoard(false);
     }
