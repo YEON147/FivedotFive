@@ -3,14 +3,15 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 
 # 의존성 설치
-COPY package*.json ./
+COPY apps/client/package*.json ./
 RUN npm install
 
 # 전체 소스 복사
-COPY . .
+COPY apps/client/ ./
 
-# [중요] 빌드 시점에 백엔드 주소를 주입!
+# 빌드 시점에 백엔드 주소를 주입
 ARG NEXT_PUBLIC_API_URL
+
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # 빌드 실행

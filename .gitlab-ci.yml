@@ -29,7 +29,7 @@ build_frontend:
     - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
     # 프론트엔드는 빌드할 때 백엔드 주소가 필요하므로 --build-arg를 넣어줍니다.
     - docker build 
-      --build-arg NEXT_PUBLIC_API_URL="https://k14f205.p.ssafy.io/api"
+      --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL"
       -t ghcr.io/$GHCR_USER/client-image:latest 
       -f apps/client/Dockerfile .
     - docker push ghcr.io/$GHCR_USER/client-image:latest
