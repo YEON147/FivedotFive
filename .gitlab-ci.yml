@@ -58,9 +58,12 @@ deploy_backend:
         git pull origin develop &&
         cd infra &&
         export GHCR_USER=$GHCR_USER &&
+        export DB_USERNAME=$DB_USERNAME &&
+        export DB_PASSWORD=$DB_PASSWORD &&
         export JWT_SECRET=$JWT_SECRET &&
         export KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID &&
         export KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET &&
+        export NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL &&
         docker-compose pull &&
         docker-compose up -d --force-recreate --remove-orphans
       "
