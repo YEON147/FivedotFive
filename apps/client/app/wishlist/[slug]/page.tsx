@@ -62,18 +62,19 @@ type PopupMode = "view" | "write" | "edit";
  * `app/wishlist/page.tsx` 꾸미기·보드 영역과 동일 (`WISHLIST_BOARD_PAGE_WRAP`) — 흰 카드 셸 없음.
  */
 const PUBLIC_WISHLIST_BOARD_WRAP =
-  "relative flex h-full min-h-0 max-h-full w-full max-w-[372px] flex-1 flex-col overflow-hidden bg-transparent";
+  "relative flex h-full min-h-0 max-h-full w-full max-w-[min(420px,calc(100vw-1.5rem))] flex-1 flex-col overflow-visible bg-transparent";
 
 /**
  * 공개 보드 바깥 프레임 — `app/wishlist/page.tsx` 꾸미기 보드 프레임과 동일.
  * 배경 에셋이 없을 때도 오로라 그라데이션(`wishlist-board-frame--decorate`)이 깔림.
  */
+/** 스티커·선물이 살짝 밖으로 나와도 잘리지 않도록 바깥은 `visible` — 배경은 `BoardFrame` 안에서만 클립 */
 const PUBLIC_BOARD_FRAME_OUTER =
-  "relative isolate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 overflow-hidden rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
+  "relative isolate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
 
 /** 배경 이미지는 위 레이어 — 없을 때는 바깥 프레임 오로라만 보임 */
 const PUBLIC_BOARD_INNER =
-  "relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-transparent";
+  "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
 
 const PUBLIC_PROFILE_HEADER_ROW =
   "relative z-40 flex items-center justify-between gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
@@ -469,10 +470,10 @@ export default function PublicWishlistPage({
         <div className="fixed inset-0 z-20 bg-black/40" onClick={handleClosePopup} />
       ) : null}
 
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
+      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start overflow-visible">
         <section className={`${PUBLIC_WISHLIST_BOARD_WRAP} mx-auto w-full`}>
-          <div className="relative flex min-h-0 flex-1 flex-col p-0">
-            <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-center">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-visible p-0">
+            <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-center overflow-visible px-1 py-2 sm:px-2 sm:py-3">
               <div
                 className={PUBLIC_BOARD_FRAME_OUTER}
                 style={{
@@ -480,14 +481,14 @@ export default function PublicWishlistPage({
                 }}
               >
                 <div
-                  className="absolute inset-0 flex h-full min-h-0 transition-transform duration-300 ease-out"
+                  className="absolute inset-0 flex h-full min-h-0 overflow-visible transition-transform duration-300 ease-out"
                   style={{
                     width: `${totalVisualPages * 100}%`,
                     transform: `translateX(calc(-${currentVisualPage} * (100% / ${totalVisualPages})))`,
                   }}
                 >
                   <div
-                    className="relative h-full min-h-0 p-0"
+                    className="relative h-full min-h-0 overflow-visible p-0"
                     style={{ width: `${100 / totalVisualPages}%` }}
                   >
                     <MainBoardPage
@@ -502,7 +503,7 @@ export default function PublicWishlistPage({
                   {Array.from({ length: commentTotalPages }, (_, commentIdx) => (
                     <div
                       key={commentIdx}
-                      className="relative h-full min-h-0 p-0"
+                      className="relative h-full min-h-0 overflow-visible p-0"
                       style={{ width: `${100 / totalVisualPages}%` }}
                     >
                       <CommentBoardPage
