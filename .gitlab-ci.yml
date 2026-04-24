@@ -28,7 +28,7 @@ build_frontend:
     DOCKER_TLS_CERTDIR: ""
   script:
     - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-    # 프론트엔드는 빌드할 때 백엔드 주소가 필요하므로 --build-arg를 넣어줍니다.
+    # 프론트엔드는 빌드할 때 백엔드 주소가 필요하므로 --build-arg를 넣어줍니다
     - docker build 
       --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL"
       --build-arg NEIS_API_KEY="$NEIS_API_KEY"

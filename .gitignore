@@ -13,3 +13,7 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+
+# ngrok
+ngrok.exe
+infra/ngrok.exe
