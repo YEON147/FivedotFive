@@ -26,8 +26,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -152,10 +154,8 @@ class WishCommentServiceTest {
         ReflectionTestUtils.setField(saved, "id", 1L);
         given(wishCommentRepository.saveAndFlush(any())).willReturn(saved);
 
-        // 첫 번째 요청 성공
         wishCommentService.createComment(1L, "abc123def4", request);
 
-        // 즉시 두 번째 요청 → 레이트 리밋 (rate limit 체크는 getBoardBySlug 이전에 발생)
         CommentCreateRequest request2 = buildRequest("두 번째 댓글", null, 1);
 
         assertThatThrownBy(() ->
@@ -204,6 +204,73 @@ class WishCommentServiceTest {
         assertThat(response.getComments().get(0).isUser()).isFalse();
     }
 
+    // ===================== getComments - isLastPageFull =====================
+
+    @Test
+    @DisplayName("마지막 페이지가 꽉 찬 경우 isLastPageFull = true")
+    void getComments_isLastPageFull_true_whenExactlyDivisibleBySix() {
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(buildComments(6), PageRequest.of(0, 6), 12));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, null);
+
+        assertThat(response.isLastPageFull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("마지막 페이지에 빈 슬롯이 있는 경우 isLastPageFull = false")
+    void getComments_isLastPageFull_false_whenNotDivisibleBySix() {
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(buildComments(3), PageRequest.of(0, 6), 9));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, null);
+
+        assertThat(response.isLastPageFull()).isFalse();
+    }
+
+    @Test
+    @DisplayName("댓글이 하나도 없으면 isLastPageFull = false")
+    void getComments_isLastPageFull_false_whenNoComments() {
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 6), 0));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, null);
+
+        assertThat(response.isLastPageFull()).isFalse();
+    }
+
+    @Test
+    @DisplayName("정확히 6의 배수(6, 12, 18...)일 때만 isLastPageFull = true")
+    void getComments_isLastPageFull_trueOnlyForMultiplesOfSix() {
+        long[] fullCounts    = {6, 12, 18, 24};
+        long[] partialCounts = {1, 5, 7, 11, 13};
+
+        for (long count : fullCounts) {
+            given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+            given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                    .willReturn(new PageImpl<>(buildComments(6), PageRequest.of(0, 6), count));
+
+            CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, null);
+            assertThat(response.isLastPageFull())
+                    .as("totalCount=%d 일 때 isLastPageFull은 true여야 합니다", count)
+                    .isTrue();
+        }
+
+        for (long count : partialCounts) {
+            given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+            given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                    .willReturn(new PageImpl<>(buildComments(3), PageRequest.of(0, 6), count));
+
+            CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, null);
+            assertThat(response.isLastPageFull())
+                    .as("totalCount=%d 일 때 isLastPageFull은 false여야 합니다", count)
+                    .isFalse();
+        }
+    }
+
     // ===== helpers =====
 
     private CommentCreateRequest buildRequest(String content, String stickerKey, int slotIndex) {
@@ -212,5 +279,18 @@ class WishCommentServiceTest {
         ReflectionTestUtils.setField(request, "stickerKey", stickerKey);
         ReflectionTestUtils.setField(request, "slotIndex", slotIndex);
         return request;
+    }
+
+    private List<WishComment> buildComments(int count) {
+        return IntStream.range(0, count)
+                .mapToObj(i -> WishComment.builder()
+                        .wishBoard(board)
+                        .user(sender)
+                        .senderName("테스터")
+                        .isUser(true)
+                        .content("댓글 " + i)
+                        .slotIndex(i)
+                        .build())
+                .toList();
     }
 }
