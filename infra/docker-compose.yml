@@ -39,6 +39,10 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - AWS_REGION=${AWS_REGION:-ap-northeast-2}
+      - S3_BUCKET=${S3_BUCKET:-five-dot-five}
     networks:
       - oh-jjeom-oh-net
   
@@ -58,6 +62,10 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - AWS_REGION=${AWS_REGION:-ap-northeast-2}
+      - S3_BUCKET=${S3_BUCKET:-five-dot-five}
     networks:
       - oh-jjeom-oh-net
     restart: always
@@ -78,6 +86,10 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - AWS_REGION=${AWS_REGION:-ap-northeast-2}
+      - S3_BUCKET=${S3_BUCKET:-five-dot-five}
     networks:
       - oh-jjeom-oh-net
     restart: always
