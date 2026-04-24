@@ -51,7 +51,7 @@ deploy_backend:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
   script:
-    # EC2 서버에 원격 접속해서 실행할 명령어들
+    # EC2 서버에 원격 접속해서 실행할 명령어
     - ssh -o StrictHostKeyChecking=no ubuntu@$EC2_HOST "
         echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin &&
         cd /home/ubuntu/S14P31F205 &&
