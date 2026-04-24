@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 /**
+<<<<<<< HEAD
+ * API 프록시: 첫 번째 매칭만 적용됩니다.
+=======
  * API 프록시: 위에서부터 첫 매칭이 적용됩니다.
+>>>>>>> origin/develop
  *
  * - 정상 클라이언트는 `/api/...` 로 요청 → 마지막 규칙으로 백엔드 `.../api/...` 전달.
  * - 배포 환경에서 리버스 프록시·게이트웨이가 `/api` prefix 를 떼면 `/boards/me` 처럼
@@ -16,7 +20,7 @@ import type { NextConfig } from "next";
  */
 const backendOrigin =
   process.env.BACKEND_REWRITE_TARGET?.replace(/\/$/, "") ||
-  "http://127.0.0.1:8080";
+  "https://k14f205.p.ssafy.io";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [

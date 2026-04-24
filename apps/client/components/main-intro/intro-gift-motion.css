@@ -1,0 +1,226 @@
+/**
+ * 메인 인트로 선물상자 — 잔잔한 록 + 터짐(눌림·광·비대칭 파열)
+ */
+@keyframes intro-gift-sway-x {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  4.5% {
+    transform: translate3d(0, 0, 0);
+  }
+  9% {
+    transform: translate3d(-1.2px, 0, 0);
+  }
+  13.5% {
+    transform: translate3d(-3.6px, 0, 0);
+  }
+  18% {
+    transform: translate3d(4.5px, 0, 0);
+  }
+  22.5% {
+    transform: translate3d(-6.3px, 0, 0);
+  }
+  27% {
+    transform: translate3d(5.4px, 0, 0);
+  }
+  31.5% {
+    transform: translate3d(-8.1px, 0, 0);
+  }
+  36% {
+    transform: translate3d(7.2px, 0, 0);
+  }
+  40.5% {
+    transform: translate3d(-9px, 0, 0);
+  }
+  45% {
+    transform: translate3d(8.1px, 0, 0);
+  }
+  49.5% {
+    transform: translate3d(-9.9px, 0, 0);
+  }
+  54% {
+    transform: translate3d(9px, 0, 0);
+  }
+  58.5% {
+    transform: translate3d(-10.8px, 0, 0);
+  }
+  63% {
+    transform: translate3d(9.9px, 0, 0);
+  }
+  67.5% {
+    transform: translate3d(-10.8px, 0, 0);
+  }
+  72% {
+    transform: translate3d(9.9px, 0, 0);
+  }
+  76.5% {
+    transform: translate3d(-9.9px, 0, 0);
+  }
+  81% {
+    transform: translate3d(9px, 0, 0);
+  }
+  85.5% {
+    transform: translate3d(-9px, 0, 0);
+  }
+  90% {
+    transform: translate3d(8.1px, 0, 0);
+  }
+  94.5% {
+    transform: translate3d(-6.3px, 0, 0);
+  }
+  100% {
+    transform: translate3d(-1.8px, 0, 0);
+  }
+}
+
+@keyframes intro-gift-sway-body {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  4.5% {
+    transform: translate3d(0, 2px, 0) rotate(-3.5deg) scale(1.003);
+  }
+  9% {
+    transform: translate3d(0, -2px, 0) rotate(3.2deg) scale(1);
+  }
+  13.5% {
+    transform: translate3d(0, 2px, 0) rotate(-4deg) scale(1.004);
+  }
+  18% {
+    transform: translate3d(0, -2px, 0) rotate(3.6deg) scale(1.002);
+  }
+  22.5% {
+    transform: translate3d(0, 2px, 0) rotate(-4.5deg) scale(1.005);
+  }
+  27% {
+    transform: translate3d(0, -2px, 0) rotate(4deg) scale(1.003);
+  }
+  31.5% {
+    transform: translate3d(0, 2px, 0) rotate(-5deg) scale(1.006);
+  }
+  36% {
+    transform: translate3d(0, -2px, 0) rotate(4.5deg) scale(1.004);
+  }
+  40.5% {
+    transform: translate3d(0, 3px, 0) rotate(-5.2deg) scale(1.008);
+  }
+  45% {
+    transform: translate3d(0, -2px, 0) rotate(4.8deg) scale(1.005);
+  }
+  49.5% {
+    transform: translate3d(0, 3px, 0) rotate(-5.5deg) scale(1.009);
+  }
+  54% {
+    transform: translate3d(0, -2px, 0) rotate(5deg) scale(1.006);
+  }
+  58.5% {
+    transform: translate3d(0, 3px, 0) rotate(-5.8deg) scale(1.01);
+  }
+  63% {
+    transform: translate3d(0, -2px, 0) rotate(5.2deg) scale(1.007);
+  }
+  67.5% {
+    transform: translate3d(0, 3px, 0) rotate(-6deg) scale(1.011);
+  }
+  72% {
+    transform: translate3d(0, -2px, 0) rotate(5.5deg) scale(1.008);
+  }
+  76.5% {
+    transform: translate3d(0, 3px, 0) rotate(-6.2deg) scale(1.012);
+  }
+  81% {
+    transform: translate3d(0, -2px, 0) rotate(5.8deg) scale(1.009);
+  }
+  85.5% {
+    transform: translate3d(0, 3px, 0) rotate(-6.3deg) scale(1.013);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0) rotate(5.8deg) scale(1.01);
+  }
+  94.5% {
+    transform: translate3d(0, 2px, 0) rotate(-5.5deg) scale(1.011);
+  }
+  100% {
+    transform: translate3d(0, 2px, 0) rotate(-4deg) scale(1.008);
+  }
+}
+
+/* 마지막 순간 부풂 → 아주 짧게 눌림(균열) → 터지며 비대칭으로 사라짐 */
+@keyframes intro-gift-burst {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+    filter: brightness(1) blur(0) drop-shadow(0 12px 28px rgba(45, 25, 90, 0.22));
+  }
+  9% {
+    transform: translate3d(0, -2px, 0) rotate(-1deg) scale(1.03);
+    opacity: 1;
+    filter: brightness(1.12) blur(0) drop-shadow(0 14px 36px rgba(123, 97, 255, 0.28));
+  }
+  15% {
+    transform: translate3d(1px, 1px, 0) rotate(1.5deg) scale(0.96);
+    opacity: 1;
+    filter: brightness(0.92) blur(0) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12));
+  }
+  24% {
+    transform: translate3d(-2px, -8px, 0) rotate(-4deg) scale(1.14);
+    opacity: 1;
+    filter: brightness(1.45) blur(0.5px)
+      drop-shadow(0 0 28px rgba(255, 210, 255, 0.55))
+      drop-shadow(0 10px 40px rgba(123, 97, 255, 0.45));
+  }
+  /* 이후: 좌우·회전 왕복 없이 위로만 덜컥 올라가며 흩어짐 */
+  38% {
+    transform: translate3d(0, -24px, 0) rotate(2.5deg) scale(1.42);
+    opacity: 0.97;
+    filter: brightness(1.55) blur(2px) drop-shadow(0 18px 48px rgba(174, 233, 225, 0.35));
+  }
+  55% {
+    transform: translate3d(1px, -42px, 0) rotate(1deg) scale(1.72);
+    opacity: 0.85;
+    filter: brightness(1.65) blur(5px) drop-shadow(0 24px 56px rgba(255, 255, 255, 0.2));
+  }
+  72% {
+    transform: translate3d(2px, -62px, 0) rotate(0.25deg) scale(2.05);
+    opacity: 0.45;
+    filter: brightness(1.75) blur(10px);
+  }
+  100% {
+    transform: translate3d(2px, -90px, 0) rotate(0deg) scale(2.35);
+    opacity: 0;
+    filter: brightness(2) blur(16px);
+  }
+}
+
+.intro-gift-shake-x-layer {
+  animation-name: intro-gift-sway-x;
+  animation-duration: var(--intro-gift-shake-duration, 2.25s);
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  animation-play-state: running;
+  transform-origin: center bottom;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.intro-gift-shake-body-layer {
+  animation-name: intro-gift-sway-body;
+  animation-duration: var(--intro-gift-shake-duration, 2.25s);
+  animation-timing-function: cubic-bezier(0.45, 0.04, 0.52, 1);
+  animation-fill-mode: forwards;
+  animation-play-state: running;
+  transform-origin: center 78%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.intro-gift-burst-layer {
+  animation-name: intro-gift-burst;
+  animation-duration: 0.44s;
+  /* 초반 스냅만 살짝, 후반은 와리가리 없이 상승만 읽히게 */
+  animation-timing-function: cubic-bezier(0.22, 0.78, 0.24, 1);
+  animation-fill-mode: forwards;
+  animation-play-state: running;
+  transform-origin: 50% 58%;
+  will-change: transform, opacity, filter;
+}
