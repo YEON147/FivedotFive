@@ -179,6 +179,63 @@ class RankingServiceTest {
         assertThat(saved.getRankings().get(2).getRank()).isEqualTo(3);
     }
 
+    // ===================== limit 100 & 0건 포함 =====================
+
+    @Test
+    @DisplayName("캐시 갱신 - 101개 입력 시 100개만 저장됨")
+    void refreshAllRankings_limitTo100() throws Exception {
+        given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
+                .willReturn(true);
+
+        List<SchoolUserRankRow> over100 = new java.util.ArrayList<>();
+        for (int i = 1; i <= 101; i++) {
+            String school = "학교" + i;
+            long count = 101 - i;
+            over100.add(mockSchoolUserRow(school, count));
+        }
+        given(rankingRepository.findSchoolUserRanking()).willReturn(over100);
+        given(rankingRepository.findSchoolCommentRanking()).willReturn(List.of());
+        given(rankingRepository.findUserCommentRanking()).willReturn(List.of());
+
+        rankingService.refreshAllRankings();
+
+        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(valueOperations).set(eq("ranking:school:users"), captor.capture());
+
+        SchoolUserRankingResponse saved = objectMapper.readValue(captor.getValue(), SchoolUserRankingResponse.class);
+        assertThat(saved.getRankings()).hasSize(100);
+    }
+
+    @Test
+    @DisplayName("캐시 갱신 - commentCount=0인 항목도 랭킹에 포함됨")
+    void refreshAllRankings_zeroCommentCountIncluded() throws Exception {
+        given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
+                .willReturn(true);
+        given(rankingRepository.findSchoolUserRanking()).willReturn(List.of());
+        given(rankingRepository.findSchoolCommentRanking()).willReturn(List.of(
+                mockSchoolCommentRow("소강초등학교", 128L),
+                mockSchoolCommentRow("댓글없는학교", 0L)
+        ));
+        given(rankingRepository.findUserCommentRanking()).willReturn(List.of(
+                mockUserCommentRow("yeonjae123", 56L),
+                mockUserCommentRow("silent_user", 0L)
+        ));
+
+        rankingService.refreshAllRankings();
+
+        var schoolCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(valueOperations).set(eq("ranking:school:comments"), schoolCaptor.capture());
+        SchoolCommentRankingResponse schoolSaved = objectMapper.readValue(schoolCaptor.getValue(), SchoolCommentRankingResponse.class);
+        assertThat(schoolSaved.getRankings()).hasSize(2);
+        assertThat(schoolSaved.getRankings().get(1).getCommentCount()).isEqualTo(0);
+
+        var userCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(valueOperations).set(eq("ranking:user:comments"), userCaptor.capture());
+        UserCommentRankingResponse userSaved = objectMapper.readValue(userCaptor.getValue(), UserCommentRankingResponse.class);
+        assertThat(userSaved.getRankings()).hasSize(2);
+        assertThat(userSaved.getRankings().get(1).getCommentCount()).isEqualTo(0);
+    }
+
     // ===== helpers =====
 
     private SchoolUserRankRow mockSchoolUserRow(String school, Long userCount) {
