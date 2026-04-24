@@ -14,6 +14,8 @@ type RankingLeaderboardProps = {
   orderedTop3: [PodiumEntry?, PodiumEntry?, PodiumEntry?];
   restRows: RankEntry[];
   valueLabel: (row: RankEntry) => string;
+  /** API 탭 목록 영역 로딩 — 탭·포디움은 고정 */
+  listLoading?: boolean;
 };
 
 export function RankingLeaderboard({
@@ -23,6 +25,7 @@ export function RankingLeaderboard({
   orderedTop3,
   restRows,
   valueLabel,
+  listLoading = false,
 }: RankingLeaderboardProps) {
   return (
     <div
@@ -37,9 +40,14 @@ export function RankingLeaderboard({
         <RankingPodium orderedTop3={orderedTop3} enterKey={tab} />
       </div>
 
-      <div key={tab} className="ranking-tab-panel-crossfade flex min-h-0 min-w-0 flex-1 flex-col">
-        <RankingListScrollArea>
-          <RankingRankList rows={restRows} rowKeyPrefix={tab} valueLabel={valueLabel} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <RankingListScrollArea loading={listLoading}>
+          <RankingRankList
+            key={tab}
+            rows={restRows}
+            rowKeyPrefix={tab}
+            valueLabel={valueLabel}
+          />
         </RankingListScrollArea>
       </div>
     </div>
