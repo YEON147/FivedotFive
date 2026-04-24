@@ -1,6 +1,8 @@
 package com.ssafy.oh_jjeom_oh.domain.asset.service;
 
+import com.ssafy.oh_jjeom_oh.domain.asset.constant.WallpaperDisplayNames;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.AssetItemResponse;
+import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.BackgroundItemResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.BackgroundListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.GiftIconListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerCatalogListResponse;
@@ -22,10 +24,10 @@ public class AssetService {
     private final AssetRepository assetRepository;
 
     public BackgroundListResponse getBackgrounds() {
-        List<AssetItemResponse> items = assetRepository
+        List<BackgroundItemResponse> items = assetRepository
                 .findByAssetTypeOrderByDisplayOrderAsc(AssetType.BACKGROUND)
                 .stream()
-                .map(AssetItemResponse::of)
+                .map(asset -> BackgroundItemResponse.of(asset, WallpaperDisplayNames.resolve(asset.getAssetKey())))
                 .toList();
         return BackgroundListResponse.of(items);
     }

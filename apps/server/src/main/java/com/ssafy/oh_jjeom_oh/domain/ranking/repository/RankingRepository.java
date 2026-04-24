@@ -4,6 +4,7 @@ import com.ssafy.oh_jjeom_oh.domain.ranking.dto.SchoolCommentRankRow;
 import com.ssafy.oh_jjeom_oh.domain.ranking.dto.SchoolUserRankRow;
 import com.ssafy.oh_jjeom_oh.domain.ranking.dto.UserCommentRankRow;
 import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -18,7 +19,7 @@ public interface RankingRepository extends JpaRepository<WishComment, Long> {
             GROUP BY u.school
             ORDER BY COUNT(u.id) DESC
             """)
-    List<SchoolUserRankRow> findSchoolUserRanking();
+    List<SchoolUserRankRow> findSchoolUserRanking(Pageable pageable);
 
     @Query("""
             SELECT u.school AS school, COUNT(wc.id) AS commentCount
@@ -28,7 +29,7 @@ public interface RankingRepository extends JpaRepository<WishComment, Long> {
             GROUP BY u.school
             ORDER BY COUNT(wc.id) DESC, u.school ASC
             """)
-    List<SchoolCommentRankRow> findSchoolCommentRanking();
+    List<SchoolCommentRankRow> findSchoolCommentRanking(Pageable pageable);
 
     @Query("""
             SELECT u.username AS username, COUNT(wc.id) AS commentCount
@@ -38,5 +39,5 @@ public interface RankingRepository extends JpaRepository<WishComment, Long> {
             GROUP BY u.id, u.username
             ORDER BY COUNT(wc.id) DESC, u.username ASC
             """)
-    List<UserCommentRankRow> findUserCommentRanking();
+    List<UserCommentRankRow> findUserCommentRanking(Pageable pageable);
 }
