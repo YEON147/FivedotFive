@@ -25,3 +25,10 @@ WHERE asset_type = 'GIFT_ICON';
 ALTER TABLE board_assets
     ADD CONSTRAINT board_assets_asset_type_check
         CHECK (asset_type IN ('BACKGROUND', 'STICKER', 'GIFT_STICKER'));
+
+-- 5. assets.asset_key UNIQUE 제약조건 표준화
+--    - 기존 DB: V1을 건너뛰어 UNIQUE가 없음 → 생성
+--    - 이전 V3에서 다른 이름(uq_assets_asset_key)으로 만들어진 인덱스가 있으면 제거 후 통일
+DROP INDEX IF EXISTS uq_assets_asset_key;
+ALTER TABLE assets DROP CONSTRAINT IF EXISTS assets_asset_key_unique;
+ALTER TABLE assets ADD CONSTRAINT assets_asset_key_unique UNIQUE (asset_key);

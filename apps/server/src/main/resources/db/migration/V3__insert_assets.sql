@@ -2,10 +2,6 @@
 -- S3에 존재하는 모든 에셋을 assets 테이블에 삽입합니다.
 -- ON CONFLICT DO NOTHING: 이미 동일한 asset_key가 존재하면 건너뜁니다.
 
--- asset_key 컬럼에 UNIQUE 제약조건이 없다면 중복 방지를 위해 임시 인덱스를 생성합니다.
--- 이미 UNIQUE 인덱스가 있다면 아래 CREATE UNIQUE INDEX는 무시됩니다.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_assets_asset_key ON assets (asset_key);
-
 INSERT INTO assets (asset_type, asset_key, display_order) VALUES
     ('GIFT_STICKER', 'icons/icon-000.png', 1),
     ('GIFT_STICKER', 'icons/icon-001.png', 2),

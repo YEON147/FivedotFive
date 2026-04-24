@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS assets (
     asset_key     TEXT        NOT NULL,
     asset_type    VARCHAR(20) NOT NULL,
     display_order INTEGER,
+    CONSTRAINT assets_asset_key_unique UNIQUE (asset_key),
     CONSTRAINT assets_asset_type_check CHECK (asset_type IN ('BACKGROUND', 'STICKER', 'GIFT_STICKER'))
 );
 
