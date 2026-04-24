@@ -1,6 +1,13 @@
 "use client";
 
-import { Export, PencilSimple, TextAlignJustify, TrashSimple, X } from "@phosphor-icons/react";
+import {
+  Export,
+  Image as ImageIcon,
+  PencilSimple,
+  TextAlignJustify,
+  TrashSimple,
+  X,
+} from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -9,6 +16,7 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -44,6 +52,7 @@ import {
 import { getMyProfile } from "@/features/user/api";
 import {
   fetchBackgroundAssets,
+  resolveBackgroundDisplayLabel,
   fetchGiftIcons,
   fetchStickerAssets,
   fetchStickersByFolder,
@@ -76,13 +85,15 @@ type StickerModalTabId = (typeof STICKER_MODAL_TABS)[number]["id"];
 const WISHLIST_APP_SHELL =
   "relative flex w-full max-w-[372px] flex-col overflow-hidden rounded-[18px] bg-[var(--color-surface)] shadow-[0_8px_40px_rgba(0,0,0,0.08)]";
 /** 보드(보기·꾸미기) — 바깥 흰 박스 없음, 폭은 디자인 기준 372px로 공개 보드와 동일 */
+/** 보드(372)보다 넓게 잡아 스티커·호버가 살짝 밖으로 나와도 섹션에서 잘리지 않게 함 */
 const WISHLIST_BOARD_PAGE_WRAP =
-  "relative flex h-full min-h-0 max-h-full w-full max-w-[372px] flex-1 flex-col overflow-hidden bg-transparent";
+  "relative flex h-full min-h-0 max-h-full w-full max-w-[min(420px,calc(100vw-1.5rem))] flex-1 flex-col overflow-visible bg-transparent";
 /** 로딩 플레이스홀더만 한 번 카드 높이 상한 — 본문은 flex-1으로 뷰포트를 채움 */
 const WISHLIST_APP_SHELL_MAX_LOADING =
   "max-h-[min(680px,calc(100svh-var(--safe-area-top)-var(--safe-area-bottom)-0.75rem))]";
+/** 슬롯·호버가 프레임 밖으로 나와도 보이도록 `overflow-visible` — 배경만 안쪽 레이어에서 클립 */
 const WISHLIST_BOARD_FRAME_BASE =
-  "relative isolate overflow-hidden rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1";
+  "relative isolate overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1";
 const WISHLIST_MENU_BUTTON =
   "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
 const WISHLIST_APP_FOOTER =
@@ -217,6 +228,32 @@ export default function WishlistPage() {
   const [stickerSlotSaving, setStickerSlotSaving] = useState(false);
   const [stickerSlotSaveError, setStickerSlotSaveError] = useState<string | null>(null);
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stickerTabStripRef = useRef<HTMLDivElement | null>(null);
+  const stickerTabStripDragCleanupRef = useRef<(() => void) | null>(null);
+  const stickerTabStripMouseDragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startScrollLeft: number;
+    dragged: boolean;
+  }>({
+    pointerId: -1,
+    startClientX: 0,
+    startScrollLeft: 0,
+    dragged: false,
+  });
+  const backgroundPickerStripRef = useRef<HTMLDivElement | null>(null);
+  const backgroundPickerStripDragCleanupRef = useRef<(() => void) | null>(null);
+  const backgroundPickerStripMouseDragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startScrollLeft: number;
+    dragged: boolean;
+  }>({
+    pointerId: -1,
+    startClientX: 0,
+    startScrollLeft: 0,
+    dragged: false,
+  });
   /** 선물 수정 모달: 목록 최초 로드 시에만 프리셋 여부 동기화(재선택 덮어쓰기 방지) */
   const giftEditPresetSyncRef = useRef<{ slot: number; done: boolean }>({
     slot: -1,
@@ -554,6 +591,20 @@ export default function WishlistPage() {
     };
   }, [isBottomSheetOpen, stickerModalTab]);
 
+  useEffect(() => {
+    if (!isBottomSheetOpen) {
+      stickerTabStripDragCleanupRef.current?.();
+      stickerTabStripDragCleanupRef.current = null;
+    }
+  }, [isBottomSheetOpen]);
+
+  useEffect(() => {
+    if (!isCompactBackgroundOpen) {
+      backgroundPickerStripDragCleanupRef.current?.();
+      backgroundPickerStripDragCleanupRef.current = null;
+    }
+  }, [isCompactBackgroundOpen]);
+
   const closeEditUi = () => {
     setIsBottomSheetOpen(false);
     setIsCompactBackgroundOpen(false);
@@ -589,10 +640,126 @@ export default function WishlistPage() {
   };
 
   const closeStickerPicker = useCallback(() => {
+    stickerTabStripDragCleanupRef.current?.();
+    stickerTabStripDragCleanupRef.current = null;
     setIsBottomSheetOpen(false);
     setStickerTargetSlotId(null);
     setStickerSlotSaveError(null);
   }, []);
+
+  /** 탭 줄: 마우스로 좌우 끌기(터치는 네이티브 가로 스크롤 유지) */
+  const onStickerTabStripPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (typeof window === "undefined") return;
+      if (event.pointerType !== "mouse" || event.button !== 0) return;
+      const strip = stickerTabStripRef.current;
+      if (!strip) return;
+
+      stickerTabStripDragCleanupRef.current?.();
+      stickerTabStripDragCleanupRef.current = null;
+
+      const drag = stickerTabStripMouseDragRef.current;
+      drag.pointerId = event.pointerId;
+      drag.startClientX = event.clientX;
+      drag.startScrollLeft = strip.scrollLeft;
+      drag.dragged = false;
+
+      const win = window;
+      const opts = { capture: true } as const;
+
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== drag.pointerId) return;
+        const dx = ev.clientX - drag.startClientX;
+        if (Math.abs(dx) > 6) {
+          drag.dragged = true;
+        }
+        if (drag.dragged) {
+          ev.preventDefault();
+          strip.scrollLeft = drag.startScrollLeft - dx;
+        }
+      };
+
+      function onUpOrCancel(ev: PointerEvent) {
+        if (ev.pointerId !== drag.pointerId) return;
+        detachStripMouseDragListeners();
+        if (drag.dragged) {
+          window.setTimeout(() => {
+            drag.dragged = false;
+          }, 0);
+        }
+      }
+
+      const detachStripMouseDragListeners = () => {
+        win.removeEventListener("pointermove", onMove, opts);
+        win.removeEventListener("pointerup", onUpOrCancel, opts);
+        win.removeEventListener("pointercancel", onUpOrCancel, opts);
+        stickerTabStripDragCleanupRef.current = null;
+      };
+
+      win.addEventListener("pointermove", onMove, opts);
+      win.addEventListener("pointerup", onUpOrCancel, opts);
+      win.addEventListener("pointercancel", onUpOrCancel, opts);
+      stickerTabStripDragCleanupRef.current = detachStripMouseDragListeners;
+    },
+    [],
+  );
+
+  /** 배경 선택 시트 썸네일 줄: 마우스로 좌우 끌기 */
+  const onBackgroundPickerStripPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (typeof window === "undefined") return;
+      if (event.pointerType !== "mouse" || event.button !== 0) return;
+      const strip = backgroundPickerStripRef.current;
+      if (!strip) return;
+
+      backgroundPickerStripDragCleanupRef.current?.();
+      backgroundPickerStripDragCleanupRef.current = null;
+
+      const drag = backgroundPickerStripMouseDragRef.current;
+      drag.pointerId = event.pointerId;
+      drag.startClientX = event.clientX;
+      drag.startScrollLeft = strip.scrollLeft;
+      drag.dragged = false;
+
+      const win = window;
+      const opts = { capture: true } as const;
+
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== drag.pointerId) return;
+        const dx = ev.clientX - drag.startClientX;
+        if (Math.abs(dx) > 6) {
+          drag.dragged = true;
+        }
+        if (drag.dragged) {
+          ev.preventDefault();
+          strip.scrollLeft = drag.startScrollLeft - dx;
+        }
+      };
+
+      function onUpOrCancel(ev: PointerEvent) {
+        if (ev.pointerId !== drag.pointerId) return;
+        detachBackgroundPickerMouseDragListeners();
+        if (drag.dragged) {
+          window.setTimeout(() => {
+            drag.dragged = false;
+          }, 0);
+        }
+      }
+
+      const detachBackgroundPickerMouseDragListeners = () => {
+        win.removeEventListener("pointermove", onMove, opts);
+        win.removeEventListener("pointerup", onUpOrCancel, opts);
+        win.removeEventListener("pointercancel", onUpOrCancel, opts);
+        backgroundPickerStripDragCleanupRef.current = null;
+      };
+
+      win.addEventListener("pointermove", onMove, opts);
+      win.addEventListener("pointerup", onUpOrCancel, opts);
+      win.addEventListener("pointercancel", onUpOrCancel, opts);
+      backgroundPickerStripDragCleanupRef.current = detachBackgroundPickerMouseDragListeners;
+    },
+    [],
+  );
 
   const applyStickerSelection = useCallback(
     async (assetKey: string) => {
@@ -1041,15 +1208,18 @@ export default function WishlistPage() {
   return (
     <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
       <div
-        className={`fixed inset-0 z-20 bg-black/20 transition-opacity duration-300 ${
-          isCompactBackgroundOpen || isShareModalOpen
-            ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0"
+        className={`fixed inset-0 z-20 transition-opacity duration-300 ${
+          isShareModalOpen
+            ? "pointer-events-auto bg-black/20 opacity-100"
+            : isCompactBackgroundOpen
+              ? "pointer-events-auto bg-black/10 opacity-100"
+              : "pointer-events-none bg-black/20 opacity-0"
         }`}
-        onClick={closeEditUi}
+        onClick={isShareModalOpen || isCompactBackgroundOpen ? closeEditUi : undefined}
+        aria-hidden={!(isShareModalOpen || isCompactBackgroundOpen)}
       />
 
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start transition-all duration-300 ease-out">
+      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start overflow-visible transition-all duration-300 ease-out">
         {!wishSlotsLoaded ? (
           <div
             className={`${WISHLIST_APP_SHELL} ${WISHLIST_APP_SHELL_MAX_LOADING} flex min-h-[min(400px,70dvh)] w-full shrink-0 items-center justify-center px-8`}
@@ -1105,20 +1275,22 @@ export default function WishlistPage() {
           </section>
         ) : (
           <section className={`${WISHLIST_BOARD_PAGE_WRAP} mx-auto w-full`}>
-            <div className="relative flex min-h-0 flex-1 flex-col p-0">
-              <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-center">
+            <div className="relative flex min-h-0 flex-1 flex-col overflow-visible p-0">
+              <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-center overflow-visible px-1 py-2 sm:px-2 sm:py-3">
                 <div
-                  className={`${WISHLIST_BOARD_FRAME_BASE} wishlist-board-frame--decorate relative mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 overflow-hidden ring-violet-200/55`}
+                  className={`${WISHLIST_BOARD_FRAME_BASE} wishlist-board-frame--decorate relative mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 ring-violet-200/55`}
                   style={{
                     aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
                   }}
                 >
               {boardBackgroundDisplayUrl ? (
-                <img
-                  src={boardBackgroundDisplayUrl}
-                  alt=""
-                  className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
-                />
+                <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
+                  <img
+                    src={boardBackgroundDisplayUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                </div>
               ) : null}
 
               <button
@@ -1158,6 +1330,7 @@ export default function WishlistPage() {
                 showPlaceholder={showSlotPlaceholders}
               />
               <StickerSlots
+                decorateActive={isDecorateMode}
                 images={stickerSlotImages}
                 onSlotClick={(slotId) => {
                   if (!isDecorateMode) {
@@ -1168,15 +1341,34 @@ export default function WishlistPage() {
                 showPlaceholder={showSlotPlaceholders}
               />
 
-              {isDecorateMode && bigCircleCount < 3 ? (
-                <div className="pointer-events-none absolute bottom-[5%] left-0 right-0 z-[24] flex justify-center px-[8%]">
-                  <button
-                    type="button"
-                    onClick={() => openGiftModalAdd()}
-                    className="pointer-events-auto rounded-full border border-dashed border-[#7B61FF]/60 bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-[#7B61FF] shadow-sm backdrop-blur-sm transition hover:bg-white"
-                  >
-                    + 선물 추가 ({bigCircleCount}/3)
-                  </button>
+              {isDecorateMode ? (
+                <div
+                  className={`pointer-events-none absolute bottom-[5%] left-0 right-0 z-[24] flex justify-center px-[8%] transition-opacity duration-200 ${
+                    isBottomSheetOpen || isCompactBackgroundOpen
+                      ? "opacity-0"
+                      : "opacity-100"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCompactBackgroundOpen(true)}
+                      className="pointer-events-auto inline-flex items-center gap-1 rounded-full border border-dashed border-[#7B61FF]/60 bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-[#7B61FF] shadow-sm backdrop-blur-sm transition hover:bg-white"
+                      aria-label="배경 선택"
+                    >
+                      <ImageIcon size={15} weight="bold" className="shrink-0" aria-hidden />
+                      배경
+                    </button>
+                    {bigCircleCount < 3 ? (
+                      <button
+                        type="button"
+                        onClick={() => openGiftModalAdd()}
+                        className="pointer-events-auto rounded-full border border-dashed border-[#7B61FF]/60 bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-[#7B61FF] shadow-sm backdrop-blur-sm transition hover:bg-white"
+                      >
+                        + 선물 추가 ({bigCircleCount}/3)
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
@@ -1230,21 +1422,25 @@ export default function WishlistPage() {
       </div>
 
       <section
-        className={`fixed inset-x-0 bottom-0 z-[31] max-h-[36vh] rounded-t-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 pb-[max(0.5rem,var(--safe-area-bottom))] pt-3 shadow-[0_-8px_28px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-out ${
+        className={`fixed inset-x-0 bottom-0 z-[31] max-h-[min(48dvh,440px)] overflow-y-auto overscroll-y-contain rounded-t-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 pb-[max(0.5rem,var(--safe-area-bottom))] pt-3 shadow-[0_-8px_28px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-out ${
           isCompactBackgroundOpen ? "translate-y-0" : "translate-y-full"
         }`}
         aria-hidden={!isCompactBackgroundOpen}
       >
         <div className="mx-auto w-full max-w-[372px]">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-slate-900">배경 선택</p>
-              <p className="text-[11px] text-slate-500">길게 눌러 이 패널을 열었어요</p>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="bg-gradient-to-r from-[#5346C9] via-[#7B61FF] to-[#5B8DEF] bg-clip-text text-[1.0625rem] font-extrabold leading-snug tracking-tight text-transparent">
+                배경 선택
+              </p>
+              <p className="mt-1 text-[12px] leading-snug text-slate-500">
+                위시리스트 배경을 꾹 누르면 수정할 수 있어요
+              </p>
             </div>
             <button
               type="button"
               onClick={() => setIsCompactBackgroundOpen(false)}
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60"
               aria-label="배경 선택 닫기"
             >
               <X size={20} weight="bold" aria-hidden />
@@ -1260,35 +1456,44 @@ export default function WishlistPage() {
             </p>
           ) : null}
 
-          <div className="mt-2 flex max-h-[min(22vh,200px)] gap-2.5 overflow-x-auto overflow-y-hidden pb-1">
-            <div className="w-24 shrink-0 text-left">
+          <div
+            ref={backgroundPickerStripRef}
+            aria-label="배경 썸네일 목록"
+            className="wishlist-background-picker-scroll mt-1 flex cursor-grab items-start gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain pb-2 select-none active:cursor-grabbing touch-pan-x"
+            onPointerDown={onBackgroundPickerStripPointerDown}
+          >
+            <div className="flex w-24 shrink-0 flex-col gap-1.5 text-center">
+              <p className="break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
+                기본
+              </p>
               <DefaultOptionButton
                 className="aspect-[3/4] w-full rounded-xl"
                 label="기본 배경"
                 onClick={() => {
+                  if (backgroundPickerStripMouseDragRef.current.dragged) return;
                   setDraftBackgroundAssetKey("");
-                  setIsCompactBackgroundOpen(false);
                 }}
               />
-              <p className="mt-1 text-[10px] leading-tight text-slate-600">기본</p>
             </div>
 
             {backgroundAssets.map((bg) => {
               const src = getAssetImageUrl(bg.assetKey);
-              const label =
-                bg.assetKey.split("/").pop()?.replace(/\.[^.]+$/, "") ?? `배경 ${bg.id}`;
+              const label = resolveBackgroundDisplayLabel(bg.assetKey, bg.displayName);
 
               return (
                 <button
                   key={bg.id}
                   type="button"
                   onClick={() => {
+                    if (backgroundPickerStripMouseDragRef.current.dragged) return;
                     setDraftBackgroundAssetKey(bg.assetKey);
-                    setIsCompactBackgroundOpen(false);
                   }}
-                  className="w-24 shrink-0 text-left transition hover:opacity-90"
+                  className="group flex w-24 shrink-0 cursor-pointer flex-col gap-1.5 text-center transition hover:opacity-95"
                 >
-                  <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-slate-100">
+                  <p className="break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
+                    {label}
+                  </p>
+                  <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/80 transition group-hover:ring-[#7B61FF]/35">
                     <img
                       src={src}
                       alt={label}
@@ -1296,9 +1501,6 @@ export default function WishlistPage() {
                       loading="lazy"
                     />
                   </div>
-                  <p className="mt-1 line-clamp-2 text-[10px] leading-tight text-slate-600">
-                    {label}
-                  </p>
                 </button>
               );
             })}
@@ -1573,15 +1775,30 @@ export default function WishlistPage() {
                 aria-modal="true"
                 aria-label="스티커 선택"
               >
-                <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-2 pb-2 pt-2">
+                <div
+                  ref={stickerTabStripRef}
+                  role="tablist"
+                  aria-label="스티커 카테고리"
+                  className="scrollbar-x-none flex cursor-grab gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 px-2 pb-2 pt-2 select-none active:cursor-grabbing touch-pan-x"
+                  onPointerDown={onStickerTabStripPointerDown}
+                >
                   {STICKER_MODAL_TABS.map((tab) => {
                     const active = stickerModalTab === tab.id;
                     return (
                       <button
                         key={tab.id}
                         type="button"
-                        onClick={() => setStickerModalTab(tab.id)}
-                        className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        role="tab"
+                        aria-selected={active}
+                        onClick={(clickEvent) => {
+                          if (stickerTabStripMouseDragRef.current.dragged) {
+                            clickEvent.preventDefault();
+                            clickEvent.stopPropagation();
+                            return;
+                          }
+                          setStickerModalTab(tab.id);
+                        }}
+                        className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                           active
                             ? "bg-[#7B61FF] text-white"
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200"

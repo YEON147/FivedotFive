@@ -34,7 +34,7 @@ const MIN_GIFT_SIZE = STICKER_SIZE + 12;
  * - `stickerSlots` 원형과 선물 원형이 겹치지 않도록 좌표·크기 조정됨
  */
 const giftLayouts: Record<GiftLayoutCount, GiftSlot[]> = {
-  1: [{ id: 1, top: 352, left: 160, size: 130 }],
+  1: [{ id: 1, top: 332, left: 160, size: 130 }],
   /** 2개: ②는 ①의 대각선 좌하단(왼쪽·아래). 세로 나열은 하단 스티커(S5·S6)와 겹치기 쉬움 */
   2: [
     { id: 1, top: 268, left: 188, size: 98 },
@@ -55,8 +55,9 @@ const stickerSlots: StickerSlot[] = [
   { id: 1, top: 220, left: 62 },
   { id: 2, top: 138, left: 148 },
   { id: 3, top: 188, left: 262 },
-  { id: 4, top: 400, left: 270 },
-  { id: 5, top: 502, left: 46 },
+  /** 오른쪽 끝(270)은 회전·호버 스케일 시 보드 `overflow-hidden`에 잘리기 쉬움 — 262로 안쪽 이동 */
+  { id: 4, top: 430, left: 270 },
+  { id: 5, top: 492, left: 48 },
   /** 하단·가운데 조각 UI(선물 추가 버튼)와 겹치지 않도록 간격 유지 */
   { id: 6, top: 554, left: 170 },
 ];
@@ -101,12 +102,15 @@ function SlotBubble({
   size,
   onClick,
   showPlaceholder = true,
+  /** 스티커만 사용 — 꾸미기 모드일 때만 호버·포커스·클릭 반응 */
+  decorateActive = true,
 }: {
   slot: BaseSlot;
   kind: SlotKind;
   size: number;
   onClick?: (slotId: number) => void;
   showPlaceholder?: boolean;
+  decorateActive?: boolean;
 }) {
   const hasImage = Boolean(slot.imageSrc);
 
@@ -114,18 +118,24 @@ function SlotBubble({
     return null;
   }
 
+  const stickerDecorating = kind === "sticker" && decorateActive;
+
   const hoverClass =
     kind === "gift"
       ? "transition-transform hover:scale-100 active:scale-[0.99]"
-      : "transition-transform hover:scale-[1.02] active:scale-[0.98]";
+      : stickerDecorating
+        ? "transition-transform hover:scale-[1.02] active:scale-[0.98]"
+        : "";
 
   /** 투명 슬롯용 — 점선 전: 연한 흰 테두리 + 반투명 + 블러 */
   const slotChrome =
     "border border-white/35 bg-white/15 shadow-sm backdrop-blur-[4px] text-slate-800";
 
-  /** 스티커가 있을 때: 슬롯 영역 = 이미지(비율 유지). 배경·블러 없음 */
-  const stickerFilledSurface =
+  /** 스티커 이미지 채움 — 꾸미기 모드에서만 링·포커스·호버 */
+  const stickerFilledLive =
     "border-0 bg-transparent shadow-none backdrop-blur-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF] hover:ring-2 hover:ring-white/50";
+  const stickerFilledStatic =
+    "border-0 bg-transparent shadow-none backdrop-blur-0";
 
   const isStickerImageOnly = kind === "sticker" && hasImage;
 
@@ -142,9 +152,20 @@ function SlotBubble({
       key={slot.id}
       type="button"
       onClick={() => onClick?.(slot.id)}
-      className={`absolute aspect-square overflow-hidden rounded-full ${
-        isStickerImageOnly ? stickerFilledSurface : slotChrome
-      } ${kind === "gift" ? "z-20" : "z-[12]"} ${hoverClass}`}
+      tabIndex={kind === "sticker" && !decorateActive ? -1 : undefined}
+      className={`absolute aspect-square rounded-full ${
+        kind === "sticker" && hasImage ? "overflow-visible" : "overflow-hidden"
+      } ${
+        isStickerImageOnly
+          ? stickerDecorating
+            ? stickerFilledLive
+            : stickerFilledStatic
+          : slotChrome
+      } ${kind === "gift" ? "z-20" : "z-[12]"} ${hoverClass} ${
+        kind === "sticker" && !decorateActive
+          ? "pointer-events-none cursor-default"
+          : ""
+      }`}
       style={{
         top: toYPercent(slot.top),
         left: toXPercent(slot.left),
@@ -152,6 +173,7 @@ function SlotBubble({
         transform: slotTransform,
       }}
       aria-label={slotAriaLabel(kind, slot.id, hasImage)}
+      aria-disabled={kind === "sticker" && !decorateActive ? true : undefined}
     >
       {hasImage ? (
         <>
@@ -211,10 +233,13 @@ function StickerSlots({
   images,
   onSlotClick,
   showPlaceholder,
+  /** false면 보기 모드 — 스티커에 호버·클릭 반응 없음 */
+  decorateActive = false,
 }: {
   images?: Partial<Record<number, string | null>>;
   onSlotClick?: (slotId: number) => void;
   showPlaceholder?: boolean;
+  decorateActive?: boolean;
 }) {
   const slots = mergeSlotImages(stickerSlots, images);
 
@@ -226,6 +251,7 @@ function StickerSlots({
       size={STICKER_SIZE}
       onClick={onSlotClick}
       showPlaceholder={showPlaceholder}
+      decorateActive={decorateActive}
     />
   ));
 }
