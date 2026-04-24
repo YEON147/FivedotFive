@@ -15,11 +15,27 @@ const landingMutedLink =
 
 type MainLandingContentProps = {
   loggedIn: boolean;
+  /** 로그인 시 프로필 조회 완료 전에는 `false` — CTA 깜빡임 방지용 로딩 */
+  loggedInCtaReady: boolean;
+  adminPublicBoardSlug: string;
+  hasWishBoard: boolean;
 };
 
-/** 로그인 시 CTA `/wishlist`·`/ranking`, 비로그인 시 `/ranking` + 로그인·회원가입 */
-export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
+/**
+ * 비로그인: 관리자 공개 위시(댓글 페이지) + 로그인·회원가입.
+ * 로그인: 위시 보드 유무에 따라 꾸미기/만들기 + 구경가기(관리자 공개 위시·댓글 페이지).
+ */
+export function MainLandingContent({
+  loggedIn,
+  loggedInCtaReady,
+  adminPublicBoardSlug,
+  hasWishBoard,
+}: MainLandingContentProps) {
   const router = useRouter();
+
+  const goBrowse = () => {
+    router.push(`/wishlist/${encodeURIComponent(adminPublicBoardSlug)}`);
+  };
 
   return (
     <main className="wishlist-page-root relative flex min-h-[100dvh] flex-col overflow-y-auto">
@@ -61,14 +77,21 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
         </div>
 
         <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
-          {loggedIn ? (
+          {loggedIn && !loggedInCtaReady ? (
+            <div
+              className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-[18px] bg-slate-100 px-7 text-[15px] font-medium text-[#8b8b8b]"
+              aria-busy
+            >
+              불러오는 중…
+            </div>
+          ) : loggedIn ? (
             <>
               <button type="button" className={landingPrimaryBtn} onClick={() => router.push("/wishlist")}>
-                내 위시리스트 가기
+                {hasWishBoard ? "내 위시리스트 꾸미러 가기" : "위시리스트 만들러 가기"}
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/ranking")}
+                onClick={goBrowse}
                 className="text-center text-body-sm font-medium text-[#8b8b8b] underline-offset-4 transition-colors hover:text-[#6e6e6e] hover:underline"
               >
                 구경가기
@@ -76,7 +99,13 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
             </>
           ) : (
             <>
-              <button type="button" className={landingPrimaryBtn} onClick={() => router.push("/ranking")}>
+              <button
+                type="button"
+                className={landingPrimaryBtn}
+                onClick={() =>
+                  router.push(`/wishlist/${encodeURIComponent(adminPublicBoardSlug)}`)
+                }
+              >
                 위시리스트 구경가기
               </button>
               <div className="text-center">

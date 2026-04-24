@@ -35,11 +35,13 @@ export function SelectField({
   const handleFocus = (event: FocusEvent<HTMLSelectElement>) => {
     onFocus?.(event);
     if (!scrollIntoViewOnFocus) return;
+    const el = event.currentTarget;
     requestAnimationFrame(() => {
+      if (!el?.isConnected) return;
       const reduceMotion =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      event.currentTarget.scrollIntoView({
+      el.scrollIntoView({
         behavior: reduceMotion ? "auto" : "smooth",
         block: "center",
         inline: "nearest",

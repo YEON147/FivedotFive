@@ -24,7 +24,7 @@ export type MyProfile = {
   grade: Exclude<GradeType, ""> | null;
   /** 내정보 API `data.hasWishBoard` */
   hasWishBoard: boolean;
-  role: "CHILD" | "PARENT" | null;
+  role: "CHILD" | "PARENT" | "ADMIN" | null;
 };
 
 export type MyProfileResponse = {

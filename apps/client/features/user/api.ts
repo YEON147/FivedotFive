@@ -16,7 +16,7 @@ const MY_PASSWORD_API_PATH = "/api/users/me/password";
 function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
   return {
     hasWishBoard: response.data?.hasWishBoard ?? false,
-    role: response.data?.role as "CHILD" | "PARENT" | null ?? null,
+    role: (response.data?.role as MyProfile["role"]) ?? null,
     username: response.data?.username ?? "",
     email: response.data?.email ?? "",
     nickname: response.data?.nickname ?? "",

@@ -1,10 +1,25 @@
 "use client";
 
-import { CaretLeftIcon, CaretRightIcon, ChatCircleDots } from "@phosphor-icons/react";
+import {
+  CaretLeftIcon,
+  CaretRightIcon,
+  ChatCircleDots,
+  TextAlignJustify,
+} from "@phosphor-icons/react";
 import Image from "next/image";
-import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 import { CommentPopup } from "@/components/wishlist/CommentPopup";
+import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
@@ -16,6 +31,7 @@ import {
   toXPercent,
   toYPercent,
 } from "@/components/wishlist/WishlistSlots";
+import { getMyProfile } from "@/features/user/api";
 import {
   createComment,
   deleteComment,
@@ -26,6 +42,10 @@ import {
 import { deriveWishSlotState } from "@/features/wishlist/wish-slot-state";
 import type { BoardAssetData, CommentData, StickerOption, WishItemData } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
+import {
+  ACCESS_TOKEN_STORAGE_KEY,
+  getAccessToken,
+} from "@/lib/api/token-store";
 
 const STICKER_OPTIONS: StickerOption[] = [
   { id: "sticker1", label: "Sticker 1", src: "/sticker/sticker1.png" },
@@ -56,12 +76,23 @@ const PUBLIC_BOARD_INNER =
   "relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-transparent";
 
 const PUBLIC_PROFILE_HEADER_ROW =
-  "relative z-40 flex items-center gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+  "relative z-40 flex items-center justify-between gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+
+const PUBLIC_WISHLIST_MENU_BUTTON =
+  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
 
 const PUBLIC_WISHLIST_APP_FOOTER =
   "flex min-h-10 w-full shrink-0 items-center justify-center border-t border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-xs text-[var(--color-text-secondary)]";
 
-function PublicBoardProfileHeader({ ownerName }: { ownerName: string }) {
+function PublicBoardProfileHeader({
+  ownerName,
+  isSidebarOpen,
+  onMenuClick,
+}: {
+  ownerName: string;
+  isSidebarOpen: boolean;
+  onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
   const displayName = ownerName.trim() || "회원";
 
   return (
@@ -77,6 +108,15 @@ function PublicBoardProfileHeader({ ownerName }: { ownerName: string }) {
           위시리스트
         </span>
       </h1>
+      <button
+        type="button"
+        onClick={onMenuClick}
+        className={PUBLIC_WISHLIST_MENU_BUTTON}
+        aria-label="메뉴 열기"
+        aria-expanded={isSidebarOpen}
+      >
+        <TextAlignJustify size={23} weight="bold" />
+      </button>
     </header>
   );
 }
@@ -88,11 +128,15 @@ function BoardFrame({
   ownerName,
   boardAssets,
   boardItems,
+  isSidebarOpen,
+  onMenuClick,
   children,
 }: {
   ownerName: string;
   boardAssets: BoardAssetData[];
   boardItems: WishItemData[];
+  isSidebarOpen: boolean;
+  onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
   children?: ReactNode;
 }) {
   const backgroundUrl = useMemo(() => {
@@ -126,7 +170,11 @@ function BoardFrame({
         />
       ) : null}
 
-      <PublicBoardProfileHeader ownerName={ownerName} />
+      <PublicBoardProfileHeader
+        ownerName={ownerName}
+        isSidebarOpen={isSidebarOpen}
+        onMenuClick={onMenuClick}
+      />
 
       <GiftSlots count={bigCircleCount} images={giftImages} showPlaceholder />
 
@@ -140,10 +188,14 @@ function MainBoardPage({
   ownerName,
   boardAssets,
   boardItems,
+  isSidebarOpen,
+  onMenuClick,
 }: {
   ownerName: string;
   boardAssets: BoardAssetData[];
   boardItems: WishItemData[];
+  isSidebarOpen: boolean;
+  onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const stickerImages = useMemo(() => {
     const acc: Partial<Record<number, string>> = {};
@@ -156,7 +208,13 @@ function MainBoardPage({
   }, [boardAssets]);
 
   return (
-    <BoardFrame ownerName={ownerName} boardAssets={boardAssets} boardItems={boardItems}>
+    <BoardFrame
+      ownerName={ownerName}
+      boardAssets={boardAssets}
+      boardItems={boardItems}
+      isSidebarOpen={isSidebarOpen}
+      onMenuClick={onMenuClick}
+    >
       <StickerSlots images={stickerImages} showPlaceholder={false} />
     </BoardFrame>
   );
@@ -170,6 +228,8 @@ function CommentBoardPage({
   comments,
   isLoading,
   onSlotClick,
+  isSidebarOpen,
+  onMenuClick,
 }: {
   ownerName: string;
   boardAssets: BoardAssetData[];
@@ -177,9 +237,17 @@ function CommentBoardPage({
   comments: CommentData[];
   isLoading: boolean;
   onSlotClick: (slotId: number) => void;
+  isSidebarOpen: boolean;
+  onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <BoardFrame ownerName={ownerName} boardAssets={boardAssets} boardItems={boardItems}>
+    <BoardFrame
+      ownerName={ownerName}
+      boardAssets={boardAssets}
+      boardItems={boardItems}
+      isSidebarOpen={isSidebarOpen}
+      onMenuClick={onMenuClick}
+    >
       {stickerSlots.map((slot, index) => {
         const comment = comments[index] ?? null;
         const rawKey = comment?.stickerKey?.trim();
@@ -245,6 +313,57 @@ export default function PublicWishlistPage({
   const [selectedComment, setSelectedComment] = useState<CommentData | null>(null);
 
   const isSliding = useRef(false);
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
+
+  /** 토큰 유무 + `/api/users/me` 성공 여부로 판별 (토큰만으로는 오판 가능) */
+  const syncVisitorSession = useCallback(async () => {
+    const token = getAccessToken()?.trim();
+    if (!token) {
+      setVisitorMenuLoggedIn(false);
+      return;
+    }
+    try {
+      await getMyProfile();
+      setVisitorMenuLoggedIn(true);
+    } catch {
+      // 401 등으로 토큰이 비워지면 false, 일시적 네트워크 오류는 토큰 기준 유지
+      setVisitorMenuLoggedIn(!!getAccessToken()?.trim());
+    }
+  }, []);
+
+  useEffect(() => {
+    void syncVisitorSession();
+  }, [slug, syncVisitorSession]);
+
+  useEffect(() => {
+    const onFocus = () => void syncVisitorSession();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === ACCESS_TOKEN_STORAGE_KEY || e.key === null) {
+        void syncVisitorSession();
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void syncVisitorSession();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [syncVisitorSession]);
+
+  const handleVisitorMenuClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    void syncVisitorSession();
+    setIsSidebarOpen((open) => !open);
+  };
 
   const fetchCommentPage = useCallback(
     async (commentPageIdx: number) => {
@@ -375,6 +494,8 @@ export default function PublicWishlistPage({
                       ownerName={ownerName}
                       boardAssets={boardAssets}
                       boardItems={boardItems}
+                      isSidebarOpen={isSidebarOpen}
+                      onMenuClick={handleVisitorMenuClick}
                     />
                   </div>
 
@@ -391,6 +512,8 @@ export default function PublicWishlistPage({
                         comments={commentCache[commentIdx] ?? []}
                         isLoading={loadingPages.has(commentIdx)}
                         onSlotClick={(slotId) => handleSlotClick(slotId, commentIdx)}
+                        isSidebarOpen={isSidebarOpen}
+                        onMenuClick={handleVisitorMenuClick}
                       />
                     </div>
                   ))}
@@ -440,6 +563,12 @@ export default function PublicWishlistPage({
           </div>
         </section>
       </div>
+
+      <PublicWishlistVisitorMenu
+        open={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        loggedIn={visitorMenuLoggedIn}
+      />
 
       {selectedSlot !== null ? (
         <CommentPopup
