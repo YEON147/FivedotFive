@@ -128,8 +128,9 @@ export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
   return apiClient<PublicBoardData>(`/api/boards/${slug}`);
 }
 
+/** Spring `Pageable` 과 동일하게 page 는 0부터 (첫 페이지 = 0). */
 export async function getComments(slug: string, page: number): Promise<CommentListData> {
-  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page + 1}&size=6`);
+  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page}&size=6`);
 }
 
 export async function createComment(

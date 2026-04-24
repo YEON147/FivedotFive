@@ -71,6 +71,30 @@ type StickersApiResponse = {
   };
 };
 
+type StickerFoldersApiResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    folders: string[];
+  };
+};
+
+/** GET /api/assets/stickers/folders — 스티커 폴더 목록 (Anyone) */
+export async function fetchStickerFolders(): Promise<string[]> {
+  const res = await apiClient<StickerFoldersApiResponse>("/api/assets/stickers/folders", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.success || !Array.isArray(res.data?.folders)) {
+    return [];
+  }
+
+  return res.data.folders;
+}
+
 /** GET /api/assets/stickers — 권한 anyone */
 export async function fetchStickerAssets(): Promise<StickerAssetDto[]> {
   const res = await apiClient<StickersApiResponse>("/api/assets/stickers", {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Gift, SignIn, Trophy, User, UserPlus, X } from "@phosphor-icons/react";
+import { Gift, SignIn, SignOut, Trophy, User, UserPlus, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -9,6 +9,7 @@ type PublicWishlistVisitorMenuProps = {
   open: boolean;
   onClose: () => void;
   loggedIn: boolean;
+  onLogout: () => void;
 };
 
 const SIDE_MENU_ICON_WRAP_PRIMARY =
@@ -17,14 +18,18 @@ const SIDE_MENU_ICON_WRAP_PRIMARY =
 const SIDE_MENU_ICON_WRAP_MUTED =
   "flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-500/10 text-slate-600";
 
+const SIDE_MENU_ICON_WRAP_ROSE =
+  "flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600";
+
 /**
  * 타인 공개 위시리스트(`/wishlist/[slug]`) 햄버거 메뉴.
- * 로그인: 내 위시 보러가기 · 랭킹 · 내 정보 / 비로그인: 로그인 · 회원가입 · 랭킹
+ * 로그인: 내 위시 보러가기 · 랭킹 · 내 정보 · 로그아웃 / 비로그인: 로그인 · 회원가입 · 랭킹
  */
 export function PublicWishlistVisitorMenu({
   open,
   onClose,
   loggedIn,
+  onLogout,
 }: PublicWishlistVisitorMenuProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -106,6 +111,20 @@ export function PublicWishlistVisitorMenu({
                 </span>
                 내 정보
               </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onLogout();
+                  onClose();
+                }}
+                className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
+              >
+                <span className={SIDE_MENU_ICON_WRAP_ROSE} aria-hidden>
+                  <SignOut size={22} weight="bold" />
+                </span>
+                로그아웃
+              </button>
             </>
           ) : (
             <>

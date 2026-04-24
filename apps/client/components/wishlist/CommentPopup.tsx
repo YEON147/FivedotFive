@@ -5,8 +5,11 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import type { CommentData, StickerOption } from "@/features/wishlist/types";
+import { getAssetImageUrl } from "@/lib/asset-url";
 
 type PopupMode = "view" | "write" | "edit";
+
+export type CommentStickerTab = { id: string; label: string };
 
 const RATE_LIMIT_KEY = "comment_last_submit";
 const COOLDOWN_MS = 10_000;
@@ -26,6 +29,12 @@ type CommentPopupProps = {
   mode: PopupMode;
   comment: CommentData | null;
   stickerOptions: StickerOption[];
+  /** 폴더 탭(전체 + API 폴더). 없으면 탭 UI 생략 */
+  stickerTabs?: CommentStickerTab[];
+  stickerFolderId?: string;
+  onStickerFolderChange?: (folderId: string) => void;
+  stickersLoading?: boolean;
+  stickersError?: string | null;
   isSubmitting?: boolean;
   onClose: () => void;
   onModeChange: (mode: PopupMode) => void;
@@ -38,6 +47,11 @@ export function CommentPopup({
   mode,
   comment,
   stickerOptions,
+  stickerTabs,
+  stickerFolderId = "all",
+  onStickerFolderChange,
+  stickersLoading = false,
+  stickersError = null,
   isSubmitting = false,
   onClose,
   onModeChange,
@@ -53,6 +67,14 @@ export function CommentPopup({
   // 10초 쿨다운 카운트다운
   const [cooldown, setCooldown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (mode !== "write") return;
+    setSelectedSticker((prev) => {
+      if (!prev) return null;
+      return stickerOptions.some((o) => o.assetKey === prev) ? prev : null;
+    });
+  }, [mode, stickerOptions, stickerFolderId]);
 
   useEffect(() => {
     if (mode !== "write") return;
@@ -169,20 +191,20 @@ export function CommentPopup({
       {/* View mode */}
       {mode === "view" && comment && (
         <div className="mt-4 space-y-3">
-          {comment.stickerKey && (
+          {comment.stickerKey?.trim() ? (
             <div className="flex justify-center">
-              <div className="relative h-16 w-16 overflow-hidden rounded-full bg-slate-100">
+              <div className="relative h-16 w-16 overflow-hidden rounded-full border-0 bg-transparent shadow-none">
                 <Image
-                  src={comment.stickerKey}
+                  src={getAssetImageUrl(comment.stickerKey.trim())}
                   alt={comment.senderName}
                   fill
                   unoptimized
                   sizes="64px"
-                  className="object-cover"
+                  className="object-contain object-center p-0.5"
                 />
               </div>
             </div>
-          )}
+          ) : null}
           <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-800">
             {comment.content}
           </p>
@@ -229,30 +251,66 @@ export function CommentPopup({
 
           <div>
             <p className="mb-2 text-xs font-semibold text-slate-500">스티커 선택 *</p>
-            <div className="grid grid-cols-6 gap-2">
-              {stickerOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setSelectedSticker(option.src)}
-                  disabled={isWriteBlocked}
-                  className={`relative aspect-square overflow-hidden rounded-full border-2 transition ${
-                    selectedSticker === option.src
-                      ? "border-[#7B61FF] shadow-[0_0_0_2px_rgba(123,97,255,0.2)]"
-                      : "border-transparent bg-slate-100"
-                  } disabled:opacity-40`}
-                  aria-label={option.label}
-                >
-                  <Image
-                    src={option.src}
-                    alt={option.label}
-                    fill
-                    unoptimized
-                    sizes="48px"
-                    className="object-cover"
-                  />
-                </button>
-              ))}
+            {stickerTabs && stickerTabs.length > 0 && onStickerFolderChange ? (
+              <div className="mb-2 flex gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {stickerTabs.map((tab) => {
+                  const active = stickerFolderId === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => onStickerFolderChange(tab.id)}
+                      disabled={isWriteBlocked || stickersLoading}
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                        active
+                          ? "bg-[#7B61FF] text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      } disabled:opacity-40`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {stickersError ? (
+              <p className="mb-2 text-xs text-red-500">{stickersError}</p>
+            ) : null}
+            <div className="max-h-[min(240px,42vh)] overflow-y-auto pr-0.5">
+              {stickersLoading ? (
+                <p className="py-6 text-center text-xs text-slate-500">스티커 불러오는 중…</p>
+              ) : stickerOptions.length === 0 ? (
+                <p className="py-6 text-center text-xs text-slate-500">선택할 스티커가 없습니다.</p>
+              ) : (
+                <div className="grid grid-cols-6 gap-2">
+                  {stickerOptions.map((option) => {
+                    const thumb = getAssetImageUrl(option.assetKey);
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setSelectedSticker(option.assetKey)}
+                        disabled={isWriteBlocked}
+                        className={`relative aspect-square overflow-hidden rounded-full border-2 transition ${
+                          selectedSticker === option.assetKey
+                            ? "border-[#7B61FF] bg-transparent shadow-[0_0_0_2px_rgba(123,97,255,0.2)]"
+                            : "border-transparent bg-transparent hover:ring-2 hover:ring-white/50"
+                        } disabled:opacity-40`}
+                        aria-label={option.label}
+                      >
+                        <Image
+                          src={thumb}
+                          alt={option.label}
+                          fill
+                          unoptimized
+                          sizes="48px"
+                          className="object-contain object-center p-0.5"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

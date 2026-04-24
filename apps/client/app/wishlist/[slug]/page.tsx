@@ -7,6 +7,7 @@ import {
   TextAlignJustify,
 } from "@phosphor-icons/react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   use,
   useCallback,
@@ -18,7 +19,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { CommentPopup } from "@/components/wishlist/CommentPopup";
+import { CommentPopup, type CommentStickerTab } from "@/components/wishlist/CommentPopup";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import {
   DESIGN_HEIGHT,
@@ -39,22 +40,30 @@ import {
   getPublicBoard,
   updateComment,
 } from "@/features/wishlist/api";
+import { alignTimeOrderCommentsToSixSlots } from "@/features/wishlist/comment-slot-layout";
 import { deriveWishSlotState } from "@/features/wishlist/wish-slot-state";
+import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import type { BoardAssetData, CommentData, StickerOption, WishItemData } from "@/features/wishlist/types";
-import { getAssetImageUrl } from "@/lib/asset-url";
+import {
+  fetchStickerAssets,
+  fetchStickerFolders,
+  fetchStickersByFolder,
+  type StickerAssetDto,
+} from "@/lib/api/assets";
 import {
   ACCESS_TOKEN_STORAGE_KEY,
+  clearAccessToken,
   getAccessToken,
 } from "@/lib/api/token-store";
+import { getAssetImageUrl } from "@/lib/asset-url";
+import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
 
-const STICKER_OPTIONS: StickerOption[] = [
-  { id: "sticker1", label: "Sticker 1", src: "/sticker/sticker1.png" },
-  { id: "sticker2", label: "Sticker 2", src: "/sticker/sticker2.png" },
-  { id: "sticker3", label: "Sticker 3", src: "/sticker/sticker3.png" },
-  { id: "sticker4", label: "Sticker 4", src: "/sticker/sticker4.png" },
-  { id: "sticker5", label: "Sticker 5", src: "/sticker/sticker5.png" },
-  { id: "sticker6", label: "Sticker 6", src: "/sticker/sticker6.png" },
-];
+function stickerOptionLabelFromAssetKey(assetKey: string): string {
+  const norm = assetKey.replace(/\\/g, "/");
+  const seg = norm.split("/").filter(Boolean);
+  const last = seg[seg.length - 1] ?? assetKey;
+  return last.replace(/\.[^.]+$/, "") || assetKey;
+}
 
 type PopupMode = "view" | "write" | "edit";
 
@@ -68,9 +77,9 @@ const PUBLIC_WISHLIST_BOARD_WRAP =
  * 공개 보드 바깥 프레임 — `app/wishlist/page.tsx` 꾸미기 보드 프레임과 동일.
  * 배경 에셋이 없을 때도 오로라 그라데이션(`wishlist-board-frame--decorate`)이 깔림.
  */
-/** 스티커·선물이 살짝 밖으로 나와도 잘리지 않도록 바깥은 `visible` — 배경은 `BoardFrame` 안에서만 클립 */
+/** 가로 슬라이드 시 인접 페이지가 비치지 않도록 클립. 슬롯·선물은 각 슬라이드 내부(`BoardFrame`)에서 여전히 살짝 돌출 가능 */
 const PUBLIC_BOARD_FRAME_OUTER =
-  "relative isolate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
+  "relative isolate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 overflow-hidden rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
 
 /** 배경 이미지는 위 레이어 — 없을 때는 바깥 프레임 오로라만 보임 */
 const PUBLIC_BOARD_INNER =
@@ -235,7 +244,7 @@ function CommentBoardPage({
   ownerName: string;
   boardAssets: BoardAssetData[];
   boardItems: WishItemData[];
-  comments: CommentData[];
+  comments: (CommentData | null)[];
   isLoading: boolean;
   onSlotClick: (slotId: number) => void;
   isSidebarOpen: boolean;
@@ -250,8 +259,9 @@ function CommentBoardPage({
       onMenuClick={onMenuClick}
     >
       {stickerSlots.map((slot, index) => {
-        const comment = comments[index] ?? null;
-        const rawKey = comment?.stickerKey?.trim();
+        const row = comments[index] ?? null;
+        const hasComment = Boolean(row);
+        const rawKey = row?.stickerKey?.trim();
         const imageSrc = rawKey ? getAssetImageUrl(rawKey) : null;
 
         return (
@@ -259,23 +269,31 @@ function CommentBoardPage({
             key={slot.id}
             type="button"
             onClick={() => onSlotClick(slot.id)}
-            className="absolute aspect-square overflow-hidden rounded-full border border-white/70 bg-[#d9d9d9] shadow-sm transition-transform hover:scale-[1.03] active:scale-95"
+            className={`absolute aspect-square overflow-hidden rounded-full transition-transform hover:scale-[1.03] active:scale-95 ${
+              imageSrc
+                ? "border-0 bg-transparent shadow-none hover:ring-2 hover:ring-white/50"
+                : "border border-white/70 bg-[#d9d9d9] shadow-sm"
+            }`}
             style={{
               top: toYPercent(slot.top),
               left: toXPercent(slot.left),
               width: toXPercent(STICKER_SIZE),
               transform: getStickerSlotCssTransform(slot.id),
             }}
-            aria-label={comment ? `${comment.senderName}의 댓글 보기` : `슬롯 ${slot.id}에 댓글 남기기`}
+            aria-label={
+              hasComment && row
+                ? `${row.senderName}의 댓글 보기`
+                : `슬롯 ${slot.id}에 댓글 남기기`
+            }
           >
             {imageSrc ? (
               <Image
                 src={imageSrc}
-                alt={comment?.senderName ?? "comment"}
+                alt={row?.senderName ?? "comment"}
                 fill
                 unoptimized
                 sizes={`${STICKER_SIZE}px`}
-                className="object-cover"
+                className="object-contain object-center p-0.5"
               />
             ) : (
               <span className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-slate-400">
@@ -295,12 +313,13 @@ export default function PublicWishlistPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
+  const router = useRouter();
 
   const [boardItems, setBoardItems] = useState<WishItemData[]>([]);
   const [boardAssets, setBoardAssets] = useState<BoardAssetData[]>([]);
   const [ownerName, setOwnerName] = useState("");
 
-  const [commentCache, setCommentCache] = useState<Record<number, CommentData[]>>({});
+  const [commentCache, setCommentCache] = useState<Record<number, (CommentData | null)[]>>({});
   const [loadingPages, setLoadingPages] = useState<Set<number>>(new Set());
   const [commentTotalPages, setCommentTotalPages] = useState(1);
 
@@ -317,6 +336,12 @@ export default function PublicWishlistPage({
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
+
+  const [apiStickerFolders, setApiStickerFolders] = useState<string[]>([]);
+  const [commentStickerFolderId, setCommentStickerFolderId] = useState("all");
+  const [commentStickerSheet, setCommentStickerSheet] = useState<StickerAssetDto[]>([]);
+  const [commentStickersLoading, setCommentStickersLoading] = useState(false);
+  const [commentStickersError, setCommentStickersError] = useState<string | null>(null);
 
   /** 토큰 유무 + `/api/users/me` 성공 여부로 판별 (토큰만으로는 오판 가능) */
   const syncVisitorSession = useCallback(async () => {
@@ -365,6 +390,72 @@ export default function PublicWishlistPage({
     void syncVisitorSession();
     setIsSidebarOpen((open) => !open);
   };
+
+  const handleVisitorLogout = useCallback(() => {
+    clearAccessToken();
+    clearWishlistPageSessionCache();
+    setVisitorMenuLoggedIn(false);
+    setIsSidebarOpen(false);
+    router.push("/login");
+  }, [router]);
+
+  useEffect(() => {
+    void fetchStickerFolders()
+      .then((folders) => setApiStickerFolders(folders))
+      .catch(() => setApiStickerFolders([]));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCommentStickersLoading(true);
+    setCommentStickersError(null);
+    const load = async () => {
+      try {
+        const list =
+          commentStickerFolderId === "all"
+            ? await fetchStickerAssets()
+            : await fetchStickersByFolder(commentStickerFolderId);
+        if (!cancelled) setCommentStickerSheet(list);
+      } catch (e) {
+        if (!cancelled) {
+          setCommentStickerSheet([]);
+          setCommentStickersError(
+            e instanceof Error ? e.message : "스티커를 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) setCommentStickersLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [commentStickerFolderId]);
+
+  useEffect(() => {
+    if (selectedSlot !== null && popupMode === "write") {
+      setCommentStickerFolderId("all");
+    }
+  }, [selectedSlot, popupMode]);
+
+  const commentStickerTabs: CommentStickerTab[] = useMemo(() => {
+    const tabs: CommentStickerTab[] = [{ id: "all", label: "전체" }];
+    for (const id of apiStickerFolders) {
+      tabs.push({ id, label: getStickerFolderLabel(id) });
+    }
+    return tabs;
+  }, [apiStickerFolders]);
+
+  const commentStickerOptions: StickerOption[] = useMemo(
+    () =>
+      commentStickerSheet.map((s) => ({
+        id: `st-${s.id}`,
+        assetKey: s.assetKey.trim(),
+        label: stickerOptionLabelFromAssetKey(s.assetKey),
+      })),
+    [commentStickerSheet],
+  );
 
   const fetchCommentPage = useCallback(
     async (commentPageIdx: number) => {
@@ -418,11 +509,11 @@ export default function PublicWishlistPage({
   const handleGoToLastCommentPage = () => navigateTo(totalVisualPages - 1);
 
   const handleSlotClick = (slotId: number, commentPageIdx: number) => {
-    const comment = (commentCache[commentPageIdx] ?? [])[slotId - 1] ?? null;
+    const row = (commentCache[commentPageIdx] ?? [])[slotId - 1] ?? null;
     setPopupCommentPage(commentPageIdx);
     setSelectedSlot(slotId);
-    setSelectedComment(comment);
-    setPopupMode(comment ? "view" : "write");
+    setSelectedComment(row);
+    setPopupMode(row ? "view" : "write");
   };
 
   const handleClosePopup = () => {
@@ -435,7 +526,10 @@ export default function PublicWishlistPage({
     setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
     try {
       const data = await getComments(slug, commentPageIdx);
-      setCommentCache((prev) => ({ ...prev, [commentPageIdx]: data.data.comments }));
+      setCommentCache((prev) => ({
+        ...prev,
+        [commentPageIdx]: alignTimeOrderCommentsToSixSlots(data.data.comments),
+      }));
       setCommentTotalPages(Math.max(1, data.data.totalPages || 1));
     } finally {
       setLoadingPages((prev) => {
@@ -447,8 +541,9 @@ export default function PublicWishlistPage({
   };
 
   const handleCreate = async (content: string, stickerKey: string) => {
+    if (popupCommentPage === null) return;
     await createComment(slug, content, stickerKey);
-    if (popupCommentPage !== null) await refreshCommentPage(popupCommentPage);
+    await refreshCommentPage(popupCommentPage);
     handleClosePopup();
   };
 
@@ -481,14 +576,14 @@ export default function PublicWishlistPage({
                 }}
               >
                 <div
-                  className="absolute inset-0 flex h-full min-h-0 overflow-visible transition-transform duration-300 ease-out"
+                  className="absolute inset-0 flex h-full min-h-0 transition-transform duration-300 ease-out"
                   style={{
                     width: `${totalVisualPages * 100}%`,
                     transform: `translateX(calc(-${currentVisualPage} * (100% / ${totalVisualPages})))`,
                   }}
                 >
                   <div
-                    className="relative h-full min-h-0 overflow-visible p-0"
+                    className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
                     style={{ width: `${100 / totalVisualPages}%` }}
                   >
                     <MainBoardPage
@@ -503,7 +598,7 @@ export default function PublicWishlistPage({
                   {Array.from({ length: commentTotalPages }, (_, commentIdx) => (
                     <div
                       key={commentIdx}
-                      className="relative h-full min-h-0 overflow-visible p-0"
+                      className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
                       style={{ width: `${100 / totalVisualPages}%` }}
                     >
                       <CommentBoardPage
@@ -569,13 +664,19 @@ export default function PublicWishlistPage({
         open={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         loggedIn={visitorMenuLoggedIn}
+        onLogout={handleVisitorLogout}
       />
 
       {selectedSlot !== null ? (
         <CommentPopup
           mode={popupMode}
           comment={selectedComment}
-          stickerOptions={STICKER_OPTIONS}
+          stickerOptions={commentStickerOptions}
+          stickerTabs={commentStickerTabs}
+          stickerFolderId={commentStickerFolderId}
+          onStickerFolderChange={setCommentStickerFolderId}
+          stickersLoading={commentStickersLoading}
+          stickersError={commentStickersError}
           onClose={handleClosePopup}
           onModeChange={setPopupMode}
           onCreate={handleCreate}

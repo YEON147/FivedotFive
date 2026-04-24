@@ -208,7 +208,6 @@ export default function WishlistPage() {
   const [allWishSlotsEmpty, setAllWishSlotsEmpty] = useState(
     () => getWishlistPageSessionCache()?.allWishSlotsEmpty ?? false,
   );
-  const [bypassEmptyState, setBypassEmptyState] = useState(false);
   /** 초기 GET /api/boards/me 성공 여부 — 실패 시 보드 없음·일시 오류 구분 없이 생성 플로우 허용 */
   const [hasMyBoard, setHasMyBoard] = useState(
     () => getWishlistPageSessionCache()?.hasMyBoard ?? false,
@@ -497,17 +496,6 @@ export default function WishlistPage() {
     giftIcons,
     wishGiftIconKeys,
   ]);
-
-  /**
-   * 빈 슬롯이면 꾸미기 시작 카드로 돌아갈 수 있게 bypass 해제.
-   * 꾸미기 모드가 켜져 있을 때만 유지(보드 유지), 끄면 안내 카드 표시.
-   */
-  useEffect(() => {
-    if (!wishSlotsLoaded || !allWishSlotsEmpty || isDecorateMode) {
-      return;
-    }
-    setBypassEmptyState(false);
-  }, [wishSlotsLoaded, allWishSlotsEmpty, isDecorateMode]);
 
   useEffect(() => {
     if (!isCompactBackgroundOpen) {
@@ -961,7 +949,6 @@ export default function WishlistPage() {
       setWishGiftIconKeys(derived.wishGiftIconKeys);
       setBigCircleCount(derived.bigCircleCount);
       if (derived.allWishSlotsEmpty) {
-        setBypassEmptyState(false);
         setIsDecorateMode(false);
       }
       closeGiftModal();
@@ -1072,8 +1059,8 @@ export default function WishlistPage() {
     return getAssetImageUrl(draftBackgroundAssetKey);
   }, [draftBackgroundAssetKey, serverBackgroundUrl]);
 
-  const showEmptyWishlistHero =
-    wishSlotsLoaded && allWishSlotsEmpty && !bypassEmptyState;
+  /** `GET /api/users/me` 의 `hasWishBoard` → 로드 시 `hasMyBoard`. 보드 행이 없을 때만 온보딩(POST 보드 생성 분기). */
+  const showEmptyWishlistHero = wishSlotsLoaded && !hasMyBoard;
 
   const giftModalResolvedIconId = useMemo(() => {
     if (giftModalSpecial !== null) {
@@ -1139,7 +1126,6 @@ export default function WishlistPage() {
     setDecorateStartError(null);
 
     if (hasMyBoard) {
-      setBypassEmptyState(true);
       setIsDecorateMode(true);
       return;
     }
@@ -1158,7 +1144,6 @@ export default function WishlistPage() {
       const board = await getMyBoard();
       applyLoadedBoard(board);
       setHasMyBoard(true);
-      setBypassEmptyState(true);
       setIsDecorateMode(true);
     } catch (e) {
       setDecorateStartError(
@@ -1252,7 +1237,7 @@ export default function WishlistPage() {
                   <p className="text-xs text-[#7B61FF]">아직 위시리스트가 없어요!</p>
                   <p className="mt-2.5 text-[13px] font-bold leading-snug text-[#7B61FF]">
                     <span className="block">오쩜오와 함께</span>
-                    <span className="mt-1 block">받고싶은 선물들을 모아볼까요?</span>
+                    <span className="mt-1 block">받고 싶은 선물들을 모아볼까요?</span>
                   </p>
                 </div>
                 {decorateStartError ? (
