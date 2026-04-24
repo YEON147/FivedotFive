@@ -252,7 +252,7 @@ export function SignupForm({
                   <p className="min-w-0 flex-[1_1_0%] text-xs text-slate-500">
                     입력 후 자동으로 중복 여부를 확인합니다.
                   </p>
-                ) : null}
+                )}
                 <button
                   type="button"
                   onClick={() => void onRefetchNickname()}
