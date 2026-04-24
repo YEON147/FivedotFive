@@ -155,6 +155,27 @@ body {
 }
 
 /**
+ * WebKit 자동완성 — `TextField` 채움 상태와 동일 톤
+ * (배경·테두리만 맞추면 UA 기본 연파랑과 직접 입력 칸이 어긋남)
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgb(15 23 42);
+  caret-color: rgb(15 23 42);
+  background-color: #faf8ff !important;
+  border-color: rgb(123 97 255 / 0.3) !important;
+  box-shadow: 0 0 0 1000px #faf8ff inset !important;
+}
+
+/**
  * 전역 스크롤바
  * - 가로: WebKit 계열에서 스크롤바 높이 0으로 숨김(스크롤/드래그는 유지)
  * - 세로: 트랙 투명 + 얇은 썸(Firefox는 scrollbar-color, WebKit은 pseudo)
@@ -205,7 +226,8 @@ body {
  * — `@layer utilities` 안보다 여기(비레이어)에 두고 `!important`로 전역 `*` 스크롤 규칙·
  *   Windows/Chrome 기본 가로 스크롤바(화살표 포함)까지 확실히 비표시
  */
-.scrollbar-x-none {
+.scrollbar-x-none,
+.scrollbar-hidden {
   scrollbar-width: none !important;
   scrollbar-color: transparent transparent !important;
   -ms-overflow-style: none;
@@ -213,7 +235,10 @@ body {
 
 .scrollbar-x-none::-webkit-scrollbar,
 .scrollbar-x-none::-webkit-scrollbar:horizontal,
-.scrollbar-x-none::-webkit-scrollbar:vertical {
+.scrollbar-x-none::-webkit-scrollbar:vertical,
+.scrollbar-hidden::-webkit-scrollbar,
+.scrollbar-hidden::-webkit-scrollbar:horizontal,
+.scrollbar-hidden::-webkit-scrollbar:vertical {
   width: 0 !important;
   height: 0 !important;
   display: none !important;
@@ -224,7 +249,12 @@ body {
 .scrollbar-x-none::-webkit-scrollbar-track,
 .scrollbar-x-none::-webkit-scrollbar-track-piece,
 .scrollbar-x-none::-webkit-scrollbar-button,
-.scrollbar-x-none::-webkit-scrollbar-corner {
+.scrollbar-x-none::-webkit-scrollbar-corner,
+.scrollbar-hidden::-webkit-scrollbar-thumb,
+.scrollbar-hidden::-webkit-scrollbar-track,
+.scrollbar-hidden::-webkit-scrollbar-track-piece,
+.scrollbar-hidden::-webkit-scrollbar-button,
+.scrollbar-hidden::-webkit-scrollbar-corner {
   display: none !important;
   width: 0 !important;
   height: 0 !important;

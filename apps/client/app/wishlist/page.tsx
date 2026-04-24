@@ -101,7 +101,7 @@ const WISHLIST_APP_FOOTER =
 
 /** 꾸미기 보드 헤더와 동일 — 비율 패딩·타이포 */
 const WISHLIST_PROFILE_HEADER_ROW =
-  "relative z-40 flex items-center justify-between gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+  "relative z-40 flex items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
 
 function WishlistProfileTitleHeader({
   viewerName,
@@ -1276,7 +1276,7 @@ export default function WishlistPage() {
         ) : (
           <section className={`${WISHLIST_BOARD_PAGE_WRAP} mx-auto w-full`}>
             <div className="relative flex min-h-0 flex-1 flex-col overflow-visible p-0">
-              <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-center overflow-visible px-1 py-2 sm:px-2 sm:py-3">
+              <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-end overflow-visible px-1 pb-1 pt-2 sm:px-2 sm:pb-2 sm:pt-3">
                 <div
                   className={`${WISHLIST_BOARD_FRAME_BASE} wishlist-board-frame--decorate relative mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 ring-violet-200/55`}
                   style={{

@@ -77,7 +77,7 @@ const PUBLIC_BOARD_INNER =
   "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
 
 const PUBLIC_PROFILE_HEADER_ROW =
-  "relative z-40 flex items-center justify-between gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+  "relative z-40 flex items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
 
 const PUBLIC_WISHLIST_MENU_BUTTON =
   "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";

@@ -12,13 +12,14 @@ import { clearAccessToken } from "@/lib/api/token-store";
 
 /** `components/ranking/RankingPageHeader` · 위시 헤더와 동일 패딩 */
 const SIGNUP_HEADER_ROW =
-  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
 
 const SIGNUP_MENU_BUTTON =
   "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
 
+/** `RankingPageHeader` 뒤로가기와 동일 */
 const SIGNUP_BACK_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-800 shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
+  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 touch-manipulation";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function SignupPage() {
             <Link
               href="/login"
               scroll={false}
-              prefetch={false}
+              prefetch
               className={SIGNUP_BACK_BUTTON}
               aria-label="로그인으로 이동"
             >
