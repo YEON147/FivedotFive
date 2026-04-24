@@ -69,7 +69,10 @@ public enum SuccessMessage {
     USER_COMMENT_RANKING_FOUND("개인별 댓글 수 랭킹 조회가 완료되었습니다."),
 
     // 공유 링크
-    SHARE_LINK_CREATED("공유 링크가 생성되었습니다.");
+    SHARE_LINK_CREATED("공유 링크가 생성되었습니다."),
+
+    // 에셋 동기화
+    ASSET_SYNC_COMPLETED("에셋 동기화가 완료되었습니다.");
 
     private final String message;
 }

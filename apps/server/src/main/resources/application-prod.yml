@@ -30,3 +30,13 @@ jwt:
 logging:
   level:
     com.ssafy.oh_jjeom_oh: INFO
+
+cloud:
+  aws:
+    s3:
+      bucket: ${S3_BUCKET}
+    region:
+      static: ${AWS_REGION:ap-northeast-2}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
