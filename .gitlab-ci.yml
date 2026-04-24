@@ -68,8 +68,8 @@ deploy_backend:
         export AWS_SECRET_KEY=$AWS_SECRET_KEY &&
         export AWS_REGION=ap-northeast-2 &&
         export S3_BUCKET=five-dot-five &&
-        docker-compose pull &&
-        docker-compose up -d --force-recreate --remove-orphans
+        chmod +x deploy.sh &&
+        ./deploy.sh
       "
   only:
     - develop
