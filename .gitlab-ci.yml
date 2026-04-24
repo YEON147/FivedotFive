@@ -60,8 +60,8 @@ deploy_staging:
     - export AWS_REGION=ap-northeast-2
     - export S3_BUCKET=five-dot-five
     - docker compose up -d postgres redis
-    - docker compose pull backend-blue
-    - docker compose up -d --force-recreate backend-blue
+    - docker compose pull client backend-blue
+    - docker compose up -d --force-recreate client backend-blue caddy
   only:
     - develop
 
