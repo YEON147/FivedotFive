@@ -12,6 +12,8 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     List<Asset> findByAssetTypeOrderByDisplayOrderAsc(AssetType assetType);
 
+    List<Asset> findByAssetKeyIn(List<String> assetKeys);
+
     // stickers/{folder}/{file} 구조에서 folder명을 SPLIT_PART로 추출 (PostgreSQL 전용)
     @Query(value = """
             SELECT DISTINCT SPLIT_PART(asset_key, '/', 2)
