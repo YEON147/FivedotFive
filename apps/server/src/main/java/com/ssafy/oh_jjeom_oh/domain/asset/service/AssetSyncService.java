@@ -89,7 +89,7 @@ public class AssetSyncService {
      * DB 저장 키(assets/ 제거 후)의 첫 번째 경로 세그먼트로 AssetType 결정
      * stickers/...   → STICKER
      * wallpapers/... → BACKGROUND
-     * icons/...      → GIFT_ICON
+     * icons/...      → GIFT_STICKER
      */
     private AssetType resolveAssetType(String dbKey) {
         if (dbKey.startsWith("stickers/")) {
@@ -97,7 +97,7 @@ public class AssetSyncService {
         } else if (dbKey.startsWith("wallpapers/")) {
             return AssetType.BACKGROUND;
         } else if (dbKey.startsWith("icons/")) {
-            return AssetType.GIFT_ICON;
+            return AssetType.GIFT_STICKER;
         }
         return null;
     }

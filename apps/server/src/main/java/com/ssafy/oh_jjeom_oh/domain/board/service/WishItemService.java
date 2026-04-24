@@ -60,10 +60,10 @@ public class WishItemService {
             wishItemRepository.save(newItem);
         }
 
-        // iconKey가 있으면 GIFT_ICON 업데이트
+        // iconKey가 있으면 GIFT_STICKER 업데이트
         if (request.getIconKey() != null && !request.getIconKey().isBlank()) {
             BoardAsset giftIcon = boardAssetRepository
-                    .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_ICON, slotIndex)
+                    .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, slotIndex)
                     .orElseGet(() -> createGiftSticker(board, slotIndex));
             giftIcon.updateAssetKey(request.getIconKey());
         }
@@ -81,8 +81,8 @@ public class WishItemService {
 
         wishItemRepository.delete(item);
 
-        // GIFT_ICON를 기본값으로 초기화
-        boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_ICON, slotIndex)
+        // GIFT_STICKER를 기본값으로 초기화
+        boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, slotIndex)
                 .ifPresent(asset -> asset.updateAssetKey(DEFAULT_GIFT_ICON_KEY));
     }
 
@@ -122,7 +122,7 @@ public class WishItemService {
     private BoardAsset createGiftSticker(WishBoard board, int slotIndex) {
         BoardAsset asset = BoardAsset.builder()
                 .board(board)
-                .assetType(AssetType.GIFT_ICON)
+                .assetType(AssetType.GIFT_STICKER)
                 .assetKey(DEFAULT_GIFT_ICON_KEY)
                 .slotIndex(slotIndex)
                 .build();
@@ -131,7 +131,7 @@ public class WishItemService {
 
     private List<WishItemResponse> buildItemResponses(WishBoard board) {
         List<WishItem> items = wishItemRepository.findByBoardOrderBySlotIndex(board);
-        List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.GIFT_ICON);
+        List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.GIFT_STICKER);
 
         Map<Integer, String> giftIconMap = assets.stream()
                 .collect(Collectors.toMap(BoardAsset::getSlotIndex, BoardAsset::getAssetKey));

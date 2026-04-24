@@ -105,9 +105,9 @@ public class WishBoardService {
         List<WishItem> items = wishItemRepository.findByBoardOrderBySlotIndex(board);
         List<BoardAsset> allAssets = boardAssetRepository.findByBoard(board);
 
-        // GIFT_ICON를 slot_index -> assetKey 맵으로 변환
+        // GIFT_STICKER를 slot_index -> assetKey 맵으로 변환
         Map<Integer, String> giftIconMap = allAssets.stream()
-                .filter(a -> a.getAssetType() == AssetType.GIFT_ICON)
+                .filter(a -> a.getAssetType() == AssetType.GIFT_STICKER)
                 .collect(Collectors.toMap(BoardAsset::getSlotIndex, BoardAsset::getAssetKey));
 
         // wish_items를 slot_index로 맵핑
@@ -129,7 +129,7 @@ public class WishBoardService {
 
     private List<BoardAssetResponse> buildAssetResponses(WishBoard board) {
         return boardAssetRepository.findByBoard(board).stream()
-                .filter(a -> a.getAssetType() != AssetType.GIFT_ICON) // GIFT_ICON는 items.iconKey로 노출
+                .filter(a -> a.getAssetType() != AssetType.GIFT_STICKER) // GIFT_STICKER는 items.iconKey로 노출
                 .map(BoardAssetResponse::from)
                 .collect(Collectors.toList());
     }

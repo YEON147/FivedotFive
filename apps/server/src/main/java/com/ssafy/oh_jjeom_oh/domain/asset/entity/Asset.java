@@ -17,7 +17,7 @@ public class Asset {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "asset_type", nullable = false, length = 20)
-    private AssetType assetType; // BACKGROUND / STICKER / GIFT_ICON
+    private AssetType assetType; // BACKGROUND / STICKER / GIFT_STICKER
 
     @Column(name = "asset_key", nullable = false, columnDefinition = "TEXT")
     private String assetKey; // S3 CDN 리소스 키

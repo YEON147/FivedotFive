@@ -57,7 +57,7 @@ public class AssetService {
 
     public GiftIconListResponse getGiftIcons() {
         List<AssetItemResponse> items = assetRepository
-                .findByAssetTypeOrderByDisplayOrderAsc(AssetType.GIFT_ICON)
+                .findByAssetTypeOrderByDisplayOrderAsc(AssetType.GIFT_STICKER)
                 .stream()
                 .map(AssetItemResponse::of)
                 .toList();
