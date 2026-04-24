@@ -22,21 +22,21 @@ public interface RankingRepository extends JpaRepository<WishComment, Long> {
 
     @Query("""
             SELECT u.school AS school, COUNT(wc.id) AS commentCount
-            FROM WishComment wc
-            JOIN wc.user u
-            WHERE u.school IS NOT NULL AND wc.isUser = true
+            FROM User u
+            LEFT JOIN WishComment wc ON wc.user = u AND wc.isUser = true
+            WHERE u.school IS NOT NULL AND u.status = 'ACTIVE'
             GROUP BY u.school
-            ORDER BY COUNT(wc.id) DESC
+            ORDER BY COUNT(wc.id) DESC, u.school ASC
             """)
     List<SchoolCommentRankRow> findSchoolCommentRanking();
 
     @Query("""
             SELECT u.username AS username, COUNT(wc.id) AS commentCount
-            FROM WishComment wc
-            JOIN wc.user u
-            WHERE wc.isUser = true
+            FROM User u
+            LEFT JOIN WishComment wc ON wc.user = u AND wc.isUser = true
+            WHERE u.status = 'ACTIVE'
             GROUP BY u.id, u.username
-            ORDER BY COUNT(wc.id) DESC
+            ORDER BY COUNT(wc.id) DESC, u.username ASC
             """)
     List<UserCommentRankRow> findUserCommentRanking();
 }

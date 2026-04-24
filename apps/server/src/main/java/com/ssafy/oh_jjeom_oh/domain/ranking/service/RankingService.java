@@ -93,11 +93,14 @@ public class RankingService {
         return getFromCache(CACHE_KEY_USER_COMMENT, UserCommentRankingResponse.class);
     }
 
+    private static final int MAX_RANK_SIZE = 100;
+
     private void refreshSchoolUserRanking() {
         try {
             List<SchoolUserRankRow> rows = rankingRepository.findSchoolUserRanking();
             AtomicInteger rankCounter = new AtomicInteger(1);
             List<SchoolUserRankingResponse.RankItem> items = rows.stream()
+                    .limit(MAX_RANK_SIZE)
                     .map(r -> new SchoolUserRankingResponse.RankItem(
                             rankCounter.getAndIncrement(), r.getSchool(), r.getUserCount()))
                     .toList();
@@ -112,6 +115,7 @@ public class RankingService {
             List<SchoolCommentRankRow> rows = rankingRepository.findSchoolCommentRanking();
             AtomicInteger rankCounter = new AtomicInteger(1);
             List<SchoolCommentRankingResponse.RankItem> items = rows.stream()
+                    .limit(MAX_RANK_SIZE)
                     .map(r -> new SchoolCommentRankingResponse.RankItem(
                             rankCounter.getAndIncrement(), r.getSchool(), r.getCommentCount()))
                     .toList();
@@ -126,6 +130,7 @@ public class RankingService {
             List<UserCommentRankRow> rows = rankingRepository.findUserCommentRanking();
             AtomicInteger rankCounter = new AtomicInteger(1);
             List<UserCommentRankingResponse.RankItem> items = rows.stream()
+                    .limit(MAX_RANK_SIZE)
                     .map(r -> new UserCommentRankingResponse.RankItem(
                             rankCounter.getAndIncrement(), r.getUsername(), r.getCommentCount()))
                     .toList();

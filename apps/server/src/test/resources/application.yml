@@ -38,3 +38,16 @@ jwt:
   secret: test-secret-key-that-is-at-least-32-bytes-long-for-test
   access-token-expiration: 3600000
   refresh-token-expiration: 604800
+
+cloud:
+  aws:
+    credentials:
+      access-key: test-access-key
+      secret-key: test-secret-key
+    region:
+      static: ap-northeast-2
+    s3:
+      bucket: test-bucket
+
+app:
+  frontend-url: http://localhost:3000
