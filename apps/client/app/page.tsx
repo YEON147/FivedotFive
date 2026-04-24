@@ -1,95 +1,88 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import type { TransitionEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { MainLandingContent } from "@/components/home/MainLandingContent";
 import {
-  getWishlistCtaTrafficContext,
-  trackWishlistCreateClick,
-} from "@/lib/analytics/wishlistCta";
+  INTRO_GIFT_BURST_MS,
+  INTRO_GIFT_SHAKE_MS,
+  MainIntroExperience,
+} from "@/components/main-intro/MainIntroExperience";
 import { getAccessToken } from "@/lib/api/token-store";
-import { createMyBoard } from "@/features/wishlist/api";
-import { getMyProfile } from "@/features/user/api";
+
+const MAIN_INTRO_DURATION_MS = INTRO_GIFT_SHAKE_MS + INTRO_GIFT_BURST_MS + 180;
+
+const MAIN_INTRO_DURATION_REDUCED_MS = 480;
+
+const GUEST_REVEAL_CLIP_MS = 880;
 
 export default function Home() {
-  const router = useRouter();
-  const [isGuestLanding, setIsGuestLanding] = useState(false);
-  const [isCreatingBoard, setIsCreatingBoard] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [guestShellMounted, setGuestShellMounted] = useState(false);
+  const [guestClipExpanded, setGuestClipExpanded] = useState(false);
+  const [introMounted, setIntroMounted] = useState(true);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  const revealSkipIntro = useRef(false);
 
   useEffect(() => {
-    if (getAccessToken()) {
-      router.replace("/wishlist");
-      return;
-    }
-    setIsGuestLanding(true);
-  }, [router]);
+    const reduced =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const handleCreateBoard = async () => {
-    if (isCreatingBoard) {
-      return;
-    }
+    const wait = reduced ? MAIN_INTRO_DURATION_REDUCED_MS : MAIN_INTRO_DURATION_MS;
 
-    trackWishlistCreateClick(getWishlistCtaTrafficContext());
-
-    if (!getAccessToken()) {
-      router.push("/login");
-      return;
-    }
-
-    setIsCreatingBoard(true);
-    setCreateError(null);
-
-    try {
-      const profile = await getMyProfile();
-      if (profile.hasWishBoard) {
-        router.push("/wishlist");
+    const id = window.setTimeout(() => {
+      if (reduced) {
+        revealSkipIntro.current = true;
+        setIntroMounted(false);
+        setGuestShellMounted(true);
+        setGuestClipExpanded(true);
         return;
       }
-      await createMyBoard();
-      router.push("/wishlist");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "위시리스트 생성 중 오류가 발생했습니다.";
-      setCreateError(message);
-    } finally {
-      setIsCreatingBoard(false);
-    }
+
+      setGuestShellMounted(true);
+    }, wait);
+
+    return () => window.clearTimeout(id);
+  }, []);
+
+  useEffect(() => {
+    setLoggedIn(!!getAccessToken());
+  }, [guestShellMounted]);
+
+  useEffect(() => {
+    if (!guestShellMounted || revealSkipIntro.current) return;
+
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setGuestClipExpanded(true));
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [guestShellMounted]);
+
+  const onGuestRevealEnd = (e: TransitionEvent<HTMLDivElement>) => {
+    if (e.propertyName !== "clip-path") return;
+
+    setIntroMounted(false);
   };
 
-  if (!isGuestLanding) {
-    return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <p className="text-body-sm text-black/60">이동 중…</p>
-      </main>
-    );
-  }
-
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-10">
-      <section className="w-full max-w-md rounded-[32px] bg-white px-8 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.08)]">
-        <h1 className="mt-3 text-h1 text-black">메인페이지</h1>
-        <p className="mt-3 text-body text-black/70">
-          원하는 선물들을 위시리스트로 직접 만들어보세요.
-        </p>
+    <>
+      {introMounted ? <MainIntroExperience /> : null}
 
-        {createError ? (
-          <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {createError}
-          </p>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={() => void handleCreateBoard()}
-          disabled={isCreatingBoard}
-          className="mt-8 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[var(--color-point-coral)] px-6 text-button text-black transition-transform duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
+      {guestShellMounted ? (
+        <div
+          className="fixed inset-0 z-[110] overflow-hidden"
+          style={{
+            clipPath: guestClipExpanded ? "circle(150% at 50% 50%)" : "circle(0% at 50% 50%)",
+            transition: `clip-path ${GUEST_REVEAL_CLIP_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+            willChange: guestClipExpanded ? "auto" : "clip-path",
+          }}
+          onTransitionEnd={onGuestRevealEnd}
         >
-          {isCreatingBoard ? "생성 중..." : "위시리스트 만들러 가기"}
-        </button>
-      </section>
-    </main>
+          <MainLandingContent loggedIn={loggedIn} />
+        </div>
+      ) : null}
+    </>
   );
 }
