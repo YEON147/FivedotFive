@@ -16,6 +16,7 @@ build_backend:
     - docker push ghcr.io/$GHCR_USER/server-image:latest
   only:
     - develop 
+    - master
 
 build_frontend:
   stage: build
@@ -39,8 +40,37 @@ build_frontend:
     - docker push ghcr.io/$GHCR_USER/client-image:latest
   only:
     - develop
+    - master
 
-deploy_backend:
+deploy_staging:
+  stage: deploy
+  tags:
+    - laptop
+  script:
+    - echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin
+    # 1. 프로젝트 폴더 체크 및 코드 업데이트
+    - if [ ! -d "/home/f205/S14P31F205" ]; then cd /home/f205 && git clone https://lab.ssafy.com/s14-final/S14P31F205.git; fi
+    - cd /home/f205/S14P31F205
+    - git fetch origin develop
+    - git checkout develop
+    - git pull origin develop
+    - cd infra
+    - export GHCR_USER=$GHCR_USER
+    - export DB_USERNAME=$DB_USERNAME
+    - export DB_PASSWORD=$DB_PASSWORD
+    - export JWT_SECRET=$JWT_SECRET
+    - export KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID
+    - export KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET
+    - export AWS_ACCESS_KEY=$AWS_ACCESS_KEY
+    - export AWS_SECRET_KEY=$AWS_SECRET_KEY
+    - export AWS_REGION=ap-northeast-2
+    - export S3_BUCKET=five-dot-five
+    - docker-compose pull backend-blue
+    - docker-compose up -d --force-recreate backend-blue
+  only:
+    - develop
+
+deploy_production:
   stage: deploy
   image: alpine:latest
   before_script:
@@ -55,7 +85,9 @@ deploy_backend:
     - ssh -o StrictHostKeyChecking=no ubuntu@$EC2_HOST "
         echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin &&
         cd /home/ubuntu/S14P31F205 &&
-        git pull origin develop &&
+        git fetch origin master &&
+        git checkout master &&
+        git pull origin master &&
         cd infra &&
         export GHCR_USER=$GHCR_USER &&
         export DB_USERNAME=$DB_USERNAME &&
@@ -72,4 +104,4 @@ deploy_backend:
         ./deploy.sh
       "
   only:
-    - develop
+    - master
