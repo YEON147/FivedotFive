@@ -13,15 +13,17 @@ public class CommentResponse {
     private final String content;
     private final String stickerKey;
     private final boolean isUser; // 요청자가 작성자인지 여부
+    private final Integer slotIndex; // 보드 댓글 슬롯 위치 (0~5)
     private final LocalDateTime createdAt;
 
     private CommentResponse(Long id, String senderName, String content,
-                             String stickerKey, boolean isUser, LocalDateTime createdAt) {
+                             String stickerKey, boolean isUser, Integer slotIndex, LocalDateTime createdAt) {
         this.id = id;
         this.senderName = senderName;
         this.content = content;
         this.stickerKey = stickerKey;
         this.isUser = isUser;
+        this.slotIndex = slotIndex;
         this.createdAt = createdAt;
     }
 
@@ -37,6 +39,7 @@ public class CommentResponse {
                 comment.getContent(),
                 comment.getStickerKey(),
                 isUser,
+                comment.getSlotIndex(),
                 comment.getCreatedAt()
         );
     }
@@ -51,6 +54,7 @@ public class CommentResponse {
                 comment.getContent(),
                 comment.getStickerKey(),
                 false,
+                comment.getSlotIndex(),
                 comment.getCreatedAt()
         );
     }
