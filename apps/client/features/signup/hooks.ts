@@ -89,7 +89,8 @@ export function useSignupForm() {
   const [values, setValues] = useState<SignupFormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<SignupFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isNicknameLoading, setIsNicknameLoading] = useState(false);
+  /** 최초 진입 시 추천 닉네임 API 호출까지 true */
+  const [isNicknameLoading, setIsNicknameLoading] = useState(true);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
 
@@ -111,6 +112,38 @@ export function useSignupForm() {
   const [userEmailCheckMessage, setUserEmailCheckMessage] = useState<string | null>(
     null,
   );
+
+  /** 가입 화면 진입 시 추천 닉네임을 미리 채움 — 실패 시 빈 값으로 두고 직접 입력 */
+  useEffect(() => {
+    let cancelled = false;
+
+    setIsNicknameLoading(true);
+
+    void (async () => {
+      try {
+        const nickname = await getRandomNickname();
+        if (cancelled) return;
+        setValues((prev) => ({ ...prev, nickname }));
+        setIsNicknameDirty(true);
+        setNicknameCheckStatus("idle");
+        setNicknameCheckMessage(null);
+      } catch {
+        if (cancelled) return;
+        setIsNicknameDirty(false);
+        setNicknameCheckStatus("idle");
+        setNicknameCheckMessage(null);
+      } finally {
+        if (!cancelled) {
+          setIsNicknameLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      setIsNicknameLoading(false);
+    };
+  }, []);
 
   useEffect(() => {
     const trimmedUsername = values.username.trim();
@@ -408,7 +441,7 @@ export function useSignupForm() {
       userEmailCheckStatus !== "available" ||
       nicknameCheckStatus !== "available"
     ) {
-      setSubmitMessage("아이디·이메일·닉네임 중복 확인을 완료해주세요.");
+      setSubmitMessage("중복 확인 후 다시 시도해 주세요.");
       setSubmitSuccess(false);
       return;
     }

@@ -36,7 +36,10 @@ const INITIAL_VALUES: MyPageFormValues = {
 const INITIAL_PASSWORD_VALUES: PasswordFormValues = {
   currentPassword: "",
   newPassword: "",
+  newPasswordConfirm: "",
 };
+
+const NEW_PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,12}$/;
 
 function validateForm(values: MyPageFormValues): FormErrors {
   const nextErrors: FormErrors = {};
@@ -61,17 +64,20 @@ function validatePasswordForm(
 
   if (!values.newPassword.trim()) {
     nextErrors.newPassword = "새 비밀번호를 입력해주세요.";
-  } else {
-    const hasEnglish = /[A-Za-z]/.test(values.newPassword);
-    const hasNumber = /\d/.test(values.newPassword);
+  } else if (!NEW_PASSWORD_REGEX.test(values.newPassword)) {
+    nextErrors.newPassword =
+      "새 비밀번호는 8~12자이며 영문과 숫자를 모두 포함해야 합니다.";
+  } else if (
+    values.currentPassword &&
+    values.currentPassword === values.newPassword
+  ) {
+    nextErrors.newPassword = "새 비밀번호는 현재 비밀번호와 달라야 합니다.";
+  }
 
-    if (!hasEnglish || !hasNumber) {
-      nextErrors.newPassword = "새 비밀번호는 영문과 숫자를 모두 포함해야 합니다.";
-    }
-
-    if (values.currentPassword && values.currentPassword === values.newPassword) {
-      nextErrors.newPassword = "새 비밀번호는 현재 비밀번호와 달라야 합니다.";
-    }
+  if (!values.newPasswordConfirm.trim()) {
+    nextErrors.newPasswordConfirm = "새 비밀번호 확인을 입력해주세요.";
+  } else if (values.newPassword !== values.newPasswordConfirm) {
+    nextErrors.newPasswordConfirm = "새 비밀번호가 일치하지 않습니다.";
   }
 
   return nextErrors;
