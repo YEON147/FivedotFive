@@ -17,6 +17,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.PageRequest;
+
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -94,13 +96,13 @@ public class RankingService {
     }
 
     private static final int MAX_RANK_SIZE = 100;
+    private static final PageRequest TOP_100 = PageRequest.of(0, MAX_RANK_SIZE);
 
     private void refreshSchoolUserRanking() {
         try {
-            List<SchoolUserRankRow> rows = rankingRepository.findSchoolUserRanking();
+            List<SchoolUserRankRow> rows = rankingRepository.findSchoolUserRanking(TOP_100);
             AtomicInteger rankCounter = new AtomicInteger(1);
             List<SchoolUserRankingResponse.RankItem> items = rows.stream()
-                    .limit(MAX_RANK_SIZE)
                     .map(r -> new SchoolUserRankingResponse.RankItem(
                             rankCounter.getAndIncrement(), r.getSchool(), r.getUserCount()))
                     .toList();
@@ -112,10 +114,9 @@ public class RankingService {
 
     private void refreshSchoolCommentRanking() {
         try {
-            List<SchoolCommentRankRow> rows = rankingRepository.findSchoolCommentRanking();
+            List<SchoolCommentRankRow> rows = rankingRepository.findSchoolCommentRanking(TOP_100);
             AtomicInteger rankCounter = new AtomicInteger(1);
             List<SchoolCommentRankingResponse.RankItem> items = rows.stream()
-                    .limit(MAX_RANK_SIZE)
                     .map(r -> new SchoolCommentRankingResponse.RankItem(
                             rankCounter.getAndIncrement(), r.getSchool(), r.getCommentCount()))
                     .toList();
@@ -127,10 +128,9 @@ public class RankingService {
 
     private void refreshUserCommentRanking() {
         try {
-            List<UserCommentRankRow> rows = rankingRepository.findUserCommentRanking();
+            List<UserCommentRankRow> rows = rankingRepository.findUserCommentRanking(TOP_100);
             AtomicInteger rankCounter = new AtomicInteger(1);
             List<UserCommentRankingResponse.RankItem> items = rows.stream()
-                    .limit(MAX_RANK_SIZE)
                     .map(r -> new UserCommentRankingResponse.RankItem(
                             rankCounter.getAndIncrement(), r.getUsername(), r.getCommentCount()))
                     .toList();

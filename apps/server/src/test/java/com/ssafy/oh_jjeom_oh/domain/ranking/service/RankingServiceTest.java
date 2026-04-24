@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -125,13 +126,13 @@ class RankingServiceTest {
     void refreshAllRankings_lockAcquired_savesToRedis() {
         given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
                 .willReturn(true);
-        given(rankingRepository.findSchoolUserRanking()).willReturn(List.of(
+        given(rankingRepository.findSchoolUserRanking(any(Pageable.class))).willReturn(List.of(
                 mockSchoolUserRow("소강초등학교", 42L)
         ));
-        given(rankingRepository.findSchoolCommentRanking()).willReturn(List.of(
+        given(rankingRepository.findSchoolCommentRanking(any(Pageable.class))).willReturn(List.of(
                 mockSchoolCommentRow("소강초등학교", 128L)
         ));
-        given(rankingRepository.findUserCommentRanking()).willReturn(List.of(
+        given(rankingRepository.findUserCommentRanking(any(Pageable.class))).willReturn(List.of(
                 mockUserCommentRow("yeonjae123", 56L)
         ));
 
@@ -149,9 +150,9 @@ class RankingServiceTest {
 
         rankingService.refreshAllRankings();
 
-        verify(rankingRepository, never()).findSchoolUserRanking();
-        verify(rankingRepository, never()).findSchoolCommentRanking();
-        verify(rankingRepository, never()).findUserCommentRanking();
+        verify(rankingRepository, never()).findSchoolUserRanking(any(Pageable.class));
+        verify(rankingRepository, never()).findSchoolCommentRanking(any(Pageable.class));
+        verify(rankingRepository, never()).findUserCommentRanking(any(Pageable.class));
         verify(valueOperations, never()).set(anyString(), anyString());
     }
 
@@ -160,13 +161,13 @@ class RankingServiceTest {
     void refreshAllRankings_rankNumberAssignedCorrectly() throws Exception {
         given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
                 .willReturn(true);
-        given(rankingRepository.findSchoolUserRanking()).willReturn(List.of(
+        given(rankingRepository.findSchoolUserRanking(any(Pageable.class))).willReturn(List.of(
                 mockSchoolUserRow("소강초등학교", 42L),
                 mockSchoolUserRow("한강초등학교", 38L),
                 mockSchoolUserRow("마포초등학교", 20L)
         ));
-        given(rankingRepository.findSchoolCommentRanking()).willReturn(List.of());
-        given(rankingRepository.findUserCommentRanking()).willReturn(List.of());
+        given(rankingRepository.findSchoolCommentRanking(any(Pageable.class))).willReturn(List.of());
+        given(rankingRepository.findUserCommentRanking(any(Pageable.class))).willReturn(List.of());
 
         rankingService.refreshAllRankings();
 
@@ -182,28 +183,25 @@ class RankingServiceTest {
     // ===================== limit 100 & 0건 포함 =====================
 
     @Test
-    @DisplayName("캐시 갱신 - 101개 입력 시 100개만 저장됨")
-    void refreshAllRankings_limitTo100() throws Exception {
+    @DisplayName("캐시 갱신 - DB 레벨에서 100개 제한 (PageRequest size=100 전달 검증)")
+    void refreshAllRankings_passesPageableWithSize100() {
         given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
                 .willReturn(true);
 
-        List<SchoolUserRankRow> over100 = new java.util.ArrayList<>();
-        for (int i = 1; i <= 101; i++) {
-            String school = "학교" + i;
-            long count = 101 - i;
-            over100.add(mockSchoolUserRow(school, count));
+        List<SchoolUserRankRow> exactly100 = new java.util.ArrayList<>();
+        for (int i = 1; i <= 100; i++) {
+            exactly100.add(mockSchoolUserRow("학교" + i, (long)(100 - i)));
         }
-        given(rankingRepository.findSchoolUserRanking()).willReturn(over100);
-        given(rankingRepository.findSchoolCommentRanking()).willReturn(List.of());
-        given(rankingRepository.findUserCommentRanking()).willReturn(List.of());
+        given(rankingRepository.findSchoolUserRanking(any(Pageable.class))).willReturn(exactly100);
+        given(rankingRepository.findSchoolCommentRanking(any(Pageable.class))).willReturn(List.of());
+        given(rankingRepository.findUserCommentRanking(any(Pageable.class))).willReturn(List.of());
 
         rankingService.refreshAllRankings();
 
-        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(valueOperations).set(eq("ranking:school:users"), captor.capture());
-
-        SchoolUserRankingResponse saved = objectMapper.readValue(captor.getValue(), SchoolUserRankingResponse.class);
-        assertThat(saved.getRankings()).hasSize(100);
+        // DB에 Pageable(size=100)을 전달했는지 검증
+        var pageableCaptor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(rankingRepository).findSchoolUserRanking(pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
     }
 
     @Test
@@ -211,12 +209,12 @@ class RankingServiceTest {
     void refreshAllRankings_zeroCommentCountIncluded() throws Exception {
         given(valueOperations.setIfAbsent(eq("lock:ranking:scheduled"), anyString(), anyLong(), any(TimeUnit.class)))
                 .willReturn(true);
-        given(rankingRepository.findSchoolUserRanking()).willReturn(List.of());
-        given(rankingRepository.findSchoolCommentRanking()).willReturn(List.of(
+        given(rankingRepository.findSchoolUserRanking(any(Pageable.class))).willReturn(List.of());
+        given(rankingRepository.findSchoolCommentRanking(any(Pageable.class))).willReturn(List.of(
                 mockSchoolCommentRow("소강초등학교", 128L),
                 mockSchoolCommentRow("댓글없는학교", 0L)
         ));
-        given(rankingRepository.findUserCommentRanking()).willReturn(List.of(
+        given(rankingRepository.findUserCommentRanking(any(Pageable.class))).willReturn(List.of(
                 mockUserCommentRow("yeonjae123", 56L),
                 mockUserCommentRow("silent_user", 0L)
         ));
