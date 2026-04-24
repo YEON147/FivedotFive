@@ -11,16 +11,14 @@ import { useMyPageForm } from "@/features/user/hooks";
 import { clearAccessToken } from "@/lib/api/token-store";
 
 const MYPAGE_HEADER_ROW =
-  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
 
 const MYPAGE_MENU_BUTTON =
   "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
 
+/** `RankingPageHeader` `RANKING_BACK_BUTTON` 과 동일 — 회색 원 배경 없음 */
 const MYPAGE_BACK_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-800 shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
-
-const MY_PAGE_BACK_BUTTON =
-  "inline-flex size-[42px] shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 touch-manipulation";
+  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 touch-manipulation";
 
 export default function MyPagePage() {
   const router = useRouter();
@@ -89,18 +87,12 @@ export default function MyPagePage() {
             <Link
               href="/wishlist"
               scroll={false}
-              prefetch={false}
+              prefetch
               className={MYPAGE_BACK_BUTTON}
               aria-label="위시리스트로 이동"
             >
               <CaretLeft size={22} weight="bold" />
             </Link>
-
-            <div className="flex min-h-0 min-w-0 flex-1 justify-center px-2">
-              <h1 className="text-center text-wish-title leading-tight text-slate-900">
-                My Page
-              </h1>
-            </div>
 
             <button
               type="button"
@@ -116,9 +108,9 @@ export default function MyPagePage() {
             </button>
           </header>
 
-          {/** 랭킹 페이지와 동일 — `wishlist-page-root` 오로라 위에 셸 없이 콘텐츠 */}
+          {/** 위시와 동일 오로라 배경 위 콘텐츠 */}
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="signup-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-5 pt-1 sm:px-3">
+            <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-4 pt-0 sm:px-3">
               <MyPageForm
                 values={values}
                 errors={errors}

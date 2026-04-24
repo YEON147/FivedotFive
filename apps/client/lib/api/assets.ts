@@ -7,61 +7,21 @@ export type BackgroundAssetDto = {
   displayName?: string | null;
 };
 
-/**
- * 서버 `WallpaperDisplayNames`와 동일 — API 필드 누락·snake_case·파일명 fallback 대비.
- * 신규 배경은 서버 `displayName`이 오면 그대로 쓰고, 여기 없으면 API 값 → 파일명 순.
- */
-const WALLPAPER_FILE_TO_LABEL: Record<string, string> = {
-  "wallpaper-01.png": "별은하",
-  "wallpaper-02.png": "보라우주",
-  "wallpaper-03.png": "파란별",
-  "wallpaper-04.png": "오로라",
-  "wallpaper-05.png": "모눈종이",
-  "wallpaper-06.png": "잔디꽃밭",
-  "wallpaper-07.png": "공룡친구들",
-  "wallpaper-08.png": "알록달록친구들",
-  "wallpaper-09.png": "과일동산",
-  "wallpaper-10.png": "마스킹테이프",
-  "wallpaper-11.png": "달콤한하루",
-  "wallpaper-12.png": "놀이공원",
-  "wallpaper-13.png": "동화속숲",
-  "wallpaper-14.png": "풍선파티",
-  "wallpaper-15.png": "냥냥",
-  "wallpaper-16.png": "토끼토끼",
-};
-
 function fileNameFromAssetKey(assetKey: string): string {
   const i = assetKey.lastIndexOf("/");
   return i >= 0 ? assetKey.slice(i + 1) : assetKey;
 }
 
-function wallpaperLabelFromFileName(file: string): string | null {
-  if (WALLPAPER_FILE_TO_LABEL[file]) {
-    return WALLPAPER_FILE_TO_LABEL[file];
-  }
-  if (!file.endsWith(".png")) {
-    const withPng = `${file}.png`;
-    if (WALLPAPER_FILE_TO_LABEL[withPng]) {
-      return WALLPAPER_FILE_TO_LABEL[withPng];
-    }
-  }
-  return null;
-}
-
-/** 배경 카드 제목 — 알려진 월페이퍼는 한글 고정명 우선, 그다음 API `displayName` */
+/** 배경 카드 제목 — API `displayName`, 없으면 확장자 뺀 파일명 */
 export function resolveBackgroundDisplayLabel(
   assetKey: string,
   displayName?: string | null,
 ): string {
-  const file = fileNameFromAssetKey(assetKey.trim());
-  const mapped = wallpaperLabelFromFileName(file);
-  if (mapped) {
-    return mapped;
-  }
   const api = displayName?.trim();
   if (api) {
     return api;
   }
+  const file = fileNameFromAssetKey(assetKey.trim());
   return file.replace(/\.[^.]+$/, "") || file || `배경`;
 }
 

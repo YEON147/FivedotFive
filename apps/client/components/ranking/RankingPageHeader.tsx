@@ -6,7 +6,7 @@ import Link from "next/link";
 
 /** `app/wishlist/page.tsx` WishlistProfileTitleHeader · `wishlist/[slug]` 공개 헤더와 동일 패딩 */
 const RANKING_HEADER_ROW =
-  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[7%] pr-[4%] pt-[7%]";
+  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
 
 /** `WISHLIST_MENU_BUTTON` 과 동일 — 우측 메뉴 */
 const RANKING_MENU_BUTTON =

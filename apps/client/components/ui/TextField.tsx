@@ -21,11 +21,20 @@ type TextFieldProps = Omit<
   label: string;
   error?: string;
   hint?: string;
-  /** `tooltip`: 라벨 옆 ℹ️ — 클릭 시 안내 말풍선, 호버 시 브라우저 `title` */
-  hintDisplay?: "inline" | "tooltip";
+  /**
+   * - `inline`: 입력란 아래 작은 글씨
+   * - `tooltip`: 라벨 옆 ℹ️ — 클릭 시 말풍선
+   * - `label-inline`: ℹ️ 클릭 시 옆에 힌트 텍스트 표시·재클릭 시 숨김(말풍선 없음)
+   */
+  hintDisplay?: "inline" | "tooltip" | "label-inline";
   /** `true`이면 포커스 시 가까운 스크롤 영역 안에서 입력란이 보이도록 스크롤합니다. */
   scrollIntoViewOnFocus?: boolean;
   requiredMark?: boolean;
+  /**
+   * 채움 배경·테두리 톤을 이 글자 수 이상일 때만 적용.
+   * 미지정 시에는 값이 비어 있지 않으면 적용(아이디 등).
+   */
+  filledMinLength?: number;
   "aria-describedby"?: string;
 };
 
@@ -34,6 +43,31 @@ function mergeDescribedBy(
 ): string | undefined {
   const s = parts.filter(Boolean).join(" ").trim();
   return s.length > 0 ? s : undefined;
+}
+
+function inputHasNonEmptyValue(
+  value: InputHTMLAttributes<HTMLInputElement>["value"],
+  defaultValue: InputHTMLAttributes<HTMLInputElement>["defaultValue"],
+): boolean {
+  const v = value ?? defaultValue;
+  if (v == null || v === "") return false;
+  if (typeof v === "string") return v.trim().length > 0;
+  if (typeof v === "number" || typeof v === "bigint") return true;
+  return false;
+}
+
+function inputShowsFilledBackground(
+  value: InputHTMLAttributes<HTMLInputElement>["value"],
+  defaultValue: InputHTMLAttributes<HTMLInputElement>["defaultValue"],
+  filledMinLength?: number,
+): boolean {
+  if (filledMinLength != null && filledMinLength > 0) {
+    const v = value ?? defaultValue;
+    if (v == null || v === "") return false;
+    const str = typeof v === "string" ? v : String(v);
+    return str.length >= filledMinLength;
+  }
+  return inputHasNonEmptyValue(value, defaultValue);
 }
 
 /** 모바일 주소창·홈 인디케이터를 고려해 보이는 영역 안에 맞춤 */
@@ -203,21 +237,37 @@ export function TextField({
   id,
   onFocus,
   "aria-describedby": ariaDescribedByProp,
+  filledMinLength,
   ...props
 }: TextFieldProps) {
+  const hasFilledValue = inputShowsFilledBackground(
+    props.value,
+    props.defaultValue,
+    filledMinLength,
+  );
+
   const reactId = useId();
   const hintId =
-    id && hint && hintDisplay === "tooltip"
+    id && hint && (hintDisplay === "tooltip" || hintDisplay === "label-inline")
       ? `${String(id)}-field-hint`
       : undefined;
   const popoverId =
     id && hint && hintDisplay === "tooltip"
       ? `${String(id)}-hint-popover-${reactId.replace(/:/g, "")}`
       : "";
-  const describedBy = mergeDescribedBy(ariaDescribedByProp, hintId);
 
   const hintBtnRef = useRef<HTMLButtonElement>(null);
+  const labelInlineWrapRef = useRef<HTMLSpanElement>(null);
   const [hintOpen, setHintOpen] = useState(false);
+
+  const describedBy = mergeDescribedBy(
+    ariaDescribedByProp,
+    hintDisplay === "tooltip" && hintId
+      ? hintId
+      : hintDisplay === "label-inline" && hintOpen && hintId
+        ? hintId
+        : undefined,
+  );
 
   useEffect(() => {
     if (!hintOpen) return;
@@ -225,7 +275,10 @@ export function TextField({
     const onDocMouseDown = (event: MouseEvent) => {
       const target = event.target as Node;
       if (hintBtnRef.current?.contains(target)) return;
-      const popoverEl = document.getElementById(popoverId);
+      if (labelInlineWrapRef.current?.contains(target)) return;
+      const popoverEl = popoverId
+        ? document.getElementById(popoverId)
+        : null;
       if (popoverEl?.contains(target)) return;
       setHintOpen(false);
     };
@@ -261,7 +314,7 @@ export function TextField({
 
   return (
     <label htmlFor={id} className="flex flex-col gap-1.5 scroll-mt-8">
-      <span className="flex min-h-[22px] items-center gap-1 text-sm font-semibold text-slate-800">
+      <span className="flex min-h-[22px] flex-wrap items-center gap-x-1 gap-y-0.5 text-sm font-semibold text-slate-800">
         <span>{label}</span>
         {requiredMark ? <span className="text-rose-500">*</span> : null}
         {hint && hintDisplay === "tooltip" ? (
@@ -293,6 +346,36 @@ export function TextField({
             />
           </>
         ) : null}
+        {hint && hintDisplay === "label-inline" ? (
+          <span
+            ref={labelInlineWrapRef}
+            className="inline-flex max-w-full flex-wrap items-center gap-x-1 gap-y-0.5"
+          >
+            <button
+              type="button"
+              title={hintOpen ? undefined : hint}
+              aria-label={`${label} 입력 안내`}
+              aria-expanded={hintOpen}
+              aria-controls={hintOpen ? hintId : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setHintOpen((prev) => !prev);
+              }}
+              className="inline-flex shrink-0 rounded-full p-0.5 text-slate-400 transition-colors hover:text-[#7B61FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B61FF]/35"
+            >
+              <Info size={16} weight="bold" aria-hidden />
+            </button>
+            {hintOpen ? (
+              <span
+                id={hintId}
+                className="min-w-0 max-w-full text-xs font-normal text-slate-500"
+              >
+                {hint}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </span>
       <input
         {...props}
@@ -302,7 +385,9 @@ export function TextField({
         className={`h-11 rounded-xl border px-3.5 text-sm outline-none transition focus:ring-2 ${
           error
             ? "border-rose-300 bg-rose-50 focus:ring-rose-200"
-            : "border-slate-200 bg-white focus:ring-[#7B61FF]/25"
+            : hasFilledValue
+              ? "border-[#7B61FF]/30 bg-[#faf8ff] focus:ring-[#7B61FF]/25"
+              : "border-slate-200 bg-white focus:ring-[#7B61FF]/25"
         } ${className}`}
       />
       {error ? (
