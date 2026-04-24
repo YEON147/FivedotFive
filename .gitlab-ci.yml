@@ -59,8 +59,8 @@ deploy_staging:
     - export AWS_SECRET_KEY=$AWS_SECRET_KEY
     - export AWS_REGION=ap-northeast-2
     - export S3_BUCKET=five-dot-five
-    - docker-compose pull backend-blue
-    - docker-compose up -d --force-recreate backend-blue
+    - docker compose pull backend-blue
+    - docker compose up -d --force-recreate backend-blue
   only:
     - develop
 
