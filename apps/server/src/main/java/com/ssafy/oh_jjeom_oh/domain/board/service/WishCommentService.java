@@ -44,7 +44,7 @@ public class WishCommentService {
         WishBoard board = getBoardBySlug(slug);
 
         Page<WishComment> commentPage =
-                wishCommentRepository.findByWishBoardOrderByCreatedAtDesc(board, PageRequest.of(page, size));
+                wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(board, PageRequest.of(page, size));
 
         List<CommentResponse> comments = commentPage.getContent().stream()
                 .map(c -> requestUserId != null
@@ -72,6 +72,11 @@ public class WishCommentService {
             throw new CustomException(ErrorCode.BOARD_PRIVATE);
         }
 
+        // 해당 슬롯에 이미 댓글(삭제된 것 포함)이 있으면 409
+        if (wishCommentRepository.existsByWishBoardAndSlotIndex(board, request.getSlotIndex())) {
+            throw new CustomException(ErrorCode.COMMENT_SLOT_CONFLICT);
+        }
+
         User sender = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -82,6 +87,7 @@ public class WishCommentService {
                 .isUser(true)
                 .content(request.getContent())
                 .stickerKey(request.getStickerKey())
+                .slotIndex(request.getSlotIndex())
                 .build();
 
         WishComment saved = wishCommentRepository.save(comment);

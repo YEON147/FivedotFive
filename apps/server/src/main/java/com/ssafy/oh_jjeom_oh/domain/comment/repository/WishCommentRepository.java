@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface WishCommentRepository extends JpaRepository<WishComment, Long> {
 
-    Page<WishComment> findByWishBoardOrderByCreatedAtDesc(WishBoard wishBoard, Pageable pageable);
+    Page<WishComment> findByWishBoardOrderBySlotIndexAsc(WishBoard wishBoard, Pageable pageable);
 
     long countByWishBoard(WishBoard wishBoard);
+
+    boolean existsByWishBoardAndSlotIndex(WishBoard wishBoard, Integer slotIndex);
 }

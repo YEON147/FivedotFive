@@ -7,12 +7,14 @@ import lombok.Getter;
 public class CommentCreateResponse {
 
     private final Long id;
+    private final Integer slotIndex;
 
-    private CommentCreateResponse(Long id) {
+    private CommentCreateResponse(Long id, Integer slotIndex) {
         this.id = id;
+        this.slotIndex = slotIndex;
     }
 
     public static CommentCreateResponse of(WishComment comment) {
-        return new CommentCreateResponse(comment.getId());
+        return new CommentCreateResponse(comment.getId(), comment.getSlotIndex());
     }
 }

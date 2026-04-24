@@ -11,7 +11,13 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "wish_comments")
+@Table(
+    name = "wish_comments",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_wish_comments_board_slot",
+        columnNames = {"wish_list_id", "slot_index"}
+    )
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -42,6 +48,9 @@ public class WishComment {
 
     @Column(name = "sticker_key", columnDefinition = "TEXT")
     private String stickerKey; // 댓글 스티커 CDN 키 (null 허용 - 스티커 없이 댓글 가능)
+
+    @Column(name = "slot_index")
+    private Integer slotIndex; // 보드 댓글 슬롯 위치 (0~5), null 허용 (기존 데이터 호환)
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

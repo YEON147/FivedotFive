@@ -48,6 +48,8 @@ public enum ErrorCode {
     COMMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "본인이 작성한 댓글만 수정/삭제할 수 있습니다."),
     COMMENT_RATE_LIMIT(HttpStatus.TOO_MANY_REQUESTS, "댓글은 10초에 한 번만 작성할 수 있습니다."),
     COMMENT_STICKER_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 댓글에 선물 아이콘이 없습니다."),
+    COMMENT_SLOT_CONFLICT(HttpStatus.CONFLICT, "해당 슬롯에는 이미 댓글이 존재합니다."),
+    COMMENT_INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "댓글 슬롯 번호는 0~5 사이여야 합니다."),
 
     // 공유 링크
     SHARE_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, "유효하지 않거나 만료된 공유 링크입니다.");
