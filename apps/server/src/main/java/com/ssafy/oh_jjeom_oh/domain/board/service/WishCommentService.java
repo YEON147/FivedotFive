@@ -16,6 +16,7 @@ import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -72,8 +73,9 @@ public class WishCommentService {
             throw new CustomException(ErrorCode.BOARD_PRIVATE);
         }
 
-        // 해당 슬롯에 이미 댓글(삭제된 것 포함)이 있으면 409
-        if (wishCommentRepository.existsByWishBoardAndSlotIndex(board, request.getSlotIndex())) {
+        // 해당 슬롯에 이미 댓글(소프트 딜리트된 것 포함)이 있으면 409
+        // 네이티브 쿼리로 확인하여 향후 @Where 같은 JPA 필터가 추가되어도 안전하게 동작
+        if (wishCommentRepository.existsByBoardIdAndSlotIndexNative(board.getId(), request.getSlotIndex())) {
             throw new CustomException(ErrorCode.COMMENT_SLOT_CONFLICT);
         }
 
@@ -90,10 +92,15 @@ public class WishCommentService {
                 .slotIndex(request.getSlotIndex())
                 .build();
 
-        WishComment saved = wishCommentRepository.save(comment);
-        lastCommentTimeMap.put(userId, now);
-
-        return CommentCreateResponse.of(saved);
+        // existsBy 체크와 save 사이의 동시성 레이스 컨디션을 방어
+        // DB Unique 제약 위반 시 500 대신 409로 변환
+        try {
+            WishComment saved = wishCommentRepository.saveAndFlush(comment);
+            lastCommentTimeMap.put(userId, now);
+            return CommentCreateResponse.of(saved);
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.COMMENT_SLOT_CONFLICT);
+        }
     }
 
     // PATCH /api/boards/{slug}/comments/{commentId}

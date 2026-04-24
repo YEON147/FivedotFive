@@ -1,0 +1,216 @@
+package com.ssafy.oh_jjeom_oh.domain.board.service;
+
+import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
+import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentCreateResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentListResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
+import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
+import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
+import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
+import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.given;
+
+@ExtendWith(MockitoExtension.class)
+class WishCommentServiceTest {
+
+    @InjectMocks
+    private WishCommentService wishCommentService;
+
+    @Mock private WishBoardRepository wishBoardRepository;
+    @Mock private WishCommentRepository wishCommentRepository;
+    @Mock private UserRepository userRepository;
+
+    private User sender;
+    private WishBoard board;
+
+    @BeforeEach
+    void setUp() {
+        sender = User.builder()
+                .username("testuser")
+                .nickname("테스터")
+                .passwordHash("hashed")
+                .role(Role.CHILD)
+                .status(Status.ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(sender, "id", 1L);
+
+        board = WishBoard.builder()
+                .user(sender)
+                .boardSlug("abc123def4")
+                .isPublic(true)
+                .targetDate(LocalDate.of(2026, 5, 5))
+                .build();
+        ReflectionTestUtils.setField(board, "id", 10L);
+    }
+
+    // ===================== createComment =====================
+
+    @Test
+    @DisplayName("댓글 작성 성공")
+    void createComment_success() {
+        CommentCreateRequest request = buildRequest("안녕!", "assets/sticker/a.png", 2);
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 2)).willReturn(false);
+        given(userRepository.findById(1L)).willReturn(Optional.of(sender));
+
+        WishComment saved = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("안녕!").stickerKey("assets/sticker/a.png").slotIndex(2)
+                .build();
+        ReflectionTestUtils.setField(saved, "id", 100L);
+        given(wishCommentRepository.saveAndFlush(any())).willReturn(saved);
+
+        CommentCreateResponse response = wishCommentService.createComment(1L, "abc123def4", request);
+
+        assertThat(response.getId()).isEqualTo(100L);
+        assertThat(response.getSlotIndex()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("댓글 작성 실패 - 비공개 보드")
+    void createComment_privateBoard() {
+        WishBoard privateBoard = WishBoard.builder()
+                .user(sender).boardSlug("abc123def4").isPublic(false)
+                .targetDate(LocalDate.of(2026, 5, 5)).build();
+        ReflectionTestUtils.setField(privateBoard, "id", 10L);
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(privateBoard));
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(1L, "abc123def4", buildRequest("내용", null, 0)))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.BOARD_PRIVATE));
+    }
+
+    @Test
+    @DisplayName("댓글 작성 실패 - 슬롯 중복 (소프트 딜리트된 댓글 포함)")
+    void createComment_slotConflict() {
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 3)).willReturn(true);
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(1L, "abc123def4", buildRequest("내용", null, 3)))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_SLOT_CONFLICT));
+    }
+
+    @Test
+    @DisplayName("댓글 작성 실패 - 동시 요청으로 DB Unique 제약 위반 시 409 반환")
+    void createComment_concurrentSlotConflict() {
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 1)).willReturn(false);
+        given(userRepository.findById(1L)).willReturn(Optional.of(sender));
+        given(wishCommentRepository.saveAndFlush(any()))
+                .willThrow(new DataIntegrityViolationException("uk_wish_comments_board_slot"));
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(1L, "abc123def4", buildRequest("내용", null, 1)))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_SLOT_CONFLICT));
+    }
+
+    @Test
+    @DisplayName("댓글 작성 실패 - 10초 레이트 리밋")
+    void createComment_rateLimitExceeded() {
+        CommentCreateRequest request = buildRequest("첫 댓글", null, 0);
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 0)).willReturn(false);
+        given(userRepository.findById(1L)).willReturn(Optional.of(sender));
+
+        WishComment saved = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("첫 댓글").slotIndex(0).build();
+        ReflectionTestUtils.setField(saved, "id", 1L);
+        given(wishCommentRepository.saveAndFlush(any())).willReturn(saved);
+
+        // 첫 번째 요청 성공
+        wishCommentService.createComment(1L, "abc123def4", request);
+
+        // 즉시 두 번째 요청 → 레이트 리밋 (rate limit 체크는 getBoardBySlug 이전에 발생)
+        CommentCreateRequest request2 = buildRequest("두 번째 댓글", null, 1);
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(1L, "abc123def4", request2))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_RATE_LIMIT));
+    }
+
+    // ===================== getComments =====================
+
+    @Test
+    @DisplayName("댓글 목록 조회 성공 - slotIndex 오름차순 정렬")
+    void getComments_orderedBySlotIndex() {
+        WishComment comment0 = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("슬롯0").slotIndex(0).build();
+        WishComment comment2 = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("슬롯2").slotIndex(2).build();
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(List.of(comment0, comment2), PageRequest.of(0, 6), 2));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, 1L);
+
+        assertThat(response.getComments()).hasSize(2);
+        assertThat(response.getComments().get(0).getSlotIndex()).isEqualTo(0);
+        assertThat(response.getComments().get(1).getSlotIndex()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("댓글 목록 조회 - 비로그인 사용자는 isUser 항상 false")
+    void getComments_anonymous_isUserFalse() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("댓글").slotIndex(1).build();
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 6), 1));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, null);
+
+        assertThat(response.getComments().get(0).isUser()).isFalse();
+    }
+
+    // ===== helpers =====
+
+    private CommentCreateRequest buildRequest(String content, String stickerKey, int slotIndex) {
+        CommentCreateRequest request = new CommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", content);
+        ReflectionTestUtils.setField(request, "stickerKey", stickerKey);
+        ReflectionTestUtils.setField(request, "slotIndex", slotIndex);
+        return request;
+    }
+}
