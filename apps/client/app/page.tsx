@@ -9,7 +9,9 @@ import {
   INTRO_GIFT_SHAKE_MS,
   MainIntroExperience,
 } from "@/components/main-intro/MainIntroExperience";
+import { getMyProfile } from "@/features/user/api";
 import { getAccessToken } from "@/lib/api/token-store";
+import { ADMIN_PUBLIC_BOARD_SLUG } from "@/lib/admin-landing";
 
 const MAIN_INTRO_DURATION_MS = INTRO_GIFT_SHAKE_MS + INTRO_GIFT_BURST_MS + 180;
 
@@ -22,6 +24,9 @@ export default function Home() {
   const [guestClipExpanded, setGuestClipExpanded] = useState(false);
   const [introMounted, setIntroMounted] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedInCtaReady, setLoggedInCtaReady] = useState(false);
+  const [isLandingAdmin, setIsLandingAdmin] = useState(false);
+  const [hasWishBoard, setHasWishBoard] = useState(false);
 
   const revealSkipIntro = useRef(false);
 
@@ -49,6 +54,33 @@ export default function Home() {
   useEffect(() => {
     setLoggedIn(!!getAccessToken());
   }, [guestShellMounted]);
+
+  useEffect(() => {
+    if (!guestShellMounted || !loggedIn) {
+      setLoggedInCtaReady(false);
+      setHasWishBoard(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoggedInCtaReady(false);
+
+    void getMyProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        setHasWishBoard(profile.hasWishBoard);
+        setLoggedInCtaReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHasWishBoard(false);
+        setLoggedInCtaReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [guestShellMounted, loggedIn]);
 
   useEffect(() => {
     if (!guestShellMounted || revealSkipIntro.current) return;
@@ -80,7 +112,12 @@ export default function Home() {
           }}
           onTransitionEnd={onGuestRevealEnd}
         >
-          <MainLandingContent loggedIn={loggedIn} />
+          <MainLandingContent
+            loggedIn={loggedIn}
+            loggedInCtaReady={!loggedIn || loggedInCtaReady}
+            adminPublicBoardSlug={ADMIN_PUBLIC_BOARD_SLUG}
+            hasWishBoard={hasWishBoard}
+          />
         </div>
       ) : null}
     </>

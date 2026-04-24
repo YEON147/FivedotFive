@@ -1,4 +1,4 @@
-const ACCESS_TOKEN_STORAGE_KEY = "accessToken";
+export const ACCESS_TOKEN_STORAGE_KEY = "accessToken";
 
 let accessTokenMemory: string | null = null;
 

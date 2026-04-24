@@ -245,11 +245,13 @@ export function TextField({
   const handleFocus = (event: FocusEvent<HTMLInputElement>) => {
     onFocus?.(event);
     if (!scrollIntoViewOnFocus) return;
+    const el = event.currentTarget;
     requestAnimationFrame(() => {
+      if (!el?.isConnected) return;
       const reduceMotion =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      event.currentTarget.scrollIntoView({
+      el.scrollIntoView({
         behavior: reduceMotion ? "auto" : "smooth",
         block: "center",
         inline: "nearest",
