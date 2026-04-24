@@ -120,3 +120,18 @@ export async function fetchGiftIcons(): Promise<GiftIconDto[]> {
 
   return res.data.giftIcons;
 }
+
+type AssetsSyncApiResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    addedCount: number;
+  };
+};
+
+/** POST /api/admin/assets/sync — S3 에셋을 DB와 동기화 (권한 스펙: 공개 호출) */
+export async function postAdminAssetsSync(): Promise<AssetsSyncApiResponse> {
+  return apiClient<AssetsSyncApiResponse>("/api/admin/assets/sync", {
+    method: "POST",
+  });
+}

@@ -11,6 +11,7 @@ import {
   GiftSlots,
   StickerSlots,
   STICKER_SIZE,
+  getStickerSlotCssTransform,
   stickerSlots,
   toXPercent,
   toYPercent,
@@ -194,7 +195,7 @@ function CommentBoardPage({
               top: toYPercent(slot.top),
               left: toXPercent(slot.left),
               width: toXPercent(STICKER_SIZE),
-              transform: "translate(-50%, -50%)",
+              transform: getStickerSlotCssTransform(slot.id),
             }}
             aria-label={comment ? `${comment.senderName}의 댓글 보기` : `슬롯 ${slot.id}에 댓글 남기기`}
           >
