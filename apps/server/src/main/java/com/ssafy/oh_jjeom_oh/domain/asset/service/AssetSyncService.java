@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -52,23 +52,28 @@ public class AssetSyncService {
 
         log.info("S3에서 조회한 파일 수: {}", dbKeys.size());
 
-        // 2. S3 키 목록만 DB에 전달해서 이미 존재하는 키만 조회
-        Set<String> existingKeys = assetRepository.findByAssetKeyIn(dbKeys).stream()
-                .map(Asset::getAssetKey)
-                .collect(Collectors.toSet());
+        // 2. S3 키 목록 중 DB에 이미 존재하는 항목을 assetKey → Asset 맵으로 조회
+        Map<String, Asset> existingAssetMap = assetRepository.findByAssetKeyIn(dbKeys).stream()
+                .collect(Collectors.toMap(Asset::getAssetKey, a -> a));
 
-        // 3. S3에는 있지만 DB에 없는 신규 항목만 필터링 후 저장
+        // 3. 신규 항목은 INSERT, 타입이 바뀐 항목은 UPDATE
         List<Asset> toInsert = new ArrayList<>();
+        int updatedCount = 0;
         for (int i = 0; i < dbKeys.size(); i++) {
             String dbKey = dbKeys.get(i);
+            AssetType type = resolveAssetType(dbKey);
 
-            if (existingKeys.contains(dbKey)) {
+            if (type == null) {
+                log.warn("알 수 없는 에셋 경로, 건너뜀: {}", dbKey);
                 continue;
             }
 
-            AssetType type = resolveAssetType(dbKey);
-            if (type == null) {
-                log.warn("알 수 없는 에셋 경로, 건너뜀: {}", dbKey);
+            Asset existing = existingAssetMap.get(dbKey);
+            if (existing != null) {
+                if (existing.getAssetType() != type) {
+                    existing.updateAssetType(type);
+                    updatedCount++;
+                }
                 continue;
             }
 
@@ -80,7 +85,7 @@ public class AssetSyncService {
         }
 
         assetRepository.saveAll(toInsert);
-        log.info("새로 추가된 에셋 수: {}", toInsert.size());
+        log.info("새로 추가된 에셋 수: {}, 타입 수정된 에셋 수: {}", toInsert.size(), updatedCount);
 
         return toInsert.size();
     }
