@@ -98,7 +98,14 @@ public class WishBoardService {
     private WishBoardPublicResponse buildWishBoardPublicResponse(WishBoard board) {
         List<WishItemResponse> itemResponses = buildItemResponses(board);
         List<BoardAssetResponse> assetResponses = buildAssetResponses(board);
-        return WishBoardPublicResponse.of(board, itemResponses, assetResponses);
+        return WishBoardPublicResponse.of(
+                board.getBoardSlug(),
+                board.getUser().getUsername(),
+                board.getUser().getNickname(),
+                board.getTargetDate(),
+                itemResponses,
+                assetResponses
+        );
     }
 
     private List<WishItemResponse> buildItemResponses(WishBoard board) {

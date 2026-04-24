@@ -138,6 +138,7 @@ class WishBoardServiceTest {
 
         assertThat(response.getBoardSlug()).isEqualTo("abc123def4");
         assertThat(response.getUsername()).isEqualTo("testuser");
+        assertThat(response.getNickname()).isEqualTo("테스트");
         assertThat(response.getItems()).hasSize(3);
         assertThat(response.getItems().get(0).getItemName()).isEqualTo("레고");
         assertThat(response.getItems().get(1).getItemName()).isNull(); // 빈 슬롯
