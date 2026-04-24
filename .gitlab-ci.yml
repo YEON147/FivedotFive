@@ -61,7 +61,7 @@ deploy_staging:
     - export S3_BUCKET=five-dot-five
     - docker compose up -d postgres redis
     - docker compose pull client backend-blue
-    - docker compose up -d --force-recreate client backend-blue caddy
+    - docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --force-recreate client backend-blue caddy
   only:
     - develop
 
