@@ -66,8 +66,9 @@ export type PublicBoardData = {
   };
 };
 
+/** 댓글 스티커 선택 — `assetKey`가 API `stickerKey`와 동일 */
 export type StickerOption = {
   id: string;
   label: string;
-  src: string;
+  assetKey: string;
 };

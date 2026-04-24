@@ -43,3 +43,4 @@ out/
 
 ### Local Configuration ###
 src/main/resources/application-local.yml
+config/application-local.override.yml
