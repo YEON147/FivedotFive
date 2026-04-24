@@ -61,14 +61,14 @@ export default function Home() {
 
   if (!isGuestLanding) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[var(--color-bg-mint)] px-6 py-10">
+      <main className="flex min-h-screen items-center justify-center px-6 py-10">
         <p className="text-body-sm text-black/60">이동 중…</p>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--color-bg-mint)] px-6 py-10">
+    <main className="flex min-h-screen items-center justify-center px-6 py-10">
       <section className="w-full max-w-md rounded-[32px] bg-white px-8 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.08)]">
         <h1 className="mt-3 text-h1 text-black">메인페이지</h1>
         <p className="mt-3 text-body text-black/70">

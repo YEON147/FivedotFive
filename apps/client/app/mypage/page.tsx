@@ -19,6 +19,9 @@ const MYPAGE_MENU_BUTTON =
 const MYPAGE_BACK_BUTTON =
   "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-800 shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
 
+const MY_PAGE_BACK_BUTTON =
+  "inline-flex size-[42px] shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 touch-manipulation";
+
 export default function MyPagePage() {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

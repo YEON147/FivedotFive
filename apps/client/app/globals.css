@@ -105,6 +105,25 @@
   --color-bg-cream: var(--color-bg-cream);
 }
 
+/**
+ * 서비스 공통 페이지 배경 — 위시리스트와 동일 (연보라·연하늘 오로라)
+ */
+html,
+body,
+.wishlist-page-root {
+  background:
+    radial-gradient(ellipse 130% 85% at 18% 12%, rgba(214, 236, 255, 0.72) 0%, transparent 58%),
+    radial-gradient(ellipse 95% 75% at 92% 38%, rgba(236, 228, 255, 0.78) 0%, transparent 52%),
+    radial-gradient(ellipse 110% 70% at 42% 95%, rgba(199, 228, 255, 0.42) 0%, transparent 48%),
+    linear-gradient(
+      168deg,
+      #f3f8ff 0%,
+      var(--color-bg-lavender) 36%,
+      #dceeff 68%,
+      #ebe4ff 100%
+    );
+}
+
 html {
   min-width: var(--app-min-viewport-width);
   overflow-x: auto;
@@ -113,7 +132,6 @@ html {
 body {
   margin: 0;
   min-width: var(--app-min-viewport-width);
-  background: var(--background);
   color: var(--foreground);
   font-family: "TmoneyRoundWind", sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -137,23 +155,6 @@ body {
   max-height: 100svh;
   overflow: hidden;
   overscroll-behavior: none;
-}
-
-/**
- * 위시리스트 루트 — 연보라 + 연하늘 오로라 (보기·꾸미기 공통)
- */
-.wishlist-page-root {
-  background:
-    radial-gradient(ellipse 130% 85% at 18% 12%, rgba(214, 236, 255, 0.72) 0%, transparent 58%),
-    radial-gradient(ellipse 95% 75% at 92% 38%, rgba(236, 228, 255, 0.78) 0%, transparent 52%),
-    radial-gradient(ellipse 110% 70% at 42% 95%, rgba(199, 228, 255, 0.42) 0%, transparent 48%),
-    linear-gradient(
-      168deg,
-      #f3f8ff 0%,
-      var(--color-bg-lavender) 36%,
-      #dceeff 68%,
-      #ebe4ff 100%
-    );
 }
 
 /** 내 위시 보드 영역 — 페이지와 같은 오로라 팔레트 */

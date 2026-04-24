@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -158,10 +159,10 @@ export function CommentPopup({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700"
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
           aria-label="닫기"
         >
-          닫기
+          <X size={20} weight="bold" aria-hidden />
         </button>
       </div>
 

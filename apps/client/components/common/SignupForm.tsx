@@ -243,17 +243,21 @@ export function SignupForm({
                 onChange={(event) => onChange("nickname", event.target.value)}
               />
 
-              <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 {nicknameCheckMessage ? (
-                  <p className={`mr-auto text-xs ${nicknameStatusClass}`}>
+                  <p className={`min-w-0 flex-[1_1_0%] text-xs ${nicknameStatusClass}`}>
                     {nicknameCheckMessage}
+                  </p>
+                ) : (
+                  <p className="min-w-0 flex-[1_1_0%] text-xs text-slate-500">
+                    입력 후 자동으로 중복 여부를 확인합니다.
                   </p>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => void onRefetchNickname()}
                   disabled={isNicknameLoading}
-                  className="shrink-0 rounded-lg border border-[#7B61FF]/40 bg-white px-3 py-1.5 text-xs font-semibold text-[#7B61FF] shadow-sm transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="shrink-0 whitespace-nowrap rounded-lg border border-[#7B61FF]/40 bg-white px-3 py-2 text-xs font-semibold text-[#7B61FF] shadow-sm transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isNicknameLoading ? "불러오는 중…" : "랜덤 닉네임"}
                 </button>

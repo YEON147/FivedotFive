@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { trackSignUp } from "@/lib/analytics/conversion";
 import { setAccessToken } from "@/lib/api/token-store";
+import { getMyProfile } from "@/features/user/api";
 
 const GA_OAUTH_SIGNUP_DEDUPE_KEY = "ohjjeomoh_ga_kakao_signup_tracked";
 
@@ -31,7 +32,22 @@ function OAuthCallbackContent() {
       }
     }
 
-    router.replace("/");
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await getMyProfile();
+        if (cancelled) return;
+        const destination = profile.hasWishBoard ? "/wishlist" : "/";
+        router.replace(destination);
+      } catch {
+        if (cancelled) return;
+        router.replace("/");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router, searchParams]);
 
   return (

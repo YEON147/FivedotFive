@@ -14,13 +14,9 @@ const MY_PROFILE_API_PATH = "/api/users/me";
 const MY_PASSWORD_API_PATH = "/api/users/me/password";
 
 function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
-  const rawRole = response.data?.role;
-  const role =
-    rawRole === "CHILD" || rawRole === "PARENT"
-      ? rawRole
-      : null;
-
   return {
+    hasWishBoard: response.data?.hasWishBoard ?? false,
+    role: response.data?.role as "CHILD" | "PARENT" | null ?? null,
     username: response.data?.username ?? "",
     email: response.data?.email ?? "",
     nickname: response.data?.nickname ?? "",
@@ -28,8 +24,6 @@ function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
     schoolcode: response.data?.schoolcode ?? null,
     gender: response.data?.gender ?? null,
     grade: response.data?.grade ?? null,
-    hasWishBoard: Boolean(response.data?.hasWishBoard),
-    role,
   };
 }
 

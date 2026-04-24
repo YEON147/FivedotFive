@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "@phosphor-icons/react";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
 import { GENDER_OPTIONS, GRADE_OPTIONS } from "@/lib/constants/signup";
@@ -162,14 +163,14 @@ export function MyPageForm({
               </span>
             </div>
 
-            <div className="flex items-stretch gap-2">
+            <div className="flex min-w-0 items-stretch gap-2 sm:gap-3">
               <input
                 id="mypage-nickname"
                 type="text"
                 value={values.nickname}
                 disabled={!isLoaded || isSaving}
                 onChange={(event) => onChange("nickname", event.target.value)}
-                className={`h-11 min-w-0 flex-1 rounded-xl border bg-white px-3.5 text-sm outline-none transition focus:ring-2 ${
+                className={`h-14 min-w-0 flex-1 rounded-2xl border bg-white px-4 text-base outline-none transition ${
                   errors.nickname
                     ? "border-rose-300 focus:ring-rose-200"
                     : "border-slate-200 focus:ring-[#7B61FF]/25"
@@ -187,7 +188,7 @@ export function MyPageForm({
                 type="button"
                 onClick={() => void onCheckNickname()}
                 disabled={!isLoaded || isSaving || nicknameCheckStatus === "checking"}
-                className="shrink-0 rounded-xl border border-[#7B61FF]/40 bg-white px-3 py-1.5 text-xs font-semibold text-[#7B61FF] shadow-sm transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-14 shrink-0 whitespace-nowrap rounded-2xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 sm:px-5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {nicknameCheckStatus === "checking" ? "확인 중…" : "중복확인"}
               </button>
@@ -356,9 +357,10 @@ export function MyPageForm({
                 type="button"
                 onClick={onClosePasswordModal}
                 disabled={isPasswordSaving}
-                className="rounded-full px-2 py-1 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)]"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="비밀번호 변경 창 닫기"
               >
-                닫기
+                <X size={20} weight="bold" aria-hidden />
               </button>
             </div>
 

@@ -14,7 +14,7 @@ const RANKING_MENU_BUTTON =
 
 /** 동일 크기·형태의 뒤로가기(좌측) */
 const RANKING_BACK_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-800 shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
+  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 touch-manipulation";
 
 const RANKING_HEADER_SPACER = "relative z-40 size-[42px] shrink-0";
 
@@ -37,7 +37,7 @@ export function RankingPageHeader({
       <Link
         href={backHref}
         scroll={false}
-        prefetch={false}
+        prefetch
         className={RANKING_BACK_BUTTON}
         aria-label="위시리스트로 이동"
       >
