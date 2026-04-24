@@ -32,7 +32,7 @@ public class AdminDataInitializer implements ApplicationRunner {
     @Value("${admin.username}")
     private String adminUsername;
 
-    @Value("${admin.password:}")
+    @Value("${admin.password}")
     private String adminPassword;
 
     @Value("${admin.nickname}")
@@ -43,10 +43,6 @@ public class AdminDataInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         User admin = userRepository.findByUsername(adminUsername)
                 .orElseGet(() -> {
-                    if (adminPassword == null || adminPassword.isBlank()) {
-                        throw new IllegalStateException(
-                                "[AdminInit] 관리자 계정이 없는데 ADMIN_PASSWORD 환경변수가 설정되지 않았습니다.");
-                    }
                     log.info("[AdminInit] 관리자 계정 생성: username={}", adminUsername);
                     return userRepository.save(User.builder()
                             .username(adminUsername)
