@@ -40,28 +40,27 @@ public class AssetSyncService {
                         .build()
         );
 
-        List<String> s3Keys = new ArrayList<>();
+        // "assets/" 제거 후 파일명 기준 정렬
+        List<String> dbKeys = new ArrayList<>();
         pages.contents().forEach(obj -> {
             String key = obj.key();
-            // 폴더 자체는 제외 (끝이 /인 항목)
             if (!key.endsWith("/")) {
-                s3Keys.add(key);
+                dbKeys.add(key.substring(S3_PREFIX.length()));
             }
         });
+        dbKeys.sort(String::compareTo);
 
-        log.info("S3에서 조회한 파일 수: {}", s3Keys.size());
+        log.info("S3에서 조회한 파일 수: {}", dbKeys.size());
 
-        // 2. DB에 이미 존재하는 assetKey 목록 조회
-        Set<String> existingKeys = assetRepository.findAll().stream()
+        // 2. S3 키 목록만 DB에 전달해서 이미 존재하는 키만 조회
+        Set<String> existingKeys = assetRepository.findByAssetKeyIn(dbKeys).stream()
                 .map(Asset::getAssetKey)
                 .collect(Collectors.toSet());
 
         // 3. S3에는 있지만 DB에 없는 신규 항목만 필터링 후 저장
         List<Asset> toInsert = new ArrayList<>();
-        for (int i = 0; i < s3Keys.size(); i++) {
-            String s3Key = s3Keys.get(i);
-            // "assets/" 접두사 제거 → DB 저장 키
-            String dbKey = s3Key.substring(S3_PREFIX.length());
+        for (int i = 0; i < dbKeys.size(); i++) {
+            String dbKey = dbKeys.get(i);
 
             if (existingKeys.contains(dbKey)) {
                 continue;
