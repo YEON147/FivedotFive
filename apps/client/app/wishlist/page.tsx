@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  CaretLeft,
-  CaretRight,
-  Export,
-  PencilSimple,
-  TextAlignJustify,
-  TrashSimple,
-  X,
-} from "@phosphor-icons/react";
+import { Export, PencilSimple, TextAlignJustify, TrashSimple, X } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -34,7 +26,9 @@ import {
   createMyBoard,
   deleteMyWishItem,
   getMyBoard,
+  deleteMyBoardStickerSlot,
   patchMyWishItem,
+  putMyBoardStickerSlot,
 } from "@/features/wishlist/api";
 import {
   deriveWishSlotState,
@@ -53,30 +47,27 @@ import {
   fetchGiftIcons,
   fetchStickerAssets,
   fetchStickersByFolder,
+  postAdminAssetsSync,
   type BackgroundAssetDto,
   type GiftIconDto,
   type StickerAssetDto,
 } from "@/lib/api/assets";
 import { getAssetImageUrl } from "@/lib/asset-url";
 
-/** 선물 아이콘 선택 모달: 한 페이지에 표시할 개수 (4열 × 2행) */
-const GIFT_ICON_PAGE_SIZE = 8;
-/** 고정 슬롯 2개(삭제 · 기본 선물) 제외 후 첫 페이지에 넣을 API 아이콘 수 */
-const GIFT_MODAL_FIRST_PAGE_API_COUNT = GIFT_ICON_PAGE_SIZE - 2;
 type GiftModalSpecial = "clear" | "present" | null;
 
 /** 스티커 폴더명(`assets/stickers/{id}/`)과 동일한 id — 한글은 UI 표시용 */
 const STICKER_MODAL_TABS = [
   { id: "all", label: "전체" },
   { id: "balloon", label: "풍선" },
+  { id: "universe", label: "우주" },
+  { id: "message", label: "메시지" },
+  { id: "dinosaur", label: "공룡" },
+  { id: "food", label: "음식" },
   { id: "bubble", label: "버블" },
   { id: "cute", label: "귀여운" },
-  { id: "dinosaur", label: "공룡" },
   { id: "felt", label: "펠트" },
-  { id: "food", label: "음식" },
   { id: "lego", label: "레고" },
-  { id: "message", label: "메시지" },
-  { id: "universe", label: "우주" },
 ] as const;
 
 type StickerModalTabId = (typeof STICKER_MODAL_TABS)[number]["id"];
@@ -182,7 +173,6 @@ export default function WishlistPage() {
   const [giftModalDeleting, setGiftModalDeleting] = useState(false);
   const [giftModalSaveError, setGiftModalSaveError] = useState<string | null>(null);
   const [giftModalSpecial, setGiftModalSpecial] = useState<GiftModalSpecial>(null);
-  const [giftIconPage, setGiftIconPage] = useState(0);
   const [isDecorateMode, setIsDecorateMode] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [stickerTargetSlotId, setStickerTargetSlotId] = useState<number | null>(null);
@@ -224,6 +214,8 @@ export default function WishlistPage() {
   const [stickerSheetList, setStickerSheetList] = useState<StickerAssetDto[]>([]);
   const [stickerSheetLoading, setStickerSheetLoading] = useState(false);
   const [stickerSheetError, setStickerSheetError] = useState<string | null>(null);
+  const [stickerSlotSaving, setStickerSlotSaving] = useState(false);
+  const [stickerSlotSaveError, setStickerSlotSaveError] = useState<string | null>(null);
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 선물 수정 모달: 목록 최초 로드 시에만 프리셋 여부 동기화(재선택 덮어쓰기 방지) */
   const giftEditPresetSyncRef = useRef<{ slot: number; done: boolean }>({
@@ -596,17 +588,69 @@ export default function WishlistPage() {
     setGiftModalSpecial(null);
   };
 
-  const closeStickerPicker = () => {
+  const closeStickerPicker = useCallback(() => {
     setIsBottomSheetOpen(false);
     setStickerTargetSlotId(null);
-  };
+    setStickerSlotSaveError(null);
+  }, []);
+
+  const applyStickerSelection = useCallback(
+    async (assetKey: string) => {
+      const keyTrim = assetKey.trim();
+      const slotId = stickerTargetSlotId;
+      if (slotId == null || !keyTrim) {
+        return;
+      }
+
+      setStickerSlotSaving(true);
+      setStickerSlotSaveError(null);
+      try {
+        await putMyBoardStickerSlot(slotId, keyTrim);
+        const board = await getMyBoard();
+        applyLoadedBoard(board);
+        setIsBottomSheetOpen(false);
+        setStickerTargetSlotId(null);
+        setStickerSlotSaveError(null);
+      } catch (e) {
+        setStickerSlotSaveError(
+          e instanceof Error ? e.message : "스티커를 저장하지 못했습니다.",
+        );
+      } finally {
+        setStickerSlotSaving(false);
+      }
+    },
+    [stickerTargetSlotId, applyLoadedBoard],
+  );
+
+  const removeStickerFromSlot = useCallback(async () => {
+    const slotId = stickerTargetSlotId;
+    if (slotId == null) {
+      return;
+    }
+
+    setStickerSlotSaving(true);
+    setStickerSlotSaveError(null);
+    try {
+      await deleteMyBoardStickerSlot(slotId);
+      const board = await getMyBoard();
+      applyLoadedBoard(board);
+      setIsBottomSheetOpen(false);
+      setStickerTargetSlotId(null);
+      setStickerSlotSaveError(null);
+    } catch (e) {
+      setStickerSlotSaveError(
+        e instanceof Error ? e.message : "스티커를 삭제하지 못했습니다.",
+      );
+    } finally {
+      setStickerSlotSaving(false);
+    }
+  }, [stickerTargetSlotId, applyLoadedBoard]);
 
   const openGiftModalAdd = () => {
     setGiftModalMode("add");
     setModalGiftName("");
     setModalSelectedIconId(null);
     setGiftModalSpecial(null);
-    setGiftIconPage(0);
     setGiftModalSaveError(null);
     setIsGiftModalOpen(true);
   };
@@ -731,7 +775,6 @@ export default function WishlistPage() {
       setModalGiftName("");
       setModalSelectedIconId(null);
       setGiftModalSpecial(null);
-      setGiftIconPage(0);
       setGiftModalSaveError(null);
       return;
     }
@@ -808,14 +851,13 @@ export default function WishlistPage() {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsBottomSheetOpen(false);
-        setStickerTargetSlotId(null);
+        closeStickerPicker();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isBottomSheetOpen]);
+  }, [isBottomSheetOpen, closeStickerPicker]);
 
   const giftSlotImages = useMemo(() => {
     const out: Partial<Record<number, string>> = {};
@@ -866,22 +908,6 @@ export default function WishlistPage() {
   const showEmptyWishlistHero =
     wishSlotsLoaded && allWishSlotsEmpty && !bypassEmptyState;
 
-  const giftIconTotalPages = useMemo(() => {
-    const n = giftIcons.length;
-    if (n <= GIFT_MODAL_FIRST_PAGE_API_COUNT) {
-      return 1;
-    }
-    return 1 + Math.ceil((n - GIFT_MODAL_FIRST_PAGE_API_COUNT) / GIFT_ICON_PAGE_SIZE);
-  }, [giftIcons.length]);
-
-  const pagedGiftIcons = useMemo(() => {
-    if (giftIconPage === 0) {
-      return giftIcons.slice(0, GIFT_MODAL_FIRST_PAGE_API_COUNT);
-    }
-    const start = GIFT_MODAL_FIRST_PAGE_API_COUNT + (giftIconPage - 1) * GIFT_ICON_PAGE_SIZE;
-    return giftIcons.slice(start, start + GIFT_ICON_PAGE_SIZE);
-  }, [giftIcons, giftIconPage]);
-
   const giftModalResolvedIconId = useMemo(() => {
     if (giftModalSpecial !== null) {
       return null;
@@ -930,23 +956,6 @@ export default function WishlistPage() {
     wishGiftIconKeys,
     wishTexts,
   ]);
-
-  useEffect(() => {
-    if (!isGiftModalOpen || giftIcons.length === 0 || giftModalResolvedIconId == null) {
-      return;
-    }
-
-    const idx = giftIcons.findIndex((g) => g.id === giftModalResolvedIconId);
-    if (idx < 0) {
-      return;
-    }
-    if (idx < GIFT_MODAL_FIRST_PAGE_API_COUNT) {
-      setGiftIconPage(0);
-    } else {
-      const rest = idx - GIFT_MODAL_FIRST_PAGE_API_COUNT;
-      setGiftIconPage(1 + Math.floor(rest / GIFT_ICON_PAGE_SIZE));
-    }
-  }, [isGiftModalOpen, giftIcons, giftModalResolvedIconId]);
 
   const handleLogout = () => {
     clearAccessToken();
@@ -1000,6 +1009,7 @@ export default function WishlistPage() {
   const openStickerPickerForSlot = (slotId: number) => {
     setStickerTargetSlotId(slotId);
     setStickerModalTab("all");
+    setStickerSlotSaveError(null);
     setIsBottomSheetOpen(true);
   };
 
@@ -1185,6 +1195,9 @@ export default function WishlistPage() {
                       setStickerTargetSlotId(null);
                       return;
                     }
+                    void postAdminAssetsSync().catch((error) => {
+                      console.warn("에셋 동기화 요청 실패", error);
+                    });
                     setIsDecorateMode(true);
                   }}
                   className={`pointer-events-auto flex size-[42px] items-center justify-center rounded-full text-body shadow-lg transition ${
@@ -1404,19 +1417,19 @@ export default function WishlistPage() {
                   </button>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">
                   {giftModalSaveError ? (
-                    <p className="mb-3 text-body-sm text-red-600" role="alert">
+                    <p className="mb-3 shrink-0 text-body-sm text-red-600" role="alert">
                       {giftModalSaveError}
                     </p>
                   ) : null}
                   {giftIconsError ? (
-                    <p className="mb-3 text-body-sm text-red-600" role="alert">
+                    <p className="mb-3 shrink-0 text-body-sm text-red-600" role="alert">
                       {giftIconsError}
                     </p>
                   ) : null}
 
-                  <label className="block">
+                  <label className="block shrink-0">
                     <span className="text-sm font-medium text-slate-800">선물 이름</span>
                     <input
                       type="text"
@@ -1427,16 +1440,16 @@ export default function WishlistPage() {
                     />
                   </label>
 
-                  <p className="mt-5 text-sm font-medium text-slate-800">선물 아이콘</p>
+                  <p className="mt-5 shrink-0 text-sm font-medium text-slate-800">선물 아이콘</p>
 
-                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-inner">
+                  <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-inner">
                     {giftIconsLoading ? (
-                      <div className="flex min-h-[200px] items-center justify-center">
+                      <div className="flex min-h-[200px] flex-1 items-center justify-center">
                         <p className="text-body-sm text-slate-500">선물 아이콘 불러오는 중…</p>
                       </div>
                     ) : giftIconsError ? null : (
-                      <>
-                        <div className="grid min-h-[200px] grid-cols-4 gap-2 content-start">
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]">
+                        <div className="grid grid-cols-3 gap-2 content-start">
                           <button
                             type="button"
                             onClick={() => {
@@ -1480,7 +1493,7 @@ export default function WishlistPage() {
                               </span>
                             )}
                           </button>
-                          {pagedGiftIcons.map((icon) => {
+                          {giftIcons.slice(1).map((icon) => {
                             const src = getAssetImageUrl(icon.assetKey);
                             const selected = giftModalResolvedIconId === icon.id;
 
@@ -1517,42 +1530,12 @@ export default function WishlistPage() {
                             있어요.
                           </p>
                         ) : null}
-
-                        {giftIconTotalPages > 1 ? (
-                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                            <button
-                              type="button"
-                              disabled={giftIconPage <= 0}
-                              onClick={() => setGiftIconPage((p) => Math.max(0, p - 1))}
-                              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                              aria-label="이전 페이지"
-                            >
-                              <CaretLeft size={18} weight="bold" />
-                              이전
-                            </button>
-                            <span className="text-xs tabular-nums text-slate-600">
-                              {giftIconPage + 1} / {giftIconTotalPages}
-                            </span>
-                            <button
-                              type="button"
-                              disabled={giftIconPage >= giftIconTotalPages - 1}
-                              onClick={() =>
-                                setGiftIconPage((p) => Math.min(giftIconTotalPages - 1, p + 1))
-                              }
-                              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                              aria-label="다음 페이지"
-                            >
-                              다음
-                              <CaretRight size={18} weight="bold" />
-                            </button>
-                          </div>
-                        ) : null}
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 border-t border-slate-100 px-5 py-4">
+                <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-slate-100 px-5 py-4">
                   <button
                     type="button"
                     onClick={closeGiftModal}
@@ -1610,28 +1593,65 @@ export default function WishlistPage() {
                   })}
                 </div>
 
-                <div className="px-2 pb-3 pt-2">
+                {stickerSlotSaveError ? (
+                  <p className="px-3 pt-2 text-center text-body-sm text-red-600" role="alert">
+                    {stickerSlotSaveError}
+                  </p>
+                ) : null}
+
+                <div className="min-h-0 w-full px-2 pb-3 pt-2 [container-type:inline-size]">
                   {stickerSheetLoading ? (
-                    <div className="flex min-h-[200px] items-center justify-center">
+                    <div
+                      className="flex items-center justify-center"
+                      style={{
+                        minHeight:
+                          "calc((100cqw - 1.25rem) / 6 * 3 + 0.5rem)",
+                      }}
+                    >
                       <p className="text-body-sm text-slate-500">스티커 불러오는 중…</p>
                     </div>
                   ) : stickerSheetError ? (
-                    <p className="min-h-[200px] px-1 text-center text-body-sm text-red-600" role="alert">
+                    <p
+                      className="px-1 text-center text-body-sm text-red-600"
+                      style={{
+                        minHeight:
+                          "calc((100cqw - 1.25rem) / 6 * 3 + 0.5rem)",
+                      }}
+                      role="alert"
+                    >
                       {stickerSheetError}
                     </p>
-                  ) : stickerSheetList.length === 0 ? (
-                    <p className="min-h-[200px] px-1 text-center text-body-sm text-slate-500">
-                      이 탭에 표시할 스티커가 없습니다.
-                    </p>
                   ) : (
-                    <div className="max-h-[min(320px,50vh)] overflow-y-auto">
+                    <div
+                      className="overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y"
+                      style={{
+                        maxHeight:
+                          "calc((100cqw - 1.25rem) / 6 * 3 + 0.5rem)",
+                      }}
+                    >
                       <div className="grid grid-cols-6 gap-1">
+                        <button
+                          type="button"
+                          disabled={
+                            stickerSlotSaving || stickerTargetSlotId == null
+                          }
+                          onClick={() => void removeStickerFromSlot()}
+                          className="flex aspect-square items-center justify-center overflow-hidden rounded-md border-2 border-slate-300 bg-white text-xl font-semibold text-slate-500 transition enabled:hover:border-red-400 enabled:hover:bg-red-50 enabled:hover:text-red-600 enabled:active:scale-[0.98] disabled:opacity-50"
+                          aria-label="이 슬롯에서 스티커 삭제"
+                        >
+                          ×
+                        </button>
                         {stickerSheetList.map((sticker) => (
                           <button
                             key={sticker.id}
                             type="button"
-                            disabled
-                            className="aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+                            disabled={
+                              stickerSlotSaving ||
+                              stickerTargetSlotId == null ||
+                              !sticker.assetKey.trim()
+                            }
+                            onClick={() => void applyStickerSelection(sticker.assetKey)}
+                            className="aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition enabled:hover:border-[#7B61FF]/50 enabled:active:scale-[0.98] disabled:opacity-50"
                             aria-label={`스티커 ${sticker.id}`}
                           >
                             <img
@@ -1643,6 +1663,12 @@ export default function WishlistPage() {
                           </button>
                         ))}
                       </div>
+                      {stickerSheetList.length === 0 ? (
+                        <p className="mt-2 px-1 text-center text-body-sm text-slate-500">
+                          이 탭에 표시할 스티커가 없습니다. 맨 앞 ×로 이 슬롯의 스티커를 지울 수
+                          있어요.
+                        </p>
+                      ) : null}
                     </div>
                   )}
                 </div>

@@ -50,6 +50,45 @@ export type PatchMyWishItemResponse = {
   message: string;
 };
 
+export type PutMyBoardStickerSlotResponse = {
+  success: boolean;
+  message: string;
+};
+
+/** PUT /api/boards/me/assets/stickers/:slotIndex — 스티커 슬롯 1~6 */
+export async function putMyBoardStickerSlot(
+  slotIndex: number,
+  assetKey: string,
+): Promise<PutMyBoardStickerSlotResponse> {
+  return apiClient<PutMyBoardStickerSlotResponse>(
+    `/api/boards/me/assets/stickers/${slotIndex}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ assetKey: assetKey.trim() }),
+    },
+  );
+}
+
+export type DeleteMyBoardStickerSlotResponse = {
+  success: boolean;
+  message: string;
+};
+
+/** DELETE /api/boards/me/assets/stickers/:slotIndex — 해당 슬롯 스티커 제거 */
+export async function deleteMyBoardStickerSlot(
+  slotIndex: number,
+): Promise<DeleteMyBoardStickerSlotResponse> {
+  return apiClient<DeleteMyBoardStickerSlotResponse>(
+    `/api/boards/me/assets/stickers/${slotIndex}`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
 /** PATCH /api/boards/me/items/:slotIndex — CHILD, slotIndex 1~3 */
 export async function patchMyWishItem(
   slotIndex: number,

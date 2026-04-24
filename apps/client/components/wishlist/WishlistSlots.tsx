@@ -23,7 +23,7 @@ type SlotKind = "gift" | "sticker";
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 680;
 /** 스티커 슬롯 원 지름(px, 디자인 좌표 기준) — 선물보다 한 단계 작게 유지 */
-const STICKER_SIZE = 66;
+const STICKER_SIZE = 86;
 
 /** 선물 지름은 항상 스티커보다 큼 (`STICKER_SIZE` 대비 여유) */
 const MIN_GIFT_SIZE = STICKER_SIZE + 12;
@@ -52,11 +52,11 @@ const giftLayouts: Record<GiftLayoutCount, GiftSlot[]> = {
  * (GiftSlots 가 StickerSlots 보다 위 z-index 이므로 겹치면 선물이 클릭 우선)
  */
 const stickerSlots: StickerSlot[] = [
-  { id: 1, top: 200, left: 48 },
-  { id: 2, top: 122, left: 168 },
+  { id: 1, top: 220, left: 62 },
+  { id: 2, top: 138, left: 148 },
   { id: 3, top: 188, left: 262 },
-  { id: 4, top: 448, left: 270 },
-  { id: 5, top: 524, left: 46 },
+  { id: 4, top: 400, left: 270 },
+  { id: 5, top: 502, left: 46 },
   /** 하단·가운데 조각 UI(선물 추가 버튼)와 겹치지 않도록 간격 유지 */
   { id: 6, top: 554, left: 170 },
 ];
@@ -67,6 +67,15 @@ function toXPercent(px: number) {
 
 function toYPercent(px: number) {
   return `${(px / DESIGN_HEIGHT) * 100}%`;
+}
+
+/** 스티커 슬롯 1·5: 왼쪽(↺), 3·4: 오른쪽(↻)으로 살짝 기울임 — 중심 정렬 유지 */
+export function getStickerSlotCssTransform(slotId: number): string {
+  const deg =
+    slotId === 1 || slotId === 5 ? -7 : slotId === 3 || slotId === 4 ? 7 : 0;
+  return deg !== 0
+    ? `translate(-50%, -50%) rotate(${deg}deg)`
+    : "translate(-50%, -50%)";
 }
 
 function mergeSlotImages<TSlot extends BaseSlot>(
@@ -108,25 +117,39 @@ function SlotBubble({
   const hoverClass =
     kind === "gift"
       ? "transition-transform hover:scale-100 active:scale-[0.99]"
-      : "transition-transform hover:scale-[1.02]";
+      : "transition-transform hover:scale-[1.02] active:scale-[0.98]";
 
   /** 투명 슬롯용 — 점선 전: 연한 흰 테두리 + 반투명 + 블러 */
   const slotChrome =
     "border border-white/35 bg-white/15 shadow-sm backdrop-blur-[4px] text-slate-800";
+
+  /** 스티커가 있을 때: 슬롯 영역 = 이미지(비율 유지). 배경·블러 없음 */
+  const stickerFilledSurface =
+    "border-0 bg-transparent shadow-none backdrop-blur-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF] hover:ring-2 hover:ring-white/50";
+
+  const isStickerImageOnly = kind === "sticker" && hasImage;
+
+  /** 보드 최대 폭 372px 가정 시 슬롯이 차지하는 대략적인 CSS 폭 — `sizes` 힌트용 */
+  const slotSizesHint = `${Math.max(48, Math.round((size / DESIGN_WIDTH) * 372))}px`;
+
+  const slotTransform =
+    kind === "sticker"
+      ? getStickerSlotCssTransform(slot.id)
+      : "translate(-50%, -50%)";
 
   return (
     <button
       key={slot.id}
       type="button"
       onClick={() => onClick?.(slot.id)}
-      className={`absolute aspect-square overflow-hidden rounded-full ${slotChrome} ${
-        kind === "gift" ? "z-20" : "z-[12]"
-      } ${hoverClass}`}
+      className={`absolute aspect-square overflow-hidden rounded-full ${
+        isStickerImageOnly ? stickerFilledSurface : slotChrome
+      } ${kind === "gift" ? "z-20" : "z-[12]"} ${hoverClass}`}
       style={{
         top: toYPercent(slot.top),
         left: toXPercent(slot.left),
         width: toXPercent(size),
-        transform: "translate(-50%, -50%)",
+        transform: slotTransform,
       }}
       aria-label={slotAriaLabel(kind, slot.id, hasImage)}
     >
@@ -137,12 +160,18 @@ function SlotBubble({
             alt={slot.imageAlt ?? `${kind} ${slot.id}`}
             fill
             unoptimized
-            sizes="100vw"
-            className="object-cover"
+            sizes={slotSizesHint}
+            className={
+              isStickerImageOnly
+                ? "object-contain object-center p-0.5"
+                : "object-cover"
+            }
           />
-          <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-black/65 px-1 text-[11px] font-semibold text-white">
-            {slot.id}
-          </span>
+          {kind === "gift" ? (
+            <span className="pointer-events-none absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-black/65 px-1 text-[11px] font-semibold text-white">
+              {slot.id}
+            </span>
+          ) : null}
         </>
       ) : (
         <span className="flex h-full w-full items-center justify-center text-wish-body font-semibold">
