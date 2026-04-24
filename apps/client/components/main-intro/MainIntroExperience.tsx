@@ -3,21 +3,25 @@
 import confetti from "canvas-confetti";
 import Image from "next/image";
 import type { AnimationEvent, CSSProperties } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import "@/components/main-intro/intro-gift-motion.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 
-/** `intro-gift-motion.css` 의 흔들림 duration·`--intro-gift-shake-duration` 기본값과 동일 */
-export const INTRO_GIFT_SHAKE_MS = 2250;
+/**
+ * 전체 흔들림 길이(ms). 늘리면 좌우·몸통 모두 느려짐.
+ * `intro-gift-motion.css` 의 `--intro-gift-shake-duration` / `.intro-gift-burst-layer` 기본값과 동기.
+ */
+export const INTRO_GIFT_SHAKE_MS = 1500;
 
-/** `.intro-gift-burst-layer` 의 animation-duration 과 동일 */
-export const INTRO_GIFT_BURST_MS = 440;
+/** 흔들림 대비 버스트 길이(기존 2.25s 대 0.44s 비율 유지) */
+export const INTRO_GIFT_BURST_MS = Math.round((440 / 2250) * INTRO_GIFT_SHAKE_MS);
 
 const INTRO_GIFT_SHAKE_DURATION_CSS = `${INTRO_GIFT_SHAKE_MS / 1000}s` as const;
+const INTRO_GIFT_BURST_DURATION_CSS = `${INTRO_GIFT_BURST_MS / 1000}s` as const;
 
 const introGiftMotionImgClassName =
-  "mx-auto block h-auto max-h-[min(42vh,340px)] w-full max-w-[340px] object-contain drop-shadow-[0_28px_56px_rgba(70,45,140,0.35)]";
+  "mx-auto block h-auto max-h-[min(42vh,340px)] w-full max-w-[340px] object-contain drop-shadow-[0_28px_56px_rgba(70,45,140,0.3)]";
 
 function fireGiftExplosionConfetti() {
   confetti({
@@ -72,6 +76,17 @@ export function MainIntroExperience() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [giftPhase, setGiftPhase] = useState<GiftPhase>("shake");
 
+  /** `/` 이탈·언마운트 후에도 타이머가 울리면 컨페티가 다른 라우트에 남지 않도록 */
+  const introAliveRef = useRef(true);
+
+  useEffect(() => {
+    introAliveRef.current = true;
+    return () => {
+      introAliveRef.current = false;
+      confetti.reset();
+    };
+  }, []);
+
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReducedMotion(mq.matches);
@@ -88,21 +103,35 @@ export function MainIntroExperience() {
   useEffect(() => {
     if (reducedMotion) return;
 
+    let ribbonId: number | undefined;
+
     const id = window.setTimeout(() => {
+      if (!introAliveRef.current) return;
       setGiftPhase("burst");
       fireGiftExplosionConfetti();
-      window.setTimeout(() => fireRibbonSideConfetti(), 160);
+      ribbonId = window.setTimeout(() => {
+        if (!introAliveRef.current) return;
+        fireRibbonSideConfetti();
+      }, 160);
     }, INTRO_GIFT_SHAKE_MS);
 
-    return () => window.clearTimeout(id);
+    return () => {
+      window.clearTimeout(id);
+      if (ribbonId !== undefined) window.clearTimeout(ribbonId);
+      confetti.reset();
+    };
   }, [reducedMotion]);
 
   useEffect(() => {
     if (!reducedMotion) return;
     const id = window.setTimeout(() => {
+      if (!introAliveRef.current) return;
       fireGiftExplosionConfetti();
     }, 520);
-    return () => window.clearTimeout(id);
+    return () => {
+      window.clearTimeout(id);
+      confetti.reset();
+    };
   }, [reducedMotion]);
 
   const giftMotionImg = (
@@ -158,7 +187,10 @@ export function MainIntroExperience() {
       <div
         className="pointer-events-none absolute inset-x-0 top-[min(36dvh,14rem)] z-[3] flex justify-center px-4"
         style={
-          { "--intro-gift-shake-duration": INTRO_GIFT_SHAKE_DURATION_CSS } as CSSProperties
+          {
+            "--intro-gift-shake-duration": INTRO_GIFT_SHAKE_DURATION_CSS,
+            "--intro-gift-burst-duration": INTRO_GIFT_BURST_DURATION_CSS,
+          } as CSSProperties
         }
       >
         {giftPhase !== "gone" ? (
