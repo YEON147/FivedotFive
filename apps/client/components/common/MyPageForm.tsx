@@ -170,7 +170,7 @@ export function MyPageForm({
                 value={values.nickname}
                 disabled={!isLoaded || isSaving}
                 onChange={(event) => onChange("nickname", event.target.value)}
-                className={`h-14 min-w-0 flex-1 rounded-2xl border bg-white px-4 text-base outline-none transition ${
+                className={`h-14 min-w-0 flex-1 rounded-2xl border bg-white px-4 text-base outline-none transition focus:ring-2 ${
                   errors.nickname
                     ? "border-rose-300 focus:ring-rose-200"
                     : "border-slate-200 focus:ring-[#7B61FF]/25"

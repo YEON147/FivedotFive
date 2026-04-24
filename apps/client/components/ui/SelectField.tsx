@@ -29,6 +29,7 @@ export function SelectField({
   id,
   onFocus,
   scrollIntoViewOnFocus = false,
+  style,
   ...props
 }: SelectFieldProps) {
   const handleFocus = (event: FocusEvent<HTMLSelectElement>) => {
@@ -53,11 +54,16 @@ export function SelectField({
         {...props}
         id={id}
         onFocus={handleFocus}
-        className={`h-11 rounded-xl border px-3.5 text-sm outline-none transition focus:ring-2 ${
+        className={`h-12 w-full cursor-pointer appearance-none rounded-xl border bg-[length:1rem_1rem] bg-no-repeat pl-4 pr-10 text-sm outline-none transition focus:ring-2 ${
           error
             ? "border-rose-300 bg-rose-50 focus:ring-rose-200"
             : "border-slate-200 bg-white focus:ring-[#7B61FF]/25"
         } ${className}`}
+        style={{
+          ...style,
+          backgroundImage: SELECT_CHEVRON_BG,
+          backgroundPosition: "right 2rem center",
+        }}
       >
         {options.map((option) => (
           <option key={option.value || "empty"} value={option.value}>
