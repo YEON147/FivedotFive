@@ -177,7 +177,7 @@ class WishBoardServiceTest {
             assets.add(BoardAsset.builder().board(board).assetType(AssetType.STICKER).assetKey("default/sticker.png").slotIndex(i).build());
         }
         for (int i = 1; i <= 3; i++) {
-            assets.add(BoardAsset.builder().board(board).assetType(AssetType.GIFT_ICON).assetKey("default/gift_icon.png").slotIndex(i).build());
+            assets.add(BoardAsset.builder().board(board).assetType(AssetType.GIFT_STICKER).assetKey("default/gift_icon.png").slotIndex(i).build());
         }
         return assets;
     }
