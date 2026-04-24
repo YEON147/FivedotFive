@@ -30,7 +30,7 @@ build_frontend:
     - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
     # 프론트엔드는 빌드할 때 백엔드 주소가 필요하므로 --build-arg를 넣어줍니다.
     - docker build 
-      --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL"
+      --build-arg NEXT_PUBLIC_API_URL="https://df5a-222-114-171-11.ngrok-free.app"
       --build-arg NEIS_API_KEY="$NEIS_API_KEY"
       --build-arg NEIS_API_BASE_URL="$NEIS_API_BASE_URL"
       --build-arg BACKEND_REWRITE_TARGET="$BACKEND_REWRITE_TARGET"
