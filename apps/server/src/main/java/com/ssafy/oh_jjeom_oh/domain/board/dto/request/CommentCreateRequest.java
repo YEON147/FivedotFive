@@ -1,6 +1,5 @@
 package com.ssafy.oh_jjeom_oh.domain.board.dto.request;
 
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,7 +18,6 @@ public class CommentCreateRequest {
     private String stickerKey; // 선택 (null 허용)
 
     @NotNull(message = "슬롯 번호는 필수입니다.")
-    @Min(value = 0, message = "댓글 슬롯 번호는 0~5 사이여야 합니다.")
-    @Max(value = 5, message = "댓글 슬롯 번호는 0~5 사이여야 합니다.")
-    private Integer slotIndex; // 보드 댓글 슬롯 위치 (0~5)
+    @Min(value = 0, message = "댓글 슬롯 번호는 0 이상이어야 합니다.")
+    private Integer slotIndex; // 보드 댓글 슬롯 위치 (페이지 * 6 + 페이지 내 위치)
 }
