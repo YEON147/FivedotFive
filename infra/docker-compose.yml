@@ -41,6 +41,46 @@ services:
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
     networks:
       - oh-jjeom-oh-net
+  
+  # 신규 서버 1번
+  backend-blue:
+    image: ghcr.io/${GHCR_USER}/server-image:latest
+    container_name: backend-blue
+    ports:
+      - "8081:8080" # 외부에서 8081로 접속하면 컨테이너 안의 8080으로 연결
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=oh-jjeom-oh-redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+    networks:
+      - oh-jjeom-oh-net
+    restart: always
+
+  # 신규 서버 2번
+  backend-green:
+    image: ghcr.io/${GHCR_USER}/server-image:latest
+    container_name: backend-green
+    ports:
+      - "8082:8080" # 외부에서 8082로 접속하면 컨테이너 안의 8080으로 연결
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=oh-jjeom-oh-redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+    networks:
+      - oh-jjeom-oh-net
+    restart: always
 
   client:
     image: ghcr.io/${GHCR_USER}/client-image:latest
