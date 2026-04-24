@@ -1,0 +1,50 @@
+# 이 파일을 복사해서 application-local.yml 로 이름을 바꾸고 사용하세요.
+# cp application-local.yml.example application-local.yml
+#
+# application-local.yml 은 .gitignore 에 등록되어 있어 커밋되지 않습니다.
+# 민감 정보(JWT_SECRET, AWS 키 등)는 팀 공유 채널에서 받아 직접 입력하세요.
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/oh_jjeom_oh}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:1234}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: 8080
+
+jwt:
+  secret: ${JWT_SECRET}               # 팀 공유 채널에서 받아서 입력
+  access-token-expiration: 1800000    # 30분 (ms)
+  refresh-token-expiration: 604800000 # 7일 (ms)
+
+logging:
+  level:
+    com.ssafy.oh_jjeom_oh: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+
+cloud:
+  aws:
+    s3:
+      bucket: ${S3_BUCKET:five-dot-five}
+    region:
+      static: ${AWS_REGION:ap-northeast-2}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}   # 팀 공유 채널에서 받아서 입력
+      secret-key: ${AWS_SECRET_KEY}   # 팀 공유 채널에서 받아서 입력
