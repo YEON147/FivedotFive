@@ -7,16 +7,18 @@ import lombok.Getter;
 public class BackgroundResponse {
 
     private final String assetKey;
+    private final String displayName;
 
-    private BackgroundResponse(String assetKey) {
+    private BackgroundResponse(String assetKey, String displayName) {
         this.assetKey = assetKey;
+        this.displayName = displayName;
     }
 
-    public static BackgroundResponse of(BoardAsset asset) {
-        return new BackgroundResponse(asset.getAssetKey());
+    public static BackgroundResponse of(BoardAsset asset, String displayName) {
+        return new BackgroundResponse(asset.getAssetKey(), displayName);
     }
 
     public static BackgroundResponse empty() {
-        return new BackgroundResponse(null);
+        return new BackgroundResponse(null, null);
     }
 }

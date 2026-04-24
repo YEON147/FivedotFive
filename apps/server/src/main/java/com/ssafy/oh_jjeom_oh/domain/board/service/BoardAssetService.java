@@ -2,6 +2,7 @@ package com.ssafy.oh_jjeom_oh.domain.board.service;
 
 import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
 import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
+import com.ssafy.oh_jjeom_oh.domain.asset.constant.WallpaperDisplayNames;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.AssetType;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.BoardAsset;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
@@ -35,7 +36,9 @@ public class BoardAssetService {
     public BackgroundResponse getBackground(Long userId) {
         WishBoard board = getBoard(userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.BACKGROUND);
-        return assets.isEmpty() ? BackgroundResponse.empty() : BackgroundResponse.of(assets.get(0));
+        if (assets.isEmpty()) return BackgroundResponse.empty();
+        BoardAsset asset = assets.get(0);
+        return BackgroundResponse.of(asset, WallpaperDisplayNames.resolve(asset.getAssetKey()));
     }
 
     @Transactional
