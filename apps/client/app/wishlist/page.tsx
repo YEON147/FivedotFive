@@ -7,6 +7,7 @@ import {
   PencilSimple,
   TextAlignJustify,
   TrashSimple,
+  X,
 } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import {
@@ -40,6 +41,12 @@ import {
   matchesGiftPresetIcon,
 } from "@/features/wishlist/wish-slot-state";
 import type { BoardAssetData, MyBoardData, WishItemData } from "@/features/wishlist/types";
+import {
+  clearWishlistPageSessionCache,
+  getWishlistPageSessionCache,
+  setWishlistPageSessionCache,
+  type WishlistPageSessionCache,
+} from "@/features/wishlist/wishlist-session-cache";
 import { getMyProfile } from "@/features/user/api";
 import {
   fetchBackgroundAssets,
@@ -154,9 +161,15 @@ function DefaultOptionButton({
 
 export default function WishlistPage() {
   const router = useRouter();
-  const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(1);
-  const [wishTexts, setWishTexts] = useState(["", "", ""]);
-  const [wishGiftIconKeys, setWishGiftIconKeys] = useState(["", "", ""]);
+  const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(
+    () => getWishlistPageSessionCache()?.bigCircleCount ?? 1,
+  );
+  const [wishTexts, setWishTexts] = useState(
+    () => getWishlistPageSessionCache()?.wishTexts ?? ["", "", ""],
+  );
+  const [wishGiftIconKeys, setWishGiftIconKeys] = useState(
+    () => getWishlistPageSessionCache()?.wishGiftIconKeys ?? ["", "", ""],
+  );
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [giftModalMode, setGiftModalMode] = useState<"add" | "edit">("add");
   const [giftModalSlotIndex, setGiftModalSlotIndex] = useState(0);
@@ -182,16 +195,28 @@ export default function WishlistPage() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarPortalReady, setSidebarPortalReady] = useState(false);
-  const [boardSlug, setBoardSlug] = useState<string | null>(null);
-  const [boardAssets, setBoardAssets] = useState<BoardAssetData[]>([]);
-  const [wishSlotsLoaded, setWishSlotsLoaded] = useState(false);
-  const [allWishSlotsEmpty, setAllWishSlotsEmpty] = useState(false);
+  const [boardSlug, setBoardSlug] = useState<string | null>(
+    () => getWishlistPageSessionCache()?.boardSlug ?? null,
+  );
+  const [boardAssets, setBoardAssets] = useState<BoardAssetData[]>(
+    () => getWishlistPageSessionCache()?.boardAssets ?? [],
+  );
+  const [wishSlotsLoaded, setWishSlotsLoaded] = useState(
+    () => getWishlistPageSessionCache() != null,
+  );
+  const [allWishSlotsEmpty, setAllWishSlotsEmpty] = useState(
+    () => getWishlistPageSessionCache()?.allWishSlotsEmpty ?? false,
+  );
   const [bypassEmptyState, setBypassEmptyState] = useState(false);
   /** 초기 GET /api/boards/me 성공 여부 — 실패 시 보드 없음·일시 오류 구분 없이 생성 플로우 허용 */
-  const [hasMyBoard, setHasMyBoard] = useState(false);
+  const [hasMyBoard, setHasMyBoard] = useState(
+    () => getWishlistPageSessionCache()?.hasMyBoard ?? false,
+  );
   const [decorateStartLoading, setDecorateStartLoading] = useState(false);
   const [decorateStartError, setDecorateStartError] = useState<string | null>(null);
-  const [viewerName, setViewerName] = useState("회원");
+  const [viewerName, setViewerName] = useState(
+    () => getWishlistPageSessionCache()?.viewerName ?? "회원",
+  );
   const [backgroundAssets, setBackgroundAssets] = useState<BackgroundAssetDto[]>([]);
   const [backgroundsLoading, setBackgroundsLoading] = useState(false);
   const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
@@ -220,14 +245,46 @@ export default function WishlistPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
+      clearWishlistPageSessionCache();
       router.replace("/login");
       return;
     }
 
     let cancelled = false;
 
+    const persistBoardSnapshot = (
+      viewerNameForCache: string,
+      board: MyBoardData,
+    ) => {
+      const derived = deriveWishSlotState(board.data.items);
+      const next: WishlistPageSessionCache = {
+        viewerName: viewerNameForCache,
+        boardSlug: board.data.boardSlug,
+        boardAssets: board.data.assets,
+        wishTexts: derived.wishTexts,
+        wishGiftIconKeys: derived.wishGiftIconKeys,
+        bigCircleCount: derived.bigCircleCount,
+        allWishSlotsEmpty: derived.allWishSlotsEmpty,
+        hasMyBoard: true,
+      };
+      setWishlistPageSessionCache(next);
+    };
+
+    const persistEmptySnapshot = (viewerNameForCache: string) => {
+      const next: WishlistPageSessionCache = {
+        viewerName: viewerNameForCache,
+        boardSlug: null,
+        boardAssets: [],
+        wishTexts: ["", "", ""],
+        wishGiftIconKeys: ["", "", ""],
+        bigCircleCount: 1,
+        allWishSlotsEmpty: true,
+        hasMyBoard: false,
+      };
+      setWishlistPageSessionCache(next);
+    };
+
     const load = async () => {
-      setWishSlotsLoaded(false);
       try {
         const profileResult = await Promise.allSettled([getMyProfile()]).then(
           (r) => r[0],
@@ -239,14 +296,15 @@ export default function WishlistPage() {
 
         if (profileResult.status === "fulfilled") {
           const profile = profileResult.value;
-          setViewerName(
-            profile.nickname?.trim() || profile.username?.trim() || "회원",
-          );
+          const displayName =
+            profile.nickname?.trim() || profile.username?.trim() || "회원";
+          setViewerName(displayName);
 
           if (!profile.hasWishBoard) {
             setHasMyBoard(false);
             setAllWishSlotsEmpty(true);
             setBoardAssets([]);
+            persistEmptySnapshot(displayName);
             return;
           }
 
@@ -257,11 +315,13 @@ export default function WishlistPage() {
             }
             applyLoadedBoard(board);
             setHasMyBoard(true);
+            persistBoardSnapshot(displayName, board);
           } catch {
             if (!cancelled) {
               setHasMyBoard(false);
               setAllWishSlotsEmpty(true);
               setBoardAssets([]);
+              persistEmptySnapshot(displayName);
             }
           }
           return;
@@ -274,11 +334,17 @@ export default function WishlistPage() {
           }
           applyLoadedBoard(board);
           setHasMyBoard(true);
+          const fallbackName =
+            getWishlistPageSessionCache()?.viewerName ?? "회원";
+          persistBoardSnapshot(fallbackName, board);
         } catch {
           if (!cancelled) {
             setHasMyBoard(false);
             setAllWishSlotsEmpty(true);
             setBoardAssets([]);
+            persistEmptySnapshot(
+              getWishlistPageSessionCache()?.viewerName ?? "회원",
+            );
           }
         }
       } catch {
@@ -286,6 +352,9 @@ export default function WishlistPage() {
           setHasMyBoard(false);
           setAllWishSlotsEmpty(true);
           setBoardAssets([]);
+          persistEmptySnapshot(
+            getWishlistPageSessionCache()?.viewerName ?? "회원",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -300,6 +369,37 @@ export default function WishlistPage() {
       cancelled = true;
     };
   }, [router, applyLoadedBoard]);
+
+  /** 라우트 이동 직전 항상 최신 보드 상태를 가리키도록 유지 — 언마운트 시에만 세션 캐시에 반영 */
+  const wishlistSessionSnapshotRef = useRef<WishlistPageSessionCache | null>(null);
+  wishlistSessionSnapshotRef.current = {
+    viewerName,
+    boardSlug,
+    boardAssets,
+    wishTexts,
+    wishGiftIconKeys,
+    bigCircleCount,
+    allWishSlotsEmpty,
+    hasMyBoard,
+  };
+
+  const wishSlotsLoadedRef = useRef(false);
+  wishSlotsLoadedRef.current = wishSlotsLoaded;
+
+  useEffect(() => {
+    return () => {
+      if (!getAccessToken()) {
+        return;
+      }
+      if (!wishSlotsLoadedRef.current) {
+        return;
+      }
+      const snap = wishlistSessionSnapshotRef.current;
+      if (snap) {
+        setWishlistPageSessionCache(snap);
+      }
+    };
+  }, []);
 
   /** 선물 슬롯 클릭으로 모달이 열릴 때 — `/api/assets/gift-icons`(assetKey → `assets/icons/…`) 로드 */
   useEffect(() => {
@@ -850,6 +950,7 @@ export default function WishlistPage() {
 
   const handleLogout = () => {
     clearAccessToken();
+    clearWishlistPageSessionCache();
     setIsSidebarOpen(false);
     router.push("/login");
   };
@@ -1130,9 +1231,10 @@ export default function WishlistPage() {
             <button
               type="button"
               onClick={() => setIsCompactBackgroundOpen(false)}
-              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
+              aria-label="배경 선택 닫기"
             >
-              닫기
+              <X size={20} weight="bold" aria-hidden />
             </button>
           </div>
 
@@ -1210,10 +1312,10 @@ export default function WishlistPage() {
           <button
             type="button"
             onClick={() => setIsShareModalOpen(false)}
-            className="rounded-full bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700"
-            aria-label="Close share modal"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
+            aria-label="공유 창 닫기"
           >
-            닫기
+            <X size={22} weight="bold" aria-hidden />
           </button>
         </div>
 

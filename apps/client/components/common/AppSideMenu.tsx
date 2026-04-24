@@ -1,6 +1,6 @@
 "use client";
 
-import { SignOut, Trophy, UserCircle } from "@phosphor-icons/react";
+import { SignOut, Trophy, User, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -11,8 +11,15 @@ type AppSideMenuProps = {
   onLogout: () => void;
 };
 
+/** 메뉴 행 아이콘 — 원형 배지 (랭킹·내정보) */
+const SIDE_MENU_ICON_WRAP_PRIMARY =
+  "flex size-10 shrink-0 items-center justify-center rounded-full bg-[#7B61FF]/12 text-[#7B61FF]";
+
+const SIDE_MENU_ICON_WRAP_ROSE =
+  "flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600";
+
 /**
- * 위시리스트 헤더 햄버거와 동일한 우측 슬라이드 메뉴 (My Page / 랭킹 / 로그아웃).
+ * 위시리스트 헤더 햄버거와 동일한 우측 슬라이드 메뉴 (랭킹 / 내정보 / 로그아웃).
  */
 export function AppSideMenu({ open, onClose, onLogout }: AppSideMenuProps) {
   const [mounted, setMounted] = useState(false);
@@ -59,30 +66,34 @@ export function AppSideMenu({ open, onClose, onLogout }: AppSideMenuProps) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
             aria-label="메뉴 닫기"
           >
-            닫기
+            <X size={22} weight="bold" aria-hidden />
           </button>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 p-3">
           <Link
-            href="/mypage"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-          >
-            <UserCircle size={22} weight="regular" className="shrink-0 text-[#7B61FF]" />
-            My Page
-          </Link>
-
-          <Link
             href="/ranking"
             onClick={onClose}
             className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
           >
-            <Trophy size={22} weight="regular" className="shrink-0 text-[#7B61FF]" />
-            랭킹
+            <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+              <Trophy size={22} weight="bold" />
+            </span>
+            오쩜오 랭킹
+          </Link>
+
+          <Link
+            href="/mypage"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+          >
+            <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+              <User size={22} weight="bold" />
+            </span>
+            내정보
           </Link>
 
           <button
@@ -90,7 +101,9 @@ export function AppSideMenu({ open, onClose, onLogout }: AppSideMenuProps) {
             onClick={onLogout}
             className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
           >
-            <SignOut size={22} weight="bold" className="shrink-0" />
+            <span className={SIDE_MENU_ICON_WRAP_ROSE} aria-hidden>
+              <SignOut size={22} weight="bold" />
+            </span>
             로그아웃
           </button>
         </nav>

@@ -22,6 +22,7 @@ import {
   mapSchoolUserRankingsToEntries,
   mapUserCommentRankingsToEntries,
 } from "@/features/ranking/api";
+import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import { clearAccessToken } from "@/lib/api/token-store";
 
 export default function RankingPage() {
@@ -129,6 +130,7 @@ export default function RankingPage() {
 
   const handleLogout = useCallback(() => {
     clearAccessToken();
+    clearWishlistPageSessionCache();
     setIsSidebarOpen(false);
     router.push("/login");
   }, [router]);
