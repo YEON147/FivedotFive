@@ -4,19 +4,12 @@ import { CaretLeft, TextAlignJustify } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
 
-/** `app/wishlist/page.tsx` WishlistProfileTitleHeader · `wishlist/[slug]` 공개 헤더와 동일 패딩 */
-const RANKING_HEADER_ROW =
-  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
-
-/** `WISHLIST_MENU_BUTTON` 과 동일 — 우측 메뉴 */
-const RANKING_MENU_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
-
-/** 동일 크기·형태의 뒤로가기(좌측) */
-const RANKING_BACK_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 touch-manipulation";
-
-const RANKING_HEADER_SPACER = "relative z-40 size-[42px] shrink-0";
+import {
+  PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_END_SPACER,
+  PAGE_HEADER_MENU_BUTTON,
+  PAGE_HEADER_ROW,
+} from "@/lib/constants/page-header";
 
 type RankingPageHeaderProps = {
   backHref?: string;
@@ -33,12 +26,12 @@ export function RankingPageHeader({
   onMenuToggle,
 }: RankingPageHeaderProps) {
   return (
-    <header className={RANKING_HEADER_ROW}>
+    <header className={PAGE_HEADER_ROW}>
       <Link
         href={backHref}
         scroll={false}
         prefetch
-        className={RANKING_BACK_BUTTON}
+        className={PAGE_HEADER_BACK_BUTTON}
         aria-label="위시리스트로 이동"
       >
         <CaretLeft size={22} weight="bold" />
@@ -65,14 +58,14 @@ export function RankingPageHeader({
             event.stopPropagation();
             onMenuToggle();
           }}
-          className={RANKING_MENU_BUTTON}
+          className={PAGE_HEADER_MENU_BUTTON}
           aria-label="메뉴 열기"
           aria-expanded={menuOpen}
         >
           <TextAlignJustify size={23} weight="bold" />
         </button>
       ) : (
-        <div className={RANKING_HEADER_SPACER} aria-hidden />
+        <div className={PAGE_HEADER_END_SPACER} aria-hidden />
       )}
     </header>
   );

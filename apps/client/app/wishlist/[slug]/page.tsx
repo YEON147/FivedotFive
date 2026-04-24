@@ -56,6 +56,10 @@ import {
   getAccessToken,
 } from "@/lib/api/token-store";
 import { getAssetImageUrl } from "@/lib/asset-url";
+import {
+  PAGE_HEADER_MENU_BUTTON,
+  PAGE_HEADER_ROW_COMPACT,
+} from "@/lib/constants/page-header";
 import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
 
 function stickerOptionLabelFromAssetKey(assetKey: string): string {
@@ -85,12 +89,6 @@ const PUBLIC_BOARD_FRAME_OUTER =
 const PUBLIC_BOARD_INNER =
   "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
 
-const PUBLIC_PROFILE_HEADER_ROW =
-  "relative z-40 flex items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
-
-const PUBLIC_WISHLIST_MENU_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
-
 const PUBLIC_WISHLIST_APP_FOOTER =
   "flex min-h-10 w-full shrink-0 items-center justify-center border-t border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-xs text-[var(--color-text-secondary)]";
 
@@ -106,7 +104,7 @@ function PublicBoardProfileHeader({
   const displayName = ownerName.trim() || "회원";
 
   return (
-    <header className={PUBLIC_PROFILE_HEADER_ROW}>
+    <header className={PAGE_HEADER_ROW_COMPACT}>
       <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
         <span className="block">
           <span className="inline-flex items-baseline gap-0.5">
@@ -121,7 +119,7 @@ function PublicBoardProfileHeader({
       <button
         type="button"
         onClick={onMenuClick}
-        className={PUBLIC_WISHLIST_MENU_BUTTON}
+        className={PAGE_HEADER_MENU_BUTTON}
         aria-label="메뉴 열기"
         aria-expanded={isSidebarOpen}
       >
@@ -269,11 +267,7 @@ function CommentBoardPage({
             key={slot.id}
             type="button"
             onClick={() => onSlotClick(slot.id)}
-            className={`absolute aspect-square overflow-hidden rounded-full transition-transform hover:scale-[1.03] active:scale-95 ${
-              imageSrc
-                ? "border-0 bg-transparent shadow-none hover:ring-2 hover:ring-white/50"
-                : "border border-white/70 bg-[#d9d9d9] shadow-sm"
-            }`}
+            className="absolute aspect-square overflow-visible rounded-full border border-white/70 bg-[#d9d9d9] shadow-sm transition-transform hover:scale-[1.03] active:scale-95"
             style={{
               top: toYPercent(slot.top),
               left: toXPercent(slot.left),
@@ -287,14 +281,16 @@ function CommentBoardPage({
             }
           >
             {imageSrc ? (
-              <Image
-                src={imageSrc}
-                alt={row?.senderName ?? "comment"}
-                fill
-                unoptimized
-                sizes={`${STICKER_SIZE}px`}
-                className="object-contain object-center p-0.5"
-              />
+              <span className="pointer-events-none absolute inset-0">
+                <Image
+                  src={imageSrc}
+                  alt={row?.senderName ?? "comment"}
+                  fill
+                  unoptimized
+                  sizes={`${STICKER_SIZE}px`}
+                  className="object-contain object-center p-[7%]"
+                />
+              </span>
             ) : (
               <span className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-slate-400">
                 {isLoading ? "·" : "+"}

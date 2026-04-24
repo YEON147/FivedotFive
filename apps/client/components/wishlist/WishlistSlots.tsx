@@ -102,7 +102,7 @@ function SlotBubble({
   size,
   onClick,
   showPlaceholder = true,
-  /** 스티커만 사용 — 꾸미기 모드일 때만 호버·포커스·클릭 반응 */
+  /** false면 보기 모드 — 채워진 슬롯은 이미지만(투명 버튼), 스티커는 호버·탭 비활성 */
   decorateActive = true,
 }: {
   slot: BaseSlot;
@@ -137,8 +137,6 @@ function SlotBubble({
   const stickerFilledStatic =
     "border-0 bg-transparent shadow-none backdrop-blur-0";
 
-  const isStickerImageOnly = kind === "sticker" && hasImage;
-
   /** 보드 최대 폭 372px 가정 시 슬롯이 차지하는 대략적인 CSS 폭 — `sizes` 힌트용 */
   const slotSizesHint = `${Math.max(48, Math.round((size / DESIGN_WIDTH) * 372))}px`;
 
@@ -153,11 +151,9 @@ function SlotBubble({
       type="button"
       onClick={() => onClick?.(slot.id)}
       tabIndex={kind === "sticker" && !decorateActive ? -1 : undefined}
-      className={`absolute aspect-square rounded-full ${
-        kind === "sticker" && hasImage ? "overflow-visible" : "overflow-hidden"
-      } ${
-        isStickerImageOnly
-          ? stickerDecorating
+      className={`absolute aspect-square overflow-visible rounded-full ${
+        hasImage
+          ? decorateActive
             ? stickerFilledLive
             : stickerFilledStatic
           : slotChrome
@@ -176,7 +172,7 @@ function SlotBubble({
       aria-disabled={kind === "sticker" && !decorateActive ? true : undefined}
     >
       {hasImage ? (
-        <>
+        <span className="pointer-events-none absolute inset-0">
           <Image
             src={slot.imageSrc ?? ""}
             alt={slot.imageAlt ?? `${kind} ${slot.id}`}
@@ -184,17 +180,12 @@ function SlotBubble({
             unoptimized
             sizes={slotSizesHint}
             className={
-              isStickerImageOnly
-                ? "object-contain object-center p-0.5"
-                : "object-cover"
+              kind === "sticker"
+                ? "object-contain object-center p-[2%]"
+                : "object-cover object-center"
             }
           />
-          {kind === "gift" ? (
-            <span className="pointer-events-none absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-black/65 px-1 text-[11px] font-semibold text-white">
-              {slot.id}
-            </span>
-          ) : null}
-        </>
+        </span>
       ) : (
         <span className="flex h-full w-full items-center justify-center text-wish-body font-semibold">
           {slot.id}
@@ -209,11 +200,14 @@ function GiftSlots({
   images,
   onSlotClick,
   showPlaceholder,
+  /** false면 보기 모드 — 채워진 슬롯에 포커스·호버 링 없음 */
+  decorateActive = false,
 }: {
   count: GiftLayoutCount;
   images?: Partial<Record<number, string | null>>;
   onSlotClick?: (slotId: number) => void;
   showPlaceholder?: boolean;
+  decorateActive?: boolean;
 }) {
   const slots = mergeSlotImages(giftLayouts[count], images);
 
@@ -225,6 +219,7 @@ function GiftSlots({
       size={Math.max(slot.size, MIN_GIFT_SIZE)}
       onClick={onSlotClick}
       showPlaceholder={showPlaceholder}
+      decorateActive={decorateActive}
     />
   ));
 }

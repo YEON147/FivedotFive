@@ -62,6 +62,10 @@ import {
   type StickerAssetDto,
 } from "@/lib/api/assets";
 import { getAssetImageUrl } from "@/lib/asset-url";
+import {
+  PAGE_HEADER_MENU_BUTTON,
+  PAGE_HEADER_ROW_COMPACT,
+} from "@/lib/constants/page-header";
 
 type GiftModalSpecial = "clear" | "present" | null;
 
@@ -94,14 +98,8 @@ const WISHLIST_APP_SHELL_MAX_LOADING =
 /** 슬롯·호버가 프레임 밖으로 나와도 보이도록 `overflow-visible` — 배경만 안쪽 레이어에서 클립 */
 const WISHLIST_BOARD_FRAME_BASE =
   "relative isolate overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1";
-const WISHLIST_MENU_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
 const WISHLIST_APP_FOOTER =
   "flex min-h-10 w-full shrink-0 items-center justify-center border-t border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-xs text-[var(--color-text-secondary)]";
-
-/** 꾸미기 보드 헤더와 동일 — 비율 패딩·타이포 */
-const WISHLIST_PROFILE_HEADER_ROW =
-  "relative z-40 flex items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
 
 function WishlistProfileTitleHeader({
   viewerName,
@@ -113,7 +111,7 @@ function WishlistProfileTitleHeader({
   onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <header className={WISHLIST_PROFILE_HEADER_ROW}>
+    <header className={PAGE_HEADER_ROW_COMPACT}>
       <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
         <span className="block">
           <span className="inline-flex items-baseline gap-0.5">
@@ -130,7 +128,7 @@ function WishlistProfileTitleHeader({
       <button
         type="button"
         onClick={onMenuClick}
-        className={WISHLIST_MENU_BUTTON}
+        className={PAGE_HEADER_MENU_BUTTON}
         aria-label="메뉴 열기"
         aria-expanded={isSidebarOpen}
       >
@@ -879,6 +877,8 @@ export default function WishlistPage() {
       nextIconKeyForLocal = iconKeyPayload ?? "";
     }
 
+    const clearingGiftIcon = giftModalSpecial === "clear";
+
     setGiftModalSaving(true);
     setGiftModalSaveError(null);
 
@@ -888,6 +888,15 @@ export default function WishlistPage() {
       try {
         const board = await getMyBoard();
         applyLoadedBoard(board);
+        if (clearingGiftIcon) {
+          setWishGiftIconKeys((prev) => {
+            const next = [...prev];
+            if (idx0 >= 0 && idx0 < next.length) {
+              next[idx0] = "";
+            }
+            return next;
+          });
+        }
         setHasMyBoard(true);
       } catch {
         setWishTexts((prev) => {
@@ -1016,13 +1025,28 @@ export default function WishlistPage() {
   const giftSlotImages = useMemo(() => {
     const out: Partial<Record<number, string>> = {};
     for (let i = 0; i < bigCircleCount; i++) {
+      const editingIconCleared =
+        isGiftModalOpen &&
+        giftModalMode === "edit" &&
+        giftModalSlotIndex === i &&
+        giftModalSpecial === "clear";
+      if (editingIconCleared) {
+        continue;
+      }
       const key = wishGiftIconKeys[i];
       if (key) {
         out[i + 1] = getAssetImageUrl(key);
       }
     }
     return out;
-  }, [bigCircleCount, wishGiftIconKeys]);
+  }, [
+    bigCircleCount,
+    wishGiftIconKeys,
+    isGiftModalOpen,
+    giftModalMode,
+    giftModalSlotIndex,
+    giftModalSpecial,
+  ]);
 
   const stickerSlotImages = useMemo(() => {
     const acc: Partial<Record<number, string>> = {};
@@ -1306,6 +1330,7 @@ export default function WishlistPage() {
               <GiftSlots
                 count={bigCircleCount}
                 images={giftSlotImages}
+                decorateActive={isDecorateMode}
                 onSlotClick={(slotId) => {
                   if (!isDecorateMode) {
                     return;

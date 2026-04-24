@@ -9,17 +9,11 @@ import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { SignupForm } from "@/components/common/SignupForm";
 import { useSignupForm } from "@/features/signup/hooks";
 import { clearAccessToken } from "@/lib/api/token-store";
-
-/** `components/ranking/RankingPageHeader` · 위시 헤더와 동일 패딩 */
-const SIGNUP_HEADER_ROW =
-  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
-
-const SIGNUP_MENU_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#7B61FF] shadow-sm transition hover:bg-slate-200 active:bg-slate-300/90 touch-manipulation";
-
-/** `RankingPageHeader` 뒤로가기와 동일 */
-const SIGNUP_BACK_BUTTON =
-  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 touch-manipulation";
+import {
+  PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_MENU_BUTTON,
+  PAGE_HEADER_ROW,
+} from "@/lib/constants/page-header";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -64,12 +58,12 @@ export default function SignupPage() {
 
       <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
         <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
-          <header className={SIGNUP_HEADER_ROW}>
+          <header className={PAGE_HEADER_ROW}>
             <Link
               href="/login"
               scroll={false}
               prefetch
-              className={SIGNUP_BACK_BUTTON}
+              className={PAGE_HEADER_BACK_BUTTON}
               aria-label="로그인으로 이동"
             >
               <CaretLeft size={22} weight="bold" />
@@ -87,7 +81,7 @@ export default function SignupPage() {
                 event.stopPropagation();
                 toggleSidebar();
               }}
-              className={SIGNUP_MENU_BUTTON}
+              className={PAGE_HEADER_MENU_BUTTON}
               aria-label="메뉴 열기"
               aria-expanded={isSidebarOpen}
             >
