@@ -1,6 +1,5 @@
 package com.ssafy.oh_jjeom_oh.domain.board.dto.response;
 
-import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import lombok.Getter;
 
 import java.time.LocalDate;
@@ -27,16 +26,8 @@ public class WishBoardPublicResponse {
         this.assets = assets;
     }
 
-    public static WishBoardPublicResponse of(WishBoard board,
-                                              List<WishItemResponse> items,
-                                              List<BoardAssetResponse> assets) {
-        return new WishBoardPublicResponse(
-                board.getBoardSlug(),
-                board.getUser().getUsername(),
-                board.getUser().getNickname(),
-                board.getTargetDate(),
-                items,
-                assets
-        );
+    public static WishBoardPublicResponse of(String boardSlug, String username, String nickname, LocalDate targetDate,
+                                              List<WishItemResponse> items, List<BoardAssetResponse> assets) {
+        return new WishBoardPublicResponse(boardSlug, username, nickname, targetDate, items, assets);
     }
 }
