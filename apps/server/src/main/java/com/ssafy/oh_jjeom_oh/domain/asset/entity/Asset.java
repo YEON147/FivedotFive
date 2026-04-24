@@ -24,4 +24,8 @@ public class Asset {
 
     @Column(name = "display_order")
     private Integer displayOrder;
+
+    public void updateAssetType(AssetType assetType) {
+        this.assetType = assetType;
+    }
 }
