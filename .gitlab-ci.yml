@@ -64,6 +64,10 @@ deploy_backend:
         export KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID &&
         export KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET &&
         export NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL &&
+        export AWS_ACCESS_KEY=$AWS_ACCESS_KEY &&
+        export AWS_SECRET_KEY=$AWS_SECRET_KEY &&
+        export AWS_REGION=ap-northeast-2 &&
+        export S3_BUCKET=five-dot-five &&
         docker-compose pull &&
         docker-compose up -d --force-recreate --remove-orphans
       "
