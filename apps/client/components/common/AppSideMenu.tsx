@@ -1,6 +1,6 @@
 "use client";
 
-import { SignOut, UserCircle } from "@phosphor-icons/react";
+import { SignOut, Trophy, UserCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -12,7 +12,7 @@ type AppSideMenuProps = {
 };
 
 /**
- * 위시리스트 헤더 햄버거와 동일한 우측 슬라이드 메뉴 (내정보 / 로그아웃).
+ * 위시리스트 헤더 햄버거와 동일한 우측 슬라이드 메뉴 (My Page / 랭킹 / 로그아웃).
  */
 export function AppSideMenu({ open, onClose, onLogout }: AppSideMenuProps) {
   const [mounted, setMounted] = useState(false);
@@ -73,7 +73,16 @@ export function AppSideMenu({ open, onClose, onLogout }: AppSideMenuProps) {
             className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
           >
             <UserCircle size={22} weight="regular" className="shrink-0 text-[#7B61FF]" />
-            내정보 조회
+            My Page
+          </Link>
+
+          <Link
+            href="/ranking"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+          >
+            <Trophy size={22} weight="regular" className="shrink-0 text-[#7B61FF]" />
+            랭킹
           </Link>
 
           <button

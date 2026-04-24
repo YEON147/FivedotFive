@@ -88,6 +88,7 @@ export type MyPageFormValues = {
 export type PasswordFormValues = {
   currentPassword: string;
   newPassword: string;
+  newPasswordConfirm: string;
 };
 
 export type PasswordFormErrors = Partial<

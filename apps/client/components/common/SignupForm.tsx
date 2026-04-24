@@ -124,15 +124,15 @@ export function SignupForm({
 
   return (
     <form
-      className="flex w-full flex-col gap-6"
+      className="flex w-full flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
         void onSubmit();
       }}
     >
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3.5">
         <StepSection>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
             <TextField
               id="username"
               label="아이디"
@@ -141,14 +141,14 @@ export function SignupForm({
               placeholder="2~12자 입력 후 잠시 기다려주세요"
               value={values.username}
               error={errors.username}
+              hint="2~12자입니다. 입력을 마치면 아이디 중복 여부를 확인합니다."
+              hintDisplay="tooltip"
+              scrollIntoViewOnFocus
               onChange={(event) => onChange("username", event.target.value)}
             />
 
             {usernameCheckMessage ? (
               <p className={`text-xs ${usernameStatusClass}`}>{usernameCheckMessage}</p>
-            ) : values.username.trim().length > 0 &&
-              values.username.trim().length < 2 ? (
-              <p className="text-xs text-slate-500">아이디를 2자 이상 입력해주세요.</p>
             ) : null}
           </div>
         </StepSection>
@@ -165,16 +165,12 @@ export function SignupForm({
               placeholder="8~12자 영문+숫자 입력 후 잠시 기다려주세요"
               value={values.password}
               error={errors.password}
-              hint="영문과 숫자를 모두 포함해야 합니다."
+              hint="영문과 숫자를 모두 포함한 8~12자입니다."
+              hintDisplay="tooltip"
+              scrollIntoViewOnFocus
               onChange={(event) => onChange("password", event.target.value)}
             />
           </StepSection>
-        ) : null}
-
-        {showPassword && values.password.trim().length > 0 && !isPasswordReady ? (
-          <p className="text-xs text-slate-500">
-            비밀번호는 8~12자이며 영문과 숫자를 모두 포함해야 합니다.
-          </p>
         ) : null}
 
         {showPasswordConfirm ? (
@@ -189,7 +185,9 @@ export function SignupForm({
               placeholder="비밀번호를 다시 입력해주세요"
               value={values.passwordConfirm}
               error={errors.passwordConfirm}
-              hint="입력한 비밀번호와 동일하게 입력해주세요."
+              hint="위에서 입력한 비밀번호와 동일하게 입력해 주세요."
+              hintDisplay="tooltip"
+              scrollIntoViewOnFocus
               onChange={(event) =>
                 onChange("passwordConfirm", event.target.value)
               }
@@ -197,17 +195,9 @@ export function SignupForm({
           </StepSection>
         ) : null}
 
-        {showPasswordConfirm &&
-        values.passwordConfirm.trim().length > 0 &&
-        !isPasswordConfirmReady ? (
-          <p className="text-xs text-slate-500">
-            비밀번호 확인이 일치해야 다음 단계로 진행할 수 있습니다.
-          </p>
-        ) : null}
-
         {showEmail ? (
           <StepSection>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               <TextField
                 id="email"
                 type="email"
@@ -217,6 +207,8 @@ export function SignupForm({
                 value={values.email}
                 error={errors.email}
                 hint="비밀번호 찾기에 사용됩니다."
+                hintDisplay="tooltip"
+                scrollIntoViewOnFocus
                 onChange={(event) => onChange("email", event.target.value)}
               />
 
@@ -237,26 +229,31 @@ export function SignupForm({
                 label="닉네임"
                 requiredMark
                 maxLength={8}
-                placeholder="2~8자 닉네임을 입력해주세요"
+                placeholder={
+                  isNicknameLoading
+                    ? "추천 닉네임 불러오는 중…"
+                    : "추천 닉네임 · 마음에 안 들면 랜덤 또는 수정"
+                }
                 value={values.nickname}
                 error={errors.nickname}
-                hint="서비스에서 표시되는 이름입니다."
+                disabled={isNicknameLoading}
+                hint="서비스에 표시되는 이름입니다. 입력 후 자동으로 중복 여부를 확인합니다."
+                hintDisplay="tooltip"
+                scrollIntoViewOnFocus
                 onChange={(event) => onChange("nickname", event.target.value)}
               />
 
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {nicknameCheckMessage ? (
-                  <p className={`text-xs ${nicknameStatusClass}`}>{nicknameCheckMessage}</p>
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    입력 후 자동으로 중복 여부를 확인합니다.
+                  <p className={`mr-auto text-xs ${nicknameStatusClass}`}>
+                    {nicknameCheckMessage}
                   </p>
-                )}
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void onRefetchNickname()}
                   disabled={isNicknameLoading}
-                  className="shrink-0 rounded-lg border border-[#7B61FF]/40 bg-white px-3 py-2 text-xs font-semibold text-[#7B61FF] shadow-sm transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="shrink-0 rounded-lg border border-[#7B61FF]/40 bg-white px-3 py-1.5 text-xs font-semibold text-[#7B61FF] shadow-sm transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isNicknameLoading ? "불러오는 중…" : "랜덤 닉네임"}
                 </button>
@@ -267,19 +264,24 @@ export function SignupForm({
 
         {showOptionalSection ? (
           <StepSection>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-4">
-                <h2 className="text-sm font-semibold text-slate-900">추가 정보</h2>
-                <p className="mt-1 text-xs text-slate-500">아래 항목은 선택 입력입니다.</p>
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
+              <div className="mb-2">
+                <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">추가 정보</h2>
+                <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+                  아래 항목은 선택 입력입니다.
+                </p>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <TextField
                     id="school"
                     label="학교"
-                    placeholder="학교명을 입력해 주세요 (선택)"
+                    placeholder="학교명 (선택)"
                     value={values.schoolName}
+                    hint="선택 사항입니다."
+                    hintDisplay="tooltip"
+                    scrollIntoViewOnFocus
                     onChange={(event) => onChange("schoolName", event.target.value)}
                   />
                 </div>
@@ -289,6 +291,7 @@ export function SignupForm({
                   label="성별"
                   options={GENDER_OPTIONS}
                   value={values.gender}
+                  scrollIntoViewOnFocus
                   onChange={(event) => onChange("gender", event.target.value)}
                 />
 
@@ -297,6 +300,7 @@ export function SignupForm({
                   label="학년"
                   options={GRADE_OPTIONS}
                   value={values.grade}
+                  scrollIntoViewOnFocus
                   onChange={(event) => onChange("grade", event.target.value)}
                 />
               </div>
@@ -322,7 +326,7 @@ export function SignupForm({
           <button
             type="submit"
             disabled={!canSubmit}
-            className="h-12 w-full rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="h-12 w-full rounded-xl bg-[#7B61FF] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6A52E0] active:bg-[#6A52E0] disabled:cursor-not-allowed disabled:bg-[var(--color-text-disabled)]"
           >
             {isSubmitting || isNicknameLoading
               ? "처리 중..."
