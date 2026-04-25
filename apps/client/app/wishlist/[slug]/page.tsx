@@ -207,7 +207,7 @@ function BoardFrame({
 
   const giftImages = useMemo(() => {
     const out: Partial<Record<number, string>> = {};
-    const compact = compactGiftAssetKeysToLayoutSlots(wishGiftIconKeys);
+    const compact = compactGiftAssetKeysToLayoutSlots(wishTexts, wishGiftIconKeys);
     for (const [layoutId, key] of Object.entries(compact)) {
       const k = key?.trim();
       if (k) {
@@ -215,7 +215,7 @@ function BoardFrame({
       }
     }
     return out;
-  }, [wishGiftIconKeys]);
+  }, [wishTexts, wishGiftIconKeys]);
 
   const giftLabels = useMemo(
     () => compactGiftTextsToLayoutSlots(wishTexts, wishGiftIconKeys),

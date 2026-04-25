@@ -44,6 +44,8 @@ import {
   compactGiftAssetKeysToLayoutSlots,
   compactGiftTextsToLayoutSlots,
   deriveWishSlotState,
+  firstSemanticallyEmptyApiIndex,
+  layoutGiftSlotIdToApiIndex,
   matchesGiftPresetIcon,
 } from "@/features/wishlist/wish-slot-state";
 import type { BoardAssetData, MyBoardData, WishItemData } from "@/features/wishlist/types";
@@ -71,7 +73,7 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 
-type GiftModalSpecial = "clear" | "present" | null;
+type GiftModalSpecial = "present" | null;
 
 /** 스티커 폴더명(`assets/stickers/{id}/`)과 동일한 id — 한글은 UI 표시용 */
 const STICKER_MODAL_TABS = [
@@ -844,7 +846,8 @@ export default function WishlistPage() {
     setGiftModalMode("add");
     setModalGiftName("");
     setModalSelectedIconId(null);
-    setGiftModalSpecial(null);
+    /** 첫 칸 ×가 아닌 카탈로그 ①번(기본 선물) 이미지가 기본 선택 */
+    setGiftModalSpecial("present");
     setGiftModalSaveError(null);
     setIsGiftModalOpen(true);
   };
@@ -855,9 +858,7 @@ export default function WishlistPage() {
     setModalGiftName(wishTexts[slotIndex] ?? "");
     setModalSelectedIconId(null);
     const key = wishGiftIconKeys[slotIndex]?.trim() ?? "";
-    if (!key) {
-      setGiftModalSpecial("clear");
-    } else if (matchesGiftPresetIcon(key, giftIcons[0]?.assetKey)) {
+    if (!key || matchesGiftPresetIcon(key, giftIcons[0]?.assetKey)) {
       setGiftModalSpecial("present");
     } else {
       setGiftModalSpecial(null);
@@ -877,11 +878,11 @@ export default function WishlistPage() {
       if (bigCircleCount >= 3) {
         return;
       }
-      const firstEmptyInVisible = Array.from({ length: bigCircleCount }, (_, i) => i).find(
-        (i) => !wishTexts[i]?.trim() && !wishGiftIconKeys[i]?.trim(),
-      );
-      idx0 =
-        firstEmptyInVisible !== undefined ? firstEmptyInVisible : bigCircleCount;
+      const emptyIdx = firstSemanticallyEmptyApiIndex(wishTexts, wishGiftIconKeys);
+      if (emptyIdx === undefined) {
+        return;
+      }
+      idx0 = emptyIdx;
     } else {
       idx0 = giftModalSlotIndex;
     }
@@ -891,10 +892,7 @@ export default function WishlistPage() {
     let patchBody: Parameters<typeof patchMyWishItem>[1];
     let nextIconKeyForLocal: string;
 
-    if (giftModalSpecial === "clear") {
-      patchBody = { itemName: name, clearIcon: true };
-      nextIconKeyForLocal = "";
-    } else if (giftModalSpecial === "present") {
+    if (giftModalSpecial === "present") {
       const presetKey = giftIcons[0]?.assetKey?.trim();
       if (!presetKey) {
         setGiftModalSaveError(
@@ -918,8 +916,6 @@ export default function WishlistPage() {
       nextIconKeyForLocal = iconKeyPayload ?? "";
     }
 
-    const clearingGiftIcon = giftModalSpecial === "clear";
-
     setGiftModalSaving(true);
     setGiftModalSaveError(null);
 
@@ -929,15 +925,6 @@ export default function WishlistPage() {
       try {
         const board = await getMyBoard();
         applyLoadedBoard(board);
-        if (clearingGiftIcon) {
-          setWishGiftIconKeys((prev) => {
-            const next = [...prev];
-            if (idx0 >= 0 && idx0 < next.length) {
-              next[idx0] = "";
-            }
-            return next;
-          });
-        }
         setHasMyBoard(true);
       } catch {
         setWishTexts((prev) => {
@@ -979,7 +966,7 @@ export default function WishlistPage() {
     if (giftModalMode === "add") {
       setModalGiftName("");
       setModalSelectedIconId(null);
-      setGiftModalSpecial(null);
+      setGiftModalSpecial("present");
       setGiftModalSaveError(null);
       return;
     }
@@ -1064,17 +1051,7 @@ export default function WishlistPage() {
   }, [isBottomSheetOpen, closeStickerPicker]);
 
   const giftSlotImages = useMemo(() => {
-    const keysForLayout = [...wishGiftIconKeys] as string[];
-    if (
-      isGiftModalOpen &&
-      giftModalMode === "edit" &&
-      giftModalSpecial === "clear" &&
-      giftModalSlotIndex >= 0 &&
-      giftModalSlotIndex < 3
-    ) {
-      keysForLayout[giftModalSlotIndex] = "";
-    }
-    const compact = compactGiftAssetKeysToLayoutSlots(keysForLayout);
+    const compact = compactGiftAssetKeysToLayoutSlots(wishTexts, wishGiftIconKeys);
     const out: Partial<Record<number, string>> = {};
     for (const [layoutId, key] of Object.entries(compact)) {
       const k = key?.trim();
@@ -1083,34 +1060,11 @@ export default function WishlistPage() {
       }
     }
     return out;
-  }, [
-    wishGiftIconKeys,
-    isGiftModalOpen,
-    giftModalMode,
-    giftModalSlotIndex,
-    giftModalSpecial,
-  ]);
+  }, [wishTexts, wishGiftIconKeys]);
 
   const giftSlotLabels = useMemo(() => {
-    const keysForLayout = [...wishGiftIconKeys] as string[];
-    if (
-      isGiftModalOpen &&
-      giftModalMode === "edit" &&
-      giftModalSpecial === "clear" &&
-      giftModalSlotIndex >= 0 &&
-      giftModalSlotIndex < 3
-    ) {
-      keysForLayout[giftModalSlotIndex] = "";
-    }
-    return compactGiftTextsToLayoutSlots(wishTexts, keysForLayout);
-  }, [
-    wishTexts,
-    wishGiftIconKeys,
-    isGiftModalOpen,
-    giftModalMode,
-    giftModalSlotIndex,
-    giftModalSpecial,
-  ]);
+    return compactGiftTextsToLayoutSlots(wishTexts, wishGiftIconKeys);
+  }, [wishTexts, wishGiftIconKeys]);
 
   const stickerSlotImages = useMemo(() => {
     const acc: Partial<Record<number, string>> = {};
@@ -1169,13 +1123,10 @@ export default function WishlistPage() {
       return false;
     }
 
-    const firstIconId = giftIcons[0]?.id ?? null;
     const addFormTouched =
       Boolean(modalGiftName.trim()) ||
-      giftModalSpecial !== null ||
-      (modalSelectedIconId != null &&
-        firstIconId != null &&
-        modalSelectedIconId !== firstIconId);
+      giftModalSpecial !== "present" ||
+      modalSelectedIconId != null;
 
     if (giftModalMode === "add") {
       return addFormTouched;
@@ -1400,7 +1351,15 @@ export default function WishlistPage() {
                   if (!isDecorateMode) {
                     return;
                   }
-                  openGiftModalEdit(slotId - 1);
+                  const apiIdx = layoutGiftSlotIdToApiIndex(
+                    slotId,
+                    wishTexts,
+                    wishGiftIconKeys,
+                  );
+                  if (apiIdx == null) {
+                    return;
+                  }
+                  openGiftModalEdit(apiIdx);
                 }}
                 showPlaceholder={showSlotPlaceholders}
               />
@@ -1735,22 +1694,6 @@ export default function WishlistPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              setGiftModalSpecial("clear");
-                              setModalSelectedIconId(null);
-                            }}
-                            className={`flex aspect-square items-center justify-center overflow-hidden rounded-xl border-2 bg-white text-xl font-semibold text-slate-500 transition ${
-                              giftModalSpecial === "clear"
-                                ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
-                                : "border-slate-300 hover:border-slate-400"
-                            }`}
-                            aria-label="아이콘 없음"
-                            aria-pressed={giftModalSpecial === "clear"}
-                          >
-                            ×
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
                               setGiftModalSpecial("present");
                               setModalSelectedIconId(null);
                             }}
@@ -1808,8 +1751,7 @@ export default function WishlistPage() {
 
                         {giftIcons.length === 0 ? (
                           <p className="mt-2 text-center text-body-sm text-slate-500">
-                            추가 아이콘 목록이 없습니다. 위 칸에서 삭제 또는 기본 선물을 선택할 수
-                            있어요.
+                            추가 아이콘 목록이 없습니다. 위 칸에서 기본 선물을 선택할 수 있어요.
                           </p>
                         ) : null}
                       </div>
