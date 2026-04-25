@@ -42,7 +42,10 @@ import {
   computeCommentSheetCount,
   normalizeCommentsToSlotGrid,
 } from "@/features/wishlist/comment-slot-layout";
-import { deriveWishSlotState } from "@/features/wishlist/wish-slot-state";
+import {
+  compactGiftAssetKeysToLayoutSlots,
+  deriveWishSlotState,
+} from "@/features/wishlist/wish-slot-state";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import type {
   BoardAssetData,
@@ -203,14 +206,15 @@ function BoardFrame({
 
   const giftImages = useMemo(() => {
     const out: Partial<Record<number, string>> = {};
-    for (let i = 0; i < bigCircleCount; i++) {
-      const key = wishGiftIconKeys[i]?.trim();
-      if (key) {
-        out[i + 1] = getAssetImageUrl(key);
+    const compact = compactGiftAssetKeysToLayoutSlots(wishGiftIconKeys);
+    for (const [layoutId, key] of Object.entries(compact)) {
+      const k = key?.trim();
+      if (k) {
+        out[Number(layoutId)] = getAssetImageUrl(k);
       }
     }
     return out;
-  }, [bigCircleCount, wishGiftIconKeys]);
+  }, [wishGiftIconKeys]);
 
   return (
     <div
