@@ -3,7 +3,9 @@ export type CommentData = {
   senderName: string;
   content: string;
   stickerKey: string | null;
+  /** 본인 댓글 — API는 `isUser` 또는 Jackson `user` */
   isUser: boolean;
+  user?: boolean;
   /** GET 응답 — 전역 슬롯: `페이지 * 6 + (0~5)` (구 데이터는 첫 페이지만 0~5) */
   slotIndex?: number | null;
   createdAt: string;

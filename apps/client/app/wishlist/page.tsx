@@ -41,6 +41,7 @@ import {
   putMyBoardStickerSlot,
 } from "@/features/wishlist/api";
 import {
+  compactGiftAssetKeysToLayoutSlots,
   deriveWishSlotState,
   matchesGiftPresetIcon,
 } from "@/features/wishlist/wish-slot-state";
@@ -1062,24 +1063,26 @@ export default function WishlistPage() {
   }, [isBottomSheetOpen, closeStickerPicker]);
 
   const giftSlotImages = useMemo(() => {
+    const keysForLayout = [...wishGiftIconKeys] as string[];
+    if (
+      isGiftModalOpen &&
+      giftModalMode === "edit" &&
+      giftModalSpecial === "clear" &&
+      giftModalSlotIndex >= 0 &&
+      giftModalSlotIndex < 3
+    ) {
+      keysForLayout[giftModalSlotIndex] = "";
+    }
+    const compact = compactGiftAssetKeysToLayoutSlots(keysForLayout);
     const out: Partial<Record<number, string>> = {};
-    for (let i = 0; i < bigCircleCount; i++) {
-      const editingIconCleared =
-        isGiftModalOpen &&
-        giftModalMode === "edit" &&
-        giftModalSlotIndex === i &&
-        giftModalSpecial === "clear";
-      if (editingIconCleared) {
-        continue;
-      }
-      const key = wishGiftIconKeys[i];
-      if (key) {
-        out[i + 1] = getAssetImageUrl(key);
+    for (const [layoutId, key] of Object.entries(compact)) {
+      const k = key?.trim();
+      if (k) {
+        out[Number(layoutId)] = getAssetImageUrl(k);
       }
     }
     return out;
   }, [
-    bigCircleCount,
     wishGiftIconKeys,
     isGiftModalOpen,
     giftModalMode,

@@ -18,6 +18,16 @@ export const viewport: Viewport = {
 
 const GTM_ID = "GTM-KXJF644T";
 
+/** Google Analytics 4 (gtag.js) */
+const GA4_MEASUREMENT_ID = "G-4N35N8KWG2";
+
+const GA4_GTAG_INLINE = `
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '${GA4_MEASUREMENT_ID}');
+`;
+
 const GTM_SCRIPT = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
@@ -35,7 +45,7 @@ export default function RootLayout({
         {/* AdSense — SSR HTML에 포함되어 크롤러·검증 도구가 스크립트를 즉시 확인할 수 있음 */}
         <script
           async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2280190033939879"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3821021138447390"
           crossOrigin="anonymous"
         />
       </head>
@@ -53,6 +63,17 @@ export default function RootLayout({
         {/* End Google Tag Manager (noscript) */}
 
         <Script id="google-tag-manager" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: GTM_SCRIPT }} />
+
+        {/* Google tag (gtag.js) — GA4 */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA4_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script
+          id="ga4-gtag"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{ __html: GA4_GTAG_INLINE }}
+        />
 
         {children}
       </body>

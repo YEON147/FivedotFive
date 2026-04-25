@@ -1,56 +1,64 @@
 import type { CommentData } from "./types";
 
+/** GET JSON이 `isUser` 또는 `user`(Jackson boolean)로 올 수 있음 */
+function withNormalizedIsUser(c: CommentData): CommentData {
+  const fromJackson = (c as { user?: boolean }).user === true;
+  const isUser = c.isUser === true || fromJackson;
+  return { ...c, isUser };
+}
+
+/** API가 숫자 문자열로 줄 때 대비 */
+function coerceSlotIndex(v: unknown): number | null {
+  if (typeof v === "number" && Number.isInteger(v)) {
+    return v;
+  }
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v.trim());
+    if (Number.isInteger(n)) {
+      return n;
+    }
+  }
+  return null;
+}
+
 /**
  * 댓글 목록 → 한 면(6칸) 그리드. `slotIndex`는 전역: `페이지 * 6 + (0~5)`.
+ * - `slotIndex`가 이 페이지 범위에 있으면 **항상 그 칸**에만 둠(수정 후에도 위치 고정).
+ * - 범위 밖·누락만 API 배열 순으로 빈 칸에 채움 — 전부 실패 시에만 순서 배치.
  * @param pageIndex API `page`(0부터)와 동일 — 해당 페이지의 슬롯은 `[pageIndex*6, pageIndex*6+5]`
  */
 export function normalizeCommentsToSlotGrid(
   comments: CommentData[],
   pageIndex = 0,
 ): (CommentData | null)[] {
-  if (comments.length === 0) {
+  const rows = comments.map(withNormalizedIsUser);
+
+  if (rows.length === 0) {
     return Array.from({ length: 6 }, () => null);
   }
 
   const base = pageIndex * 6;
+  const grid: (CommentData | null)[] = Array.from({ length: 6 }, () => null);
+  const unplaced: CommentData[] = [];
 
-  const allGlobalSlotsForPage = comments.every(
-    (c) =>
-      typeof c.slotIndex === "number" &&
-      Number.isInteger(c.slotIndex) &&
-      c.slotIndex >= base &&
-      c.slotIndex <= base + 5,
-  );
-
-  if (allGlobalSlotsForPage) {
-    const grid: (CommentData | null)[] = Array.from({ length: 6 }, () => null);
-    for (const c of comments) {
-      const local = (c.slotIndex as number) - base;
-      grid[local] = c;
+  for (const c of rows) {
+    const si = coerceSlotIndex(c.slotIndex);
+    if (si !== null && si >= base && si <= base + 5) {
+      grid[si - base] = c;
+    } else {
+      unplaced.push(c);
     }
-    return grid;
   }
 
-  /** 구 데이터: 첫 페이지만 `slotIndex` 0~5 */
-  const legacyPage0 =
-    pageIndex === 0 &&
-    comments.every(
-      (c) =>
-        typeof c.slotIndex === "number" &&
-        Number.isInteger(c.slotIndex) &&
-        c.slotIndex >= 0 &&
-        c.slotIndex <= 5,
-    );
-
-  if (legacyPage0) {
-    const grid: (CommentData | null)[] = Array.from({ length: 6 }, () => null);
-    for (const c of comments) {
-      grid[c.slotIndex as number] = c;
+  for (const c of unplaced) {
+    const idx = grid.findIndex((cell) => cell === null);
+    if (idx === -1) {
+      break;
     }
-    return grid;
+    grid[idx] = c;
   }
 
-  return Array.from({ length: 6 }, (_, i) => comments[i] ?? null);
+  return grid;
 }
 
 export type CommentSheetCountOptions = {

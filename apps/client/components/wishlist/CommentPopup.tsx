@@ -14,6 +14,9 @@ export type CommentStickerTab = { id: string; label: string };
 const RATE_LIMIT_KEY = "comment_last_submit";
 const COOLDOWN_MS = 10_000;
 
+/** 백엔드 댓글 삭제(익명화) 정리 전까지 UI 비활성화 */
+const COMMENT_DELETE_ENABLED = false;
+
 function getRemainingCooldown(): number {
   if (typeof window === "undefined") return 0;
   const last = Number(localStorage.getItem(RATE_LIMIT_KEY) ?? 0);
@@ -67,6 +70,12 @@ export function CommentPopup({
   // 10초 쿨다운 카운트다운
   const [cooldown, setCooldown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (mode === "edit" && comment) {
+      setContent(comment.content ?? "");
+    }
+  }, [mode, comment?.id, comment?.content]);
 
   useEffect(() => {
     if (mode !== "write") return;
@@ -149,11 +158,13 @@ export function CommentPopup({
 
   const handleDelete = async () => {
     if (!comment) return;
+    setError(null);
     setLoading(true);
     try {
       await onDelete(comment.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "댓글 삭제에 실패했습니다.");
+    } finally {
       setLoading(false);
     }
   };
@@ -214,18 +225,20 @@ export function CommentPopup({
                 type="button"
                 onClick={handleEditClick}
                 disabled={isDisabled}
-                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                className={`rounded-2xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 ${COMMENT_DELETE_ENABLED ? "flex-1" : "w-full"}`}
               >
                 수정
               </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isDisabled}
-                className="flex-1 rounded-2xl bg-red-50 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-40"
-              >
-                {loading ? "삭제 중..." : "삭제"}
-              </button>
+              {COMMENT_DELETE_ENABLED ? (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDisabled}
+                  className="flex-1 rounded-2xl bg-red-50 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-40"
+                >
+                  {loading ? "삭제 중..." : "삭제"}
+                </button>
+              ) : null}
             </div>
           )}
         </div>
@@ -344,8 +357,22 @@ export function CommentPopup({
       {/* Edit mode */}
       {mode === "edit" && (
         <div className="mt-4 space-y-4">
+          {comment?.stickerKey?.trim() ? (
+            <div className="flex justify-center">
+              <div className="relative h-16 w-16 overflow-hidden rounded-full border border-slate-100 bg-slate-50">
+                <Image
+                  src={getAssetImageUrl(comment.stickerKey.trim())}
+                  alt=""
+                  fill
+                  unoptimized
+                  sizes="64px"
+                  className="object-contain object-center p-0.5"
+                />
+              </div>
+            </div>
+          ) : null}
           <div>
-            <p className="mb-2 text-xs font-semibold text-slate-500">댓글 수정</p>
+            <p className="mb-2 text-xs font-semibold text-slate-500">내용만 수정할 수 있어요</p>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}

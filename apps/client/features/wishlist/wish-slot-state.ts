@@ -65,6 +65,25 @@ function areAllWishSlotsEmpty(items: WishItemData[]): boolean {
   return items.every(isWishSlotSemanticallyEmpty);
 }
 
+/**
+ * API 선물 슬롯(1~3 → 배열 인덱스 0~2) 중 내용 있는 칸만 앞에서부터 `GiftSlots` 레이아웃 슬롯 id 1…N에 붙입니다.
+ * (예: 1·3번만 채워져 있어도 N=2 레이아웃에 좌=1번, 우=3번 선물이 올바르게 배치됨)
+ */
+export function compactGiftAssetKeysToLayoutSlots(
+  wishGiftIconKeys: readonly string[],
+): Partial<Record<number, string>> {
+  const out: Partial<Record<number, string>> = {};
+  let layoutSlot = 1;
+  for (let apiIdx = 0; apiIdx < 3; apiIdx++) {
+    const key = wishGiftIconKeys[apiIdx]?.trim();
+    if (key) {
+      out[layoutSlot] = key;
+      layoutSlot += 1;
+    }
+  }
+  return out;
+}
+
 export function deriveWishSlotState(items: WishItemData[]) {
   const allWishSlotsEmpty = areAllWishSlotsEmpty(items);
   if (allWishSlotsEmpty) {

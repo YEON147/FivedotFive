@@ -185,14 +185,16 @@ export async function updateComment(
   commentId: number,
   content: string,
 ): Promise<void> {
-  await apiClient(`/api/boards/${slug}/comments/${commentId}`, {
+  const safe = encodeURIComponent(slug);
+  await apiClient(`/api/boards/${safe}/comments/${commentId}`, {
     method: "PATCH",
     body: JSON.stringify({ content }),
   });
 }
 
 export async function deleteComment(slug: string, commentId: number): Promise<void> {
-  await apiClient(`/api/boards/${slug}/comments/${commentId}`, {
+  const safe = encodeURIComponent(slug);
+  await apiClient(`/api/boards/${safe}/comments/${commentId}`, {
     method: "DELETE",
   });
 }
