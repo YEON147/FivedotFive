@@ -4,6 +4,7 @@ import { X } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
+import { isSoftDeletedWishComment } from "@/features/wishlist/comment-display";
 import type { CommentData, StickerOption } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
 
@@ -13,9 +14,6 @@ export type CommentStickerTab = { id: string; label: string };
 
 const RATE_LIMIT_KEY = "comment_last_submit";
 const COOLDOWN_MS = 10_000;
-
-/** 백엔드 댓글 삭제(익명화) 정리 전까지 UI 비활성화 */
-const COMMENT_DELETE_ENABLED = false;
 
 function getRemainingCooldown(): number {
   if (typeof window === "undefined") return 0;
@@ -141,6 +139,10 @@ export function CommentPopup({
 
   const handleUpdate = async () => {
     if (!comment) return;
+    if (isSoftDeletedWishComment(comment)) {
+      setError("삭제된 댓글은 수정할 수 없습니다.");
+      return;
+    }
     if (!content.trim()) {
       setError("댓글 내용을 입력해주세요.");
       return;
@@ -158,6 +160,13 @@ export function CommentPopup({
 
   const handleDelete = async () => {
     if (!comment) return;
+    if (
+      !window.confirm(
+        "닉네임과 내용은 가려진 상태로 남고, 스티커는 이 칸에 그대로 보입니다. 삭제할까요?",
+      )
+    ) {
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -182,7 +191,13 @@ export function CommentPopup({
     <div className="fixed left-1/2 top-1/2 z-30 w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-white px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-slate-900">
+        <h2
+          className={`text-base font-bold ${
+            mode === "view" && comment && isSoftDeletedWishComment(comment)
+              ? "text-slate-600"
+              : "text-slate-900"
+          }`}
+        >
           {mode === "view"
             ? (comment?.senderName ?? "댓글")
             : mode === "edit"
@@ -207,7 +222,7 @@ export function CommentPopup({
               <div className="relative h-16 w-16 overflow-hidden rounded-full border-0 bg-transparent shadow-none">
                 <Image
                   src={getAssetImageUrl(comment.stickerKey.trim())}
-                  alt={comment.senderName}
+                  alt=""
                   fill
                   unoptimized
                   sizes="64px"
@@ -216,7 +231,13 @@ export function CommentPopup({
               </div>
             </div>
           ) : null}
-          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-800">
+          <p
+            className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              isSoftDeletedWishComment(comment)
+                ? "bg-slate-100 text-slate-500 italic"
+                : "bg-slate-50 text-slate-800"
+            }`}
+          >
             {comment.content}
           </p>
           {comment.isUser && (
@@ -225,20 +246,18 @@ export function CommentPopup({
                 type="button"
                 onClick={handleEditClick}
                 disabled={isDisabled}
-                className={`rounded-2xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 ${COMMENT_DELETE_ENABLED ? "flex-1" : "w-full"}`}
+                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
               >
                 수정
               </button>
-              {COMMENT_DELETE_ENABLED ? (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isDisabled}
-                  className="flex-1 rounded-2xl bg-red-50 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-40"
-                >
-                  {loading ? "삭제 중..." : "삭제"}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={isDisabled}
+                className="flex-1 rounded-2xl bg-red-50 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-40"
+              >
+                {loading ? "삭제 중..." : "삭제"}
+              </button>
             </div>
           )}
         </div>

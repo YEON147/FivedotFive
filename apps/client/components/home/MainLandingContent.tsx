@@ -3,9 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 import "@/components/home/main-landing-wordmark-float.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
+import { trackSignupIntentClick } from "@/lib/analytics/conversion";
+import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 
 const landingPrimaryBtn =
   "inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)]";
@@ -33,7 +36,12 @@ export function MainLandingContent({
 }: MainLandingContentProps) {
   const router = useRouter();
 
-  const goBrowse = () => {
+  useEffect(() => {
+    touchTrafficAttribution();
+  }, []);
+
+  const goBrowseLoggedIn = () => {
+    trackWishlistCtaClick({ cta_id: "landing_logged_public_browse" });
     router.push(`/wishlist/${encodeURIComponent(adminPublicBoardSlug)}`);
   };
 
@@ -86,12 +94,22 @@ export function MainLandingContent({
             </div>
           ) : loggedIn ? (
             <>
-              <button type="button" className={landingPrimaryBtn} onClick={() => router.push("/wishlist")}>
+              <button
+                type="button"
+                className={landingPrimaryBtn}
+                onClick={() => {
+                  trackWishlistCtaClick({
+                    cta_id: "landing_logged_wishlist_hub",
+                    wishlist_entry: hasWishBoard ? "decorate" : "create",
+                  });
+                  router.push("/wishlist");
+                }}
+              >
                 {hasWishBoard ? "내 위시리스트 꾸미러 가기" : "위시리스트 만들러 가기"}
               </button>
               <button
                 type="button"
-                onClick={goBrowse}
+                onClick={goBrowseLoggedIn}
                 className="text-center text-body-sm font-medium text-[#8b8b8b] underline-offset-4 transition-colors hover:text-[#6e6e6e] hover:underline"
               >
                 구경가기
@@ -102,9 +120,10 @@ export function MainLandingContent({
               <button
                 type="button"
                 className={landingPrimaryBtn}
-                onClick={() =>
-                  router.push(`/wishlist/${encodeURIComponent(adminPublicBoardSlug)}`)
-                }
+                onClick={() => {
+                  trackWishlistCtaClick({ cta_id: "landing_guest_public_browse" });
+                  router.push(`/wishlist/${encodeURIComponent(adminPublicBoardSlug)}`);
+                }}
               >
                 위시리스트 구경가기
               </button>
@@ -115,7 +134,11 @@ export function MainLandingContent({
                 <span className="mx-2 text-body-sm text-[#c4c4c4]" aria-hidden>
                   ·
                 </span>
-                <Link href="/signup" className={landingMutedLink}>
+                <Link
+                  href="/signup"
+                  className={landingMutedLink}
+                  onClick={() => trackSignupIntentClick({ signup_entry: "landing" })}
+                >
                   회원가입
                 </Link>
               </div>

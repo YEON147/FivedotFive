@@ -6,6 +6,7 @@ import { LoginForm } from "@/components/common/LoginForm";
 import { useLoginForm } from "@/features/login/hooks";
 import { getAccessToken } from "@/lib/api/token-store";
 import { KAKAO_OAUTH_START_URL } from "@/lib/constants/login";
+import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +20,10 @@ export default function LoginPage() {
     onChange,
     onSubmit,
   } = useLoginForm();
+
+  useEffect(() => {
+    touchTrafficAttribution();
+  }, []);
 
   useEffect(() => {
     if (!getAccessToken()) return;
