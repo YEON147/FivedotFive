@@ -274,7 +274,7 @@ class WishCommentServiceTest {
     // ===================== deleteComment (softDelete) =====================
 
     @Test
-    @DisplayName("댓글 삭제 - senderName이 '(삭제된 사용자)'로 변경됨")
+    @DisplayName("댓글 삭제 - senderName이 '(삭제된사용자)'로 변경됨")
     void deleteComment_senderNameChanged() {
         WishComment comment = WishComment.builder()
                 .wishBoard(board).user(sender).senderName("테스터")
@@ -286,7 +286,7 @@ class WishCommentServiceTest {
 
         wishCommentService.deleteComment(1L, "abc123def4", 1L);
 
-        assertThat(comment.getSenderName()).isEqualTo("(삭제된 사용자)");
+        assertThat(comment.getSenderName()).isEqualTo("(삭제된사용자)");
     }
 
     @Test
