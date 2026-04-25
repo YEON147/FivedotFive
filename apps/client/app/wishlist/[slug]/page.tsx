@@ -122,7 +122,7 @@ const PUBLIC_WISHLIST_BOARD_WRAP =
  */
 /** 공개 카드 전체(타이틀+보드) — `app/wishlist/page.tsx` 의 `WISHLIST_BOARD_FRAME_BASE` 와 동일 톤 */
 const PUBLIC_WISHLIST_CARD_SHELL =
-  "relative isolate flex w-full max-w-[372px] min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
+  "relative isolate flex w-full max-w-[372px] min-h-0 flex-1 flex-col overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
 
 /** 가로 슬라이드 뷰포트 — `width`·`aspect-ratio`·`max-height:100%`로 남은 높이에 맞춤(세로 스크롤 없음) */
 const PUBLIC_BOARD_SLIDE_VIEWPORT =
@@ -207,7 +207,7 @@ function BoardFrame({
 
   const giftImages = useMemo(() => {
     const out: Partial<Record<number, string>> = {};
-    const compact = compactGiftAssetKeysToLayoutSlots(wishGiftIconKeys);
+    const compact = compactGiftAssetKeysToLayoutSlots(wishTexts, wishGiftIconKeys);
     for (const [layoutId, key] of Object.entries(compact)) {
       const k = key?.trim();
       if (k) {
@@ -215,7 +215,7 @@ function BoardFrame({
       }
     }
     return out;
-  }, [wishGiftIconKeys]);
+  }, [wishTexts, wishGiftIconKeys]);
 
   const giftLabels = useMemo(
     () => compactGiftTextsToLayoutSlots(wishTexts, wishGiftIconKeys),
@@ -740,15 +740,15 @@ export default function PublicWishlistPage({
   );
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col !overflow-hidden px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+    <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col overflow-visible px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
       {selectedSlot !== null ? (
         <div className="fixed inset-0 z-20 bg-black/40" onClick={handleClosePopup} />
       ) : null}
 
-      <div className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-hidden transition-all duration-300 ease-out">
+      <div className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-visible transition-all duration-300 ease-out">
         <section className={`${PUBLIC_WISHLIST_BOARD_WRAP} mx-auto min-h-0 w-full`}>
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0">
-            <div className="relative flex min-h-0 min-w-0 flex-1 items-stretch justify-center overflow-hidden px-1 pb-1 pt-1.5 sm:px-2 sm:pb-1.5 sm:pt-2">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-visible p-0">
+            <div className="relative flex min-h-0 min-w-0 flex-1 items-stretch justify-center overflow-visible px-1 pb-1 pt-1.5 sm:px-2 sm:pb-1.5 sm:pt-2">
               <div
                 className={`${PUBLIC_WISHLIST_CARD_SHELL} mx-auto h-full min-h-0 max-h-full w-full max-w-[372px] flex-1`}
               >
@@ -770,8 +770,8 @@ export default function PublicWishlistPage({
                   />
                 </div>
 
-                <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                  <div className="relative flex min-h-0 min-w-0 w-full flex-1 items-center justify-center overflow-hidden">
+                <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
+                  <div className="relative flex min-h-0 min-w-0 w-full flex-1 items-center justify-center overflow-visible">
                     <div
                       className={PUBLIC_BOARD_SLIDE_VIEWPORT}
                       style={{
