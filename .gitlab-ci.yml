@@ -1,0 +1,104 @@
+stages:
+  - build
+  - deploy
+
+build_backend:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+    - docker build -t ghcr.io/$GHCR_USER/server-image:latest -f apps/server/Dockerfile .
+    - docker push ghcr.io/$GHCR_USER/server-image:latest
+  only:
+    - develop 
+    - master
+
+build_frontend:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+    # 프론트엔드는 빌드할 때 백엔드 주소가 필요하므로 --build-arg를 넣어줍니다
+    - docker build 
+      --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL"
+      --build-arg NEIS_API_KEY="$NEIS_API_KEY"
+      --build-arg NEIS_API_BASE_URL="$NEIS_API_BASE_URL"
+      --build-arg BACKEND_REWRITE_TARGET="$BACKEND_REWRITE_TARGET"
+      --build-arg NEXT_PUBLIC_ASSET_BASE_URL="$NEXT_PUBLIC_ASSET_BASE_URL"
+      -t ghcr.io/$GHCR_USER/client-image:latest 
+      -f apps/client/Dockerfile .
+    - docker push ghcr.io/$GHCR_USER/client-image:latest
+  only:
+    - develop
+    - master
+
+deploy_staging:
+  stage: deploy
+  tags:
+    - laptop
+  script:
+    - echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin
+    - cd infra
+    - export GHCR_USER=$GHCR_USER
+    - export DB_USERNAME=$DB_USERNAME
+    - export DB_PASSWORD=$DB_PASSWORD
+    - export JWT_SECRET=$JWT_SECRET
+    - export KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID
+    - export KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET
+    - export AWS_ACCESS_KEY=$AWS_ACCESS_KEY
+    - export AWS_SECRET_KEY=$AWS_SECRET_KEY
+    - export ADMIN_PASSWORD=$ADMIN_PASSWORD
+    - export AWS_REGION=ap-northeast-2
+    - export S3_BUCKET=five-dot-five
+    - docker compose up -d postgres redis
+    - docker compose pull client backend-blue
+    - docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --force-recreate client backend-blue caddy
+  only:
+    - develop
+
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    # EC2 접속을 위한 SSH 클라이언트 설치 및 키 등록
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$EC2_PEM_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    # EC2 서버에 원격 접속해서 실행할 명령어
+    - ssh -o StrictHostKeyChecking=no ubuntu@$EC2_HOST "
+        echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin &&
+        cd /home/ubuntu/S14P31F205 &&
+        git fetch origin master &&
+        git checkout master &&
+        git pull origin master &&
+        cd infra &&
+        export GHCR_USER=$GHCR_USER &&
+        export DB_USERNAME=$DB_USERNAME &&
+        export DB_PASSWORD=$DB_PASSWORD &&
+        export JWT_SECRET=$JWT_SECRET &&
+        export KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID &&
+        export KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET &&
+        export NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL &&
+        export AWS_ACCESS_KEY=$AWS_ACCESS_KEY &&
+        export AWS_SECRET_KEY=$AWS_SECRET_KEY &&
+        export ADMIN_PASSWORD=$ADMIN_PASSWORD &&
+        export AWS_REGION=ap-northeast-2 &&
+        export S3_BUCKET=five-dot-five &&
+        chmod +x deploy.sh &&
+        ./deploy.sh
+      "
+  only:
+    - master

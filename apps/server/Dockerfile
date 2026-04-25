@@ -1,26 +1,15 @@
-# syntax=docker/dockerfile:1.6
-
-############################
 # 1) Build stage
-############################
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
 
-# 우리 프로젝트 구조에 맞게 경로 확인
-# apps/server 폴더 안에서 실행될 것이므로 현재 폴더(.)의 파일들을 복사합니다.
-COPY gradlew gradlew.bat settings.gradle* build.gradle* ./
-COPY gradle/ ./gradle/
-
-RUN chmod +x gradlew && sed -i 's/\r$//' gradlew
-
-# 의존성 캐시 (빌드 속도 향상)
-RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew --no-daemon dependencies || true
-
-# 소스 전체 복사
+# [수정] 처음부터 루트에서 시작해서 소스를 다 복사합니다.
 COPY . .
 
-# bootJar 생성 (테스트 제외)
+# [수정] 소스를 다 복사한 '후'에 서버 폴더로 들어가서 권한을 줍니다.
+WORKDIR /workspace/apps/server
+RUN chmod +x gradlew && sed -i 's/\r$//' gradlew
+
+# 빌드 실행
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew --no-daemon clean bootJar -x test
 
@@ -30,14 +19,12 @@ RUN --mount=type=cache,target=/root/.gradle \
 FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 
-# 보안을 위한 유저 생성
+# 보안 유저 설정
 RUN useradd -m appuser
 USER appuser
 
-# 빌드 결과물 복사
-COPY --from=build /workspace/build/libs/*.jar /app/app.jar
+# 결과물 jar 복사 (경로 주의!)
+COPY --from=build /workspace/apps/server/build/libs/*.jar /app/app.jar
 
 EXPOSE 8080
-
-# 메모리 최적화 옵션 포함 실행
 ENTRYPOINT ["java","-XX:MaxRAMPercentage=75","-jar","/app/app.jar"]

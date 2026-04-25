@@ -1,0 +1,12 @@
+# infra/docker-compose.test.yml
+services:
+  caddy:
+    image: caddy:latest
+    container_name: oh-jjeom-oh-caddy
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    networks:
+      - oh-jjeom-oh-net
+    restart: always
