@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   checkNickname,
   checkUserEmail,
@@ -31,6 +31,8 @@ const INITIAL_VALUES: SignupFormValues = {
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,12}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** 형식 오류 문구는 입력이 잠시 멈춘 뒤에만 표시 (글자 단위 즉시 노출 방지) */
+const EMAIL_FORMAT_MESSAGE_DEBOUNCE_MS = 500;
 
 function validateSignupForm(values: SignupFormValues): SignupFormErrors {
   const errors: SignupFormErrors = {};
@@ -112,6 +114,9 @@ export function useSignupForm() {
   const [userEmailCheckMessage, setUserEmailCheckMessage] = useState<string | null>(
     null,
   );
+
+  const signupEmailRef = useRef(values.email);
+  signupEmailRef.current = values.email;
 
   /** 가입 화면 진입 시 추천 닉네임을 미리 채움 — 실패 시 빈 값으로 두고 직접 입력 */
   useEffect(() => {
@@ -213,8 +218,21 @@ export function useSignupForm() {
 
     if (!EMAIL_REGEX.test(trimmedEmail)) {
       setUserEmailCheckStatus("idle");
-      setUserEmailCheckMessage("올바른 이메일 형식을 입력해주세요.");
-      return;
+      setUserEmailCheckMessage(null);
+
+      const formatTimer = window.setTimeout(() => {
+        const latest = signupEmailRef.current.trim();
+        if (!latest) {
+          setUserEmailCheckStatus("idle");
+          setUserEmailCheckMessage(null);
+          return;
+        }
+        if (EMAIL_REGEX.test(latest)) return;
+        setUserEmailCheckStatus("idle");
+        setUserEmailCheckMessage("올바른 이메일 형식을 입력해주세요.");
+      }, EMAIL_FORMAT_MESSAGE_DEBOUNCE_MS);
+
+      return () => window.clearTimeout(formatTimer);
     }
 
     const timer = setTimeout(async () => {

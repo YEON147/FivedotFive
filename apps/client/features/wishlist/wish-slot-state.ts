@@ -84,6 +84,26 @@ export function compactGiftAssetKeysToLayoutSlots(
   return out;
 }
 
+/**
+ * `compactGiftAssetKeysToLayoutSlots` 과 동일한 순서로, 아이콘이 있는 API 슬롯의 `itemName`을
+ * 레이아웃 슬롯 id(1…N)에 붙입니다.
+ */
+export function compactGiftTextsToLayoutSlots(
+  wishTexts: readonly string[],
+  wishGiftIconKeys: readonly string[],
+): Partial<Record<number, string>> {
+  const out: Partial<Record<number, string>> = {};
+  let layoutSlot = 1;
+  for (let apiIdx = 0; apiIdx < 3; apiIdx++) {
+    const key = wishGiftIconKeys[apiIdx]?.trim();
+    if (key) {
+      out[layoutSlot] = wishTexts[apiIdx]?.trim() ?? "";
+      layoutSlot += 1;
+    }
+  }
+  return out;
+}
+
 export function deriveWishSlotState(items: WishItemData[]) {
   const allWishSlotsEmpty = areAllWishSlotsEmpty(items);
   if (allWishSlotsEmpty) {
