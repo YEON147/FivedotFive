@@ -57,6 +57,7 @@ deploy_staging:
     - export KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET
     - export AWS_ACCESS_KEY=$AWS_ACCESS_KEY
     - export AWS_SECRET_KEY=$AWS_SECRET_KEY
+    - export ADMIN_PASSWORD=$ADMIN_PASSWORD
     - export AWS_REGION=ap-northeast-2
     - export S3_BUCKET=five-dot-five
     - docker compose up -d postgres redis
@@ -93,6 +94,7 @@ deploy_production:
         export NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL &&
         export AWS_ACCESS_KEY=$AWS_ACCESS_KEY &&
         export AWS_SECRET_KEY=$AWS_SECRET_KEY &&
+        export ADMIN_PASSWORD=$ADMIN_PASSWORD &&
         export AWS_REGION=ap-northeast-2 &&
         export S3_BUCKET=five-dot-five &&
         chmod +x deploy.sh &&

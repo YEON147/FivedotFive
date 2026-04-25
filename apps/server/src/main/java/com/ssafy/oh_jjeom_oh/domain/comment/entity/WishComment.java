@@ -63,7 +63,6 @@ public class WishComment {
     public void softDelete() {
         this.senderName = CommentConstants.DELETED_SENDER_NAME;
         this.content = CommentConstants.DELETED_CONTENT;
-        this.stickerKey = null;
         this.user = null;
         this.isUser = false;
     }
