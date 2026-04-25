@@ -1,9 +1,10 @@
 "use client";
 
 import { X } from "@phosphor-icons/react";
+import { GenderToggle } from "@/components/ui/GenderToggle";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
-import { GENDER_OPTIONS, GRADE_OPTIONS } from "@/lib/constants/signup";
+import { GRADE_OPTIONS } from "@/lib/constants/signup";
 import type {
   MyPageFormValues,
   PasswordFormErrors,
@@ -263,16 +264,14 @@ export function MyPageForm({
             ) : null}
           </div>
 
-          <SelectField
+          <GenderToggle
             id="mypage-gender"
             label="성별"
             value={values.gender}
-            options={GENDER_OPTIONS}
             error={errors.gender}
             disabled={!isLoaded || isSaving}
             scrollIntoViewOnFocus
-            className="!h-10 bg-[length:0.875rem_0.875rem] pl-3 pr-9 text-[13px]"
-            onChange={(event) => onChange("gender", event.target.value)}
+            onChange={(next) => onChange("gender", next)}
           />
 
           <SelectField

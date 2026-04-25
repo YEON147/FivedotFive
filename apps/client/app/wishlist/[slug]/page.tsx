@@ -44,6 +44,7 @@ import {
 } from "@/features/wishlist/comment-slot-layout";
 import {
   compactGiftAssetKeysToLayoutSlots,
+  compactGiftTextsToLayoutSlots,
   deriveWishSlotState,
 } from "@/features/wishlist/wish-slot-state";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
@@ -199,7 +200,7 @@ function BoardFrame({
     return resolveBoardBackgroundImageUrl(boardAssets);
   }, [boardAssets, omitBackground]);
 
-  const { bigCircleCount, wishGiftIconKeys } = useMemo(
+  const { bigCircleCount, wishGiftIconKeys, wishTexts } = useMemo(
     () => deriveWishSlotState(boardItems),
     [boardItems],
   );
@@ -215,6 +216,11 @@ function BoardFrame({
     }
     return out;
   }, [wishGiftIconKeys]);
+
+  const giftLabels = useMemo(
+    () => compactGiftTextsToLayoutSlots(wishTexts, wishGiftIconKeys),
+    [wishTexts, wishGiftIconKeys],
+  );
 
   return (
     <div
@@ -241,7 +247,13 @@ function BoardFrame({
       ) : null}
 
       {/* 타인 보드: 채워진 선물만 표시 — 빈 슬롯(꾸미기용) 숨김 */}
-      <GiftSlots count={bigCircleCount} images={giftImages} showPlaceholder={false} decorateActive={false} />
+      <GiftSlots
+        count={bigCircleCount}
+        images={giftImages}
+        labels={giftLabels}
+        showPlaceholder={false}
+        decorateActive={false}
+      />
 
       {children}
     </div>
