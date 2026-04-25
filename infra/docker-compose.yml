@@ -31,6 +31,7 @@ services:
       - redis
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -54,6 +55,7 @@ services:
       - "8081:8080" # 외부에서 8081로 접속하면 컨테이너 안의 8080으로 연결
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -78,6 +80,7 @@ services:
       - "8082:8080" # 외부에서 8082로 접속하면 컨테이너 안의 8080으로 연결
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
