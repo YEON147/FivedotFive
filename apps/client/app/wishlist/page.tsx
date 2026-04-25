@@ -42,6 +42,7 @@ import {
 } from "@/features/wishlist/api";
 import {
   compactGiftAssetKeysToLayoutSlots,
+  compactGiftTextsToLayoutSlots,
   deriveWishSlotState,
   matchesGiftPresetIcon,
 } from "@/features/wishlist/wish-slot-state";
@@ -1090,6 +1091,27 @@ export default function WishlistPage() {
     giftModalSpecial,
   ]);
 
+  const giftSlotLabels = useMemo(() => {
+    const keysForLayout = [...wishGiftIconKeys] as string[];
+    if (
+      isGiftModalOpen &&
+      giftModalMode === "edit" &&
+      giftModalSpecial === "clear" &&
+      giftModalSlotIndex >= 0 &&
+      giftModalSlotIndex < 3
+    ) {
+      keysForLayout[giftModalSlotIndex] = "";
+    }
+    return compactGiftTextsToLayoutSlots(wishTexts, keysForLayout);
+  }, [
+    wishTexts,
+    wishGiftIconKeys,
+    isGiftModalOpen,
+    giftModalMode,
+    giftModalSlotIndex,
+    giftModalSpecial,
+  ]);
+
   const stickerSlotImages = useMemo(() => {
     const acc: Partial<Record<number, string>> = {};
     for (const a of boardAssets) {
@@ -1372,6 +1394,7 @@ export default function WishlistPage() {
               <GiftSlots
                 count={bigCircleCount}
                 images={giftSlotImages}
+                labels={giftSlotLabels}
                 decorateActive={isDecorateMode}
                 onSlotClick={(slotId) => {
                   if (!isDecorateMode) {
