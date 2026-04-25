@@ -39,7 +39,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         redisTemplate.opsForValue().set("RT:" + refreshToken, username, 604800, TimeUnit.SECONDS);
 
-        String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:3000/oauth/callback")
+        String targetUrl = UriComponentsBuilder.fromUriString("https://fivedotfive.co.kr/oauth/callback")
                 .queryParam("accessToken", accessToken)
                 .queryParam("refreshToken", refreshToken)
                 .build().toUriString();

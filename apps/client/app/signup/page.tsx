@@ -2,6 +2,7 @@
 
 import { CaretLeft } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useEffect } from "react";
 
 import { SignupForm } from "@/components/common/SignupForm";
 import { useSignupForm } from "@/features/signup/hooks";
@@ -10,8 +11,13 @@ import {
   PAGE_HEADER_END_SPACER,
   PAGE_HEADER_ROW,
 } from "@/lib/constants/page-header";
+import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
 
 export default function SignupPage() {
+  useEffect(() => {
+    touchTrafficAttribution();
+  }, []);
+
   const {
     values,
     errors,

@@ -192,9 +192,14 @@ export async function updateComment(
   });
 }
 
+/** DELETE /api/boards/:slug/comments/:commentId — 본인 댓글 소프트 삭제 (JWT 필수) */
 export async function deleteComment(slug: string, commentId: number): Promise<void> {
   const safe = encodeURIComponent(slug);
-  await apiClient(`/api/boards/${safe}/comments/${commentId}`, {
-    method: "DELETE",
-  });
+  await apiClient<{ success: boolean; message?: string }>(
+    `/api/boards/${safe}/comments/${commentId}`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    },
+  );
 }

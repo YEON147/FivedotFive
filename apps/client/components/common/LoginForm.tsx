@@ -88,7 +88,7 @@ export function LoginForm({
         <Link
           href="/signup"
           className="text-body-sm text-[#6e6e6e]"
-          onClick={() => trackSignupIntentClick()}
+          onClick={() => trackSignupIntentClick({ signup_entry: "login" })}
         >
           회원가입
         </Link>
