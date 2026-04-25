@@ -271,6 +271,73 @@ class WishCommentServiceTest {
         }
     }
 
+    // ===================== deleteComment (softDelete) =====================
+
+    @Test
+    @DisplayName("댓글 삭제 - senderName이 '(삭제된 사용자)'로 변경됨")
+    void deleteComment_senderNameChanged() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("원래 내용").stickerKey("assets/sticker/a.png").slotIndex(0)
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+
+        wishCommentService.deleteComment(1L, "abc123def4", 1L);
+
+        assertThat(comment.getSenderName()).isEqualTo("(삭제된 사용자)");
+    }
+
+    @Test
+    @DisplayName("댓글 삭제 - content가 '삭제된 댓글입니다.'로 변경됨")
+    void deleteComment_contentChanged() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("원래 내용").stickerKey("assets/sticker/a.png").slotIndex(0)
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+
+        wishCommentService.deleteComment(1L, "abc123def4", 1L);
+
+        assertThat(comment.getContent()).isEqualTo("삭제된 댓글입니다.");
+    }
+
+    @Test
+    @DisplayName("댓글 삭제 - stickerKey는 삭제되지 않고 유지됨")
+    void deleteComment_stickerKeyPreserved() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("원래 내용").stickerKey("assets/sticker/a.png").slotIndex(0)
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+
+        wishCommentService.deleteComment(1L, "abc123def4", 1L);
+
+        assertThat(comment.getStickerKey()).isEqualTo("assets/sticker/a.png");
+    }
+
+    @Test
+    @DisplayName("댓글 삭제 - user가 null이 되고 isUser가 false로 변경됨")
+    void deleteComment_userNulledAndIsUserFalse() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("원래 내용").stickerKey("assets/sticker/a.png").slotIndex(0)
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+
+        wishCommentService.deleteComment(1L, "abc123def4", 1L);
+
+        assertThat(comment.getUser()).isNull();
+        assertThat(comment.getIsUser()).isFalse();
+    }
+
     // ===== helpers =====
 
     private CommentCreateRequest buildRequest(String content, String stickerKey, int slotIndex) {
