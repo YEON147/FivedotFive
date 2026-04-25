@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api/client";
+import { apiClient, publicApiClient } from "@/lib/api/client";
 import type {
   CommentCreateData,
   CommentListData,
@@ -89,6 +89,34 @@ export async function deleteMyBoardStickerSlot(
   );
 }
 
+export type PutMyBoardBackgroundResponse = {
+  success: boolean;
+  message: string;
+};
+
+/** PUT /api/boards/me/assets/background — 배경 에셋 키 저장 */
+export async function putMyBoardBackground(assetKey: string): Promise<PutMyBoardBackgroundResponse> {
+  return apiClient<PutMyBoardBackgroundResponse>("/api/boards/me/assets/background", {
+    method: "PUT",
+    body: JSON.stringify({ assetKey: assetKey.trim() }),
+  });
+}
+
+export type DeleteMyBoardBackgroundResponse = {
+  success: boolean;
+  message: string;
+};
+
+/** DELETE /api/boards/me/assets/background — 기본 배경으로 초기화 */
+export async function deleteMyBoardBackground(): Promise<DeleteMyBoardBackgroundResponse> {
+  return apiClient<DeleteMyBoardBackgroundResponse>("/api/boards/me/assets/background", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 /** PATCH /api/boards/me/items/:slotIndex — CHILD, slotIndex 1~3 */
 export async function patchMyWishItem(
   slotIndex: number,
@@ -125,22 +153,30 @@ export async function deleteMyWishItem(slotIndex: number): Promise<DeleteMyWishI
 }
 
 export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
-  return apiClient<PublicBoardData>(`/api/boards/${slug}`);
+  const safe = encodeURIComponent(slug);
+  return publicApiClient<PublicBoardData>(`/api/boards/${safe}`);
 }
 
-/** Spring `Pageable` 과 동일하게 page 는 0부터 (첫 페이지 = 0). */
+/**
+ * GET /api/boards/:slug/comments?page=&size=6
+ * Spring `Pageable`: `page`는 0부터(첫 페이지 = 0), `size`는 6 고정.
+ * 로그인 시 `Authorization`을 붙여 `comments[].isUser`(본인 댓글)가 오도록 `apiClient` 사용.
+ */
 export async function getComments(slug: string, page: number): Promise<CommentListData> {
-  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page}&size=6`);
+  const safe = encodeURIComponent(slug);
+  return apiClient<CommentListData>(`/api/boards/${safe}/comments?page=${page}&size=6`);
 }
 
 export async function createComment(
   slug: string,
   content: string,
   stickerKey: string,
+  slotIndex: number,
 ): Promise<CommentCreateData> {
-  return apiClient<CommentCreateData>(`/api/boards/${slug}/comments`, {
+  const safe = encodeURIComponent(slug);
+  return apiClient<CommentCreateData>(`/api/boards/${safe}/comments`, {
     method: "POST",
-    body: JSON.stringify({ content, stickerKey }),
+    body: JSON.stringify({ content, stickerKey, slotIndex }),
   });
 }
 

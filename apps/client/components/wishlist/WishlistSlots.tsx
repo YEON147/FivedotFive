@@ -104,6 +104,8 @@ function SlotBubble({
   showPlaceholder = true,
   /** false면 보기 모드 — 채워진 슬롯은 이미지만(투명 버튼), 스티커는 호버·탭 비활성 */
   decorateActive = true,
+  /** 스티커 빈 칸일 때만 — 없으면 슬롯 번호(`slot.id`) */
+  stickerEmptyLabel,
 }: {
   slot: BaseSlot;
   kind: SlotKind;
@@ -111,6 +113,7 @@ function SlotBubble({
   onClick?: (slotId: number) => void;
   showPlaceholder?: boolean;
   decorateActive?: boolean;
+  stickerEmptyLabel?: string;
 }) {
   const hasImage = Boolean(slot.imageSrc);
 
@@ -187,8 +190,16 @@ function SlotBubble({
           />
         </span>
       ) : (
-        <span className="flex h-full w-full items-center justify-center text-wish-body font-semibold">
-          {slot.id}
+        <span
+          className={`flex h-full w-full items-center justify-center px-1 text-center font-semibold leading-tight ${
+            kind === "sticker" && stickerEmptyLabel != null && stickerEmptyLabel !== ""
+              ? "text-[10px] text-slate-800 sm:text-[11px]"
+              : "text-wish-body"
+          }`}
+        >
+          {kind === "sticker" && stickerEmptyLabel != null && stickerEmptyLabel !== ""
+            ? stickerEmptyLabel
+            : slot.id}
         </span>
       )}
     </button>
@@ -224,18 +235,23 @@ function GiftSlots({
   ));
 }
 
+type StickerSlotsProps = {
+  images?: Partial<Record<number, string | null>>;
+  onSlotClick?: (slotId: number) => void;
+  showPlaceholder?: boolean;
+  /** false면 보기 모드 — 스티커에 호버·클릭 반응 없음 */
+  decorateActive?: boolean;
+  /** 빈 스티커 칸에 넣을 문구 — 없으면 1~6 숫자 */
+  stickerEmptyLabel?: string;
+};
+
 function StickerSlots({
   images,
   onSlotClick,
   showPlaceholder,
-  /** false면 보기 모드 — 스티커에 호버·클릭 반응 없음 */
   decorateActive = false,
-}: {
-  images?: Partial<Record<number, string | null>>;
-  onSlotClick?: (slotId: number) => void;
-  showPlaceholder?: boolean;
-  decorateActive?: boolean;
-}) {
+  stickerEmptyLabel,
+}: StickerSlotsProps) {
   const slots = mergeSlotImages(stickerSlots, images);
 
   return slots.map((slot) => (
@@ -247,6 +263,7 @@ function StickerSlots({
       onClick={onSlotClick}
       showPlaceholder={showPlaceholder}
       decorateActive={decorateActive}
+      stickerEmptyLabel={stickerEmptyLabel}
     />
   ));
 }
@@ -262,4 +279,4 @@ export {
   toXPercent,
   toYPercent,
 };
-export type { GiftLayoutCount, GiftSlot, StickerSlot };
+export type { GiftLayoutCount, GiftSlot, StickerSlot, StickerSlotsProps };

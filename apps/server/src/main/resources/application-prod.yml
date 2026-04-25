@@ -50,6 +50,11 @@ logging:
   level:
     com.ssafy.oh_jjeom_oh: INFO
 
+admin:
+  username: ${ADMIN_USERNAME:ohjeomoh}
+  password: ${ADMIN_PASSWORD}
+  nickname: ${ADMIN_NICKNAME:오쩜오}
+
 cloud:
   aws:
     s3:

@@ -43,4 +43,8 @@ public class WishBoard {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public void updateBoardSlug(String slug) {
+        this.boardSlug = slug;
+    }
 }

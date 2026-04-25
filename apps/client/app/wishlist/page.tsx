@@ -32,10 +32,12 @@ import {
 } from "@/components/wishlist/WishlistSlots";
 import {
   createMyBoard,
+  deleteMyBoardBackground,
   deleteMyWishItem,
   getMyBoard,
   deleteMyBoardStickerSlot,
   patchMyWishItem,
+  putMyBoardBackground,
   putMyBoardStickerSlot,
 } from "@/features/wishlist/api";
 import {
@@ -141,17 +143,20 @@ function WishlistProfileTitleHeader({
 function DefaultOptionButton({
   className = "",
   label = "Default",
+  disabled = false,
   onClick,
 }: {
   className?: string;
   label?: string;
+  disabled?: boolean;
   onClick?: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
-      className={`flex items-center justify-center overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-500 transition hover:border-slate-400 ${className}`}
+      className={`flex items-center justify-center overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-500 transition hover:border-slate-400 disabled:opacity-50 ${className}`}
       aria-label={`${label} option`}
     >
       <span className="text-xl font-semibold leading-none">×</span>
@@ -218,6 +223,8 @@ export default function WishlistPage() {
   const [backgroundAssets, setBackgroundAssets] = useState<BackgroundAssetDto[]>([]);
   const [backgroundsLoading, setBackgroundsLoading] = useState(false);
   const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
+  const [backgroundSaving, setBackgroundSaving] = useState(false);
+  const [backgroundSaveError, setBackgroundSaveError] = useState<string | null>(null);
   const [stickerModalTab, setStickerModalTab] = useState<StickerModalTabId>("all");
   const [stickerSheetList, setStickerSheetList] = useState<StickerAssetDto[]>([]);
   const [stickerSheetLoading, setStickerSheetLoading] = useState(false);
@@ -588,6 +595,8 @@ export default function WishlistPage() {
     if (!isCompactBackgroundOpen) {
       backgroundPickerStripDragCleanupRef.current?.();
       backgroundPickerStripDragCleanupRef.current = null;
+    } else {
+      setBackgroundSaveError(null);
     }
   }, [isCompactBackgroundOpen]);
 
@@ -798,6 +807,36 @@ export default function WishlistPage() {
       setStickerSlotSaving(false);
     }
   }, [stickerTargetSlotId, applyLoadedBoard]);
+
+  const persistBackgroundChoice = useCallback(
+    async (mode: "default" | "key", assetKey?: string) => {
+      setBackgroundSaving(true);
+      setBackgroundSaveError(null);
+      try {
+        if (mode === "default") {
+          await deleteMyBoardBackground();
+        } else {
+          const keyTrim = assetKey?.trim() ?? "";
+          if (!keyTrim) {
+            setBackgroundSaveError("배경을 선택해 주세요.");
+            return;
+          }
+          await putMyBoardBackground(keyTrim);
+        }
+        const board = await getMyBoard();
+        applyLoadedBoard(board);
+        setDraftBackgroundAssetKey(null);
+        setIsCompactBackgroundOpen(false);
+      } catch (e) {
+        setBackgroundSaveError(
+          e instanceof Error ? e.message : "배경을 저장하지 못했습니다.",
+        );
+      } finally {
+        setBackgroundSaving(false);
+      }
+    },
+    [applyLoadedBoard],
+  );
 
   const openGiftModalAdd = () => {
     setGiftModalMode("add");
@@ -1465,6 +1504,11 @@ export default function WishlistPage() {
               {backgroundsError}
             </p>
           ) : null}
+          {backgroundSaveError ? (
+            <p className="text-body-sm text-red-600" role="alert">
+              {backgroundSaveError}
+            </p>
+          ) : null}
 
           <div
             ref={backgroundPickerStripRef}
@@ -1479,9 +1523,9 @@ export default function WishlistPage() {
               <DefaultOptionButton
                 className="aspect-[3/4] w-full rounded-xl"
                 label="기본 배경"
+                disabled={backgroundSaving}
                 onClick={() => {
-                  if (backgroundPickerStripMouseDragRef.current.dragged) return;
-                  setDraftBackgroundAssetKey("");
+                  void persistBackgroundChoice("default");
                 }}
               />
             </div>
@@ -1494,11 +1538,11 @@ export default function WishlistPage() {
                 <button
                   key={bg.id}
                   type="button"
+                  disabled={backgroundSaving}
                   onClick={() => {
-                    if (backgroundPickerStripMouseDragRef.current.dragged) return;
-                    setDraftBackgroundAssetKey(bg.assetKey);
+                    void persistBackgroundChoice("key", bg.assetKey);
                   }}
-                  className="group flex w-24 shrink-0 cursor-pointer flex-col gap-1.5 text-center transition hover:opacity-95"
+                  className="group flex w-24 shrink-0 cursor-pointer flex-col gap-1.5 text-center transition hover:opacity-95 disabled:opacity-50"
                 >
                   <p className="break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
                     {label}

@@ -5,8 +5,9 @@ import {
   CaretRightIcon,
   ChatCircleDots,
   TextAlignJustify,
+  X,
 } from "@phosphor-icons/react";
-import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   use,
@@ -26,24 +27,30 @@ import {
   DESIGN_WIDTH,
   GiftSlots,
   StickerSlots,
-  STICKER_SIZE,
-  getStickerSlotCssTransform,
-  stickerSlots,
-  toXPercent,
-  toYPercent,
 } from "@/components/wishlist/WishlistSlots";
 import { getMyProfile } from "@/features/user/api";
 import {
   createComment,
   deleteComment,
   getComments,
+  getMyBoard,
   getPublicBoard,
   updateComment,
 } from "@/features/wishlist/api";
-import { alignTimeOrderCommentsToSixSlots } from "@/features/wishlist/comment-slot-layout";
+import { resolveBoardBackgroundImageUrl } from "@/features/wishlist/board-background";
+import {
+  computeCommentSheetCount,
+  normalizeCommentsToSlotGrid,
+} from "@/features/wishlist/comment-slot-layout";
 import { deriveWishSlotState } from "@/features/wishlist/wish-slot-state";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
-import type { BoardAssetData, CommentData, StickerOption, WishItemData } from "@/features/wishlist/types";
+import type {
+  BoardAssetData,
+  CommentData,
+  CommentListPayload,
+  StickerOption,
+  WishItemData,
+} from "@/features/wishlist/types";
 import {
   fetchStickerAssets,
   fetchStickerFolders,
@@ -69,6 +76,34 @@ function stickerOptionLabelFromAssetKey(assetKey: string): string {
   return last.replace(/\.[^.]+$/, "") || assetKey;
 }
 
+/** 서버·Jackson 필드명 차이 + `hasNext` 생략 시에도 `totalCount`로 마지막 면 꽉 참 판별 */
+function resolveIsLastPageFull(p: CommentListPayload): boolean {
+  const tc = p.totalCount;
+  if (typeof tc === "number" && tc > 0 && tc % 6 === 0) {
+    return true;
+  }
+  if (typeof p.isLastPageFull === "boolean") {
+    return p.isLastPageFull;
+  }
+  if (typeof p.lastPageFull === "boolean") {
+    return p.lastPageFull;
+  }
+  return p.comments.length === 6 && p.hasNext === false;
+}
+
+/** GET `?size=6` 응답으로 캐러셀 댓글 면 수 */
+function commentSheetCountFromPayload(p: CommentListPayload): number {
+  return computeCommentSheetCount(p.totalPages ?? 0, resolveIsLastPageFull(p), {
+    commentsLength: p.comments.length,
+    hasNext: p.hasNext,
+    totalCount: p.totalCount,
+  });
+}
+
+function isCommentListLastPageFullByShape(p: CommentListPayload): boolean {
+  return resolveIsLastPageFull(p);
+}
+
 type PopupMode = "view" | "write" | "edit";
 
 /**
@@ -81,16 +116,17 @@ const PUBLIC_WISHLIST_BOARD_WRAP =
  * 공개 보드 바깥 프레임 — `app/wishlist/page.tsx` 꾸미기 보드 프레임과 동일.
  * 배경 에셋이 없을 때도 오로라 그라데이션(`wishlist-board-frame--decorate`)이 깔림.
  */
-/** 가로 슬라이드 시 인접 페이지가 비치지 않도록 클립. 슬롯·선물은 각 슬라이드 내부(`BoardFrame`)에서 여전히 살짝 돌출 가능 */
-const PUBLIC_BOARD_FRAME_OUTER =
-  "relative isolate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 overflow-hidden rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
+/** 공개 카드 전체(타이틀+보드) — `app/wishlist/page.tsx` 의 `WISHLIST_BOARD_FRAME_BASE` 와 동일 톤 */
+const PUBLIC_WISHLIST_CARD_SHELL =
+  "relative isolate flex w-full max-w-[372px] min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
+
+/** 가로 슬라이드 뷰포트 — `width`·`aspect-ratio`·`max-height:100%`로 남은 높이에 맞춤(세로 스크롤 없음) */
+const PUBLIC_BOARD_SLIDE_VIEWPORT =
+  "relative mx-auto min-h-0 max-h-full shrink-0 overflow-hidden self-center";
 
 /** 배경 이미지는 위 레이어 — 없을 때는 바깥 프레임 오로라만 보임 */
 const PUBLIC_BOARD_INNER =
   "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
-
-const PUBLIC_WISHLIST_APP_FOOTER =
-  "flex min-h-10 w-full shrink-0 items-center justify-center border-t border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-xs text-[var(--color-text-secondary)]";
 
 function PublicBoardProfileHeader({
   ownerName,
@@ -113,7 +149,7 @@ function PublicBoardProfileHeader({
           </span>
         </span>
         <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">
-          위시리스트
+          위시리스트 입니다.
         </span>
       </h1>
       <button
@@ -138,6 +174,8 @@ function BoardFrame({
   boardItems,
   isSidebarOpen,
   onMenuClick,
+  showHeader = true,
+  omitBackground = false,
   children,
 }: {
   ownerName: string;
@@ -145,12 +183,18 @@ function BoardFrame({
   boardItems: WishItemData[];
   isSidebarOpen: boolean;
   onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  /** false: 닉네임·메뉴는 바깥 고정 헤더만 사용 */
+  showHeader?: boolean;
+  /** true: 배경은 부모 카드에서 한 번만 깔음 */
+  omitBackground?: boolean;
   children?: ReactNode;
 }) {
   const backgroundUrl = useMemo(() => {
-    const bg = boardAssets.find((a) => a.assetType === "BACKGROUND");
-    return bg ? getAssetImageUrl(bg.assetKey) : null;
-  }, [boardAssets]);
+    if (omitBackground) {
+      return null;
+    }
+    return resolveBoardBackgroundImageUrl(boardAssets);
+  }, [boardAssets, omitBackground]);
 
   const { bigCircleCount, wishGiftIconKeys } = useMemo(
     () => deriveWishSlotState(boardItems),
@@ -169,7 +213,13 @@ function BoardFrame({
   }, [bigCircleCount, wishGiftIconKeys]);
 
   return (
-    <div className={PUBLIC_BOARD_INNER}>
+    <div
+      className={
+        showHeader || omitBackground
+          ? PUBLIC_BOARD_INNER
+          : `${PUBLIC_BOARD_INNER} pt-[7%]`
+      }
+    >
       {backgroundUrl ? (
         <img
           src={backgroundUrl}
@@ -178,13 +228,16 @@ function BoardFrame({
         />
       ) : null}
 
-      <PublicBoardProfileHeader
-        ownerName={ownerName}
-        isSidebarOpen={isSidebarOpen}
-        onMenuClick={onMenuClick}
-      />
+      {showHeader ? (
+        <PublicBoardProfileHeader
+          ownerName={ownerName}
+          isSidebarOpen={isSidebarOpen}
+          onMenuClick={onMenuClick}
+        />
+      ) : null}
 
-      <GiftSlots count={bigCircleCount} images={giftImages} showPlaceholder />
+      {/* 타인 보드: 채워진 선물만 표시 — 빈 슬롯(꾸미기용) 숨김 */}
+      <GiftSlots count={bigCircleCount} images={giftImages} showPlaceholder={false} decorateActive={false} />
 
       {children}
     </div>
@@ -198,12 +251,14 @@ function MainBoardPage({
   boardItems,
   isSidebarOpen,
   onMenuClick,
+  omitBackground = false,
 }: {
   ownerName: string;
   boardAssets: BoardAssetData[];
   boardItems: WishItemData[];
   isSidebarOpen: boolean;
   onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  omitBackground?: boolean;
 }) {
   const stickerImages = useMemo(() => {
     const acc: Partial<Record<number, string>> = {};
@@ -222,13 +277,15 @@ function MainBoardPage({
       boardItems={boardItems}
       isSidebarOpen={isSidebarOpen}
       onMenuClick={onMenuClick}
+      showHeader={false}
+      omitBackground={omitBackground}
     >
-      <StickerSlots images={stickerImages} showPlaceholder={false} />
+      <StickerSlots images={stickerImages} showPlaceholder={false} decorateActive={false} />
     </BoardFrame>
   );
 }
 
-/** 페이지 1+: 댓글 슬롯 */
+/** 페이지 1+: 댓글 슬롯 — `showEmptyCommentSlots`: 타인 보드에 로그인 후 댓글 작성 가능할 때만 빈 칸 표시 */
 function CommentBoardPage({
   ownerName,
   boardAssets,
@@ -238,6 +295,8 @@ function CommentBoardPage({
   onSlotClick,
   isSidebarOpen,
   onMenuClick,
+  omitBackground = false,
+  showEmptyCommentSlots,
 }: {
   ownerName: string;
   boardAssets: BoardAssetData[];
@@ -247,7 +306,22 @@ function CommentBoardPage({
   onSlotClick: (slotId: number) => void;
   isSidebarOpen: boolean;
   onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  omitBackground?: boolean;
+  showEmptyCommentSlots: boolean;
 }) {
+  const stickerImages = useMemo(() => {
+    const acc: Partial<Record<number, string | null>> = {};
+    for (let i = 0; i < comments.length; i++) {
+      const slotId = i + 1;
+      const row = comments[i];
+      const rawKey = row?.stickerKey?.trim();
+      if (row != null && row.id != null && rawKey) {
+        acc[slotId] = getAssetImageUrl(rawKey);
+      }
+    }
+    return acc;
+  }, [comments]);
+
   return (
     <BoardFrame
       ownerName={ownerName}
@@ -255,50 +329,23 @@ function CommentBoardPage({
       boardItems={boardItems}
       isSidebarOpen={isSidebarOpen}
       onMenuClick={onMenuClick}
+      showHeader={false}
+      omitBackground={omitBackground}
     >
-      {stickerSlots.map((slot, index) => {
-        const row = comments[index] ?? null;
-        const hasComment = Boolean(row);
-        const rawKey = row?.stickerKey?.trim();
-        const imageSrc = rawKey ? getAssetImageUrl(rawKey) : null;
-
-        return (
-          <button
-            key={slot.id}
-            type="button"
-            onClick={() => onSlotClick(slot.id)}
-            className="absolute aspect-square overflow-visible rounded-full border border-white/70 bg-[#d9d9d9] shadow-sm transition-transform hover:scale-[1.03] active:scale-95"
-            style={{
-              top: toYPercent(slot.top),
-              left: toXPercent(slot.left),
-              width: toXPercent(STICKER_SIZE),
-              transform: getStickerSlotCssTransform(slot.id),
-            }}
-            aria-label={
-              hasComment && row
-                ? `${row.senderName}의 댓글 보기`
-                : `슬롯 ${slot.id}에 댓글 남기기`
-            }
-          >
-            {imageSrc ? (
-              <span className="pointer-events-none absolute inset-0">
-                <Image
-                  src={imageSrc}
-                  alt={row?.senderName ?? "comment"}
-                  fill
-                  unoptimized
-                  sizes={`${STICKER_SIZE}px`}
-                  className="object-contain object-center p-[7%]"
-                />
-              </span>
-            ) : (
-              <span className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-slate-400">
-                {isLoading ? "·" : "+"}
-              </span>
-            )}
-          </button>
-        );
-      })}
+      <div
+        className={
+          isLoading ? "pointer-events-none h-full w-full opacity-55 transition-opacity" : "h-full w-full"
+        }
+        aria-busy={isLoading || undefined}
+      >
+        <StickerSlots
+          images={stickerImages}
+          showPlaceholder={showEmptyCommentSlots}
+          decorateActive
+          stickerEmptyLabel={showEmptyCommentSlots ? "댓글작성" : undefined}
+          onSlotClick={onSlotClick}
+        />
+      </div>
     </BoardFrame>
   );
 }
@@ -332,6 +379,10 @@ export default function PublicWishlistPage({
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
+  /** 로그인 후 내 보드 slug — `undefined`: 아직 조회 전, `null`: 보드 없음·조회 실패 */
+  const [myBoardSlug, setMyBoardSlug] = useState<string | null | undefined>(undefined);
+  const [guestAuthModalOpen, setGuestAuthModalOpen] = useState(false);
+  const [ownBoardWriteNoticeOpen, setOwnBoardWriteNoticeOpen] = useState(false);
 
   const [apiStickerFolders, setApiStickerFolders] = useState<string[]>([]);
   const [commentStickerFolderId, setCommentStickerFolderId] = useState("all");
@@ -380,6 +431,55 @@ export default function PublicWishlistPage({
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [syncVisitorSession]);
+
+  useEffect(() => {
+    if (!visitorMenuLoggedIn) {
+      setMyBoardSlug(undefined);
+      return;
+    }
+    let cancelled = false;
+    void getMyBoard()
+      .then((board) => {
+        if (!cancelled) {
+          setMyBoardSlug(board.data.boardSlug?.trim() || null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMyBoardSlug(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visitorMenuLoggedIn]);
+
+  const isViewingOwnBoard = useMemo(() => {
+    if (!visitorMenuLoggedIn || myBoardSlug === undefined || myBoardSlug === null) {
+      return false;
+    }
+    return myBoardSlug === slug.trim();
+  }, [visitorMenuLoggedIn, myBoardSlug, slug]);
+
+  /** 타인 공개 보드에만 — 비로그인·자기 보드·내 슬러그 확인 전에는 빈 댓글 칸·꾸미기 톤 숨김 */
+  const showEmptyCommentSlots = useMemo(
+    () => Boolean(visitorMenuLoggedIn && myBoardSlug !== undefined && !isViewingOwnBoard),
+    [visitorMenuLoggedIn, myBoardSlug, isViewingOwnBoard],
+  );
+
+  const loadPublicBoard = useCallback(() => {
+    return getPublicBoard(slug)
+      .then((data) => {
+        setBoardItems(data.data.items);
+        setBoardAssets(data.data.assets);
+        const display =
+          data.data.nickname?.trim() ||
+          data.data.username?.trim() ||
+          "회원";
+        setOwnerName(display);
+      })
+      .catch(() => {});
+  }, [slug]);
 
   const handleVisitorMenuClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -460,8 +560,11 @@ export default function PublicWishlistPage({
       setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
       try {
         const data = await getComments(slug, commentPageIdx);
-        setCommentCache((prev) => ({ ...prev, [commentPageIdx]: data.data.comments }));
-        setCommentTotalPages(Math.max(1, data.data.totalPages || 1));
+        setCommentCache((prev) => ({
+          ...prev,
+          [commentPageIdx]: normalizeCommentsToSlotGrid(data.data.comments, commentPageIdx),
+        }));
+        setCommentTotalPages(commentSheetCountFromPayload(data.data));
       } finally {
         setLoadingPages((prev) => {
           const next = new Set(prev);
@@ -474,16 +577,27 @@ export default function PublicWishlistPage({
   );
 
   useEffect(() => {
-    getPublicBoard(slug)
-      .then((data) => {
-        setBoardItems(data.data.items);
-        setBoardAssets(data.data.assets);
-        setOwnerName(data.data.username ?? "");
-      })
-      .catch(() => {});
+    setCommentCache({});
+    setCommentTotalPages(1);
+    setCurrentVisualPage(0);
+    setLoadingPages(new Set());
+    setPopupCommentPage(null);
+    setSelectedSlot(null);
+    setSelectedComment(null);
 
-    fetchCommentPage(0);
-  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+    void loadPublicBoard();
+    void fetchCommentPage(0);
+  }, [slug, loadPublicBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        void loadPublicBoard();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [loadPublicBoard]);
 
   useEffect(() => {
     if (currentVisualPage === 0) return;
@@ -493,8 +607,10 @@ export default function PublicWishlistPage({
     if (commentIdx < commentTotalPages - 1) fetchCommentPage(commentIdx + 1);
   }, [currentVisualPage, commentTotalPages]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const navigateTo = (visualPage: number) => {
-    if (visualPage < 0 || visualPage >= totalVisualPages || isSliding.current) return;
+  /** `totalVisualPagesOverride`: 방금 갱신한 댓글 면 수 반영 전에도 이동할 때 사용 */
+  const navigateTo = (visualPage: number, totalVisualPagesOverride?: number) => {
+    const cap = totalVisualPagesOverride ?? totalVisualPages;
+    if (visualPage < 0 || visualPage >= cap || isSliding.current) return;
     isSliding.current = true;
     setCurrentVisualPage(visualPage);
     setTimeout(() => {
@@ -502,14 +618,39 @@ export default function PublicWishlistPage({
     }, 350);
   };
 
-  const handleGoToLastCommentPage = () => navigateTo(totalVisualPages - 1);
+  const handleGoToLastCommentPage = () => {
+    if (!visitorMenuLoggedIn) {
+      setGuestAuthModalOpen(true);
+      return;
+    }
+    navigateTo(totalVisualPages - 1);
+  };
 
   const handleSlotClick = (slotId: number, commentPageIdx: number) => {
     const row = (commentCache[commentPageIdx] ?? [])[slotId - 1] ?? null;
+    const hasComment = row != null && row.id != null;
+    if (hasComment) {
+      setPopupCommentPage(commentPageIdx);
+      setSelectedSlot(slotId);
+      setSelectedComment(row);
+      setPopupMode("view");
+      return;
+    }
+    if (!visitorMenuLoggedIn) {
+      setGuestAuthModalOpen(true);
+      return;
+    }
+    if (visitorMenuLoggedIn && myBoardSlug === undefined) {
+      return;
+    }
+    if (isViewingOwnBoard) {
+      setOwnBoardWriteNoticeOpen(true);
+      return;
+    }
     setPopupCommentPage(commentPageIdx);
     setSelectedSlot(slotId);
-    setSelectedComment(row);
-    setPopupMode(row ? "view" : "write");
+    setSelectedComment(null);
+    setPopupMode("write");
   };
 
   const handleClosePopup = () => {
@@ -518,15 +659,18 @@ export default function PublicWishlistPage({
     setSelectedComment(null);
   };
 
-  const refreshCommentPage = async (commentPageIdx: number) => {
+  const refreshCommentPage = async (commentPageIdx: number): Promise<CommentListPayload> => {
     setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
     try {
       const data = await getComments(slug, commentPageIdx);
+      const payload = data.data;
+      const grid = normalizeCommentsToSlotGrid(payload.comments, commentPageIdx);
       setCommentCache((prev) => ({
         ...prev,
-        [commentPageIdx]: alignTimeOrderCommentsToSixSlots(data.data.comments),
+        [commentPageIdx]: grid,
       }));
-      setCommentTotalPages(Math.max(1, data.data.totalPages || 1));
+      setCommentTotalPages(commentSheetCountFromPayload(payload));
+      return payload;
     } finally {
       setLoadingPages((prev) => {
         const next = new Set(prev);
@@ -537,10 +681,29 @@ export default function PublicWishlistPage({
   };
 
   const handleCreate = async (content: string, stickerKey: string) => {
-    if (popupCommentPage === null) return;
-    await createComment(slug, content, stickerKey);
-    await refreshCommentPage(popupCommentPage);
+    if (popupCommentPage === null || selectedSlot === null || isViewingOwnBoard) {
+      return;
+    }
+    const inPageSlot = selectedSlot - 1;
+    if (inPageSlot < 0 || inPageSlot > 5) {
+      return;
+    }
+    const wroteOnPage = popupCommentPage;
+    const globalSlotIndex = wroteOnPage * 6 + inPageSlot;
+    await createComment(slug, content, stickerKey, globalSlotIndex);
+    const payload = await refreshCommentPage(wroteOnPage);
     handleClosePopup();
+
+    /** 현재 면에서 마지막 칸(전역 slotIndex % 6 === 5) + 마지막 API 페이지가 꽉 찬 경우에만 다음 면으로 이동 */
+    if (!isCommentListLastPageFullByShape(payload) || globalSlotIndex % 6 !== 5) {
+      return;
+    }
+    const sheetCount = commentSheetCountFromPayload(payload);
+    const nextVisualCap = 1 + sheetCount;
+    const targetVisual = sheetCount;
+    window.setTimeout(() => {
+      navigateTo(targetVisual, nextVisualCap);
+    }, 0);
   };
 
   const handleUpdate = async (commentId: number, content: string) => {
@@ -555,106 +718,235 @@ export default function PublicWishlistPage({
     handleClosePopup();
   };
 
+  const boardBackgroundUrl = useMemo(
+    () => resolveBoardBackgroundImageUrl(boardAssets),
+    [boardAssets],
+  );
+
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+    <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col !overflow-hidden px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
       {selectedSlot !== null ? (
         <div className="fixed inset-0 z-20 bg-black/40" onClick={handleClosePopup} />
       ) : null}
 
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start overflow-visible">
-        <section className={`${PUBLIC_WISHLIST_BOARD_WRAP} mx-auto w-full`}>
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-visible p-0">
-            <div className="relative flex min-h-0 flex-1 w-full min-w-0 items-center justify-center overflow-visible px-1 py-2 sm:px-2 sm:py-3">
+      <div className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-hidden transition-all duration-300 ease-out">
+        <section className={`${PUBLIC_WISHLIST_BOARD_WRAP} mx-auto min-h-0 w-full`}>
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0">
+            <div className="relative flex min-h-0 min-w-0 flex-1 items-stretch justify-center overflow-hidden px-1 pb-1 pt-1.5 sm:px-2 sm:pb-1.5 sm:pt-2">
               <div
-                className={PUBLIC_BOARD_FRAME_OUTER}
-                style={{
-                  aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
-                }}
+                className={`${PUBLIC_WISHLIST_CARD_SHELL} mx-auto h-full min-h-0 max-h-full w-full max-w-[372px] flex-1`}
               >
-                <div
-                  className="absolute inset-0 flex h-full min-h-0 transition-transform duration-300 ease-out"
-                  style={{
-                    width: `${totalVisualPages * 100}%`,
-                    transform: `translateX(calc(-${currentVisualPage} * (100% / ${totalVisualPages})))`,
-                  }}
-                >
-                  <div
-                    className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
-                    style={{ width: `${100 / totalVisualPages}%` }}
-                  >
-                    <MainBoardPage
-                      ownerName={ownerName}
-                      boardAssets={boardAssets}
-                      boardItems={boardItems}
-                      isSidebarOpen={isSidebarOpen}
-                      onMenuClick={handleVisitorMenuClick}
+                {boardBackgroundUrl ? (
+                  <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
+                    <img
+                      src={boardBackgroundUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
                     />
                   </div>
+                ) : null}
 
-                  {Array.from({ length: commentTotalPages }, (_, commentIdx) => (
-                    <div
-                      key={commentIdx}
-                      className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
-                      style={{ width: `${100 / totalVisualPages}%` }}
-                    >
-                      <CommentBoardPage
-                        ownerName={ownerName}
-                        boardAssets={boardAssets}
-                        boardItems={boardItems}
-                        comments={commentCache[commentIdx] ?? []}
-                        isLoading={loadingPages.has(commentIdx)}
-                        onSlotClick={(slotId) => handleSlotClick(slotId, commentIdx)}
-                        isSidebarOpen={isSidebarOpen}
-                        onMenuClick={handleVisitorMenuClick}
-                      />
-                    </div>
-                  ))}
+                <div className="relative z-[1] shrink-0">
+                  <PublicBoardProfileHeader
+                    ownerName={ownerName}
+                    isSidebarOpen={isSidebarOpen}
+                    onMenuClick={handleVisitorMenuClick}
+                  />
                 </div>
 
-                <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex items-end justify-between px-[4%]">
-                  <div className="pointer-events-auto flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => navigateTo(currentVisualPage - 1)}
-                      disabled={currentVisualPage === 0}
-                      className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                      aria-label="이전 페이지"
+                <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                  <div className="relative flex min-h-0 min-w-0 w-full flex-1 items-center justify-center overflow-hidden">
+                    <div
+                      className={PUBLIC_BOARD_SLIDE_VIEWPORT}
+                      style={{
+                        aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
+                        width: "min(100%, 372px)",
+                        maxHeight: "100%",
+                      }}
                     >
-                      <CaretLeftIcon size={23} weight="bold" />
-                    </button>
-                    <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
-                      {currentVisualPage + 1} / {totalVisualPages}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => navigateTo(currentVisualPage + 1)}
-                      disabled={currentVisualPage === totalVisualPages - 1}
-                      className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                      aria-label="다음 페이지"
-                    >
-                      <CaretRightIcon size={23} weight="bold" />
-                    </button>
-                  </div>
+                      <div
+                        className="absolute inset-0 flex h-full min-h-0 transition-transform duration-300 ease-out"
+                        style={{
+                          width: `${totalVisualPages * 100}%`,
+                          transform: `translateX(calc(-${currentVisualPage} * (100% / ${totalVisualPages})))`,
+                        }}
+                      >
+                        <div
+                          className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
+                          style={{ width: `${100 / totalVisualPages}%` }}
+                        >
+                          <MainBoardPage
+                            ownerName={ownerName}
+                            boardAssets={boardAssets}
+                            boardItems={boardItems}
+                            isSidebarOpen={isSidebarOpen}
+                            onMenuClick={handleVisitorMenuClick}
+                            omitBackground
+                          />
+                        </div>
 
-                  {currentVisualPage === 0 ? (
-                    <button
-                      type="button"
-                      onClick={handleGoToLastCommentPage}
-                      className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
-                      aria-label="댓글 작성하러 가기"
-                      title="댓글 작성하러 가기"
-                    >
-                      <ChatCircleDots size={23} weight="bold" />
-                    </button>
-                  ) : null}
+                        {Array.from({ length: commentTotalPages }, (_, commentIdx) => (
+                          <div
+                            key={commentIdx}
+                            className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
+                            style={{ width: `${100 / totalVisualPages}%` }}
+                          >
+                            <CommentBoardPage
+                              ownerName={ownerName}
+                              boardAssets={boardAssets}
+                              boardItems={boardItems}
+                              comments={commentCache[commentIdx] ?? []}
+                              isLoading={loadingPages.has(commentIdx)}
+                              onSlotClick={(slotId) => handleSlotClick(slotId, commentIdx)}
+                              isSidebarOpen={isSidebarOpen}
+                              onMenuClick={handleVisitorMenuClick}
+                              omitBackground
+                              showEmptyCommentSlots={showEmptyCommentSlots}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex items-end justify-between px-[4%]">
+                        <div className="pointer-events-auto flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => navigateTo(currentVisualPage - 1)}
+                            disabled={currentVisualPage === 0}
+                            className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                            aria-label="이전 페이지"
+                          >
+                            <CaretLeftIcon size={23} weight="bold" />
+                          </button>
+                          <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
+                            {currentVisualPage + 1} / {totalVisualPages}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => navigateTo(currentVisualPage + 1)}
+                            disabled={currentVisualPage === totalVisualPages - 1}
+                            className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                            aria-label="다음 페이지"
+                          >
+                            <CaretRightIcon size={23} weight="bold" />
+                          </button>
+                        </div>
+
+                        {currentVisualPage === 0 ? (
+                          <button
+                            type="button"
+                            onClick={handleGoToLastCommentPage}
+                            className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
+                            aria-label="댓글 작성하러 가기"
+                            title="댓글 작성하러 가기"
+                          >
+                            <ChatCircleDots size={23} weight="bold" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <footer className={PUBLIC_WISHLIST_APP_FOOTER}>광고 중...</footer>
           </div>
         </section>
       </div>
+
+      {guestAuthModalOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[40] cursor-default bg-black/45"
+            aria-label="닫기"
+            onClick={() => setGuestAuthModalOpen(false)}
+          />
+          <div
+            className="fixed left-1/2 top-1/2 z-[41] w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.14)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guest-auth-title"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 id="guest-auth-title" className="text-h3 text-slate-900">
+                  로그인이 필요해요
+                </h2>
+                <p className="mt-2 text-body-sm leading-snug text-slate-600">
+                  댓글을 남기려면 로그인하거나 회원가입해 주세요.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGuestAuthModalOpen(false)}
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60"
+                aria-label="닫기"
+              >
+                <X size={20} weight="bold" aria-hidden />
+              </button>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <Link
+                href="/login"
+                onClick={() => setGuestAuthModalOpen(false)}
+                className="flex items-center justify-center rounded-[14px] bg-[#7B61FF] px-4 py-3 text-center text-sm font-semibold text-white transition hover:opacity-95"
+              >
+                로그인
+              </Link>
+              <Link
+                href="/signup"
+                onClick={() => setGuestAuthModalOpen(false)}
+                className="flex items-center justify-center rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-center text-sm font-semibold text-[var(--color-text-primary)] transition hover:bg-slate-50"
+              >
+                회원가입
+              </Link>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {ownBoardWriteNoticeOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[40] cursor-default bg-black/45"
+            aria-label="닫기"
+            onClick={() => setOwnBoardWriteNoticeOpen(false)}
+          />
+          <div
+            className="fixed left-1/2 top-1/2 z-[41] w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.14)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="own-board-notice-title"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 id="own-board-notice-title" className="text-h3 text-slate-900">
+                  댓글을 남길 수 없어요
+                </h2>
+                <p className="mt-2 text-body-sm leading-snug text-slate-600">
+                  본인의 위시리스트에는 댓글을 작성할 수 없습니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOwnBoardWriteNoticeOpen(false)}
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60"
+                aria-label="닫기"
+              >
+                <X size={20} weight="bold" aria-hidden />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOwnBoardWriteNoticeOpen(false)}
+              className="mt-5 w-full rounded-[14px] bg-[#7B61FF] py-3 text-sm font-semibold text-white transition hover:opacity-95"
+            >
+              확인
+            </button>
+          </div>
+        </>
+      ) : null}
 
       <PublicWishlistVisitorMenu
         open={isSidebarOpen}
