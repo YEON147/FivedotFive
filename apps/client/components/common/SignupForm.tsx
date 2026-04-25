@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { GenderToggle } from "@/components/ui/GenderToggle";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
-import { GENDER_OPTIONS, GRADE_OPTIONS } from "@/lib/constants/signup";
+import { GRADE_OPTIONS } from "@/lib/constants/signup";
 import type {
   CheckStatus,
   SignupFormErrors,
@@ -81,6 +82,9 @@ export function SignupForm({
 
   const [debouncedUsername, setDebouncedUsername] = useState(values.username);
   const [debouncedPassword, setDebouncedPassword] = useState(values.password);
+  const [debouncedPasswordConfirm, setDebouncedPasswordConfirm] = useState(
+    values.passwordConfirm,
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -97,6 +101,14 @@ export function SignupForm({
 
     return () => clearTimeout(timer);
   }, [values.password]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPasswordConfirm(values.passwordConfirm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [values.passwordConfirm]);
 
   const isUsernameReady =
     debouncedUsername.trim().length >= 2 &&
@@ -115,12 +127,31 @@ export function SignupForm({
     values.nickname.trim().length >= 2 &&
     values.nickname.trim().length <= 8;
 
+  const passwordStatusMessage = (() => {
+    if (!debouncedPassword.trim() || isPasswordReady) return null;
+    return {
+      text: "영문과 숫자를 모두 포함한 8~12자로 입력해 주세요.",
+      className: "text-slate-500",
+    };
+  })();
+
   const showPassword = isUsernameReady;
   const showPasswordConfirm = showPassword && isPasswordReady;
   const showEmail = showPasswordConfirm && isPasswordConfirmReady;
   const showNickname = showEmail && isEmailReady;
   const showOptionalSection = showNickname && isNicknameReady;
   const showSubmit = showNickname && isNicknameReady;
+
+  const passwordConfirmStatusMessage = (() => {
+    if (!showPasswordConfirm || !debouncedPasswordConfirm.trim()) return null;
+    if (debouncedPassword !== debouncedPasswordConfirm) {
+      return {
+        text: "비밀번호가 일치하지 않습니다.",
+        className: "text-slate-500",
+      };
+    }
+    return null;
+  })();
 
   return (
     <form
@@ -138,11 +169,11 @@ export function SignupForm({
               label="아이디"
               requiredMark
               maxLength={12}
-              placeholder="2~12자 입력 후 잠시 기다려주세요"
+              placeholder="2~12자, 영문·한글"
               value={values.username}
               error={errors.username}
-              hint="2~12자입니다. 입력을 마치면 아이디 중복 여부를 확인합니다."
-              hintDisplay="tooltip"
+              hint="2~12자이며, 영문과 한글 입력이 모두 가능합니다."
+              hintDisplay="label-inline"
               scrollIntoViewOnFocus
               onChange={(event) => onChange("username", event.target.value)}
             />
@@ -155,43 +186,61 @@ export function SignupForm({
 
         {showPassword ? (
           <StepSection>
-            <TextField
-              id="password"
-              type="password"
-              label="비밀번호"
-              requiredMark
-              minLength={8}
-              maxLength={12}
-              placeholder="8~12자 영문+숫자 입력 후 잠시 기다려주세요"
-              value={values.password}
-              error={errors.password}
-              hint="영문과 숫자를 모두 포함한 8~12자입니다."
-              hintDisplay="tooltip"
-              scrollIntoViewOnFocus
-              onChange={(event) => onChange("password", event.target.value)}
-            />
+            <div className="flex flex-col gap-0.5">
+              <TextField
+                id="password"
+                type="password"
+                label="비밀번호"
+                requiredMark
+                minLength={8}
+                maxLength={12}
+                placeholder="8~12자 영문+숫자 입력 후 잠시 기다려주세요"
+                value={values.password}
+                error={errors.password}
+                hint="영문과 숫자를 모두 포함한 8~12자입니다."
+                hintDisplay="label-inline"
+                scrollIntoViewOnFocus
+                onChange={(event) => onChange("password", event.target.value)}
+              />
+
+              {passwordStatusMessage && !errors.password ? (
+                <p className={`text-xs ${passwordStatusMessage.className}`}>
+                  {passwordStatusMessage.text}
+                </p>
+              ) : null}
+            </div>
           </StepSection>
         ) : null}
 
         {showPasswordConfirm ? (
           <StepSection>
-            <TextField
-              id="passwordConfirm"
-              type="password"
-              label="비밀번호 확인"
-              requiredMark
-              minLength={8}
-              maxLength={12}
-              placeholder="비밀번호를 다시 입력해주세요"
-              value={values.passwordConfirm}
-              error={errors.passwordConfirm}
-              hint="위에서 입력한 비밀번호와 동일하게 입력해 주세요."
-              hintDisplay="tooltip"
-              scrollIntoViewOnFocus
-              onChange={(event) =>
-                onChange("passwordConfirm", event.target.value)
-              }
-            />
+            <div className="flex flex-col gap-0.5">
+              <TextField
+                id="passwordConfirm"
+                type="password"
+                label="비밀번호 확인"
+                requiredMark
+                minLength={8}
+                maxLength={12}
+                placeholder="비밀번호를 다시 입력해주세요"
+                value={values.passwordConfirm}
+                error={errors.passwordConfirm}
+                hint="위에서 입력한 비밀번호와 동일하게 입력해 주세요."
+                hintDisplay="label-inline"
+                scrollIntoViewOnFocus
+                onChange={(event) =>
+                  onChange("passwordConfirm", event.target.value)
+                }
+              />
+
+              {passwordConfirmStatusMessage && !errors.passwordConfirm ? (
+                <p
+                  className={`text-xs ${passwordConfirmStatusMessage.className}`}
+                >
+                  {passwordConfirmStatusMessage.text}
+                </p>
+              ) : null}
+            </div>
           </StepSection>
         ) : null}
 
@@ -207,7 +256,7 @@ export function SignupForm({
                 value={values.email}
                 error={errors.email}
                 hint="비밀번호 찾기에 사용됩니다."
-                hintDisplay="tooltip"
+                hintDisplay="label-inline"
                 scrollIntoViewOnFocus
                 onChange={(event) => onChange("email", event.target.value)}
               />
@@ -237,15 +286,17 @@ export function SignupForm({
                 value={values.nickname}
                 error={errors.nickname}
                 disabled={isNicknameLoading}
-                hint="서비스에 표시되는 이름입니다. 입력 후 자동으로 중복 여부를 확인합니다."
-                hintDisplay="tooltip"
+                hint="서비스에 표시되는 이름입니다."
+                hintDisplay="label-inline"
                 scrollIntoViewOnFocus
                 onChange={(event) => onChange("nickname", event.target.value)}
               />
 
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 {nicknameCheckMessage ? (
-                  <p className={`min-w-0 flex-[1_1_0%] text-xs ${nicknameStatusClass}`}>
+                  <p
+                    className={`min-w-0 flex-[1_1_0%] text-xs ${nicknameStatusClass}`}
+                  >
                     {nicknameCheckMessage}
                   </p>
                 ) : (
@@ -268,15 +319,17 @@ export function SignupForm({
 
         {showOptionalSection ? (
           <StepSection>
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
-              <div className="mb-2">
-                <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">추가 정보</h2>
-                <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+            <div className="rounded-xl border border-[var(--color-border)] bg-white/30 p-3">
+              <div className="mb-1.5">
+                <h2 className="text-xs font-semibold text-[var(--color-text-primary)]">
+                  추가 정보
+                </h2>
+                <p className="mt-0 text-[11px] leading-snug text-[var(--color-text-secondary)]">
                   아래 항목은 선택 입력입니다.
                 </p>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-2 md:grid-cols-2 [&_label]:gap-1 [&_label]:scroll-mt-6 [&_label>span]:min-h-0 [&_label>span]:text-xs">
                 <div className="md:col-span-2">
                   <TextField
                     id="school"
@@ -284,19 +337,20 @@ export function SignupForm({
                     placeholder="학교명 (선택)"
                     value={values.schoolName}
                     hint="선택 사항입니다."
-                    hintDisplay="tooltip"
+                    hintDisplay="label-inline"
                     scrollIntoViewOnFocus
+                    className="!h-10 px-3 text-[13px]"
                     onChange={(event) => onChange("schoolName", event.target.value)}
                   />
                 </div>
 
-                <SelectField
-                  id="gender"
+                <GenderToggle
+                  id="signup-gender"
                   label="성별"
-                  options={GENDER_OPTIONS}
                   value={values.gender}
+                  error={errors.gender}
                   scrollIntoViewOnFocus
-                  onChange={(event) => onChange("gender", event.target.value)}
+                  onChange={(next) => onChange("gender", next)}
                 />
 
                 <SelectField
@@ -305,6 +359,7 @@ export function SignupForm({
                   options={GRADE_OPTIONS}
                   value={values.grade}
                   scrollIntoViewOnFocus
+                  className="!h-10 pl-3 pr-10 text-[13px]"
                   onChange={(event) => onChange("grade", event.target.value)}
                 />
               </div>

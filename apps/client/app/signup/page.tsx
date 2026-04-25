@@ -63,7 +63,7 @@ export default function SignupPage() {
 
           {/** 랭킹·My Page와 동일 — `wishlist-page-root` 오로라 위에 셸 없이 폼 */}
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="signup-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-5 pt-1 sm:px-3">
+            <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-5 pt-1 sm:px-3">
               <SignupForm
                 values={values}
                 errors={errors}
