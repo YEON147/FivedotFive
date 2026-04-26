@@ -94,11 +94,6 @@ public class WishItemService {
         WishBoard board = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
 
-        // 본인 보드 공감 불가
-        if (board.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.LIKE_OWN_BOARD);
-        }
-
         WishItem item = wishItemRepository.findByBoardAndSlotIndex(board, slotIndex)
                 .orElseThrow(() -> new CustomException(ErrorCode.SLOT_EMPTY));
 
