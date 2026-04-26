@@ -23,6 +23,7 @@ import { createPortal } from "react-dom";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
@@ -1562,29 +1563,15 @@ export default function WishlistPage() {
         </div>
       </section>
 
-      <section
-        className={`fixed left-1/2 top-1/2 z-30 w-[min(340px,calc(100vw-2rem))] min-w-0 max-w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 pb-6 pt-4 shadow-[0_24px_60px_rgba(0,0,0,0.14)] transition-all duration-300 ${
-          isShareModalOpen
-            ? "pointer-events-auto scale-100 opacity-100"
-            : "pointer-events-none scale-95 opacity-0"
-        }`}
-        aria-hidden={!isShareModalOpen}
+      <WishlistCenterDialog
+        variant="animated"
+        open={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        title="공유하기"
+        titleId="wishlist-share-dialog-title"
+        closeLabel="공유 창 닫기"
+        description="위시리스트 링크를 복사하거나 공유할 수 있어요."
       >
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <h2 className="min-w-0 text-h3 text-slate-900">공유하기</h2>
-          <button
-            type="button"
-            onClick={() => setIsShareModalOpen(false)}
-            className="inline-flex size-8 shrink-0 -translate-y-0.5 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 sm:size-9"
-            aria-label="공유 창 닫기"
-          >
-            <X size={22} weight="bold" aria-hidden />
-          </button>
-        </div>
-        <p className="mt-1.5 min-w-0 break-words text-body-sm text-slate-600">
-          위시리스트 링크를 복사하거나 공유할 수 있어요.
-        </p>
-
         {/** URL 박스 위에만 덮어씀 — 모달·박스 밖으로 블러/배경 안 샘 */}
         <div className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
           <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
@@ -1593,7 +1580,8 @@ export default function WishlistPage() {
               : "링크를 불러오는 중..."}
           </div>
           {shareLinkCopyFeedback ? (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden]">              <p
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden] backdrop-blur-xl">
+              <p
                 className="min-w-0 max-w-full px-2 text-center text-sm font-semibold text-slate-700"
                 role="status"
                 aria-live="polite"
@@ -1639,7 +1627,7 @@ export default function WishlistPage() {
             공유하기
           </button>
         </div>
-      </section>
+      </WishlistCenterDialog>
 
       {sidebarPortalReady && isGiftModalOpen
         ? createPortal(

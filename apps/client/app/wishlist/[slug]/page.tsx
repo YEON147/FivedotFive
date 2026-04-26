@@ -5,7 +5,6 @@ import {
   CaretRightIcon,
   ChatCircleDots,
   TextAlignJustify,
-  X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,6 +21,7 @@ import {
 
 import { CommentPopup, type CommentStickerTab } from "@/components/wishlist/CommentPopup";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
+import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
@@ -869,100 +869,48 @@ export default function PublicWishlistPage({
         </section>
       </div>
 
-      {guestAuthModalOpen ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[40] cursor-default bg-black/45"
-            aria-label="닫기"
+      <WishlistCenterDialog
+        variant="static"
+        open={guestAuthModalOpen}
+        onClose={() => setGuestAuthModalOpen(false)}
+        title="로그인이 필요해요"
+        titleId="guest-auth-title"
+        description="댓글을 남기려면 로그인이나 회원가입해 주세요."
+      >
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <Link
+            href="/login"
             onClick={() => setGuestAuthModalOpen(false)}
-          />
-          <div
-            className="fixed left-1/2 top-1/2 z-[41] w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.14)]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="guest-auth-title"
+            className="flex items-center justify-center rounded-[14px] bg-[#7B61FF] px-4 py-3 text-center text-sm font-semibold text-white transition hover:opacity-95"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <h2 id="guest-auth-title" className="text-h3 text-slate-900">
-                  로그인이 필요해요
-                </h2>
-                <p className="mt-2 text-body-sm leading-snug text-slate-600">
-                  댓글을 남기려면 로그인하거나 회원가입해 주세요.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setGuestAuthModalOpen(false)}
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60"
-                aria-label="닫기"
-              >
-                <X size={20} weight="bold" aria-hidden />
-              </button>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <Link
-                href="/login"
-                onClick={() => setGuestAuthModalOpen(false)}
-                className="flex items-center justify-center rounded-[14px] bg-[#7B61FF] px-4 py-3 text-center text-sm font-semibold text-white transition hover:opacity-95"
-              >
-                로그인
-              </Link>
-              <Link
-                href="/signup"
-                onClick={() => setGuestAuthModalOpen(false)}
-                className="flex items-center justify-center rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-center text-sm font-semibold text-[var(--color-text-primary)] transition hover:bg-slate-50"
-              >
-                회원가입
-              </Link>
-            </div>
-          </div>
-        </>
-      ) : null}
+            로그인
+          </Link>
+          <Link
+            href="/signup"
+            onClick={() => setGuestAuthModalOpen(false)}
+            className="flex items-center justify-center rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-center text-sm font-semibold text-[var(--color-text-primary)] transition hover:bg-slate-50"
+          >
+            회원가입
+          </Link>
+        </div>
+      </WishlistCenterDialog>
 
-      {ownBoardWriteNoticeOpen ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[40] cursor-default bg-black/45"
-            aria-label="닫기"
-            onClick={() => setOwnBoardWriteNoticeOpen(false)}
-          />
-          <div
-            className="fixed left-1/2 top-1/2 z-[41] w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.14)]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="own-board-notice-title"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <h2 id="own-board-notice-title" className="text-h3 text-slate-900">
-                  댓글을 남길 수 없어요
-                </h2>
-                <p className="mt-2 text-body-sm leading-snug text-slate-600">
-                  본인의 위시리스트에는 댓글을 작성할 수 없습니다.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOwnBoardWriteNoticeOpen(false)}
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60"
-                aria-label="닫기"
-              >
-                <X size={20} weight="bold" aria-hidden />
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => setOwnBoardWriteNoticeOpen(false)}
-              className="mt-5 w-full rounded-[14px] bg-[#7B61FF] py-3 text-sm font-semibold text-white transition hover:opacity-95"
-            >
-              확인
-            </button>
-          </div>
-        </>
-      ) : null}
+      <WishlistCenterDialog
+        variant="static"
+        open={ownBoardWriteNoticeOpen}
+        onClose={() => setOwnBoardWriteNoticeOpen(false)}
+        title="댓글을 남길 수 없어요"
+        titleId="own-board-notice-title"
+        description="본인의 위시리스트에는 댓글을 작성할 수 없습니다."
+      >
+        <button
+          type="button"
+          onClick={() => setOwnBoardWriteNoticeOpen(false)}
+          className="mt-5 w-full rounded-[14px] bg-[#7B61FF] py-3 text-sm font-semibold text-white transition hover:opacity-95"
+        >
+          확인
+        </button>
+      </WishlistCenterDialog>
 
       <PublicWishlistVisitorMenu
         open={isSidebarOpen}
