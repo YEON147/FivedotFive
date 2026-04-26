@@ -5,6 +5,7 @@ import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentListResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
@@ -25,7 +26,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +43,17 @@ import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
 class WishCommentServiceTest {
+
+    static final LocalDateTime REVEAL_AT = LocalDateTime.of(2026, 5, 5, 8, 0);
+    static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    /** 공개 후 시각 (2026-05-05 09:00 KST) */
+    static final Clock CLOCK_AFTER_REVEAL = Clock.fixed(
+            REVEAL_AT.plusHours(1).atZone(KST).toInstant(), KST);
+
+    /** 공개 전 시각 (2026-05-04 23:00 KST) */
+    static final Clock CLOCK_BEFORE_REVEAL = Clock.fixed(
+            REVEAL_AT.minusHours(9).atZone(KST).toInstant(), KST);
 
     @InjectMocks
     private WishCommentService wishCommentService;
@@ -67,6 +83,10 @@ class WishCommentServiceTest {
                 .targetDate(LocalDate.of(2026, 5, 5))
                 .build();
         ReflectionTestUtils.setField(board, "id", 10L);
+
+        // 기존 테스트가 content 마스킹 영향을 받지 않도록 기본값은 "공개 후"로 설정
+        ReflectionTestUtils.setField(wishCommentService, "clock", CLOCK_AFTER_REVEAL);
+        ReflectionTestUtils.setField(wishCommentService, "revealAt", REVEAL_AT);
     }
 
     // ===================== createComment =====================
@@ -202,6 +222,120 @@ class WishCommentServiceTest {
         CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, null);
 
         assertThat(response.getComments().get(0).isUser()).isFalse();
+    }
+
+    // ===================== getComments - 댓글 공개 시각 마스킹 =====================
+
+    @Test
+    @DisplayName("공개 시각 이전 - 타인 댓글은 content와 stickerKey 모두 null로 마스킹됨")
+    void getComments_beforeReveal_otherUserContentAndStickerMasked() {
+        ReflectionTestUtils.setField(wishCommentService, "clock", CLOCK_BEFORE_REVEAL);
+
+        User other = User.builder().username("other").nickname("타인").passwordHash("x")
+                .role(Role.CHILD).status(Status.ACTIVE).build();
+        ReflectionTestUtils.setField(other, "id", 99L);
+
+        WishComment otherComment = WishComment.builder()
+                .wishBoard(board).user(other).senderName("타인")
+                .isUser(true).content("비밀 댓글").stickerKey("sticker.png").slotIndex(1).build();
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(List.of(otherComment), PageRequest.of(0, 6), 1));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, 1L);
+
+        CommentResponse result = response.getComments().get(0);
+        assertThat(result.getContent()).isNull();
+        assertThat(result.getStickerKey()).isNull();
+        assertThat(result.getSlotIndex()).isEqualTo(1); // 슬롯 위치는 유지
+    }
+
+    @Test
+    @DisplayName("공개 시각 이전 - 본인 댓글은 content와 stickerKey 모두 그대로 반환됨")
+    void getComments_beforeReveal_ownCommentFullyVisible() {
+        ReflectionTestUtils.setField(wishCommentService, "clock", CLOCK_BEFORE_REVEAL);
+
+        WishComment myComment = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("내 댓글").stickerKey("sticker.png").slotIndex(0).build();
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(List.of(myComment), PageRequest.of(0, 6), 1));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, 1L);
+
+        CommentResponse result = response.getComments().get(0);
+        assertThat(result.getContent()).isEqualTo("내 댓글");
+        assertThat(result.getStickerKey()).isEqualTo("sticker.png");
+    }
+
+    @Test
+    @DisplayName("공개 시각 이후 - 타인 댓글의 content와 stickerKey 모두 공개됨")
+    void getComments_afterReveal_allContentAndStickerVisible() {
+        User other = User.builder().username("other").nickname("타인").passwordHash("x")
+                .role(Role.CHILD).status(Status.ACTIVE).build();
+        ReflectionTestUtils.setField(other, "id", 99L);
+
+        WishComment otherComment = WishComment.builder()
+                .wishBoard(board).user(other).senderName("타인")
+                .isUser(true).content("이제 공개됐어요").stickerKey("sticker.png").slotIndex(1).build();
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(List.of(otherComment), PageRequest.of(0, 6), 1));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, 1L);
+
+        CommentResponse result = response.getComments().get(0);
+        assertThat(result.getContent()).isEqualTo("이제 공개됐어요");
+        assertThat(result.getStickerKey()).isEqualTo("sticker.png");
+    }
+
+    @Test
+    @DisplayName("공개 시각 이전 - 비로그인 사용자는 모든 댓글 content와 stickerKey가 null")
+    void getComments_beforeReveal_anonymousAllMasked() {
+        ReflectionTestUtils.setField(wishCommentService, "clock", CLOCK_BEFORE_REVEAL);
+
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("댓글 내용").stickerKey("sticker.png").slotIndex(0).build();
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 6), 1));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, null);
+
+        CommentResponse result = response.getComments().get(0);
+        assertThat(result.getContent()).isNull();
+        assertThat(result.getStickerKey()).isNull();
+    }
+
+    @Test
+    @DisplayName("공개 시각 정각 - 공개된 것으로 처리됨 (경계값)")
+    void getComments_exactRevealAt_contentAndStickerVisible() {
+        Clock clockAtReveal = Clock.fixed(REVEAL_AT.atZone(KST).toInstant(), KST);
+        ReflectionTestUtils.setField(wishCommentService, "clock", clockAtReveal);
+
+        User other = User.builder().username("other").nickname("타인").passwordHash("x")
+                .role(Role.CHILD).status(Status.ACTIVE).build();
+        ReflectionTestUtils.setField(other, "id", 99L);
+
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(other).senderName("타인")
+                .isUser(true).content("정각 공개").stickerKey("sticker.png").slotIndex(2).build();
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(board), any()))
+                .willReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 6), 1));
+
+        CommentListResponse response = wishCommentService.getComments("abc123def4", 0, 6, 1L);
+
+        CommentResponse result = response.getComments().get(0);
+        assertThat(result.getContent()).isEqualTo("정각 공개");
+        assertThat(result.getStickerKey()).isEqualTo("sticker.png");
     }
 
     // ===================== getComments - isLastPageFull =====================

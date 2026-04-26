@@ -23,10 +23,10 @@ type SlotKind = "gift" | "sticker";
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 680;
 /** 스티커 슬롯 원 지름(px, 디자인 좌표 기준) — 선물보다 한 단계 작게 유지 */
-const STICKER_SIZE = 88;
+const STICKER_SIZE = 78;
 
 /** 선물 지름은 항상 스티커보다 큼 (`STICKER_SIZE` 대비 여유) */
-const MIN_GIFT_SIZE = STICKER_SIZE + 18;
+const MIN_GIFT_SIZE = STICKER_SIZE + 20;
 
 /**
  * 디자인 캔버스(320×680) 기준 선물 배치.
@@ -37,13 +37,14 @@ const giftLayouts: Record<GiftLayoutCount, GiftSlot[]> = {
   1: [{ id: 1, top: 332, left: 160, size: 160 }],
   /** 2개: ②는 ①의 대각선 좌하단(왼쪽·아래). 세로 나열은 하단 스티커(S5·S6)와 겹치기 쉬움 */
   2: [
-    { id: 1, top: 268, left: 192, size: 114 },
-    { id: 2, top: 388, left: 106, size: 114 },
+    { id: 1, top: 278, left: 202, size: 104 },
+    { id: 2, top: 388, left: 116, size: 104 },
   ],
   3: [
-    { id: 1, top: 270, left: 124, size: 112 },
-    { id: 2, top: 428, left: 112, size: 112 },
-    { id: 3, top: 350, left: 210, size: 112 },
+    // 3개일 때는 원이 겹치지 않게 최소 크기(MIN_GIFT_SIZE) 근처로 축소
+    { id: 1, top: 265, left: 154, size: 100 },
+    { id: 2, top: 408, left: 102, size: 100 },
+    { id: 3, top: 360, left: 230, size: 100 },
   ],
 };
 
@@ -52,14 +53,14 @@ const giftLayouts: Record<GiftLayoutCount, GiftSlot[]> = {
  * (GiftSlots 가 StickerSlots 보다 위 z-index 이므로 겹치면 선물이 클릭 우선)
  */
 const stickerSlots: StickerSlot[] = [
-  { id: 1, top: 220, left: 62 },
+  { id: 1, top: 220, left: 60 },
   { id: 2, top: 138, left: 148 },
   { id: 3, top: 188, left: 262 },
   /** 오른쪽 끝(270)은 회전·호버 스케일 시 보드 `overflow-hidden`에 잘리기 쉬움 — 262로 안쪽 이동 */
-  { id: 4, top: 430, left: 270 },
-  { id: 5, top: 492, left: 48 },
+  { id: 4, top: 470, left: 270 },
+  { id: 5, top: 522, left: 58 },
   /** 하단·가운데 조각 UI(선물 추가 버튼)와 겹치지 않도록 간격 유지 */
-  { id: 6, top: 554, left: 170 },
+  { id: 6, top: 554, left: 180 },
 ];
 
 function toXPercent(px: number) {
@@ -190,8 +191,9 @@ function SlotBubble({
       {hasImage ? (
         <span
           className={`pointer-events-none absolute ${
+            // 선물(3D 에셋)이 원 밖으로 살짝 나가도 잘리지 않게 — clip은 `Image` object-contain에 맡김
             kind === "gift"
-              ? "inset-0 overflow-hidden rounded-full"
+              ? "inset-0 overflow-visible rounded-full"
               : "inset-0 overflow-visible"
           }`}
         >
@@ -201,11 +203,7 @@ function SlotBubble({
             fill
             unoptimized
             sizes={slotSizesHint}
-            className={
-              kind === "sticker"
-                ? "object-contain object-center p-[1%]"
-                : "object-contain object-center p-[1%]"
-            }
+            className="object-contain object-center p-[1%]"
           />
         </span>
       ) : (
@@ -265,7 +263,7 @@ function GiftSlots({
     return (
       <div
         key={slot.id}
-        className="absolute z-20 flex max-w-[min(100%,42%)] flex-col items-center"
+        className="absolute z-20 flex max-w-[min(100%,42%)] flex-col items-center overflow-visible"
         style={{
           top: toYPercent(slot.top),
           left: toXPercent(slot.left),
@@ -273,7 +271,7 @@ function GiftSlots({
           transform: "translate(-50%, -50%)",
         }}
       >
-        <div className="relative aspect-square w-full shrink-0">
+        <div className="relative aspect-square w-full shrink-0 overflow-visible">
           <SlotBubble {...bubbleProps} giftLayoutPosition="embedded" />
         </div>
         <p className="text-wish-body line-clamp-2 w-full max-w-full px-0.5 text-center text-[10px] font-normal leading-tight text-slate-800 drop-shadow-[0_1px_0_rgb(255_255_255/0.85)] sm:text-[11px]">
@@ -317,15 +315,5 @@ function StickerSlots({
   ));
 }
 
-export {
-  DESIGN_HEIGHT,
-  DESIGN_WIDTH,
-  GiftSlots,
-  StickerSlots,
-  STICKER_SIZE,
-  giftLayouts,
-  stickerSlots,
-  toXPercent,
-  toYPercent,
-};
+export { DESIGN_HEIGHT, DESIGN_WIDTH, GiftSlots, StickerSlots, STICKER_SIZE };
 export type { GiftLayoutCount, GiftSlot, StickerSlot, StickerSlotsProps };
