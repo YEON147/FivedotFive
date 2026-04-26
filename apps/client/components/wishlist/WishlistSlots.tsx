@@ -203,11 +203,7 @@ function SlotBubble({
             fill
             unoptimized
             sizes={slotSizesHint}
-            className={
-              kind === "sticker"
-                ? "object-contain object-center p-[1%]"
-                : "object-contain object-center p-[1%]"
-            }
+            className="object-contain object-center p-[1%]"
           />
         </span>
       ) : (
@@ -319,15 +315,5 @@ function StickerSlots({
   ));
 }
 
-export {
-  DESIGN_HEIGHT,
-  DESIGN_WIDTH,
-  GiftSlots,
-  StickerSlots,
-  STICKER_SIZE,
-  giftLayouts,
-  stickerSlots,
-  toXPercent,
-  toYPercent,
-};
+export { DESIGN_HEIGHT, DESIGN_WIDTH, GiftSlots, StickerSlots, STICKER_SIZE };
 export type { GiftLayoutCount, GiftSlot, StickerSlot, StickerSlotsProps };

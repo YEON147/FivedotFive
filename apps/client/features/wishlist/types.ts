@@ -54,15 +54,6 @@ export type WishItemData = {
   status: string | null;
 };
 
-/** GET /api/boards/me/items */
-export type MyWishItemsData = {
-  success: boolean;
-  message: string;
-  data: {
-    items: WishItemData[];
-  };
-};
-
 export type MyBoardData = {
   data: {
     boardSlug: string;

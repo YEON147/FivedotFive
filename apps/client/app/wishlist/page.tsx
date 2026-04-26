@@ -45,8 +45,8 @@ import {
   compactGiftTextsToLayoutSlots,
   deriveWishSlotState,
   firstSemanticallyEmptyApiIndex,
-  layoutGiftSlotIdToApiIndex,
   matchesGiftPresetIcon,
+  resolveLayoutGiftClickToApiIndex,
 } from "@/features/wishlist/wish-slot-state";
 import type { BoardAssetData, MyBoardData, WishItemData } from "@/features/wishlist/types";
 import {
@@ -1138,7 +1138,6 @@ export default function WishlistPage() {
 
     return slotHasContent || addFormTouched;
   }, [
-    giftIcons,
     giftModalMode,
     giftModalSaving,
     giftModalSlotIndex,
@@ -1351,15 +1350,15 @@ export default function WishlistPage() {
                   if (!isDecorateMode) {
                     return;
                   }
-                  const apiIdx = layoutGiftSlotIdToApiIndex(
+                  const apiIdx = resolveLayoutGiftClickToApiIndex(
                     slotId,
+                    bigCircleCount,
                     wishTexts,
                     wishGiftIconKeys,
                   );
-                  if (apiIdx == null) {
-                    return;
+                  if (apiIdx != null) {
+                    openGiftModalEdit(apiIdx);
                   }
-                  openGiftModalEdit(apiIdx);
                 }}
                 showPlaceholder={showSlotPlaceholders}
               />

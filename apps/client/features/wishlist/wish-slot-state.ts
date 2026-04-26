@@ -2,7 +2,7 @@ import type { GiftLayoutCount } from "@/components/wishlist/WishlistSlots";
 import type { WishItemData } from "@/features/wishlist/types";
 
 /** 서버 `WishItemService` 기본 GIFT_ICON 키 — 빈 슬롯 판별용 */
-export const SERVER_DEFAULT_GIFT_ICON_KEY = "default/gift_icon.png";
+const SERVER_DEFAULT_GIFT_ICON_KEY = "default/gift_icon.png";
 
 /** 예전 클라에서 하드코딩하던 프리셋 경로 — DB에 남아 있을 수 있음 */
 const LEGACY_PRESET_ICON_KEYS = [
@@ -35,7 +35,7 @@ export function matchesGiftPresetIcon(
  * 선물 이름이 없고, 아이콘도 없거나 서버·클라 ‘기본’ 아이콘만 있으면 빈 슬롯.
  * (`deriveWishSlotState` 배열과 동일 규칙 — 레이아웃 압축 시에도 이걸 써야 빈 칸이 안 생김)
  */
-export function isWishSlotSemanticallyEmptyFields(
+function isWishSlotSemanticallyEmptyFields(
   itemName: string | undefined | null,
   iconKey: string | undefined | null,
 ): boolean {
@@ -62,7 +62,7 @@ export function isWishSlotSemanticallyEmptyFields(
   return false;
 }
 
-export function isWishSlotSemanticallyEmpty(row: WishItemData): boolean {
+function isWishSlotSemanticallyEmpty(row: WishItemData): boolean {
   return isWishSlotSemanticallyEmptyFields(row.itemName, row.iconKey);
 }
 
@@ -156,6 +156,31 @@ export function firstSemanticallyEmptyApiIndex(
     }
   }
   return undefined;
+}
+
+/**
+ * 꾸미기에서 선물 원을 눌렀을 때 편집할 API 인덱스(0~2).
+ * 전부 비어 있으면 `layoutGiftSlotIdToApiIndex`가 항상 null이므로 첫 빈 API 슬롯으로 대체합니다.
+ */
+export function resolveLayoutGiftClickToApiIndex(
+  layoutSlotId: number,
+  bigCircleCount: GiftLayoutCount,
+  wishTexts: readonly string[],
+  wishGiftIconKeys: readonly string[],
+): number | null {
+  const mapped = layoutGiftSlotIdToApiIndex(
+    layoutSlotId,
+    wishTexts,
+    wishGiftIconKeys,
+  );
+  if (mapped != null) {
+    return mapped;
+  }
+  const firstEmpty = firstSemanticallyEmptyApiIndex(wishTexts, wishGiftIconKeys);
+  if (firstEmpty === undefined || layoutSlotId < 1 || layoutSlotId > bigCircleCount) {
+    return null;
+  }
+  return firstEmpty;
 }
 
 export function deriveWishSlotState(items: WishItemData[]) {
