@@ -117,16 +117,11 @@ const PUBLIC_WISHLIST_BOARD_WRAP =
   "relative flex h-full min-h-0 max-h-full w-full max-w-[min(420px,calc(100vw-1.5rem))] flex-1 flex-col overflow-visible bg-transparent";
 
 /**
- * 공개 보드 바깥 프레임 — `app/wishlist/page.tsx` 꾸미기 보드 프레임과 동일.
- * 배경 에셋이 없을 때도 오로라 그라데이션(`wishlist-board-frame--decorate`)이 깔림.
+ * 공개 보드 한 장 — `app/wishlist/page.tsx` 꾸미기 보드(`WISHLIST_BOARD_FRAME_BASE` + decorate)와 동일.
+ * 배경 에셋이 없을 때도 오로라(`wishlist-board-frame--decorate`)가 깔림.
  */
-/** 공개 카드 전체(타이틀+보드) — `app/wishlist/page.tsx` 의 `WISHLIST_BOARD_FRAME_BASE` 와 동일 톤 */
-const PUBLIC_WISHLIST_CARD_SHELL =
-  "relative isolate flex w-full max-w-[372px] min-h-0 flex-1 flex-col overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-violet-200/55 wishlist-board-frame--decorate";
-
-/** 가로 슬라이드 뷰포트 — `width`·`aspect-ratio`·`max-height:100%`로 남은 높이에 맞춤(세로 스크롤 없음) */
-const PUBLIC_BOARD_SLIDE_VIEWPORT =
-  "relative mx-auto min-h-0 max-h-full shrink-0 overflow-hidden self-center";
+const PUBLIC_WISHLIST_BOARD_FRAME =
+  "relative isolate overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 wishlist-board-frame--decorate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 ring-violet-200/55";
 
 /** 배경 이미지는 위 레이어 — 없을 때는 바깥 프레임 오로라만 보임 */
 const PUBLIC_BOARD_INNER =
@@ -152,9 +147,7 @@ function PublicBoardProfileHeader({
             <span className="text-[18px] font-light leading-none text-slate-900">님의</span>
           </span>
         </span>
-        <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">
-          위시리스트 입니다.
-        </span>
+        <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">위시리스트</span>
       </h1>
       <button
         type="button"
@@ -748,9 +741,14 @@ export default function PublicWishlistPage({
       <div className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-visible transition-all duration-300 ease-out">
         <section className={`${PUBLIC_WISHLIST_BOARD_WRAP} mx-auto min-h-0 w-full`}>
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-visible p-0">
-            <div className="relative flex min-h-0 min-w-0 flex-1 items-stretch justify-center overflow-visible px-1 pb-1 pt-1.5 sm:px-2 sm:pb-1.5 sm:pt-2">
+            {/** `app/wishlist/page.tsx` 꾸미기 보드 래퍼와 동일 패딩 */}
+            {/** `app/wishlist/page.tsx` 꾸미기 보드 래퍼와 동일: 세로 가운데 + 가로 중앙 */}
+            <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-visible px-1 pb-1 pt-2 sm:px-2 sm:pb-2 sm:pt-3">
               <div
-                className={`${PUBLIC_WISHLIST_CARD_SHELL} mx-auto h-full min-h-0 max-h-full w-full max-w-[372px] flex-1`}
+                className={PUBLIC_WISHLIST_BOARD_FRAME}
+                style={{
+                  aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
+                }}
               >
                 {boardBackgroundUrl ? (
                   <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
@@ -762,107 +760,95 @@ export default function PublicWishlistPage({
                   </div>
                 ) : null}
 
-                <div className="relative z-[1] shrink-0">
-                  <PublicBoardProfileHeader
-                    ownerName={ownerName}
-                    isSidebarOpen={isSidebarOpen}
-                    onMenuClick={handleVisitorMenuClick}
-                  />
-                </div>
-
-                <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
-                  <div className="relative flex min-h-0 min-w-0 w-full flex-1 items-center justify-center overflow-visible">
+                {/** 가로 슬라이드만 여기서 — 높이·좌표는 보드 박스 전체(320×680 비율) = 내 위시와 동일 */}
+                <div className="absolute inset-0 z-10 overflow-hidden rounded-[18px]">
+                  <div
+                    className="absolute inset-0 flex h-full min-h-0 transition-transform duration-300 ease-out"
+                    style={{
+                      width: `${totalVisualPages * 100}%`,
+                      transform: `translateX(calc(-${currentVisualPage} * (100% / ${totalVisualPages})))`,
+                    }}
+                  >
                     <div
-                      className={PUBLIC_BOARD_SLIDE_VIEWPORT}
-                      style={{
-                        aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
-                        width: "min(100%, 372px)",
-                        maxHeight: "100%",
-                      }}
+                      className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
+                      style={{ width: `${100 / totalVisualPages}%` }}
                     >
-                      <div
-                        className="absolute inset-0 flex h-full min-h-0 transition-transform duration-300 ease-out"
-                        style={{
-                          width: `${totalVisualPages * 100}%`,
-                          transform: `translateX(calc(-${currentVisualPage} * (100% / ${totalVisualPages})))`,
-                        }}
-                      >
-                        <div
-                          className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
-                          style={{ width: `${100 / totalVisualPages}%` }}
-                        >
-                          <MainBoardPage
-                            ownerName={ownerName}
-                            boardAssets={boardAssets}
-                            boardItems={boardItems}
-                            isSidebarOpen={isSidebarOpen}
-                            onMenuClick={handleVisitorMenuClick}
-                            omitBackground
-                          />
-                        </div>
-
-                        {Array.from({ length: commentTotalPages }, (_, commentIdx) => (
-                          <div
-                            key={commentIdx}
-                            className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
-                            style={{ width: `${100 / totalVisualPages}%` }}
-                          >
-                            <CommentBoardPage
-                              ownerName={ownerName}
-                              boardAssets={boardAssets}
-                              boardItems={boardItems}
-                              comments={commentCache[commentIdx] ?? []}
-                              isLoading={loadingPages.has(commentIdx)}
-                              onSlotClick={(slotId) => handleSlotClick(slotId, commentIdx)}
-                              isSidebarOpen={isSidebarOpen}
-                              onMenuClick={handleVisitorMenuClick}
-                              omitBackground
-                              showEmptyCommentSlots={showEmptyCommentSlots}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex items-end justify-between px-[4%]">
-                        <div className="pointer-events-auto flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => navigateTo(currentVisualPage - 1)}
-                            disabled={currentVisualPage === 0}
-                            className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                            aria-label="이전 페이지"
-                          >
-                            <CaretLeftIcon size={23} weight="bold" />
-                          </button>
-                          <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
-                            {currentVisualPage + 1} / {totalVisualPages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => navigateTo(currentVisualPage + 1)}
-                            disabled={currentVisualPage === totalVisualPages - 1}
-                            className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                            aria-label="다음 페이지"
-                          >
-                            <CaretRightIcon size={23} weight="bold" />
-                          </button>
-                        </div>
-
-                        {currentVisualPage === 0 ? (
-                          <button
-                            type="button"
-                            onClick={handleGoToLastCommentPage}
-                            className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
-                            aria-label="댓글 작성하러 가기"
-                            title="댓글 작성하러 가기"
-                          >
-                            <ChatCircleDots size={23} weight="bold" />
-                          </button>
-                        ) : null}
-                      </div>
+                      <MainBoardPage
+                        ownerName={ownerName}
+                        boardAssets={boardAssets}
+                        boardItems={boardItems}
+                        isSidebarOpen={isSidebarOpen}
+                        onMenuClick={handleVisitorMenuClick}
+                        omitBackground
+                      />
                     </div>
+
+                    {Array.from({ length: commentTotalPages }, (_, commentIdx) => (
+                      <div
+                        key={commentIdx}
+                        className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
+                        style={{ width: `${100 / totalVisualPages}%` }}
+                      >
+                        <CommentBoardPage
+                          ownerName={ownerName}
+                          boardAssets={boardAssets}
+                          boardItems={boardItems}
+                          comments={commentCache[commentIdx] ?? []}
+                          isLoading={loadingPages.has(commentIdx)}
+                          onSlotClick={(slotId) => handleSlotClick(slotId, commentIdx)}
+                          isSidebarOpen={isSidebarOpen}
+                          onMenuClick={handleVisitorMenuClick}
+                          omitBackground
+                          showEmptyCommentSlots={showEmptyCommentSlots}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex items-end justify-between px-[4%]">
+                    <div className="pointer-events-auto flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => navigateTo(currentVisualPage - 1)}
+                        disabled={currentVisualPage === 0}
+                        className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                        aria-label="이전 페이지"
+                      >
+                        <CaretLeftIcon size={23} weight="bold" />
+                      </button>
+                      <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
+                        {currentVisualPage + 1} / {totalVisualPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => navigateTo(currentVisualPage + 1)}
+                        disabled={currentVisualPage === totalVisualPages - 1}
+                        className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                        aria-label="다음 페이지"
+                      >
+                        <CaretRightIcon size={23} weight="bold" />
+                      </button>
+                    </div>
+
+                    {currentVisualPage === 0 ? (
+                      <button
+                        type="button"
+                        onClick={handleGoToLastCommentPage}
+                        className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
+                        aria-label="댓글 작성하러 가기"
+                        title="댓글 작성하러 가기"
+                      >
+                        <ChatCircleDots size={23} weight="bold" />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
+
+                <PublicBoardProfileHeader
+                  ownerName={ownerName}
+                  isSidebarOpen={isSidebarOpen}
+                  onMenuClick={handleVisitorMenuClick}
+                />
               </div>
             </div>
           </div>
