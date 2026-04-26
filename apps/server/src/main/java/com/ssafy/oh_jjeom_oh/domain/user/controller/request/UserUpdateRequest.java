@@ -13,4 +13,5 @@ public record UserUpdateRequest(
         String gender,
         String grade,
         String schoolcode
+
 ) {}
