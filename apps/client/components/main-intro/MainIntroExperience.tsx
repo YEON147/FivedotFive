@@ -50,25 +50,6 @@ function fireGiftExplosionConfetti() {
   });
 }
 
-function fireRibbonSideConfetti() {
-  confetti({
-    particleCount: 48,
-    angle: 125,
-    spread: 58,
-    origin: { x: 0.18, y: 0.48 },
-    colors: ["#7B61FF", "#E9E5FF"],
-    disableForReducedMotion: true,
-  });
-  confetti({
-    particleCount: 48,
-    angle: 55,
-    spread: 58,
-    origin: { x: 0.82, y: 0.48 },
-    colors: ["#FFA6C9", "#DAF073"],
-    disableForReducedMotion: true,
-  });
-}
-
 type GiftPhase = "shake" | "burst" | "gone";
 
 /** `/` 진입 전용 — 스파클 + 선물 흔들림·터짐 + 컨페티 */
@@ -103,21 +84,14 @@ export function MainIntroExperience() {
   useEffect(() => {
     if (reducedMotion) return;
 
-    let ribbonId: number | undefined;
-
     const id = window.setTimeout(() => {
       if (!introAliveRef.current) return;
       setGiftPhase("burst");
       fireGiftExplosionConfetti();
-      ribbonId = window.setTimeout(() => {
-        if (!introAliveRef.current) return;
-        fireRibbonSideConfetti();
-      }, 160);
     }, INTRO_GIFT_SHAKE_MS);
 
     return () => {
       window.clearTimeout(id);
-      if (ribbonId !== undefined) window.clearTimeout(ribbonId);
       confetti.reset();
     };
   }, [reducedMotion]);

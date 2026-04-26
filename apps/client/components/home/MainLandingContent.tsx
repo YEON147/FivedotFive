@@ -7,7 +7,7 @@ import { useEffect } from "react";
 
 import "@/components/home/main-landing-wordmark-float.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
-import { trackSignupIntentClick } from "@/lib/analytics/conversion";
+import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 
 const landingPrimaryBtn =
@@ -137,7 +137,7 @@ export function MainLandingContent({
                 <Link
                   href="/signup"
                   className={landingMutedLink}
-                  onClick={() => trackSignupIntentClick({ signup_entry: "landing" })}
+                  onClick={() => trackSignupButtonClick({ signup_entry: "landing" })}
                 >
                   회원가입
                 </Link>
