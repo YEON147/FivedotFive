@@ -133,61 +133,89 @@
   }
 }
 
-/* 마지막 순간 부풂 → 아주 짧게 눌림(균열) → 터지며 비대칭으로 사라짐 */
+/* 터짐: 본체는 transform+opacity만(필터 키프레임 제거) — 광은 ::before, 예전 brightness 리듬은 opacity 딥/피크로만 흉내 */
 @keyframes intro-gift-burst {
   /* shake 마지막 프레임과 동일 → 짧게 숨 고른 뒤 부풀어 오름 */
   0% {
     transform: translate3d(0, 2px, 0) rotate(-2.2deg) scale(0.96, 0.92);
     opacity: 1;
-    filter: brightness(1) blur(0) drop-shadow(0 12px 28px rgba(45, 25, 90, 0.22));
   }
   5% {
     transform: translate3d(0, 1px, 0) rotate(-1.6deg) scale(0.98, 0.945);
     opacity: 1;
-    filter: brightness(1.04) blur(0) drop-shadow(0 12px 30px rgba(45, 25, 90, 0.24));
   }
   11% {
     transform: translate3d(0, -1px, 0) rotate(-1deg) scale(1.018);
     opacity: 1;
-    filter: brightness(1.1) blur(0) drop-shadow(0 14px 34px rgba(123, 97, 255, 0.26));
   }
   17% {
+    /* 살짝 눌림(구 brightness dip 대체) */
     transform: translate3d(0.5px, 0.5px, 0) rotate(0.8deg) scale(0.975);
-    opacity: 1;
-    filter: brightness(0.95) blur(0) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.1));
+    opacity: 0.9;
   }
   21% {
     transform: translate3d(-0.5px, -3px, 0) rotate(-2deg) scale(1.04);
-    opacity: 1;
-    filter: brightness(1.12) blur(0) drop-shadow(0 10px 28px rgba(123, 97, 255, 0.32));
+    opacity: 0.98;
+  }
+  22.5% {
+    transform: translate3d(-1.2px, -5.5px, 0) rotate(-2.9deg) scale(1.085);
+    opacity: 0.995;
   }
   24% {
-    transform: translate3d(-2px, -8px, 0) rotate(-4deg) scale(1.14);
+    /* 터짐 정점(구 flash 느낌) */
+    transform: translate3d(-2px, -8px, 0) rotate(-3.7deg) scale(1.12);
     opacity: 1;
-    filter: brightness(1.45) blur(0.5px)
-      drop-shadow(0 0 28px rgba(255, 210, 255, 0.55))
-      drop-shadow(0 10px 40px rgba(123, 97, 255, 0.45));
   }
   /* 이후: 좌우·회전 왕복 없이 위로만 덜컥 올라가며 흩어짐 */
   38% {
     transform: translate3d(0, -24px, 0) rotate(2.5deg) scale(1.42);
     opacity: 0.97;
-    filter: brightness(1.55) blur(2px) drop-shadow(0 18px 48px rgba(174, 233, 225, 0.35));
   }
   55% {
     transform: translate3d(1px, -42px, 0) rotate(1deg) scale(1.72);
     opacity: 0.85;
-    filter: brightness(1.65) blur(5px) drop-shadow(0 24px 56px rgba(255, 255, 255, 0.2));
   }
   72% {
     transform: translate3d(2px, -62px, 0) rotate(0.25deg) scale(2.05);
     opacity: 0.45;
-    filter: brightness(1.75) blur(10px);
   }
   100% {
     transform: translate3d(2px, -90px, 0) rotate(0deg) scale(2.35);
     opacity: 0;
-    filter: brightness(2) blur(16px);
+  }
+}
+
+/**
+ * 광: 본체 transform과 싸우지 않도록 opacity만(타임스탬프는 intro-gift-burst %와 동일)
+ * → linear + 동일 duration 으로 “한 덩어리”로 읽힘
+ */
+@keyframes intro-gift-burst-glow {
+  0% {
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.08;
+  }
+  11% {
+    opacity: 0.32;
+  }
+  17% {
+    opacity: 0.12;
+  }
+  21% {
+    opacity: 0.4;
+  }
+  24% {
+    opacity: 0.88;
+  }
+  38% {
+    opacity: 0.45;
+  }
+  55% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 0;
   }
 }
 
@@ -216,6 +244,8 @@
 }
 
 .intro-gift-burst-layer {
+  position: relative;
+  isolation: isolate;
   animation-name: intro-gift-burst;
   animation-duration: var(--intro-gift-burst-duration, 0.459s);
   /* 초반 스냅만 살짝, 후반은 와리가리 없이 상승만 읽히게 */
@@ -223,5 +253,36 @@
   animation-fill-mode: forwards;
   animation-play-state: running;
   transform-origin: 50% 58%;
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity;
+}
+
+/* 선물 뒤 라디얼: 회전 기준(58%)에 맞춤 — 본체와 같이만 움직이고 opacity만 펄스 */
+.intro-gift-burst-layer::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  z-index: 0;
+  width: 150%;
+  min-width: 200px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 230, 255, 0.55) 0%,
+    rgba(123, 97, 255, 0.24) 36%,
+    rgba(174, 233, 225, 0.12) 52%,
+    transparent 70%
+  );
+  /* easing은 본체(burst)와 달리 linear → 키프레임 %가 시간과 1:1 */
+  animation: intro-gift-burst-glow var(--intro-gift-burst-duration, 0.459s) linear forwards;
+  will-change: opacity;
+  backface-visibility: hidden;
+}
+
+.intro-gift-burst-layer > img {
+  position: relative;
+  z-index: 1;
 }
