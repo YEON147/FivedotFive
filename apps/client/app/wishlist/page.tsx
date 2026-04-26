@@ -16,13 +16,14 @@ import {
   useRef,
   useState,
   type MouseEvent,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT } from "@/components/wishlist/sticker-sheet-layout";
+import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
@@ -56,6 +57,7 @@ import {
   type WishlistPageSessionCache,
 } from "@/features/wishlist/wishlist-session-cache";
 import { getMyProfile } from "@/features/user/api";
+import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
 import {
   fetchBackgroundAssets,
   resolveBackgroundDisplayLabel,
@@ -238,32 +240,8 @@ export default function WishlistPage() {
   const [stickerSlotSaving, setStickerSlotSaving] = useState(false);
   const [stickerSlotSaveError, setStickerSlotSaveError] = useState<string | null>(null);
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stickerTabStripRef = useRef<HTMLDivElement | null>(null);
-  const stickerTabStripDragCleanupRef = useRef<(() => void) | null>(null);
-  const stickerTabStripMouseDragRef = useRef<{
-    pointerId: number;
-    startClientX: number;
-    startScrollLeft: number;
-    dragged: boolean;
-  }>({
-    pointerId: -1,
-    startClientX: 0,
-    startScrollLeft: 0,
-    dragged: false,
-  });
-  const backgroundPickerStripRef = useRef<HTMLDivElement | null>(null);
-  const backgroundPickerStripDragCleanupRef = useRef<(() => void) | null>(null);
-  const backgroundPickerStripMouseDragRef = useRef<{
-    pointerId: number;
-    startClientX: number;
-    startScrollLeft: number;
-    dragged: boolean;
-  }>({
-    pointerId: -1,
-    startClientX: 0,
-    startScrollLeft: 0,
-    dragged: false,
-  });
+  const stickerTabStripScroll = useMouseDragHorizontalScroll();
+  const backgroundPickerStripScroll = useMouseDragHorizontalScroll();
   /** 선물 수정 모달: 목록 최초 로드 시에만 프리셋 여부 동기화(재선택 덮어쓰기 방지) */
   const giftEditPresetSyncRef = useRef<{ slot: number; done: boolean }>({
     slot: -1,
@@ -592,19 +570,17 @@ export default function WishlistPage() {
 
   useEffect(() => {
     if (!isBottomSheetOpen) {
-      stickerTabStripDragCleanupRef.current?.();
-      stickerTabStripDragCleanupRef.current = null;
+      stickerTabStripScroll.detach();
     }
-  }, [isBottomSheetOpen]);
+  }, [isBottomSheetOpen, stickerTabStripScroll]);
 
   useEffect(() => {
     if (!isCompactBackgroundOpen) {
-      backgroundPickerStripDragCleanupRef.current?.();
-      backgroundPickerStripDragCleanupRef.current = null;
+      backgroundPickerStripScroll.detach();
     } else {
       setBackgroundSaveError(null);
     }
-  }, [isCompactBackgroundOpen]);
+  }, [isCompactBackgroundOpen, backgroundPickerStripScroll]);
 
   useEffect(() => {
     if (!isShareModalOpen) {
@@ -655,126 +631,11 @@ export default function WishlistPage() {
   };
 
   const closeStickerPicker = useCallback(() => {
-    stickerTabStripDragCleanupRef.current?.();
-    stickerTabStripDragCleanupRef.current = null;
+    stickerTabStripScroll.detach();
     setIsBottomSheetOpen(false);
     setStickerTargetSlotId(null);
     setStickerSlotSaveError(null);
-  }, []);
-
-  /** 탭 줄: 마우스로 좌우 끌기(터치는 네이티브 가로 스크롤 유지) */
-  const onStickerTabStripPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (typeof window === "undefined") return;
-      if (event.pointerType !== "mouse" || event.button !== 0) return;
-      const strip = stickerTabStripRef.current;
-      if (!strip) return;
-
-      stickerTabStripDragCleanupRef.current?.();
-      stickerTabStripDragCleanupRef.current = null;
-
-      const drag = stickerTabStripMouseDragRef.current;
-      drag.pointerId = event.pointerId;
-      drag.startClientX = event.clientX;
-      drag.startScrollLeft = strip.scrollLeft;
-      drag.dragged = false;
-
-      const win = window;
-      const opts = { capture: true } as const;
-
-      const onMove = (ev: PointerEvent) => {
-        if (ev.pointerId !== drag.pointerId) return;
-        const dx = ev.clientX - drag.startClientX;
-        if (Math.abs(dx) > 6) {
-          drag.dragged = true;
-        }
-        if (drag.dragged) {
-          ev.preventDefault();
-          strip.scrollLeft = drag.startScrollLeft - dx;
-        }
-      };
-
-      function onUpOrCancel(ev: PointerEvent) {
-        if (ev.pointerId !== drag.pointerId) return;
-        detachStripMouseDragListeners();
-        if (drag.dragged) {
-          window.setTimeout(() => {
-            drag.dragged = false;
-          }, 0);
-        }
-      }
-
-      const detachStripMouseDragListeners = () => {
-        win.removeEventListener("pointermove", onMove, opts);
-        win.removeEventListener("pointerup", onUpOrCancel, opts);
-        win.removeEventListener("pointercancel", onUpOrCancel, opts);
-        stickerTabStripDragCleanupRef.current = null;
-      };
-
-      win.addEventListener("pointermove", onMove, opts);
-      win.addEventListener("pointerup", onUpOrCancel, opts);
-      win.addEventListener("pointercancel", onUpOrCancel, opts);
-      stickerTabStripDragCleanupRef.current = detachStripMouseDragListeners;
-    },
-    [],
-  );
-
-  /** 배경 선택 시트 썸네일 줄: 마우스로 좌우 끌기 */
-  const onBackgroundPickerStripPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (typeof window === "undefined") return;
-      if (event.pointerType !== "mouse" || event.button !== 0) return;
-      const strip = backgroundPickerStripRef.current;
-      if (!strip) return;
-
-      backgroundPickerStripDragCleanupRef.current?.();
-      backgroundPickerStripDragCleanupRef.current = null;
-
-      const drag = backgroundPickerStripMouseDragRef.current;
-      drag.pointerId = event.pointerId;
-      drag.startClientX = event.clientX;
-      drag.startScrollLeft = strip.scrollLeft;
-      drag.dragged = false;
-
-      const win = window;
-      const opts = { capture: true } as const;
-
-      const onMove = (ev: PointerEvent) => {
-        if (ev.pointerId !== drag.pointerId) return;
-        const dx = ev.clientX - drag.startClientX;
-        if (Math.abs(dx) > 6) {
-          drag.dragged = true;
-        }
-        if (drag.dragged) {
-          ev.preventDefault();
-          strip.scrollLeft = drag.startScrollLeft - dx;
-        }
-      };
-
-      function onUpOrCancel(ev: PointerEvent) {
-        if (ev.pointerId !== drag.pointerId) return;
-        detachBackgroundPickerMouseDragListeners();
-        if (drag.dragged) {
-          window.setTimeout(() => {
-            drag.dragged = false;
-          }, 0);
-        }
-      }
-
-      const detachBackgroundPickerMouseDragListeners = () => {
-        win.removeEventListener("pointermove", onMove, opts);
-        win.removeEventListener("pointerup", onUpOrCancel, opts);
-        win.removeEventListener("pointercancel", onUpOrCancel, opts);
-        backgroundPickerStripDragCleanupRef.current = null;
-      };
-
-      win.addEventListener("pointermove", onMove, opts);
-      win.addEventListener("pointerup", onUpOrCancel, opts);
-      win.addEventListener("pointercancel", onUpOrCancel, opts);
-      backgroundPickerStripDragCleanupRef.current = detachBackgroundPickerMouseDragListeners;
-    },
-    [],
-  );
+  }, [stickerTabStripScroll]);
 
   const applyStickerSelection = useCallback(
     async (assetKey: string) => {
@@ -1511,10 +1372,10 @@ export default function WishlistPage() {
           ) : null}
 
           <div
-            ref={backgroundPickerStripRef}
+            ref={backgroundPickerStripScroll.stripRef}
             aria-label="배경 썸네일 목록"
             className="wishlist-background-picker-scroll mt-1 flex cursor-grab items-start gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain pb-2 select-none active:cursor-grabbing touch-pan-x"
-            onPointerDown={onBackgroundPickerStripPointerDown}
+            onPointerDown={backgroundPickerStripScroll.onPointerDown}
           >
             <div className="flex w-24 shrink-0 flex-col gap-1.5 text-center">
               <p className="break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
@@ -1562,29 +1423,15 @@ export default function WishlistPage() {
         </div>
       </section>
 
-      <section
-        className={`fixed left-1/2 top-1/2 z-30 w-[min(340px,calc(100vw-2rem))] min-w-0 max-w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 pb-6 pt-4 shadow-[0_24px_60px_rgba(0,0,0,0.14)] transition-all duration-300 ${
-          isShareModalOpen
-            ? "pointer-events-auto scale-100 opacity-100"
-            : "pointer-events-none scale-95 opacity-0"
-        }`}
-        aria-hidden={!isShareModalOpen}
+      <WishlistCenterDialog
+        variant="animated"
+        open={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        title="공유하기"
+        titleId="wishlist-share-dialog-title"
+        closeLabel="공유 창 닫기"
+        description="위시리스트 링크를 복사하거나 공유할 수 있어요."
       >
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <h2 className="min-w-0 text-h3 text-slate-900">공유하기</h2>
-          <button
-            type="button"
-            onClick={() => setIsShareModalOpen(false)}
-            className="inline-flex size-8 shrink-0 -translate-y-0.5 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 sm:size-9"
-            aria-label="공유 창 닫기"
-          >
-            <X size={22} weight="bold" aria-hidden />
-          </button>
-        </div>
-        <p className="mt-1.5 min-w-0 break-words text-body-sm text-slate-600">
-          위시리스트 링크를 복사하거나 공유할 수 있어요.
-        </p>
-
         {/** URL 박스 위에만 덮어씀 — 모달·박스 밖으로 블러/배경 안 샘 */}
         <div className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
           <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
@@ -1593,7 +1440,8 @@ export default function WishlistPage() {
               : "링크를 불러오는 중..."}
           </div>
           {shareLinkCopyFeedback ? (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden]">              <p
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden] backdrop-blur-xl">
+              <p
                 className="min-w-0 max-w-full px-2 text-center text-sm font-semibold text-slate-700"
                 role="status"
                 aria-live="polite"
@@ -1639,7 +1487,7 @@ export default function WishlistPage() {
             공유하기
           </button>
         </div>
-      </section>
+      </WishlistCenterDialog>
 
       {sidebarPortalReady && isGiftModalOpen
         ? createPortal(
@@ -1829,11 +1677,11 @@ export default function WishlistPage() {
                 aria-label="스티커 선택"
               >
                 <div
-                  ref={stickerTabStripRef}
+                  ref={stickerTabStripScroll.stripRef}
                   role="tablist"
                   aria-label="스티커 카테고리"
                   className="scrollbar-x-none flex cursor-grab gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 px-2 pb-2 pt-2 select-none active:cursor-grabbing touch-pan-x"
-                  onPointerDown={onStickerTabStripPointerDown}
+                  onPointerDown={stickerTabStripScroll.onPointerDown}
                 >
                   {STICKER_MODAL_TABS.map((tab) => {
                     const active = stickerModalTab === tab.id;
@@ -1844,7 +1692,7 @@ export default function WishlistPage() {
                         role="tab"
                         aria-selected={active}
                         onClick={(clickEvent) => {
-                          if (stickerTabStripMouseDragRef.current.dragged) {
+                          if (stickerTabStripScroll.mouseDragRef.current.dragged) {
                             clickEvent.preventDefault();
                             clickEvent.stopPropagation();
                             return;
@@ -1874,8 +1722,7 @@ export default function WishlistPage() {
                     <div
                       className="flex items-center justify-center"
                       style={{
-                        minHeight:
-                          "calc((100cqw - 1.25rem) / 6 * 3 + 0.5rem)",
+                        minHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
                       }}
                     >
                       <p className="text-body-sm text-slate-500">스티커 불러오는 중…</p>
@@ -1884,8 +1731,7 @@ export default function WishlistPage() {
                     <p
                       className="px-1 text-center text-body-sm text-red-600"
                       style={{
-                        minHeight:
-                          "calc((100cqw - 1.25rem) / 6 * 3 + 0.5rem)",
+                        minHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
                       }}
                       role="alert"
                     >
@@ -1895,8 +1741,7 @@ export default function WishlistPage() {
                     <div
                       className="overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y"
                       style={{
-                        maxHeight:
-                          "calc((100cqw - 1.25rem) / 6 * 3 + 0.5rem)",
+                        maxHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
                       }}
                     >
                       <div className="grid grid-cols-6 gap-1">
