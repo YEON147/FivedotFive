@@ -104,10 +104,11 @@ public class User {
         this.status = Status.DELETED; // Status.INACTIVE
     }
 
-    public void updateProfile(String school, String nickname, Gender gender, String grade) {
+    public void updateProfile(String school, String nickname, Gender gender, String grade, String schoolcode) {
         this.school = school;
         this.nickname = nickname;
         this.gender = gender;
         this.grade = grade;
+        this.schoolcode = schoolcode;
     }
 }

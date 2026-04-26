@@ -11,5 +11,7 @@ public record UserUpdateRequest(
         String nickname,
 
         String gender,
-        String grade
+        String grade,
+        String schoolcode
+
 ) {}
