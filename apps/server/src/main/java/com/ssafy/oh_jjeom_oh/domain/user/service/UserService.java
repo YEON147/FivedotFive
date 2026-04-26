@@ -62,7 +62,8 @@ public class UserService {
                 request.school(),
                 request.nickname(),
                 genderEnum,
-                request.grade()
+                request.grade(),
+                request.schoolcode()
         );
     }
 
