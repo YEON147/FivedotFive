@@ -1,18 +1,14 @@
 /**
- * 랜딩·위시 CTA용 유입 채널 + GA4/GTM 이벤트.
+ * 랜딩·위시 CTA 유입 추정 + **GTM용 dataLayer** 이벤트(일반 UI 클릭).
+ * 핵심 GA4 전환(`sign_up`, `signup_button_click` 등)은 `conversion.ts` → gtag.
  *
- * GA4 관리: 이벤트 범위 사용자 정의 차원 등록 권장
- * - `traffic_source`, `utm_source`, `utm_medium`, `utm_campaign`, `referrer_host`
- * - `cta_id`, `wishlist_entry`(위시 CTA), `signup_entry`(회원가입 의도)
- *
- * `sessionStorage`에 첫 유입(UTM 또는 외부 referrer)을 보관해, 내부 이동(`/signup` 등) 후에도
- * 같은 세션에서 매체·소스 기준 퍼널(가입 클릭 → 가입 완료, 꾸미러 가기 클릭)을 맞출 수 있습니다.
+ * GTM에서 `wishlist_cta_click` / `wishlist_create_click` 트리거로 태그 연결(애드센스·픽셀과 역할 분리).
+ * `sessionStorage`로 UTM/첫 유입을 유지해 퍼널 정합성 유지.
  */
 
 declare global {
   interface Window {
     dataLayer?: Record<string, unknown>[];
-    gtag?: (...args: unknown[]) => void;
   }
 }
 
@@ -207,30 +203,16 @@ export function trackWishlistCtaClick(params: {
   if (typeof window !== "undefined" && window.dataLayer) {
     window.dataLayer.push(payload);
   }
-
-  if (typeof window !== "undefined" && typeof window.gtag === "function") {
-    window.gtag("event", "wishlist_cta_click", {
-      ...trafficParams(base),
-      cta_id: params.cta_id,
-      ...(params.wishlist_entry ? { wishlist_entry: params.wishlist_entry } : {}),
-    });
-  }
 }
 
-/** @deprecated `wishlist_cta_click` + cta_id 로 통합. 기존 GTM 연동이 있을 때만 사용. */
+/** GTM `dataLayer` — 레거시 이벤트명. `wishlist_cta_click` + cta_id 권장. */
 export function trackWishlistCreateClick(
   context: WishlistCtaTrafficContext = getWishlistCtaTrafficContext(),
 ): void {
-  const payload = {
-    event: "wishlist_create_click",
-    ...trafficParams(context),
-  };
-
   if (typeof window !== "undefined" && window.dataLayer) {
-    window.dataLayer.push(payload);
-  }
-
-  if (typeof window !== "undefined" && typeof window.gtag === "function") {
-    window.gtag("event", "wishlist_create_click", trafficParams(context));
+    window.dataLayer.push({
+      event: "wishlist_create_click",
+      ...trafficParams(context),
+    });
   }
 }
