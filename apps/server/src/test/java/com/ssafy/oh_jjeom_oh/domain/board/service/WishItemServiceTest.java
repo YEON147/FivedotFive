@@ -183,14 +183,14 @@ class WishItemServiceTest {
     }
 
     @Test
-    @DisplayName("위시 아이템 공감 실패 - 본인 보드")
-    void likeItem_ownBoard() {
+    @DisplayName("위시 아이템 공감 성공 - 본인 보드도 공감 가능")
+    void likeItem_ownBoard_allowed() {
         given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
 
-        assertThatThrownBy(() -> wishItemService.likeItem(1L, "abc123def4", 1))
-                .isInstanceOf(CustomException.class)
-                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.LIKE_OWN_BOARD));
+        WishItemLikeResponse response = wishItemService.likeItem(1L, "abc123def4", 1);
+
+        assertThat(response.getLikeCount()).isEqualTo(6); // 5 + 1
     }
 
     @Test
