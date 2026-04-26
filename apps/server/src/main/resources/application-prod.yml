@@ -38,6 +38,21 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: l17806500@gmail.com
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          timeout: 5000
+          connectiontimeout: 5000
+          writetimeout: 5000
+
 server:
   port: 8080
   forward-headers-strategy: native
