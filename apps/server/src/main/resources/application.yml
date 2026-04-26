@@ -47,6 +47,9 @@ jwt:
 app:
   frontend-url: ${FRONTEND_URL:https://fivedotfive.co.kr}
 
+comment:
+  reveal-at: 2026-05-05T08:00:00  # KST 기준 댓글 내용 공개 시각 (서버는 KST로 실행됨을 전제)
+
 cloud:
   aws:
     s3:
