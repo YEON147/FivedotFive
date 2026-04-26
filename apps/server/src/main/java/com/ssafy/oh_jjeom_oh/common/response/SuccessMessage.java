@@ -17,6 +17,9 @@ public enum SuccessMessage {
     USER_INFO_DELETED("회원 탈퇴가 완료되었습니다."),
     NICKNAME_VALID("사용 가능한 닉네임입니다."),
     NICKNAME_CREATED("랜덤 닉네임이 생성되었습니다."),
+    OTP_SENT("임시 비밀번호가 발송되었습니다."),
+    OTP_VERIFIED("인증번호가 확인되었습니다."),
+    PASSWORD_RESET_SUCCESS("비밀번호가 재설정되었습니다."),
 
     LOGIN_SUCCESS("로그인 되었습니다."),
     SIGNUP_SUCCESS("회원가입이 완료되었습니다."),
