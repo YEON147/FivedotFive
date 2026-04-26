@@ -1,11 +1,5 @@
 import { apiClient, publicApiClient } from "@/lib/api/client";
-import type {
-  CommentCreateData,
-  CommentListData,
-  MyBoardData,
-  MyWishItemsData,
-  PublicBoardData,
-} from "./types";
+import type { CommentCreateData, CommentListData, MyBoardData, PublicBoardData } from "./types";
 
 export async function getMyBoard(): Promise<MyBoardData> {
   return apiClient<MyBoardData>("/api/boards/me");
@@ -25,16 +19,6 @@ export async function createMyBoard(): Promise<CreateBoardApiResponse> {
   return apiClient<CreateBoardApiResponse>("/api/boards", {
     method: "POST",
     body: JSON.stringify({}),
-  });
-}
-
-/** GET /api/boards/me/items — CHILD, 슬롯 3개 고정 */
-export async function getMyWishItems(): Promise<MyWishItemsData> {
-  return apiClient<MyWishItemsData>("/api/boards/me/items", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 }
 

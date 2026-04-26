@@ -16,12 +16,16 @@ import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,10 +36,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WishCommentService {
 
     private static final long RATE_LIMIT_MILLIS = 10_000L; // 10초
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final WishBoardRepository wishBoardRepository;
     private final WishCommentRepository wishCommentRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
+
+    /** 댓글 내용 전체 공개 시각 (KST 기준, 서버가 KST로 실행됨을 전제) */
+    @Value("${comment.reveal-at}")
+    private LocalDateTime revealAt;
 
     // userId -> 마지막 댓글 작성 시각 (ms)
     private final Map<Long, Long> lastCommentTimeMap = new ConcurrentHashMap<>();
@@ -44,13 +54,15 @@ public class WishCommentService {
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
         WishBoard board = getBoardBySlug(slug);
 
+        boolean revealed = !clock.instant().isBefore(revealAt.atZone(KST).toInstant());
+
         Page<WishComment> commentPage =
                 wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(board, PageRequest.of(page, size));
 
         List<CommentResponse> comments = commentPage.getContent().stream()
                 .map(c -> requestUserId != null
-                        ? CommentResponse.of(c, requestUserId)
-                        : CommentResponse.ofAnonymous(c))
+                        ? CommentResponse.of(c, requestUserId, revealed)
+                        : CommentResponse.ofAnonymous(c, revealed))
                 .toList();
 
         return CommentListResponse.of(commentPage, comments);

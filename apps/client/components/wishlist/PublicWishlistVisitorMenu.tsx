@@ -15,9 +15,6 @@ type PublicWishlistVisitorMenuProps = {
 const SIDE_MENU_ICON_WRAP_PRIMARY =
   "flex size-10 shrink-0 items-center justify-center rounded-full bg-[#7B61FF]/12 text-[#7B61FF]";
 
-const SIDE_MENU_ICON_WRAP_MUTED =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-500/10 text-slate-600";
-
 const SIDE_MENU_ICON_WRAP_ROSE =
   "flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600";
 
@@ -143,7 +140,7 @@ export function PublicWishlistVisitorMenu({
                 onClick={onClose}
                 className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
               >
-                <span className={SIDE_MENU_ICON_WRAP_MUTED} aria-hidden>
+                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
                   <UserPlus size={22} weight="bold" />
                 </span>
                 회원가입
