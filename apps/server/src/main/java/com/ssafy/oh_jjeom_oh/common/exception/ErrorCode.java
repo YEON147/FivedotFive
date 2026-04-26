@@ -18,6 +18,11 @@ public enum ErrorCode {
     SAME_PASSWORD(HttpStatus.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다."),
     INVALID_GENDER_TYPE(HttpStatus.BAD_REQUEST,"성별을 찾을 수 없습니다."),
 
+    EMAIL_NOT_FOUND(HttpStatus.BAD_REQUEST, "등록되지 않은 이메일입니다."),
+    INVALID_OTP(HttpStatus.BAD_REQUEST, "인증번호가 올바르지 않습니다."),
+    OTP_EXPIRED(HttpStatus.BAD_REQUEST, "인증번호가 만료되었습니다."),
+    NOT_VERIFIED_EMAIL(HttpStatus.BAD_REQUEST, "인증이 완료되지 않은 이메일입니다."),
+
     LOGIN_FAILED(HttpStatus.BAD_REQUEST, "아이디 또는 비밀번호가 올바르지 않습니다."),
     USER_FORBIDDEN(HttpStatus.FORBIDDEN, "정지되거나 탈퇴한 계정입니다."),
 
