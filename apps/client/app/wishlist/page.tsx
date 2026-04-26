@@ -609,19 +609,6 @@ export default function WishlistPage() {
     setGiftModalSpecial(null);
   };
 
-  const toggleSidebar = () => {
-    setIsBottomSheetOpen(false);
-    setIsCompactBackgroundOpen(false);
-    setStickerTargetSlotId(null);
-    setIsShareModalOpen(false);
-    setIsGiftModalOpen(false);
-    setGiftModalSaving(false);
-    setGiftModalDeleting(false);
-    setGiftModalSaveError(null);
-    setGiftModalSpecial(null);
-    setIsSidebarOpen((prev) => !prev);
-  };
-
   const closeGiftModal = () => {
     setIsGiftModalOpen(false);
     setGiftModalSaving(false);
@@ -689,35 +676,70 @@ export default function WishlistPage() {
     }
   }, [stickerTargetSlotId, applyLoadedBoard]);
 
-  const persistBackgroundChoice = useCallback(
-    async (mode: "default" | "key", assetKey?: string) => {
-      setBackgroundSaving(true);
-      setBackgroundSaveError(null);
-      try {
-        if (mode === "default") {
-          await deleteMyBoardBackground();
-        } else {
-          const keyTrim = assetKey?.trim() ?? "";
-          if (!keyTrim) {
-            setBackgroundSaveError("배경을 선택해 주세요.");
-            return;
-          }
-          await putMyBoardBackground(keyTrim);
-        }
-        const board = await getMyBoard();
-        applyLoadedBoard(board);
-        setDraftBackgroundAssetKey(null);
-        setIsCompactBackgroundOpen(false);
-      } catch (e) {
-        setBackgroundSaveError(
-          e instanceof Error ? e.message : "배경을 저장하지 못했습니다.",
-        );
-      } finally {
-        setBackgroundSaving(false);
+  /**
+   * 배경 시트를 내릴 때만 서버에 반영합니다.
+   * 시트가 열린 동안 썸네일 클릭은 `draftBackgroundAssetKey`로만 미리보기합니다.
+   * @returns 저장·닫기 성공 여부(실패 시 시트 유지)
+   */
+  const dismissCompactBackgroundSheet = useCallback(async (): Promise<boolean> => {
+    if (!isCompactBackgroundOpen) {
+      return true;
+    }
+
+    const serverKey =
+      boardAssets.find((a) => a.assetType === "BACKGROUND")?.assetKey?.trim() ?? "";
+
+    setBackgroundSaveError(null);
+    const draft = draftBackgroundAssetKey;
+
+    if (draft === null || draft === serverKey) {
+      setDraftBackgroundAssetKey(null);
+      setIsCompactBackgroundOpen(false);
+      return true;
+    }
+
+    setBackgroundSaving(true);
+    try {
+      if (draft === "") {
+        await deleteMyBoardBackground();
+      } else {
+        await putMyBoardBackground(draft);
       }
-    },
-    [applyLoadedBoard],
-  );
+      const board = await getMyBoard();
+      applyLoadedBoard(board);
+      setDraftBackgroundAssetKey(null);
+      setIsCompactBackgroundOpen(false);
+      return true;
+    } catch (e) {
+      setBackgroundSaveError(
+        e instanceof Error ? e.message : "배경을 저장하지 못했습니다.",
+      );
+      return false;
+    } finally {
+      setBackgroundSaving(false);
+    }
+  }, [applyLoadedBoard, boardAssets, draftBackgroundAssetKey, isCompactBackgroundOpen]);
+
+  const toggleSidebar = () => {
+    void (async () => {
+      if (isCompactBackgroundOpen) {
+        const ok = await dismissCompactBackgroundSheet();
+        if (!ok) {
+          return;
+        }
+      }
+      setIsBottomSheetOpen(false);
+      setIsCompactBackgroundOpen(false);
+      setStickerTargetSlotId(null);
+      setIsShareModalOpen(false);
+      setIsGiftModalOpen(false);
+      setGiftModalSaving(false);
+      setGiftModalDeleting(false);
+      setGiftModalSaveError(null);
+      setGiftModalSpecial(null);
+      setIsSidebarOpen((prev) => !prev);
+    })();
+  };
 
   const openGiftModalAdd = () => {
     setGiftModalMode("add");
@@ -927,6 +949,21 @@ export default function WishlistPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isBottomSheetOpen, closeStickerPicker]);
 
+  useEffect(() => {
+    if (!isCompactBackgroundOpen) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        void dismissCompactBackgroundSheet();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isCompactBackgroundOpen, dismissCompactBackgroundSheet]);
+
   const giftSlotImages = useMemo(() => {
     const compact = compactGiftAssetKeysToLayoutSlots(wishTexts, wishGiftIconKeys);
     const out: Partial<Record<number, string>> = {};
@@ -967,6 +1004,20 @@ export default function WishlistPage() {
     const bg = boardAssets.find((a) => a.assetType === "BACKGROUND");
     return bg ? getAssetImageUrl(bg.assetKey) : null;
   }, [boardAssets]);
+
+  /** 서버에 저장된 배경 에셋 키. 없으면 기본(빈 문자열). */
+  const serverBackgroundAssetKey = useMemo(() => {
+    const bg = boardAssets.find((a) => a.assetType === "BACKGROUND");
+    return bg?.assetKey?.trim() ?? "";
+  }, [boardAssets]);
+
+  /** 시트에서 보여줄·강조할 현재 선택(미리보기 우선). */
+  const effectiveBackgroundSelectionKey = useMemo(() => {
+    if (draftBackgroundAssetKey !== null) {
+      return draftBackgroundAssetKey;
+    }
+    return serverBackgroundAssetKey;
+  }, [draftBackgroundAssetKey, serverBackgroundAssetKey]);
 
   const boardBackgroundDisplayUrl = useMemo(() => {
     if (draftBackgroundAssetKey === null) {
@@ -1115,7 +1166,17 @@ export default function WishlistPage() {
               ? "pointer-events-auto bg-black/10 opacity-100"
               : "pointer-events-none bg-black/20 opacity-0"
         }`}
-        onClick={isShareModalOpen || isCompactBackgroundOpen ? closeEditUi : undefined}
+        onClick={
+          isShareModalOpen || isCompactBackgroundOpen
+            ? () => {
+                if (isShareModalOpen) {
+                  closeEditUi();
+                  return;
+                }
+                void dismissCompactBackgroundSheet();
+              }
+            : undefined
+        }
         aria-hidden={!(isShareModalOpen || isCompactBackgroundOpen)}
       />
 
@@ -1291,10 +1352,18 @@ export default function WishlistPage() {
                   type="button"
                   onClick={() => {
                     if (isDecorateMode) {
-                      setIsDecorateMode(false);
-                      setIsBottomSheetOpen(false);
-                      setIsCompactBackgroundOpen(false);
-                      setStickerTargetSlotId(null);
+                      void (async () => {
+                        if (isCompactBackgroundOpen) {
+                          const ok = await dismissCompactBackgroundSheet();
+                          if (!ok) {
+                            return;
+                          }
+                        }
+                        setIsDecorateMode(false);
+                        setIsBottomSheetOpen(false);
+                        setIsCompactBackgroundOpen(false);
+                        setStickerTargetSlotId(null);
+                      })();
                       return;
                     }
                     void postAdminAssetsSync().catch((error) => {
@@ -1344,12 +1413,14 @@ export default function WishlistPage() {
                 배경 선택
               </p>
               <p className="mt-1 text-[12px] leading-snug text-slate-500">
-                위시리스트 배경을 꾹 누르면 수정할 수 있어요
+                배경을 골라 미리 본 뒤, 시트를 닫으면 위시보드에 반영돼요
               </p>
             </div>
             <button
               type="button"
-              onClick={() => setIsCompactBackgroundOpen(false)}
+              onClick={() => {
+                void dismissCompactBackgroundSheet();
+              }}
               className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60"
               aria-label="배경 선택 닫기"
             >
@@ -1382,11 +1453,15 @@ export default function WishlistPage() {
                 기본
               </p>
               <DefaultOptionButton
-                className="aspect-[3/4] w-full rounded-xl"
+                className={`aspect-[3/4] w-full rounded-xl ${
+                  effectiveBackgroundSelectionKey === ""
+                    ? "ring-2 ring-[#7B61FF] ring-offset-2 ring-offset-[var(--color-surface)]"
+                    : ""
+                }`}
                 label="기본 배경"
                 disabled={backgroundSaving}
                 onClick={() => {
-                  void persistBackgroundChoice("default");
+                  setDraftBackgroundAssetKey("");
                 }}
               />
             </div>
@@ -1401,14 +1476,20 @@ export default function WishlistPage() {
                   type="button"
                   disabled={backgroundSaving}
                   onClick={() => {
-                    void persistBackgroundChoice("key", bg.assetKey);
+                    setDraftBackgroundAssetKey(bg.assetKey.trim());
                   }}
                   className="group flex w-24 shrink-0 cursor-pointer flex-col gap-1.5 text-center transition hover:opacity-95 disabled:opacity-50"
                 >
                   <p className="break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
                     {label}
                   </p>
-                  <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/80 transition group-hover:ring-[#7B61FF]/35">
+                  <div
+                    className={`relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-100 ring-1 transition group-hover:ring-[#7B61FF]/35 ${
+                      effectiveBackgroundSelectionKey === bg.assetKey.trim()
+                        ? "ring-2 ring-[#7B61FF] ring-offset-2 ring-offset-[var(--color-surface)]"
+                        : "ring-slate-200/80"
+                    }`}
+                  >
                     <img
                       src={src}
                       alt={label}
