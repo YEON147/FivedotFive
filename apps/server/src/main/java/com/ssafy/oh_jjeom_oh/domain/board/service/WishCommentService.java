@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,6 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WishCommentService {
 
     private static final long RATE_LIMIT_MILLIS = 10_000L; // 10초
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final WishBoardRepository wishBoardRepository;
     private final WishCommentRepository wishCommentRepository;
@@ -52,7 +54,7 @@ public class WishCommentService {
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
         WishBoard board = getBoardBySlug(slug);
 
-        boolean revealed = !LocalDateTime.now(clock).isBefore(revealAt);
+        boolean revealed = !clock.instant().isBefore(revealAt.atZone(KST).toInstant());
 
         Page<WishComment> commentPage =
                 wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(board, PageRequest.of(page, size));
