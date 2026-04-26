@@ -4,9 +4,11 @@ import { X } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
+import { STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT } from "@/components/wishlist/sticker-sheet-layout";
 import { isSoftDeletedWishComment } from "@/features/wishlist/comment-display";
 import type { CommentData, StickerOption } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
+import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
 
 type PopupMode = "view" | "write" | "edit";
 
@@ -68,6 +70,17 @@ export function CommentPopup({
   // 10초 쿨다운 카운트다운
   const [cooldown, setCooldown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const commentStickerTabStripScroll = useMouseDragHorizontalScroll();
+
+  useEffect(() => {
+    if (mode !== "write") {
+      commentStickerTabStripScroll.detach();
+    }
+    return () => {
+      commentStickerTabStripScroll.detach();
+    };
+  }, [mode, commentStickerTabStripScroll]);
 
   useEffect(() => {
     if (mode === "edit" && comment) {
@@ -284,16 +297,31 @@ export function CommentPopup({
           <div>
             <p className="mb-2 text-xs font-semibold text-slate-500">스티커 선택 *</p>
             {stickerTabs && stickerTabs.length > 0 && onStickerFolderChange ? (
-              <div className="mb-2 flex gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div
+                ref={commentStickerTabStripScroll.stripRef}
+                role="tablist"
+                aria-label="스티커 카테고리"
+                className="scrollbar-x-none mb-2 flex cursor-grab gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 pb-2 pt-0.5 select-none active:cursor-grabbing touch-pan-x"
+                onPointerDown={commentStickerTabStripScroll.onPointerDown}
+              >
                 {stickerTabs.map((tab) => {
                   const active = stickerFolderId === tab.id;
                   return (
                     <button
                       key={tab.id}
                       type="button"
-                      onClick={() => onStickerFolderChange(tab.id)}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={(clickEvent) => {
+                        if (commentStickerTabStripScroll.mouseDragRef.current.dragged) {
+                          clickEvent.preventDefault();
+                          clickEvent.stopPropagation();
+                          return;
+                        }
+                        onStickerFolderChange(tab.id);
+                      }}
                       disabled={isWriteBlocked || stickersLoading}
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                      className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         active
                           ? "bg-[#7B61FF] text-white"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -308,39 +336,62 @@ export function CommentPopup({
             {stickersError ? (
               <p className="mb-2 text-xs text-red-500">{stickersError}</p>
             ) : null}
-            <div className="max-h-[min(240px,42vh)] overflow-y-auto pr-0.5">
+            {/** `app/wishlist/page.tsx` 스티커 시트와 동일 — 6열×3행 높이 후 세로 스크롤 */}
+            <div className="min-h-0 w-full [container-type:inline-size]">
               {stickersLoading ? (
-                <p className="py-6 text-center text-xs text-slate-500">스티커 불러오는 중…</p>
+                <div
+                  className="flex items-center justify-center"
+                  style={{
+                    minHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
+                  }}
+                >
+                  <p className="text-center text-xs text-slate-500">스티커 불러오는 중…</p>
+                </div>
               ) : stickerOptions.length === 0 ? (
-                <p className="py-6 text-center text-xs text-slate-500">선택할 스티커가 없습니다.</p>
+                <p
+                  className="flex items-center justify-center px-1 text-center text-xs text-slate-500"
+                  style={{
+                    minHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
+                  }}
+                >
+                  선택할 스티커가 없습니다.
+                </p>
               ) : (
-                <div className="grid grid-cols-6 gap-2">
-                  {stickerOptions.map((option) => {
-                    const thumb = getAssetImageUrl(option.assetKey);
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => setSelectedSticker(option.assetKey)}
-                        disabled={isWriteBlocked}
-                        className={`relative aspect-square overflow-hidden rounded-full border-2 transition ${
-                          selectedSticker === option.assetKey
-                            ? "border-[#7B61FF] bg-transparent shadow-[0_0_0_2px_rgba(123,97,255,0.2)]"
-                            : "border-transparent bg-transparent hover:ring-2 hover:ring-white/50"
-                        } disabled:opacity-40`}
-                        aria-label={option.label}
-                      >
-                        <Image
-                          src={thumb}
-                          alt={option.label}
-                          fill
-                          unoptimized
-                          sizes="48px"
-                          className="object-contain object-center p-0.5"
-                        />
-                      </button>
-                    );
-                  })}
+                <div
+                  className="overflow-y-auto overflow-x-hidden overscroll-contain pr-0.5 [-webkit-overflow-scrolling:touch] touch-pan-y"
+                  style={{
+                    maxHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
+                  }}
+                >
+                  <div className="grid grid-cols-6 gap-1">
+                    {stickerOptions.map((option) => {
+                      const thumb = getAssetImageUrl(option.assetKey);
+                      const selected = selectedSticker === option.assetKey;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => setSelectedSticker(option.assetKey)}
+                          disabled={isWriteBlocked}
+                          className={`relative aspect-square overflow-hidden rounded-md border transition enabled:active:scale-[0.98] ${
+                            selected
+                              ? "border-[#7B61FF] bg-slate-50 shadow-[0_0_0_2px_rgba(123,97,255,0.2)]"
+                              : "border-slate-200 bg-slate-50 enabled:hover:border-[#7B61FF]/50"
+                          } disabled:opacity-40`}
+                          aria-label={option.label}
+                        >
+                          <Image
+                            src={thumb}
+                            alt={option.label}
+                            fill
+                            unoptimized
+                            sizes="(max-width: 340px) 14vw, 48px"
+                            className="object-contain object-center p-0.5"
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
