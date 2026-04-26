@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { trackSignUp } from "@/lib/analytics/conversion";
+import { trackSignUpComplete } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
 import { setAccessToken } from "@/lib/api/token-store";
 import { getMyProfile } from "@/features/user/api";
@@ -29,7 +29,7 @@ function OAuthCallbackContent() {
 
     if (oauthNewUser === "true" && typeof window !== "undefined") {
       if (!sessionStorage.getItem(GA_OAUTH_SIGNUP_DEDUPE_KEY)) {
-        trackSignUp("kakao");
+        trackSignUpComplete("kakao");
         sessionStorage.setItem(GA_OAUTH_SIGNUP_DEDUPE_KEY, "1");
       }
     }

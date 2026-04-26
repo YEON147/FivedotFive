@@ -16,9 +16,13 @@ export const viewport: Viewport = {
   themeColor: "#7B61FF",
 };
 
-const GTM_ID = "GTM-KXJF644T";
+/**
+ * 애드센스 / 외부 광고 / 일반 UI·스크롤: GTM(`GTM-PJ9RR78P`)에서만 삽입·관리.
+ * 핵심 전환은 `lib/analytics/conversion.ts` → gtag 이벤트.
+ */
+const GTM_ID = "GTM-PJ9RR78P";
 
-/** Google Analytics 4 (gtag.js) */
+/** Google Analytics 4 (gtag.js) — Page View·기초 측정. GTM 쪽 GA4에선 페이지 조회 중복 전송 끄기(운영). */
 const GA4_MEASUREMENT_ID = "G-4N35N8KWG2";
 
 const GA4_GTAG_INLINE = `
@@ -41,14 +45,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
-      <head>
-        {/* AdSense — SSR HTML에 포함되어 크롤러·검증 도구가 스크립트를 즉시 확인할 수 있음 */}
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3821021138447390"
-          crossOrigin="anonymous"
-        />
-      </head>
+      <head />
       <body className="min-h-full flex flex-col">
         {/* Google Tag Manager (noscript) */}
         <noscript>
@@ -60,11 +57,10 @@ export default function RootLayout({
             title="Google Tag Manager"
           />
         </noscript>
-        {/* End Google Tag Manager (noscript) */}
 
         <Script id="google-tag-manager" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: GTM_SCRIPT }} />
 
-        {/* Google tag (gtag.js) — GA4 */}
+        {/* Google tag (gtag.js) — GA4 기초 + 자동 page_view */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA4_MEASUREMENT_ID}`}
           strategy="afterInteractive"
