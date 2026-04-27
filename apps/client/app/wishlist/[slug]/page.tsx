@@ -7,7 +7,7 @@ import {
   TextAlignJustify,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   use,
   useCallback,
@@ -29,6 +29,7 @@ import {
   STICKER_SLOT_IMAGE_MASKED,
   StickerSlots,
 } from "@/components/wishlist/WishlistSlots";
+import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
 import {
   createComment,
@@ -367,6 +368,13 @@ export default function PublicWishlistPage({
 }) {
   const { slug } = use(params);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const loginHrefWithReturn = useMemo(() => {
+    const qs = searchParams.toString();
+    return loginUrlForPath(`${pathname}${qs ? `?${qs}` : ""}`);
+  }, [pathname, searchParams]);
 
   const [boardItems, setBoardItems] = useState<WishItemData[]>([]);
   const [boardAssets, setBoardAssets] = useState<BoardAssetData[]>([]);
@@ -880,7 +888,7 @@ export default function PublicWishlistPage({
       >
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Link
-            href="/login"
+            href={loginHrefWithReturn}
             onClick={() => setGuestAuthModalOpen(false)}
             className="flex items-center justify-center rounded-[14px] bg-[#7B61FF] px-4 py-3 text-center text-sm font-semibold text-white transition hover:opacity-95"
           >
@@ -918,6 +926,7 @@ export default function PublicWishlistPage({
         onClose={() => setIsSidebarOpen(false)}
         loggedIn={visitorMenuLoggedIn}
         onLogout={handleVisitorLogout}
+        loginHref={loginHrefWithReturn}
       />
 
       {selectedSlot !== null ? (

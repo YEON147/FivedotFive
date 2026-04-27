@@ -32,7 +32,6 @@ import {
   type GiftLayoutCount,
 } from "@/components/wishlist/WishlistSlots";
 import {
-  createMyBoard,
   deleteMyBoardBackground,
   deleteMyWishItem,
   getMyBoard,
@@ -53,9 +52,11 @@ import type { BoardAssetData, MyBoardData, WishItemData } from "@/features/wishl
 import {
   clearWishlistPageSessionCache,
   getWishlistPageSessionCache,
+  SESSION_OPEN_DECORATE_AFTER_CREATE_KEY,
   setWishlistPageSessionCache,
   type WishlistPageSessionCache,
 } from "@/features/wishlist/wishlist-session-cache";
+import { loginUrlWithCurrentPageAsNext } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
 import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
 import {
@@ -246,8 +247,6 @@ export default function WishlistPage() {
   const [hasMyBoard, setHasMyBoard] = useState(
     () => getWishlistPageSessionCache()?.hasMyBoard ?? false,
   );
-  const [decorateStartLoading, setDecorateStartLoading] = useState(false);
-  const [decorateStartError, setDecorateStartError] = useState<string | null>(null);
   const [viewerName, setViewerName] = useState(
     () => getWishlistPageSessionCache()?.viewerName ?? "회원",
   );
@@ -287,7 +286,7 @@ export default function WishlistPage() {
   useEffect(() => {
     if (!getAccessToken()) {
       clearWishlistPageSessionCache();
-      router.replace("/login");
+      router.replace(loginUrlWithCurrentPageAsNext());
       return;
     }
 
@@ -423,6 +422,26 @@ export default function WishlistPage() {
       cancelled = true;
     };
   }, [router, applyLoadedBoard]);
+
+  /** 보드 없음일 때 온보딩 UI는 메인(`/`)과 통합 — `/wishlist` 직진 시 메인으로 이동 */
+  useEffect(() => {
+    if (!wishSlotsLoaded || hasMyBoard) return;
+    if (!getAccessToken()) return;
+    router.replace("/");
+  }, [wishSlotsLoaded, hasMyBoard, router]);
+
+  /** 메인에서 위시보드 생성 직후 진입 시 한 번만 꾸미기 모드로 연다 */
+  useEffect(() => {
+    if (!wishSlotsLoaded || !hasMyBoard || typeof window === "undefined") return;
+    try {
+      if (sessionStorage.getItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY) === "1") {
+        sessionStorage.removeItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY);
+        setIsDecorateMode(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [wishSlotsLoaded, hasMyBoard]);
 
   /** 라우트 이동 직전 항상 최신 보드 상태를 가리키도록 유지 — 언마운트 시에만 세션 캐시에 반영 */
   const wishlistSessionSnapshotRef = useRef<WishlistPageSessionCache | null>(null);
@@ -1102,9 +1121,6 @@ export default function WishlistPage() {
     return getAssetImageUrl(draftBackgroundAssetKey);
   }, [draftBackgroundAssetKey, serverBackgroundUrl]);
 
-  /** `GET /api/users/me` 의 `hasWishBoard` → 로드 시 `hasMyBoard`. 보드 행이 없을 때만 온보딩(POST 보드 생성 분기). */
-  const showEmptyWishlistHero = wishSlotsLoaded && !hasMyBoard;
-
   const giftModalResolvedIconId = useMemo(() => {
     if (giftModalSpecial !== null) {
       return null;
@@ -1155,42 +1171,6 @@ export default function WishlistPage() {
     clearWishlistPageSessionCache();
     setIsSidebarOpen(false);
     router.push("/login");
-  };
-
-  const handleStartDecorate = async () => {
-    if (decorateStartLoading) {
-      return;
-    }
-
-    setDecorateStartError(null);
-
-    if (hasMyBoard) {
-      setIsDecorateMode(true);
-      return;
-    }
-
-    setDecorateStartLoading(true);
-    try {
-      try {
-        await createMyBoard();
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "";
-        if (!msg.includes("이미 위시보드가 존재합니다")) {
-          throw e;
-        }
-      }
-
-      const board = await getMyBoard();
-      applyLoadedBoard(board);
-      setHasMyBoard(true);
-      setIsDecorateMode(true);
-    } catch (e) {
-      setDecorateStartError(
-        e instanceof Error ? e.message : "위시보드를 준비하지 못했습니다.",
-      );
-    } finally {
-      setDecorateStartLoading(false);
-    }
   };
 
   useEffect(() => {
@@ -1262,49 +1242,14 @@ export default function WishlistPage() {
               위시 슬롯을 불러오는 중…
             </p>
           </div>
-        ) : showEmptyWishlistHero ? (
-          <section
-            className={`${WISHLIST_APP_SHELL} flex h-full min-h-0 max-h-full w-full max-w-[372px] flex-1 flex-col overflow-hidden`}
+        ) : !hasMyBoard ? (
+          <div
+            className={`${WISHLIST_APP_SHELL} ${WISHLIST_APP_SHELL_MAX_LOADING} flex min-h-[min(400px,70dvh)] w-full shrink-0 items-center justify-center px-8`}
           >
-            <WishlistProfileTitleHeader
-              viewerName={viewerName}
-              isSidebarOpen={isSidebarOpen}
-              onMenuClick={(event) => {
-                event.stopPropagation();
-                toggleSidebar();
-              }}
-            />
-
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-              <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 py-6">
-                <img
-                  src="/logo.png"
-                  alt="오쩜오 로고"
-                  className="mx-auto h-auto max-h-[5.25rem] w-auto max-w-[46%] object-contain"
-                />
-                <div className="w-full max-w-[272px] rounded-[16px] border border-dashed border-[#7B61FF] bg-transparent px-3 py-4 text-center">
-                  <p className="text-xs text-[#7B61FF]">아직 위시리스트가 없어요!</p>
-                  <p className="mt-2.5 text-[13px] font-bold leading-snug text-[#7B61FF]">
-                    <span className="block">오쩜오와 함께</span>
-                    <span className="mt-1 block">받고 싶은 선물들을 모아볼까요?</span>
-                  </p>
-                </div>
-                {decorateStartError ? (
-                  <p className="w-full max-w-[272px] text-center text-xs text-rose-600">
-                    {decorateStartError}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => void handleStartDecorate()}
-                  disabled={decorateStartLoading}
-                  className="w-full max-w-[272px] rounded-[16px] bg-[#7B61FF] py-3 text-sm font-bold text-white shadow-md transition enabled:active:opacity-90 touch-manipulation enabled:hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {decorateStartLoading ? "준비 중…" : "위시리스트 꾸미기 시작하기"}
-                </button>
-              </div>
-            </div>
-          </section>
+            <p className="text-body-sm text-[var(--color-text-secondary)]">
+              메인으로 이동 중…
+            </p>
+          </div>
         ) : (
           <section className={`${WISHLIST_BOARD_PAGE_WRAP} mx-auto w-full`}>
             <div className="relative flex min-h-0 flex-1 flex-col overflow-visible p-0">
