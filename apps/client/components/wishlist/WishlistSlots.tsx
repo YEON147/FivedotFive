@@ -29,7 +29,7 @@ const STICKER_SIZE = 78;
  * 댓글 슬롯 등 — 댓글은 있으나 스티커가 비공개(null)일 때 원 안에 `?`만 표시.
  * (실제 이미지 URL과 절대 겹치지 않는 내부 센티널)
  */
-export const STICKER_SLOT_IMAGE_MASKED = "__oh_jjeom_oh_sticker_masked__";
+const STICKER_SLOT_IMAGE_MASKED = "__oh_jjeom_oh_sticker_masked__";
 
 /** 선물 지름은 항상 스티커보다 큼 (`STICKER_SIZE` 대비 여유) */
 const MIN_GIFT_SIZE = STICKER_SIZE + 20;
