@@ -1,7 +1,7 @@
 "use client";
 
 import type { TransitionEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { MainLandingContent } from "@/components/home/MainLandingContent";
 import {
@@ -19,6 +19,9 @@ const MAIN_INTRO_DURATION_REDUCED_MS = 480;
 
 const GUEST_REVEAL_CLIP_MS = 880;
 
+/** 탭 세션당 1회 — 메인 랜딩 인트로·원형 공개 애니메이션 재생 여부 */
+const SESSION_MAIN_INTRO_DONE_KEY = "oh_jjeom_oh_main_landing_intro_done";
+
 export default function Home() {
   const [guestShellMounted, setGuestShellMounted] = useState(false);
   const [guestClipExpanded, setGuestClipExpanded] = useState(false);
@@ -30,9 +33,29 @@ export default function Home() {
 
   const revealSkipIntro = useRef(false);
 
+  /** 이미 이 탭에서 인트로를 본 경우 — 첫 페인트 전에 건너뜀(로그인 후 메인 재진입 등) */
+  useLayoutEffect(() => {
+    try {
+      if (sessionStorage.getItem(SESSION_MAIN_INTRO_DONE_KEY) !== "1") return;
+    } catch {
+      return;
+    }
+    revealSkipIntro.current = true;
+    setIntroMounted(false);
+    setGuestShellMounted(true);
+    setGuestClipExpanded(true);
+  }, []);
+
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (sessionStorage.getItem(SESSION_MAIN_INTRO_DONE_KEY) === "1") return;
+    } catch {
+      /* ignore */
+    }
+
     const reduced =
-      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const wait = reduced ? MAIN_INTRO_DURATION_REDUCED_MS : MAIN_INTRO_DURATION_MS;
 
@@ -42,6 +65,11 @@ export default function Home() {
         setIntroMounted(false);
         setGuestShellMounted(true);
         setGuestClipExpanded(true);
+        try {
+          sessionStorage.setItem(SESSION_MAIN_INTRO_DONE_KEY, "1");
+        } catch {
+          /* ignore */
+        }
         return;
       }
 
@@ -96,6 +124,11 @@ export default function Home() {
     if (e.propertyName !== "clip-path") return;
 
     setIntroMounted(false);
+    try {
+      sessionStorage.setItem(SESSION_MAIN_INTRO_DONE_KEY, "1");
+    } catch {
+      /* ignore */
+    }
   };
 
   return (

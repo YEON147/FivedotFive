@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LoginForm } from "@/components/common/LoginForm";
 import { useLoginForm } from "@/features/login/hooks";
+import { stashLoginReturnFromReferrer } from "@/features/login/post-login-destination";
 import { getAccessToken } from "@/lib/api/token-store";
 import { KAKAO_OAUTH_START_URL } from "@/lib/constants/login";
 import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextParam = searchParams.get("next");
+
   const {
     values,
     errors,
@@ -19,7 +23,11 @@ export default function LoginPage() {
     submitSuccess,
     onChange,
     onSubmit,
-  } = useLoginForm();
+  } = useLoginForm(nextParam);
+
+  useEffect(() => {
+    stashLoginReturnFromReferrer();
+  }, []);
 
   useEffect(() => {
     touchTrafficAttribution();
@@ -31,6 +39,7 @@ export default function LoginPage() {
   }, [router]);
 
   const handleKakaoLogin = () => {
+    stashLoginReturnFromReferrer();
     window.location.href = KAKAO_OAUTH_START_URL;
   };
 
@@ -51,5 +60,19 @@ export default function LoginPage() {
         />
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-8 py-12">
+          <p className="text-body-sm text-[#6e6e6e]">불러오는 중…</p>
+        </main>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
   );
 }

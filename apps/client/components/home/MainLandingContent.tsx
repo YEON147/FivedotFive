@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import "@/components/home/main-landing-hero.css";
 import "@/components/home/main-landing-wordmark-float.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
+import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { createMyBoard } from "@/features/wishlist/api";
 import { SESSION_OPEN_DECORATE_AFTER_CREATE_KEY } from "@/features/wishlist/wishlist-session-cache";
 import { trackSignupButtonClick } from "@/lib/analytics/conversion";
@@ -170,7 +171,7 @@ export function MainLandingContent({
                 위시리스트 구경가기
               </button>
               <div className="text-center">
-                <Link href="/login" className={landingMutedLink}>
+                <Link href={loginUrlForPath("/")} className={landingMutedLink}>
                   로그인
                 </Link>
                 <span className="mx-2 text-body-sm text-[#c4c4c4]" aria-hidden>

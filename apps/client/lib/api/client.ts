@@ -1,3 +1,4 @@
+import { sanitizeInternalReturnPath } from "@/features/login/post-login-destination";
 import {
   clearAccessToken,
   getAccessToken,
@@ -87,7 +88,12 @@ function runSessionExpiredFlow() {
   window.dispatchEvent(new CustomEvent("auth:session-expired"));
 
   if (window.location.pathname !== "/login") {
-    window.location.href = "/login";
+    const full =
+      window.location.pathname + window.location.search + window.location.hash;
+    const next = sanitizeInternalReturnPath(full);
+    window.location.href = next
+      ? `/login?next=${encodeURIComponent(next)}`
+      : "/login";
   }
 }
 

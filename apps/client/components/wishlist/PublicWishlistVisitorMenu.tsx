@@ -10,6 +10,8 @@ type PublicWishlistVisitorMenuProps = {
   onClose: () => void;
   loggedIn: boolean;
   onLogout: () => void;
+  /** 로그인 후 현재 페이지로 돌아오도록 `next` 포함 (선택) */
+  loginHref?: string;
 };
 
 const SIDE_MENU_ICON_WRAP_PRIMARY =
@@ -27,6 +29,7 @@ export function PublicWishlistVisitorMenu({
   onClose,
   loggedIn,
   onLogout,
+  loginHref = "/login",
 }: PublicWishlistVisitorMenuProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -126,7 +129,7 @@ export function PublicWishlistVisitorMenu({
           ) : (
             <>
               <Link
-                href="/login"
+                href={loginHref}
                 onClick={onClose}
                 className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
               >
