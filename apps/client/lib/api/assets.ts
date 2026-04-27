@@ -12,12 +12,54 @@ function fileNameFromAssetKey(assetKey: string): string {
   return i >= 0 ? assetKey.slice(i + 1) : assetKey;
 }
 
-/** 배경 카드 제목 — API `displayName`, 없으면 확장자 뺀 파일명 */
+function coerceTrimmedDisplayString(value: unknown): string | null {
+  if (typeof value === "string") {
+    const t = value.trim();
+    return t.length ? t : null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
+}
+
+/**
+ * GET `/api/assets/backgrounds` 항목에서 화면 표시명 후보 필드를 순서대로 읽습니다.
+ * (Jackson `display_name`, 프록시 `name` 등 호환)
+ */
+export function pickBackgroundDisplayNameFromApiItem(
+  raw: Record<string, unknown>,
+): string | null {
+  const keys = [
+    "displayName",
+    "display_name",
+    "name",
+    "label",
+    "title",
+  ] as const;
+  for (const k of keys) {
+    const s = coerceTrimmedDisplayString(raw[k]);
+    if (s) {
+      return s;
+    }
+  }
+  return null;
+}
+
+function normalizeBackgroundAssetKeyFromApiItem(raw: Record<string, unknown>): string {
+  const v = raw.assetKey ?? raw.asset_key ?? raw.key;
+  if (typeof v !== "string") {
+    return "";
+  }
+  return v.trim();
+}
+
+/** 배경 카드 제목 — API에서 온 표시명 우선, 없으면 확장자 뺀 파일명 */
 export function resolveBackgroundDisplayLabel(
   assetKey: string,
   displayName?: string | null,
 ): string {
-  const api = displayName?.trim();
+  const api = coerceTrimmedDisplayString(displayName);
   if (api) {
     return api;
   }
@@ -28,10 +70,26 @@ export function resolveBackgroundDisplayLabel(
 type BackgroundsApiResponse = {
   success: boolean;
   message: string;
-  data: {
-    backgrounds: Record<string, unknown>[];
-  };
+  data: Record<string, unknown> | null | undefined;
 };
+
+function backgroundsListFromApiData(data: unknown): Record<string, unknown>[] | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  const d = data as Record<string, unknown>;
+  const list =
+    d.backgrounds ??
+    d.Backgrounds ??
+    (d as { background_list?: unknown }).background_list;
+  if (!Array.isArray(list)) {
+    return null;
+  }
+  return list.filter(
+    (row): row is Record<string, unknown> =>
+      row != null && typeof row === "object" && !Array.isArray(row),
+  );
+}
 
 /** GET /api/assets/backgrounds — 권한 anyone */
 export async function fetchBackgroundAssets(): Promise<BackgroundAssetDto[]> {
@@ -42,18 +100,19 @@ export async function fetchBackgroundAssets(): Promise<BackgroundAssetDto[]> {
     },
   });
 
-  if (!res.success || !Array.isArray(res.data?.backgrounds)) {
+  const rows = backgroundsListFromApiData(res.data);
+  if (!res.success || !rows) {
     return [];
   }
 
-  return res.data.backgrounds.map((raw) => {
+  return rows.map((raw) => {
     const id = Number(raw.id);
-    const assetKey = String(raw.assetKey ?? raw.asset_key ?? "");
-    const displayName = (raw.displayName ?? raw.display_name) as string | null | undefined;
+    const assetKey = normalizeBackgroundAssetKeyFromApiItem(raw);
+    const displayName = pickBackgroundDisplayNameFromApiItem(raw);
     return {
       id: Number.isFinite(id) ? id : 0,
       assetKey,
-      displayName: displayName ?? null,
+      displayName,
     };
   });
 }
@@ -157,7 +216,7 @@ type GiftIconsApiResponse = {
 
 /**
  * 선물 아이콘 카탈로그 — 백 GET `/api/assets/gift-icons`.
- * 각 `assetKey`는 CDN/S3 객체 키와 동일하게 `assets/icons/` 아래 파일을 가리킵니다.
+ * 각 `assetKey`는 S3 기준 `icons/{카테고리}/{카테고리}-NNN.png` 등(예: `icons/food/food-001.png`) 형태입니다.
  */
 export async function fetchGiftIcons(): Promise<GiftIconDto[]> {
   const res = await apiClient<GiftIconsApiResponse>("/api/assets/gift-icons", {
@@ -185,6 +244,13 @@ type AssetsSyncApiResponse = {
 /** POST /api/admin/assets/sync — S3 에셋을 DB와 동기화 (권한 스펙: 공개 호출) */
 export async function postAdminAssetsSync(): Promise<AssetsSyncApiResponse> {
   return apiClient<AssetsSyncApiResponse>("/api/admin/assets/sync", {
+    method: "POST",
+  });
+}
+
+/** POST /api/admin/assets/reset-sync — DB 에셋 전부 삭제 후 S3 기준 재동기화 (ADMIN + JWT) */
+export async function postAdminAssetsResetSync(): Promise<AssetsSyncApiResponse> {
+  return apiClient<AssetsSyncApiResponse>("/api/admin/assets/reset-sync", {
     method: "POST",
   });
 }
