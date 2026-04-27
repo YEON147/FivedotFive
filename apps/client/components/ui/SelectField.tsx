@@ -69,7 +69,9 @@ export function SelectField({
 
   return (
     <label htmlFor={id} className="flex flex-col gap-1.5 scroll-mt-8">
-      <span className="text-sm font-semibold text-slate-800">{label}</span>
+      <span className="flex min-h-[22px] flex-wrap items-center gap-x-1 gap-y-0.5 text-sm font-semibold text-slate-800">
+        {label}
+      </span>
       <select
         {...props}
         id={id}
@@ -79,7 +81,7 @@ export function SelectField({
             ? { defaultValue }
             : {})}
         onFocus={handleFocus}
-        className={`h-12 w-full cursor-pointer appearance-none rounded-xl border bg-[length:1rem_1rem] bg-no-repeat pl-4 pr-10 text-sm outline-none transition focus:ring-2 ${
+        className={`h-11 w-full cursor-pointer appearance-none rounded-xl border bg-[length:1rem_1rem] bg-no-repeat px-3.5 pr-10 text-sm outline-none transition focus:ring-2 ${
           error
             ? "border-rose-300 bg-rose-50 focus:ring-rose-200"
             : hasSelection
@@ -89,7 +91,7 @@ export function SelectField({
         style={{
           ...style,
           backgroundImage: SELECT_CHEVRON_BG,
-          backgroundPosition: "right 2rem center",
+          backgroundPosition: "right 0.75rem center",
         }}
       >
         {options.map((option) => (

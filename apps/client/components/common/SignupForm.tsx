@@ -360,7 +360,7 @@ export function SignupForm({
                     hintDisplay="label-inline"
                     scrollIntoViewOnFocus
                     disabled={isSubmitting || isNicknameLoading}
-                    className="!h-10 px-3 text-[13px]"
+                    className="!h-10 !px-3 text-[13px]"
                     onFocus={() => {
                       if (ignoreNextSchoolFocus) {
                         onSetIgnoreNextSchoolFocus(false);
@@ -424,8 +424,9 @@ export function SignupForm({
                   label="학년"
                   options={GRADE_OPTIONS}
                   value={values.grade}
+                  error={errors.grade}
                   scrollIntoViewOnFocus
-                  className="!h-10 pl-3 pr-10 text-[13px]"
+                  className="!h-10 !pl-3 !pr-10 text-[13px]"
                   onChange={(event) => onChange("grade", event.target.value)}
                 />
               </div>

@@ -213,7 +213,7 @@ export function MyPageForm({
               disabled={!isLoaded || isSaving}
               hint="선택 항목 · 검색 후 목록에서 선택"
               hintDisplay="label-inline"
-              className="!h-10 text-[13px]"
+              className="!h-10 !px-3 text-[13px]"
               scrollIntoViewOnFocus
               onFocus={() => {
                 if (ignoreNextSchoolFocus) {
@@ -282,7 +282,7 @@ export function MyPageForm({
             error={errors.grade}
             disabled={!isLoaded || isSaving}
             scrollIntoViewOnFocus
-            className="!h-10 bg-[length:0.875rem_0.875rem] pl-3 pr-9 text-[13px]"
+            className="!h-10 !pl-3 !pr-10 text-[13px]"
             onChange={(event) => onChange("grade", event.target.value)}
           />
         </div>
