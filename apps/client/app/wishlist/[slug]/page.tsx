@@ -26,6 +26,7 @@ import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
   GiftSlots,
+  STICKER_SLOT_IMAGE_MASKED,
   StickerSlots,
 } from "@/components/wishlist/WishlistSlots";
 import { getMyProfile } from "@/features/user/api";
@@ -294,7 +295,7 @@ function MainBoardPage({
   );
 }
 
-/** 페이지 1+: 댓글 슬롯 — `showEmptyCommentSlots`: 타인 보드에 로그인 후 댓글 작성 가능할 때만 빈 칸 표시 */
+/** 페이지 1+: 댓글 슬롯 — `showEmptyCommentSlots`: 타인 보드에서 빈 칸·「댓글작성」표시(비로그인은 클릭 시 로그인·가입 유도) */
 function CommentBoardPage({
   ownerName,
   boardAssets,
@@ -324,8 +325,8 @@ function CommentBoardPage({
       const slotId = i + 1;
       const row = comments[i];
       const rawKey = row?.stickerKey?.trim();
-      if (row != null && row.id != null && rawKey) {
-        acc[slotId] = getAssetImageUrl(rawKey);
+      if (row != null && row.id != null) {
+        acc[slotId] = rawKey ? getAssetImageUrl(rawKey) : STICKER_SLOT_IMAGE_MASKED;
       }
     }
     return acc;
@@ -470,9 +471,13 @@ export default function PublicWishlistPage({
     return myBoardSlug === slug.trim();
   }, [visitorMenuLoggedIn, myBoardSlug, slug]);
 
-  /** 타인 공개 보드에만 — 비로그인·자기 보드·내 슬러그 확인 전에는 빈 댓글 칸·꾸미기 톤 숨김 */
+  /**
+   * 타인 보드에서만 빈 댓글 칸 표시.
+   * 로그인 사용자는 내 보드 슬러그를 알 때까지 잠시 숨겨 자기 보드 오판 방지.
+   * 비로그인은 바로 표시 — 빈 칸 클릭 시 `handleSlotClick`에서 로그인·회원가입 모달로 유도.
+   */
   const showEmptyCommentSlots = useMemo(
-    () => Boolean(visitorMenuLoggedIn && myBoardSlug !== undefined && !isViewingOwnBoard),
+    () => !isViewingOwnBoard && (!visitorMenuLoggedIn || myBoardSlug !== undefined),
     [visitorMenuLoggedIn, myBoardSlug, isViewingOwnBoard],
   );
 

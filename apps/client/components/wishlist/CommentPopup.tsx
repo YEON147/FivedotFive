@@ -5,7 +5,12 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT } from "@/components/wishlist/sticker-sheet-layout";
-import { isSoftDeletedWishComment } from "@/features/wishlist/comment-display";
+import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
+import {
+  getCommentDisplaySenderName,
+  isMaskedOthersWishComment,
+  isSoftDeletedWishComment,
+} from "@/features/wishlist/comment-display";
 import type { CommentData, StickerOption } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
 import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
@@ -66,6 +71,7 @@ export function CommentPopup({
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // 10초 쿨다운 카운트다운
   const [cooldown, setCooldown] = useState(0);
@@ -87,6 +93,12 @@ export function CommentPopup({
       setContent(comment.content ?? "");
     }
   }, [mode, comment?.id, comment?.content]);
+
+  useEffect(() => {
+    if (!comment || mode !== "view") {
+      setDeleteConfirmOpen(false);
+    }
+  }, [comment, mode]);
 
   useEffect(() => {
     if (mode !== "write") return;
@@ -171,19 +183,13 @@ export function CommentPopup({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteConfirm = async () => {
     if (!comment) return;
-    if (
-      !window.confirm(
-        "닉네임과 내용은 가려진 상태로 남고, 스티커는 이 칸에 그대로 보입니다. 삭제할까요?",
-      )
-    ) {
-      return;
-    }
     setError(null);
     setLoading(true);
     try {
       await onDelete(comment.id);
+      setDeleteConfirmOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "댓글 삭제에 실패했습니다.");
     } finally {
@@ -200,7 +206,14 @@ export function CommentPopup({
   const isDisabled = loading || isSubmitting;
   const isWriteBlocked = mode === "write" && cooldown > 0;
 
+  const closeDeleteDialog = () => {
+    if (loading) return;
+    setError(null);
+    setDeleteConfirmOpen(false);
+  };
+
   return (
+    <>
     <div className="fixed left-1/2 top-1/2 z-30 w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-white px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -212,7 +225,7 @@ export function CommentPopup({
           }`}
         >
           {mode === "view"
-            ? (comment?.senderName ?? "댓글")
+            ? (comment ? getCommentDisplaySenderName(comment) : "댓글")
             : mode === "edit"
               ? "댓글 수정"
               : "댓글 쓰기"}
@@ -243,16 +256,22 @@ export function CommentPopup({
                 />
               </div>
             </div>
+          ) : isMaskedOthersWishComment(comment) ? (
+            <div className="flex justify-center" aria-hidden>
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-lg font-bold text-slate-400">
+                ?
+              </div>
+            </div>
           ) : null}
-          <p
-            className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-              isSoftDeletedWishComment(comment)
-                ? "bg-slate-100 text-slate-500 italic"
-                : "bg-slate-50 text-slate-800"
-            }`}
-          >
-            {comment.content}
-          </p>
+          {isSoftDeletedWishComment(comment) ? (
+            <p className="rounded-2xl bg-slate-100 px-4 py-3 text-sm italic leading-relaxed text-slate-500">
+              {comment.content}
+            </p>
+          ) : comment.content != null ? (
+            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-800">
+              {comment.content}
+            </p>
+          ) : null}
           {comment.isUser && (
             <div className="flex gap-2 pt-1">
               <button
@@ -265,11 +284,14 @@ export function CommentPopup({
               </button>
               <button
                 type="button"
-                onClick={() => void handleDelete()}
+                onClick={() => {
+                  setError(null);
+                  setDeleteConfirmOpen(true);
+                }}
                 disabled={isDisabled}
                 className="flex-1 rounded-2xl bg-red-50 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-40"
               >
-                {loading ? "삭제 중..." : "삭제"}
+                삭제
               </button>
             </div>
           )}
@@ -476,5 +498,41 @@ export function CommentPopup({
         </div>
       )}
     </div>
+
+    <WishlistCenterDialog
+      variant="static"
+      open={deleteConfirmOpen}
+      onClose={closeDeleteDialog}
+      title="댓글을 삭제할까요?"
+      titleId="comment-delete-confirm-title"
+      description={
+        <span className="block leading-relaxed">
+          닉네임과 내용은 가려진 상태로 남고, 스티커는 이 칸에 그대로 보입니다.
+        </span>
+      }
+    >
+      <div className="mt-5 flex flex-col gap-3">
+        {error ? <p className="text-center text-xs text-red-500">{error}</p> : null}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={closeDeleteDialog}
+            disabled={loading}
+            className="rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleDeleteConfirm()}
+            disabled={loading}
+            className="rounded-[14px] bg-red-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:opacity-40"
+          >
+            {loading ? "삭제 중…" : "삭제하기"}
+          </button>
+        </div>
+      </div>
+    </WishlistCenterDialog>
+    </>
   );
 }
