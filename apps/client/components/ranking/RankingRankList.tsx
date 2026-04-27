@@ -15,7 +15,7 @@ export function RankingRankList({
     return (
       <section className="mx-auto flex w-full max-w-[372px] flex-col gap-2.5 pb-4">
         <div
-          className="flex min-h-[52px] items-center gap-3 rounded-[14px] bg-[var(--color-surface)] px-4 py-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04]"
+          className="flex min-h-[52px] items-center gap-3 rounded-[14px] bg-[var(--color-surface)] px-4 py-3.5"
           role="status"
           aria-live="polite"
         >

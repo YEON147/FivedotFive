@@ -34,7 +34,7 @@ export function RankingListScrollArea({
   }, []);
 
   return (
-    <div className="relative mt-3 min-h-0 flex-1">
+    <div className="relative mt-3 min-h-0 flex-1 bg-transparent">
       {loading ? (
         <div
           className="absolute inset-0 z-[15] flex flex-col items-center justify-center gap-2 bg-white/55 backdrop-blur-[2px]"
@@ -47,17 +47,12 @@ export function RankingListScrollArea({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="relative z-0 h-full min-h-0 overflow-y-auto scroll-smooth [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="relative z-0 h-full min-h-0 overflow-y-auto bg-transparent scroll-smooth [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className={bounce ? "ranking-list-scroll-bounce" : undefined}>
           {children}
         </div>
       </div>
-
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-40 bg-[linear-gradient(to_top,var(--color-bg-base)_0%,color-mix(in_srgb,var(--color-bg-base)_42%,transparent)_46%,color-mix(in_srgb,var(--color-bg-base)_14%,transparent)_76%,transparent_100%)] sm:h-44"
-        aria-hidden
-      />
     </div>
   );
 }
