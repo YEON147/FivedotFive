@@ -14,7 +14,6 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -49,7 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/health", "/health", "/api/oauth2/**", "/login/oauth2/**", "/oauth2/**", "/api/login/oauth2/**", "/share/**").permitAll()
                         .requestMatchers("/api/auth/nickname/random", "/auth/nickname/random").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/assets/**").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/admin/assets/sync", "/api/admin/assets/reset-sync").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/admin/assets/sync", "/api/admin/assets/reset-sync").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rankings/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments/*/sticker").permitAll()

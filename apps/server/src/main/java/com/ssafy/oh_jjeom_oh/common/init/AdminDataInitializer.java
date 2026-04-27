@@ -45,7 +45,7 @@ public class AdminDataInitializer implements ApplicationRunner {
                 .map(existing -> {
                     if (existing.getRole() != Role.ADMIN) {
                         log.info("[AdminInit] 관리자 계정 role 보정: {} → ADMIN", existing.getRole());
-                        existing.updateRole(Role.ADMIN);
+                        existing.promoteToAdmin();
                     }
                     return existing;
                 })
