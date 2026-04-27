@@ -14,6 +14,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
 import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,7 +55,9 @@ public class WishCommentService {
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
         WishBoard board = getBoardBySlug(slug);
 
-        boolean revealed = !clock.instant().isBefore(revealAt.atZone(KST).toInstant());
+        // 어드민 보드이거나 공개 시각이 지난 경우 마스킹 해제
+        boolean isAdminBoard = board.getUser().getRole() == Role.ADMIN;
+        boolean revealed = isAdminBoard || !clock.instant().isBefore(revealAt.atZone(KST).toInstant());
 
         Page<WishComment> commentPage =
                 wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(board, PageRequest.of(page, size));

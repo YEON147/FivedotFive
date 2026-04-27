@@ -314,6 +314,69 @@ class WishCommentServiceTest {
     }
 
     @Test
+    @DisplayName("공개 시각 이전 - 어드민 보드는 타인 댓글도 마스킹 없이 전체 공개")
+    void getComments_beforeReveal_adminBoard_allCommentsFullyVisible() {
+        ReflectionTestUtils.setField(wishCommentService, "clock", CLOCK_BEFORE_REVEAL);
+
+        User adminUser = User.builder().username("ohjeomoh").nickname("오점오").passwordHash("x")
+                .role(Role.ADMIN).status(Status.ACTIVE).build();
+        ReflectionTestUtils.setField(adminUser, "id", 2L);
+
+        WishBoard adminBoard = WishBoard.builder()
+                .user(adminUser).boardSlug("ohjeomoh").isPublic(true)
+                .targetDate(LocalDate.of(2026, 5, 5)).build();
+        ReflectionTestUtils.setField(adminBoard, "id", 20L);
+
+        User other = User.builder().username("other").nickname("타인").passwordHash("x")
+                .role(Role.CHILD).status(Status.ACTIVE).build();
+        ReflectionTestUtils.setField(other, "id", 99L);
+
+        WishComment otherComment = WishComment.builder()
+                .wishBoard(adminBoard).user(other).senderName("타인")
+                .isUser(true).content("축하해요!").stickerKey("sticker.png").slotIndex(1).build();
+
+        given(wishBoardRepository.findByBoardSlug("ohjeomoh")).willReturn(Optional.of(adminBoard));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(adminBoard), any()))
+                .willReturn(new PageImpl<>(List.of(otherComment), PageRequest.of(0, 6), 1));
+
+        CommentListResponse response = wishCommentService.getComments("ohjeomoh", 0, 6, 99L);
+
+        CommentResponse result = response.getComments().get(0);
+        assertThat(result.getContent()).isEqualTo("축하해요!");
+        assertThat(result.getStickerKey()).isEqualTo("sticker.png");
+    }
+
+    @Test
+    @DisplayName("공개 시각 이전 - 어드민 보드는 비로그인 사용자도 모든 댓글 내용 공개")
+    void getComments_beforeReveal_adminBoard_anonymousFullyVisible() {
+        ReflectionTestUtils.setField(wishCommentService, "clock", CLOCK_BEFORE_REVEAL);
+
+        User adminUser = User.builder().username("ohjeomoh").nickname("오점오").passwordHash("x")
+                .role(Role.ADMIN).status(Status.ACTIVE).build();
+        ReflectionTestUtils.setField(adminUser, "id", 2L);
+
+        WishBoard adminBoard = WishBoard.builder()
+                .user(adminUser).boardSlug("ohjeomoh").isPublic(true)
+                .targetDate(LocalDate.of(2026, 5, 5)).build();
+        ReflectionTestUtils.setField(adminBoard, "id", 20L);
+
+        WishComment comment = WishComment.builder()
+                .wishBoard(adminBoard).user(sender).senderName("테스터")
+                .isUser(true).content("비로그인도 보여요").stickerKey("sticker.png").slotIndex(0).build();
+
+        given(wishBoardRepository.findByBoardSlug("ohjeomoh")).willReturn(Optional.of(adminBoard));
+        given(wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(eq(adminBoard), any()))
+                .willReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 6), 1));
+
+        CommentListResponse response = wishCommentService.getComments("ohjeomoh", 0, 6, null);
+
+        CommentResponse result = response.getComments().get(0);
+        assertThat(result.getContent()).isEqualTo("비로그인도 보여요");
+        assertThat(result.getStickerKey()).isEqualTo("sticker.png");
+        assertThat(result.isUser()).isFalse();
+    }
+
+    @Test
     @DisplayName("공개 시각 정각 - 공개된 것으로 처리됨 (경계값)")
     void getComments_exactRevealAt_contentAndStickerVisible() {
         Clock clockAtReveal = Clock.fixed(REVEAL_AT.atZone(KST).toInstant(), KST);

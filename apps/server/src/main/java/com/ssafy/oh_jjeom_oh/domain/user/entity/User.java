@@ -100,6 +100,10 @@ public class User {
         this.grade = grade;
     }
 
+    public void promoteToAdmin() {
+        this.role = Role.ADMIN;
+    }
+
     public void withdraw() {
         this.status = Status.DELETED; // Status.INACTIVE
     }

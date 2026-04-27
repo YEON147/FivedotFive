@@ -29,15 +29,18 @@ public class UserCommentRankingResponse {
     public static class RankItem {
         private final int rank;
         private final String username;
+        private final String nickname;
         private final long commentCount;
 
         @JsonCreator
         public RankItem(
                 @JsonProperty("rank") int rank,
                 @JsonProperty("username") String username,
+                @JsonProperty("nickname") String nickname,
                 @JsonProperty("commentCount") long commentCount) {
             this.rank = rank;
             this.username = username;
+            this.nickname = nickname;
             this.commentCount = commentCount;
         }
     }
