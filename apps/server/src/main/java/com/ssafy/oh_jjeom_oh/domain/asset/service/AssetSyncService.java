@@ -30,6 +30,20 @@ public class AssetSyncService {
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
 
+    /**
+     * assets 테이블을 전체 초기화한 뒤 S3 현재 상태 기준으로 재삽입합니다.
+     * - 경로가 바뀐 파일, 삭제된 파일, 교체된 파일 모두 정리됩니다.
+     * - board_assets는 assetKey TEXT로 저장되므로 영향 없습니다.
+     */
+    @Transactional
+    public int resetAndSyncFromS3() {
+        log.info("assets 테이블 전체 초기화 시작");
+        assetRepository.deleteAll();
+        assetRepository.flush();
+        log.info("assets 테이블 초기화 완료, S3 재동기화 시작");
+        return syncFromS3();
+    }
+
     @Transactional
     public int syncFromS3() {
         // 1. S3에서 assets/ 하위 파일 목록 전체 조회 (페이지네이션 자동 처리)
