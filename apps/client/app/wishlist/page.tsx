@@ -64,18 +64,28 @@ import {
   fetchGiftIcons,
   fetchStickerAssets,
   fetchStickersByFolder,
+  postAdminAssetsResetSync,
   postAdminAssetsSync,
   type BackgroundAssetDto,
   type GiftIconDto,
   type StickerAssetDto,
 } from "@/lib/api/assets";
 import { getAssetImageUrl } from "@/lib/asset-url";
+import { STORED_PUBLIC_DEFAULT_GIFT_ICON_KEY } from "@/lib/constants/gift-default-icon";
 import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
+import {
+  GIFT_ICON_CATEGORY_LABELS,
+  giftIconCategoryFromAssetKey,
+  type GiftIconCategoryId,
+} from "@/lib/gift-icon-category";
 
 type GiftModalSpecial = "present" | null;
+
+/** ADMIN: 탭당 1회 — `/api/admin/assets/reset-sync` (에셋 DB 전체 재동기화) */
+const SESSION_ADMIN_RESET_SYNC_KEY = "oh_jjeom_oh_admin_assets_reset_sync_once";
 
 /** 스티커 폴더명(`assets/stickers/{id}/`)과 동일한 id — 한글은 UI 표시용 */
 const STICKER_MODAL_TABS = [
@@ -84,14 +94,24 @@ const STICKER_MODAL_TABS = [
   { id: "universe", label: "우주" },
   { id: "message", label: "메시지" },
   { id: "dinosaur", label: "공룡" },
-  { id: "food", label: "음식" },
   { id: "bubble", label: "버블" },
   { id: "cute", label: "귀여운" },
-  { id: "felt", label: "펠트" },
-  { id: "lego", label: "레고" },
+  { id: "dessert", label: "디저트" },
+  { id: "toy", label: "토이" },
 ] as const;
 
 type StickerModalTabId = (typeof STICKER_MODAL_TABS)[number]["id"];
+
+/** 선물 아이콘 S3 카테고리(`icons/{id}/…`) — 스티커 탭과 동일한 pill UI */
+const GIFT_ICON_MODAL_TABS = [
+  { id: "all", label: "전체" },
+  { id: "food", label: GIFT_ICON_CATEGORY_LABELS.food },
+  { id: "kpop", label: GIFT_ICON_CATEGORY_LABELS.kpop },
+  { id: "hobby", label: GIFT_ICON_CATEGORY_LABELS.hobby },
+  { id: "life", label: GIFT_ICON_CATEGORY_LABELS.life },
+] as const;
+
+type GiftIconModalTabId = "all" | GiftIconCategoryId;
 
 /** 빈 안내·로딩용 — 둥근 흰 카드 셸 */
 const WISHLIST_APP_SHELL =
@@ -106,8 +126,9 @@ const WISHLIST_APP_SHELL_MAX_LOADING =
 /** 슬롯·호버가 프레임 밖으로 나와도 보이도록 `overflow-visible` — 배경만 안쪽 레이어에서 클립 */
 const WISHLIST_BOARD_FRAME_BASE =
   "relative isolate overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1";
-const WISHLIST_APP_FOOTER =
-  "flex min-h-10 w-full shrink-0 items-center justify-center border-t border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-xs text-[var(--color-text-secondary)]";
+
+/** 선물 아이콘 모달「기본 선물」첫 칸 — `public/default_icon.png` (저장 키와 동일) */
+const GIFT_MODAL_PRESET_IMAGE_SRC = STORED_PUBLIC_DEFAULT_GIFT_ICON_KEY;
 
 function WishlistProfileTitleHeader({
   viewerName,
@@ -189,6 +210,8 @@ export default function WishlistPage() {
   const [giftIcons, setGiftIcons] = useState<GiftIconDto[]>([]);
   const [giftIconsLoading, setGiftIconsLoading] = useState(false);
   const [giftIconsError, setGiftIconsError] = useState<string | null>(null);
+  const [giftIconModalTab, setGiftIconModalTab] =
+    useState<GiftIconModalTabId>("all");
   const [giftModalSaving, setGiftModalSaving] = useState(false);
   const [giftModalDeleting, setGiftModalDeleting] = useState(false);
   const [giftModalSaveError, setGiftModalSaveError] = useState<string | null>(null);
@@ -242,6 +265,7 @@ export default function WishlistPage() {
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stickerTabStripScroll = useMouseDragHorizontalScroll();
   const backgroundPickerStripScroll = useMouseDragHorizontalScroll();
+  const giftIconTabStripScroll = useMouseDragHorizontalScroll();
   /** 선물 수정 모달: 목록 최초 로드 시에만 프리셋 여부 동기화(재선택 덮어쓰기 방지) */
   const giftEditPresetSyncRef = useRef<{ slot: number; done: boolean }>({
     slot: -1,
@@ -316,6 +340,19 @@ export default function WishlistPage() {
           const displayName =
             profile.nickname?.trim() || profile.username?.trim() || "회원";
           setViewerName(displayName);
+
+          if (
+            profile.role === "ADMIN" &&
+            typeof window !== "undefined" &&
+            sessionStorage.getItem(SESSION_ADMIN_RESET_SYNC_KEY) !== "1"
+          ) {
+            try {
+              await postAdminAssetsResetSync();
+              sessionStorage.setItem(SESSION_ADMIN_RESET_SYNC_KEY, "1");
+            } catch {
+              /* 401/403/500 — 일반 유저·일시 오류 시 보드 로드는 계속 */
+            }
+          }
 
           if (!profile.hasWishBoard) {
             setHasMyBoard(false);
@@ -418,7 +455,7 @@ export default function WishlistPage() {
     };
   }, []);
 
-  /** 선물 슬롯 클릭으로 모달이 열릴 때 — `/api/assets/gift-icons`(assetKey → `assets/icons/…`) 로드 */
+  /** 선물 슬롯 클릭으로 모달이 열릴 때 — `/api/assets/gift-icons`(assetKey → `icons/{카테고리}/…`) 로드 */
   useEffect(() => {
     if (!isGiftModalOpen) {
       return;
@@ -456,6 +493,30 @@ export default function WishlistPage() {
       cancelled = true;
     };
   }, [isGiftModalOpen]);
+
+  useEffect(() => {
+    if (!isGiftModalOpen) {
+      return;
+    }
+    setGiftIconModalTab("all");
+  }, [isGiftModalOpen]);
+
+  useEffect(() => {
+    if (!isGiftModalOpen) {
+      giftIconTabStripScroll.detach();
+    }
+  }, [isGiftModalOpen, giftIconTabStripScroll]);
+
+  const catalogGiftIconsExtra = useMemo(() => giftIcons.slice(1), [giftIcons]);
+
+  const filteredCatalogGiftIcons = useMemo(() => {
+    if (giftIconModalTab === "all") {
+      return catalogGiftIconsExtra;
+    }
+    return catalogGiftIconsExtra.filter(
+      (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === giftIconModalTab,
+    );
+  }, [catalogGiftIconsExtra, giftIconModalTab]);
 
   /** 목록 최초 로드 후 — 저장된 키가 카탈로그 첫 항목과 같으면 「기본 선물」로 표시 */
   useEffect(() => {
@@ -610,6 +671,7 @@ export default function WishlistPage() {
   };
 
   const closeGiftModal = () => {
+    giftIconTabStripScroll.detach();
     setIsGiftModalOpen(false);
     setGiftModalSaving(false);
     setGiftModalDeleting(false);
@@ -792,13 +854,7 @@ export default function WishlistPage() {
     let nextIconKeyForLocal: string;
 
     if (giftModalSpecial === "present") {
-      const presetKey = giftIcons[0]?.assetKey?.trim();
-      if (!presetKey) {
-        setGiftModalSaveError(
-          "기본 선물 아이콘을 쓰려면 목록을 불러온 뒤 다시 시도해 주세요.",
-        );
-        return;
-      }
+      const presetKey = STORED_PUBLIC_DEFAULT_GIFT_ICON_KEY;
       patchBody = { itemName: name, iconKey: presetKey };
       nextIconKeyForLocal = presetKey;
     } else {
@@ -807,12 +863,15 @@ export default function WishlistPage() {
         (giftModalMode === "add" && giftIcons.length > 0 ? giftIcons[0]?.id ?? null : null);
       const selected =
         resolvedIconId != null ? giftIcons.find((g) => g.id === resolvedIconId) : undefined;
-      const iconKeyPayload = selected?.assetKey?.trim();
+      let iconKeyPayload = selected?.assetKey?.trim() ?? "";
+      if (!iconKeyPayload) {
+        iconKeyPayload = STORED_PUBLIC_DEFAULT_GIFT_ICON_KEY;
+      }
       patchBody = {
         itemName: name,
-        ...(iconKeyPayload ? { iconKey: iconKeyPayload } : {}),
+        iconKey: iconKeyPayload,
       };
-      nextIconKeyForLocal = iconKeyPayload ?? "";
+      nextIconKeyForLocal = iconKeyPayload;
     }
 
     setGiftModalSaving(true);
@@ -898,17 +957,31 @@ export default function WishlistPage() {
   };
 
   useEffect(() => {
-    if (!isGiftModalOpen || giftIcons.length === 0 || giftModalSpecial !== null) {
+    if (!isGiftModalOpen) {
       return;
     }
-
-    setModalSelectedIconId((prev) => {
-      if (giftModalMode === "edit") {
-        const key = wishGiftIconKeys[giftModalSlotIndex];
-        const found = giftIcons.find((g) => g.assetKey === key);
-        return found?.id ?? giftIcons[0].id;
+    // 카탈로그 없음: 카탈로그 기반 선택 불가 → 기본 선물(첫 칸)만
+    if (giftIcons.length === 0) {
+      if (giftModalSpecial == null) {
+        setGiftModalSpecial("present");
       }
-      return prev ?? giftIcons[0]?.id ?? null;
+      return;
+    }
+    if (giftModalSpecial !== null) {
+      return;
+    }
+    setModalSelectedIconId((prev) => {
+      const inCatalog = (id: number) => giftIcons.some((g) => g.id === id);
+      // 사용자가 방금 누른 선택(prev) — 서버 키로 다시 덮으면 첫 클릭이 씹힘(더블클릭 필요 현상)
+      if (prev != null && inCatalog(prev)) {
+        return prev;
+      }
+      if (giftModalMode === "edit") {
+        const key = wishGiftIconKeys[giftModalSlotIndex]?.trim() ?? "";
+        const found = key ? giftIcons.find((g) => g.assetKey === key) : undefined;
+        return found?.id ?? giftIcons[0]!.id;
+      }
+      return giftIcons[0]!.id;
     });
   }, [
     isGiftModalOpen,
@@ -1231,8 +1304,6 @@ export default function WishlistPage() {
                 </button>
               </div>
             </div>
-
-            <footer className={WISHLIST_APP_FOOTER}>광고 중...</footer>
           </section>
         ) : (
           <section className={`${WISHLIST_BOARD_PAGE_WRAP} mx-auto w-full`}>
@@ -1394,8 +1465,6 @@ export default function WishlistPage() {
                 </div>
               </div>
             </div>
-
-            <footer className={WISHLIST_APP_FOOTER}>광고 중...</footer>
           </section>
         )}
       </div>
@@ -1649,72 +1718,111 @@ export default function WishlistPage() {
                         <p className="text-body-sm text-slate-500">선물 아이콘 불러오는 중…</p>
                       </div>
                     ) : giftIconsError ? null : (
-                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]">
-                        <div className="grid grid-cols-3 gap-2 content-start">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setGiftModalSpecial("present");
-                              setModalSelectedIconId(null);
-                            }}
-                            className={`aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
-                              giftModalSpecial === "present"
-                                ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
-                                : "border-slate-200 hover:border-slate-400"
-                            }`}
-                            aria-label="기본 선물 아이콘"
-                            aria-pressed={giftModalSpecial === "present"}
+                      <>
+                        {giftIcons.length > 0 ? (
+                          <div
+                            ref={giftIconTabStripScroll.stripRef}
+                            role="tablist"
+                            aria-label="선물 아이콘 카테고리"
+                            className="scrollbar-x-none flex shrink-0 cursor-grab gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 px-2 pb-2 pt-2 select-none active:cursor-grabbing touch-pan-x"
+                            onPointerDown={giftIconTabStripScroll.onPointerDown}
                           >
-                            {giftIcons[0]?.assetKey ? (
+                            {GIFT_ICON_MODAL_TABS.map((tab) => {
+                              const active = giftIconModalTab === tab.id;
+                              return (
+                                <button
+                                  key={tab.id}
+                                  type="button"
+                                  role="tab"
+                                  aria-selected={active}
+                                  onClick={(clickEvent) => {
+                                    if (giftIconTabStripScroll.mouseDragRef.current.dragged) {
+                                      clickEvent.preventDefault();
+                                      clickEvent.stopPropagation();
+                                      return;
+                                    }
+                                    setGiftIconModalTab(tab.id);
+                                  }}
+                                  className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                                    active
+                                      ? "bg-[#7B61FF] text-white"
+                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                  }`}
+                                >
+                                  {tab.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]">
+                          <div className="grid grid-cols-3 gap-2 content-start">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGiftModalSpecial("present");
+                                setModalSelectedIconId(null);
+                              }}
+                              className={`aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
+                                giftModalSpecial === "present"
+                                  ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
+                                  : "border-slate-200 hover:border-slate-400"
+                              }`}
+                              aria-label="기본 선물 아이콘"
+                              aria-pressed={giftModalSpecial === "present"}
+                            >
                               <img
-                                src={getAssetImageUrl(giftIcons[0].assetKey)}
+                                src={GIFT_MODAL_PRESET_IMAGE_SRC}
                                 alt=""
                                 className="h-full w-full object-contain p-1"
                                 loading="lazy"
+                                draggable={false}
                               />
-                            ) : (
-                              <span className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
-                                로딩
-                              </span>
-                            )}
-                          </button>
-                          {giftIcons.slice(1).map((icon) => {
-                            const src = getAssetImageUrl(icon.assetKey);
-                            const selected = giftModalResolvedIconId === icon.id;
+                            </button>
+                            {filteredCatalogGiftIcons.map((icon) => {
+                              const src = getAssetImageUrl(icon.assetKey);
+                              const selected = giftModalResolvedIconId === icon.id;
 
-                            return (
-                              <button
-                                key={icon.id}
-                                type="button"
-                                onClick={() => {
-                                  setGiftModalSpecial(null);
-                                  setModalSelectedIconId(icon.id);
-                                }}
-                                className={`aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
-                                  selected
-                                    ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
-                                    : "border-slate-200 hover:border-slate-400"
-                                }`}
-                                aria-label={`선물 아이콘 ${icon.id}`}
-                                aria-pressed={selected}
-                              >
-                                <img
-                                  src={src}
-                                  alt=""
-                                  className="h-full w-full object-contain p-1"
-                                  loading="lazy"
-                                />
-                              </button>
-                            );
-                          })}
+                              return (
+                                <button
+                                  key={icon.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setGiftModalSpecial(null);
+                                    setModalSelectedIconId(icon.id);
+                                  }}
+                                  className={`aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
+                                    selected
+                                      ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
+                                      : "border-slate-200 hover:border-slate-400"
+                                  }`}
+                                  aria-label={`선물 아이콘 ${icon.id}`}
+                                  aria-pressed={selected}
+                                >
+                                  <img
+                                    src={src}
+                                    alt=""
+                                    className="h-full w-full object-contain p-1"
+                                    loading="lazy"
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {giftIcons.length === 0 ? (
+                            <p className="mt-2 text-center text-body-sm text-slate-500">
+                              추가 아이콘 목록이 없습니다. 위 칸에서 기본 선물을 선택할 수 있어요.
+                            </p>
+                          ) : giftIconModalTab !== "all" &&
+                            filteredCatalogGiftIcons.length === 0 &&
+                            catalogGiftIconsExtra.length > 0 ? (
+                            <p className="mt-2 text-center text-body-sm text-slate-500">
+                              이 카테고리에 표시할 아이콘이 없습니다. 「전체」에서 선택해 보세요.
+                            </p>
+                          ) : null}
                         </div>
-
-                        {giftIcons.length === 0 ? (
-                          <p className="mt-2 text-center text-body-sm text-slate-500">
-                            추가 아이콘 목록이 없습니다. 위 칸에서 기본 선물을 선택할 수 있어요.
-                          </p>
-                        ) : null}
-                      </div>
+                      </>
                     )}
                   </div>
                 </div>

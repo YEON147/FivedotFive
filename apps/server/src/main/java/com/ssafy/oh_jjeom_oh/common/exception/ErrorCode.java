@@ -43,6 +43,9 @@ public enum ErrorCode {
     SLOT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 슬롯에 아이템이 없습니다."),
     SLOT_EMPTY(HttpStatus.NOT_FOUND, "해당 슬롯이 비어 있습니다."),
 
+    // 보드 / 관리
+    FORBIDDEN_ADMIN(HttpStatus.FORBIDDEN, "관리자만 호출할 수 있습니다."),
+
     // 보드 에셋
     ASSET_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 에셋이 존재하지 않습니다."),
     INVALID_STICKER_SLOT_INDEX(HttpStatus.BAD_REQUEST, "스티커 슬롯 번호는 1~6 사이여야 합니다."),
