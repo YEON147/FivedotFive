@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { setAccessToken } from "@/lib/api/token-store";
 import { login } from "@/features/login/api";
+import { resolvePostLoginDestination } from "@/features/login/post-login-destination";
 import type {
   LoginFormErrors,
   LoginFormValues,
@@ -36,7 +37,7 @@ function toLoginRequest(values: LoginFormValues): LoginRequest {
   };
 }
 
-export function useLoginForm() {
+export function useLoginForm(nextParam?: string | null) {
   const router = useRouter();
   const [values, setValues] = useState<LoginFormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<LoginFormErrors>({});
@@ -96,8 +97,10 @@ export function useLoginForm() {
       setSubmitMessage(response.message ?? "로그인 되었습니다.");
       setSubmitSuccess(true);
 
-      const destination =
-        response.data?.hasWishBoard === true ? "/wishlist" : "/";
+      const destination = resolvePostLoginDestination(
+        nextParam ?? null,
+        response.data?.hasWishBoard,
+      );
       router.push(destination);
     } catch (error) {
       const message =
@@ -109,7 +112,7 @@ export function useLoginForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [router, values]);
+  }, [router, values, nextParam]);
 
   return {
     values,

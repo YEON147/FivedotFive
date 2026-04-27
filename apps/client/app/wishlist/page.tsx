@@ -56,6 +56,7 @@ import {
   setWishlistPageSessionCache,
   type WishlistPageSessionCache,
 } from "@/features/wishlist/wishlist-session-cache";
+import { loginUrlWithCurrentPageAsNext } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
 import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
 import {
@@ -285,7 +286,7 @@ export default function WishlistPage() {
   useEffect(() => {
     if (!getAccessToken()) {
       clearWishlistPageSessionCache();
-      router.replace("/login");
+      router.replace(loginUrlWithCurrentPageAsNext());
       return;
     }
 

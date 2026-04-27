@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { trackSignUpComplete } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
 import { setAccessToken } from "@/lib/api/token-store";
+import { resolvePostLoginDestination } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
 
 const GA_OAUTH_SIGNUP_DEDUPE_KEY = "ohjjeomoh_ga_kakao_signup_tracked";
@@ -39,11 +40,16 @@ function OAuthCallbackContent() {
       try {
         const profile = await getMyProfile();
         if (cancelled) return;
-        const destination = profile.hasWishBoard ? "/wishlist" : "/";
+        const next = searchParams.get("next");
+        const destination = resolvePostLoginDestination(
+          next,
+          profile.hasWishBoard,
+        );
         router.replace(destination);
       } catch {
         if (cancelled) return;
-        router.replace("/");
+        const next = searchParams.get("next");
+        router.replace(resolvePostLoginDestination(next, false));
       }
     })();
 
