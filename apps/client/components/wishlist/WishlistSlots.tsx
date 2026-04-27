@@ -25,6 +25,12 @@ const DESIGN_HEIGHT = 680;
 /** 스티커 슬롯 원 지름(px, 디자인 좌표 기준) — 선물보다 한 단계 작게 유지 */
 const STICKER_SIZE = 78;
 
+/**
+ * 댓글 슬롯 등 — 댓글은 있으나 스티커가 비공개(null)일 때 원 안에 `?`만 표시.
+ * (실제 이미지 URL과 절대 겹치지 않는 내부 센티널)
+ */
+export const STICKER_SLOT_IMAGE_MASKED = "__oh_jjeom_oh_sticker_masked__";
+
 /** 선물 지름은 항상 스티커보다 큼 (`STICKER_SIZE` 대비 여유) */
 const MIN_GIFT_SIZE = STICKER_SIZE + 20;
 
@@ -90,9 +96,9 @@ function mergeSlotImages<TSlot extends BaseSlot>(
   }));
 }
 
-function slotAriaLabel(kind: SlotKind, id: number, hasImage: boolean) {
+function slotAriaLabel(kind: SlotKind, id: number, hasImage: boolean, isStickerMasked: boolean) {
   const noun = kind === "gift" ? "gift" : "sticker";
-  const state = hasImage ? "filled" : "empty";
+  const state = isStickerMasked ? "hidden" : hasImage ? "filled" : "empty";
 
   return `${noun} slot ${id}, ${state}`;
 }
@@ -119,18 +125,21 @@ function SlotBubble({
   stickerEmptyLabel?: string;
   giftLayoutPosition?: "floating" | "embedded";
 }) {
-  const hasImage = Boolean(slot.imageSrc);
+  const isStickerMasked =
+    kind === "sticker" && slot.imageSrc === STICKER_SLOT_IMAGE_MASKED;
+  const hasImage = Boolean(slot.imageSrc) && !isStickerMasked;
 
-  if (!hasImage && !showPlaceholder) {
+  if (!hasImage && !isStickerMasked && !showPlaceholder) {
     return null;
   }
 
   const stickerDecorating = kind === "sticker" && decorateActive;
+  const stickerMaskedInteractive = kind === "sticker" && isStickerMasked && decorateActive;
 
   const hoverClass =
     kind === "gift"
       ? "transition-transform hover:scale-100 active:scale-[0.99]"
-      : stickerDecorating
+      : stickerDecorating || stickerMaskedInteractive
         ? "transition-transform hover:scale-[1.02] active:scale-[0.98]"
         : "";
 
@@ -143,6 +152,10 @@ function SlotBubble({
     "border-0 bg-transparent shadow-none backdrop-blur-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF] hover:ring-2 hover:ring-white/50";
   const stickerFilledStatic =
     "border-0 bg-transparent shadow-none backdrop-blur-0";
+
+  /** 댓글 비공개 스티커 자리 — 원형·가독 `?` */
+  const stickerMaskedChrome =
+    "border border-slate-300/90 bg-gradient-to-b from-white to-slate-100/95 shadow-sm backdrop-blur-[2px]";
 
   /** 보드 최대 폭 372px 가정 시 슬롯이 차지하는 대략적인 CSS 폭 — `sizes` 힌트용 */
   const slotSizesHint = `${Math.max(48, Math.round((size / DESIGN_WIDTH) * 372))}px`;
@@ -172,21 +185,27 @@ function SlotBubble({
     <button
       type="button"
       onClick={() => onClick?.(slot.id)}
-      tabIndex={kind === "sticker" && !decorateActive ? -1 : undefined}
+      tabIndex={
+        kind === "sticker" && !decorateActive && !isStickerMasked ? -1 : undefined
+      }
       className={`${positionClass} overflow-visible rounded-full ${
         hasImage
           ? decorateActive
             ? stickerFilledLive
             : stickerFilledStatic
-          : slotChrome
+          : isStickerMasked
+            ? decorateActive
+              ? `${stickerMaskedChrome} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF] hover:ring-2 hover:ring-violet-200/80`
+              : stickerMaskedChrome
+            : slotChrome
       } ${kind === "gift" ? "z-20" : "z-[12]"} ${hoverClass} ${
-        kind === "sticker" && !decorateActive
+        kind === "sticker" && !decorateActive && !isStickerMasked
           ? "pointer-events-none cursor-default"
           : ""
       }`}
       style={positionStyle}
-      aria-label={slotAriaLabel(kind, slot.id, hasImage)}
-      aria-disabled={kind === "sticker" && !decorateActive ? true : undefined}
+      aria-label={slotAriaLabel(kind, slot.id, hasImage, isStickerMasked)}
+      aria-disabled={kind === "sticker" && !decorateActive && !isStickerMasked ? true : undefined}
     >
       {hasImage ? (
         <span
@@ -205,6 +224,13 @@ function SlotBubble({
             sizes={slotSizesHint}
             className="object-contain object-center p-[1%]"
           />
+        </span>
+      ) : isStickerMasked ? (
+        <span
+          className="pointer-events-none flex h-full w-full select-none items-center justify-center text-3xl font-bold leading-none text-slate-500 sm:text-4xl"
+          aria-hidden
+        >
+          ?
         </span>
       ) : (
         <span
@@ -315,5 +341,12 @@ function StickerSlots({
   ));
 }
 
-export { DESIGN_HEIGHT, DESIGN_WIDTH, GiftSlots, StickerSlots, STICKER_SIZE };
+export {
+  DESIGN_HEIGHT,
+  DESIGN_WIDTH,
+  GiftSlots,
+  STICKER_SLOT_IMAGE_MASKED,
+  StickerSlots,
+  STICKER_SIZE,
+};
 export type { GiftLayoutCount, GiftSlot, StickerSlot, StickerSlotsProps };
