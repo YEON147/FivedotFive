@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import "@/components/home/main-landing-hero.css";
 import "@/components/home/main-landing-wordmark-float.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 import { createMyBoard } from "@/features/wishlist/api";
@@ -85,10 +86,10 @@ export function MainLandingContent({
   };
 
   return (
-    <main className="wishlist-page-root relative flex min-h-[100dvh] flex-col overflow-y-auto">
+    <main className="wishlist-page-root relative flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden">
       <IntroDesignSparkles />
 
-      <div className="relative z-[3] flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-10 pb-[max(1.5rem,env(safe-area-bottom))]">
+      <div className="relative z-[3] flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-[clamp(1.25rem,3.5vmin,2.25rem)] pb-[max(1.5rem,env(safe-area-bottom))]">
         <div className="main-landing-wordmark-float mb-4 flex w-full justify-center">
           <Image
             src="/main/main3.png"
@@ -118,12 +119,12 @@ export function MainLandingContent({
             width={900}
             height={900}
             priority
-            sizes="(max-width: 768px) 92vw, 720px"
-            className="h-auto max-h-[min(58dvh,92vw)] w-full max-w-[min(92vw,720px)] object-contain"
+            sizes="(max-width: 768px) 92vw, 62vw"
+            className="main-landing-hero-img"
           />
         </div>
 
-        <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
+        <div className="mt-[clamp(1rem,4vmin,2rem)] flex w-full max-w-sm flex-col gap-3">
           {loggedIn && !loggedInCtaReady ? (
             <div
               className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-[18px] bg-slate-100 px-7 text-[15px] font-medium text-[#8b8b8b]"
