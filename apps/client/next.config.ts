@@ -9,6 +9,7 @@ import type { NextConfig } from "next";
  *   그 경우 아래 `boards` / `users` / `rankings` 보정 규칙이 `/api` 를 다시 붙여 줌.
  *
  * 학교 검색(NEIS)은 Spring이 아니라 Next `app/front-api/schools/search/route.ts`에서 처리합니다.
+ * 해당 Route Handler 환경 변수: `NEXT_PUBLIC_NEIS_API_KEY`(권장), 호환용 `NEIS_API_KEY`.
  * `/api/*` 는 전부 백엔드로 넘기므로 해당 경로는 `/front-api/...` 로 둡니다.
  *
  * 로컬 Spring: 기본값 http://127.0.0.1:8080
