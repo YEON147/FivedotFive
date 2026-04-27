@@ -42,6 +42,13 @@ public class AdminDataInitializer implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         User admin = userRepository.findByUsername(adminUsername)
+                .map(existing -> {
+                    if (existing.getRole() != Role.ADMIN) {
+                        log.info("[AdminInit] 관리자 계정 role 보정: {} → ADMIN", existing.getRole());
+                        existing.updateRole(Role.ADMIN);
+                    }
+                    return existing;
+                })
                 .orElseGet(() -> {
                     log.info("[AdminInit] 관리자 계정 생성: username={}", adminUsername);
                     return userRepository.save(User.builder()

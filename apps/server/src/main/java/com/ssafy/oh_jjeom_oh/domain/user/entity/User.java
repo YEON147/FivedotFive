@@ -100,6 +100,10 @@ public class User {
         this.grade = grade;
     }
 
+    public void updateRole(Role role) {
+        this.role = role;
+    }
+
     public void withdraw() {
         this.status = Status.DELETED; // Status.INACTIVE
     }
