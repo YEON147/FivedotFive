@@ -11,6 +11,7 @@ import {
   signup,
 } from "@/features/signup/api";
 import { trackSignUpComplete } from "@/lib/analytics/conversion";
+import { deriveBandFromGrade } from "@/lib/constants/signup";
 import type {
   CheckStatus,
   SchoolOption,
@@ -28,6 +29,7 @@ const INITIAL_VALUES: SignupFormValues = {
   schoolName: "",
   schoolCode: "",
   gender: "",
+  gradeBand: "",
   grade: "",
 };
 
@@ -69,20 +71,28 @@ function validateSignupForm(values: SignupFormValues): SignupFormErrors {
     errors.email = "올바른 이메일 형식을 입력해주세요.";
   }
 
+  const schoolTrim = values.schoolName.trim();
+  const schoolCodeTrim = values.schoolCode.trim();
+  if (schoolTrim !== "" && schoolCodeTrim === "") {
+    errors.schoolName =
+      "검색 결과 목록에서 학교를 선택해 주세요. 검색되지 않는 학교는 등록할 수 없습니다.";
+  }
+
   return errors;
 }
 
 function toSignupRequest(values: SignupFormValues): SignupRequest {
-  const school = values.schoolName.trim();
-  const schoolcode = values.schoolCode.trim();
+  const schoolTrim = values.schoolName.trim();
+  const schoolcodeTrim = values.schoolCode.trim();
+  const schoolVerified = schoolTrim !== "" && schoolcodeTrim !== "";
 
   return {
     username: values.username.trim(),
     password: values.password,
     nickname: values.nickname.trim(),
     email: values.email.trim(),
-    school: school === "" ? null : school,
-    schoolcode: schoolcode === "" ? null : schoolcode,
+    school: schoolVerified ? schoolTrim : null,
+    schoolcode: schoolVerified ? schoolcodeTrim : null,
     gender: values.gender === "" ? null : values.gender,
     grade: values.grade === "" ? null : values.grade,
   };
@@ -393,11 +403,22 @@ export function useSignupForm() {
 
   const onChange = useCallback(
     (name: keyof SignupFormValues, value: string) => {
-      setValues((prev) => ({
-        ...prev,
-        [name]: value,
-        ...(name === "schoolName" ? { schoolCode: "" } : {}),
-      }));
+      setValues((prev) => {
+        const base: SignupFormValues = {
+          ...prev,
+          [name]: value as SignupFormValues[typeof name],
+          ...(name === "schoolName" ? { schoolCode: "" } : {}),
+          ...(name === "gradeBand" ? { grade: "" } : {}),
+        };
+        if (name === "grade") {
+          return {
+            ...base,
+            gradeBand:
+              value === "" ? prev.gradeBand : deriveBandFromGrade(value),
+          };
+        }
+        return base;
+      });
 
       if (name === "schoolName") {
         setSchoolKeyword(value);
@@ -422,6 +443,9 @@ export function useSignupForm() {
       }
 
       setErrors((prev) => {
+        if (name === "gradeBand") {
+          return { ...prev, grade: undefined };
+        }
         if (!prev[name as keyof SignupFormErrors]) return prev;
         return {
           ...prev,

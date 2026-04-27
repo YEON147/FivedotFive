@@ -46,7 +46,7 @@ export function GenderToggle({
   );
 
   const btnBase =
-    "h-9 flex-1 rounded-lg border text-xs font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-[#7B61FF]/25 disabled:cursor-not-allowed disabled:opacity-60";
+    "h-[34px] flex-1 rounded-lg border text-xs font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-[#7B61FF]/25 disabled:cursor-not-allowed disabled:opacity-60";
   const btnIdle =
     "border-slate-200 bg-white text-slate-700 hover:bg-slate-50/90 active:bg-slate-50";
   const btnActive =

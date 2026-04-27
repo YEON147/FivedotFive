@@ -1,10 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import { X } from "@phosphor-icons/react";
 import { GenderToggle } from "@/components/ui/GenderToggle";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
-import { GRADE_OPTIONS } from "@/lib/constants/signup";
+import { COMPACT_FIELD_INPUT_CLASS } from "@/components/ui/fieldSurface";
+import {
+  GRADE_BAND_OPTIONS,
+  getGradeDetailOptions,
+} from "@/lib/constants/signup";
 import type {
   MyPageFormValues,
   PasswordFormErrors,
@@ -34,7 +39,7 @@ type MyPageFormProps = {
   nicknameCheckMessage: string | null;
 
   onChange: (
-    field: "nickname" | "schoolName" | "gender" | "grade",
+    field: "nickname" | "schoolName" | "gender" | "grade" | "gradeBand",
     value: string
   ) => void;
   onCheckNickname: () => Promise<void> | void;
@@ -99,6 +104,11 @@ export function MyPageForm({
     values.nickname?.trim() ||
     values.username?.trim() ||
     "회원";
+
+  const gradeDetailOptions = useMemo(
+    () => getGradeDetailOptions(values.gradeBand),
+    [values.gradeBand],
+  );
 
   if (isLoading && !isLoaded) {
     return (
@@ -211,9 +221,9 @@ export function MyPageForm({
               value={schoolKeyword}
               error={errors.schoolName}
               disabled={!isLoaded || isSaving}
-              hint="선택 항목 · 검색 후 목록에서 선택"
+              hint="선택 항목 · 검색 후 목록에서 탭해야 등록됩니다 (검색 안 되는 학교는 선택 불가)"
               hintDisplay="label-inline"
-              className="!h-10 !px-3 text-[13px]"
+              className={COMPACT_FIELD_INPUT_CLASS}
               scrollIntoViewOnFocus
               onFocus={() => {
                 if (ignoreNextSchoolFocus) {
@@ -274,17 +284,44 @@ export function MyPageForm({
             onChange={(next) => onChange("gender", next)}
           />
 
-          <SelectField
-            id="mypage-grade"
-            label="학년"
-            value={values.grade}
-            options={GRADE_OPTIONS}
-            error={errors.grade}
-            disabled={!isLoaded || isSaving}
-            scrollIntoViewOnFocus
-            className="!h-10 !pl-3 !pr-10 text-[13px]"
-            onChange={(event) => onChange("grade", event.target.value)}
-          />
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs font-semibold text-slate-800">
+              학년, 연령대
+            </span>
+            <div className="flex min-w-0 flex-row items-start gap-1">
+              <SelectField
+                id="mypage-grade-band"
+                label=""
+                hideLabel
+                aria-label="초·중·고·어른이 구분"
+                value={values.gradeBand}
+                options={GRADE_BAND_OPTIONS}
+                disabled={!isLoaded || isSaving}
+                variant="compact"
+                scrollIntoViewOnFocus
+                className="min-w-0 flex-1"
+                onChange={(event) =>
+                  onChange("gradeBand", event.target.value)
+                }
+              />
+              <SelectField
+                id="mypage-grade"
+                label=""
+                hideLabel
+                aria-label="학년 또는 연령대"
+                value={values.grade}
+                options={gradeDetailOptions}
+                error={errors.grade}
+                disabled={!isLoaded || isSaving || !values.gradeBand}
+                variant="compact"
+                scrollIntoViewOnFocus
+                className="min-w-0 flex-1"
+                onChange={(event) =>
+                  onChange("grade", event.target.value)
+                }
+              />
+            </div>
+          </div>
         </div>
 
         {saveMessage ? (
