@@ -80,6 +80,8 @@ const USER_COMMENT_RANKINGS_PATH = "/api/rankings/users/comments";
 export type UserCommentRankingItem = {
   rank: number;
   username: string;
+  /** 표시용 — 없으면 `username` */
+  nickname: string;
   commentCount: number;
 };
 
@@ -107,7 +109,7 @@ export function mapUserCommentRankingsToEntries(
 ): RankEntry[] {
   return data.rankings.map((r) => ({
     rank: r.rank,
-    title: r.username,
+    title: r.nickname?.trim() || r.username,
     value: r.commentCount,
   }));
 }
