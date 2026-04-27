@@ -243,6 +243,75 @@
   backface-visibility: hidden;
 }
 
+/**
+ * 선물 그림자
+ * - Android·데스크톱: img에 drop-shadow(filter) — 자연스러운 번짐.
+ * - iPhone/iPad WebKit: transform 애니메이션과 함께 쓰면 filter 출력이 사각으로 잘리는 경우가 많아
+ *   filter 없이 타원 레이어 3장으로 비슷한 농도·번짐을 맞춤 (--paint).
+ */
+.intro-gift-stack {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 340px;
+}
+
+.intro-gift-stack img {
+  position: relative;
+  z-index: 1;
+}
+
+/* iOS 전용: 원래 drop-shadow(0 28px 56px …)에 가깝게 — 고정 높이로 구형 안드로이드도 레이아웃 안정 */
+.intro-gift-stack--paint .intro-gift-shadow-layer {
+  position: absolute;
+  left: 50%;
+  pointer-events: none;
+  z-index: 0;
+  transform: translateX(-50%);
+  border-radius: 50%;
+}
+
+/* 넓게 퍼진 바깥 번짐 (blur radius 큰 느낌) */
+.intro-gift-stack--paint .intro-gift-shadow-layer--diffuse {
+  bottom: max(-4%, -10px);
+  width: min(104%, 360px);
+  height: 5.5rem;
+  max-height: 28vw;
+  background: radial-gradient(
+    ellipse 52% 38% at 50% 55%,
+    rgba(70, 45, 140, 0.11) 0%,
+    rgba(70, 45, 140, 0.05) 42%,
+    transparent 72%
+  );
+}
+
+.intro-gift-stack--paint .intro-gift-shadow-layer--mid {
+  bottom: 2%;
+  width: min(92%, 320px);
+  height: 3.25rem;
+  background: radial-gradient(
+    ellipse 48% 42% at 50% 52%,
+    rgba(70, 45, 140, 0.2) 0%,
+    rgba(70, 45, 140, 0.08) 46%,
+    transparent 70%
+  );
+}
+
+.intro-gift-stack--paint .intro-gift-shadow-layer--core {
+  bottom: 5%;
+  width: min(74%, 260px);
+  height: 2.25rem;
+  background: radial-gradient(
+    ellipse 44% 48% at 50% 48%,
+    rgba(70, 45, 140, 0.28) 0%,
+    rgba(70, 45, 140, 0.12) 52%,
+    transparent 74%
+  );
+}
+
 .intro-gift-burst-layer {
   position: relative;
   isolation: isolate;
@@ -282,7 +351,3 @@
   backface-visibility: hidden;
 }
 
-.intro-gift-burst-layer > img {
-  position: relative;
-  z-index: 1;
-}
