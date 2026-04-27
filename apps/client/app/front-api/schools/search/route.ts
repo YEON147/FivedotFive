@@ -1,6 +1,7 @@
 /**
  * NEIS 학교 검색 — Next.js Route Handler에서만 처리 (Spring 백엔드로 프록시되지 않음).
- * 환경 변수: NEIS_API_KEY, 선택 NEIS_API_BASE_URL (기본 https://open.neis.go.kr/hub)
+ * 환경 변수(우선순위): NEXT_PUBLIC_NEIS_API_KEY → NEIS_API_KEY,
+ * NEXT_PUBLIC_NEIS_API_BASE_URL → NEIS_API_BASE_URL (기본 https://open.neis.go.kr/hub)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -79,15 +80,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.NEIS_API_KEY;
+    const apiKey =
+      process.env.NEXT_PUBLIC_NEIS_API_KEY ?? process.env.NEIS_API_KEY;
     const baseUrl =
-      process.env.NEIS_API_BASE_URL ?? "https://open.neis.go.kr/hub";
+      process.env.NEXT_PUBLIC_NEIS_API_BASE_URL ??
+      process.env.NEIS_API_BASE_URL ??
+      "https://open.neis.go.kr/hub";
 
     if (!apiKey) {
       return NextResponse.json(
         {
           success: false,
-          message: "NEIS_API_KEY가 설정되지 않았습니다.",
+          message:
+            "NEXT_PUBLIC_NEIS_API_KEY(또는 NEIS_API_KEY)가 설정되지 않았습니다.",
         },
         { status: 500 }
       );
