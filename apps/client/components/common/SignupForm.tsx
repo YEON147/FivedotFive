@@ -425,6 +425,7 @@ export function SignupForm({
                   value={values.gender}
                   error={errors.gender}
                   scrollIntoViewOnFocus
+                  className="w-full min-w-0 md:col-span-2"
                   onChange={(next) => onChange("gender", next)}
                 />
 
