@@ -1,5 +1,6 @@
 import type { GiftLayoutCount } from "@/components/wishlist/WishlistSlots";
 import type { WishItemData } from "@/features/wishlist/types";
+import { STORED_PUBLIC_DEFAULT_GIFT_ICON_KEY } from "@/lib/constants/gift-default-icon";
 
 /** 서버 `WishItemService` 기본 GIFT_ICON 키 — 빈 슬롯 판별용 */
 const SERVER_DEFAULT_GIFT_ICON_KEY = "default/gift_icon.png";
@@ -8,6 +9,8 @@ const SERVER_DEFAULT_GIFT_ICON_KEY = "default/gift_icon.png";
 const LEGACY_PRESET_ICON_KEYS = [
   "icon/present.png",
   "assets/icons/icon-100.png",
+  /** DB에 `assets/` 접두어 없이 저장된 예전 키 */
+  "icons/icon-100.png",
 ] as const;
 
 /**
@@ -22,6 +25,9 @@ export function matchesGiftPresetIcon(
   const s = storedKey.trim();
   if (!s) {
     return false;
+  }
+  if (s === STORED_PUBLIC_DEFAULT_GIFT_ICON_KEY) {
+    return true;
   }
   const first = catalogFirstAssetKey?.trim();
   if (first && s === first) {

@@ -1,11 +1,16 @@
 package com.ssafy.oh_jjeom_oh.domain.asset.controller;
 
+import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
+import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
 import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
+import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.AssetSyncResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.service.AssetSyncService;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

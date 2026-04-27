@@ -10,4 +10,3 @@ export { RankingRankList } from "./RankingRankList";
 export { RankingListScrollArea } from "./RankingListScrollArea";
 export { RankingLeaderboard } from "./RankingLeaderboard";
 export { RankingPageHeader } from "./RankingPageHeader";
-export { RankingPlaceholderAd } from "./RankingPlaceholderAd";
