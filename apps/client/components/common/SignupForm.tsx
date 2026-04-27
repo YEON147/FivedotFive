@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GenderToggle } from "@/components/ui/GenderToggle";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
-import { GRADE_OPTIONS } from "@/lib/constants/signup";
+import { COMPACT_FIELD_INPUT_CLASS } from "@/components/ui/fieldSurface";
+import {
+  GRADE_BAND_OPTIONS,
+  getGradeDetailOptions,
+} from "@/lib/constants/signup";
 import type {
   CheckStatus,
   SchoolOption,
@@ -98,6 +102,11 @@ export function SignupForm({
       : nicknameCheckStatus === "unavailable"
         ? "text-rose-600"
         : "text-slate-500";
+
+  const gradeDetailOptions = useMemo(
+    () => getGradeDetailOptions(values.gradeBand),
+    [values.gradeBand],
+  );
 
   const [debouncedUsername, setDebouncedUsername] = useState(values.username);
   const [debouncedPassword, setDebouncedPassword] = useState(values.password);
@@ -356,11 +365,11 @@ export function SignupForm({
                     placeholder="학교명 검색 (선택)"
                     value={schoolKeyword}
                     error={errors.schoolName}
-                    hint="선택 항목 · 검색 후 목록에서 선택"
+                    hint="선택 항목 · 검색 후 목록에서 탭해야 등록됩니다 (검색 안 되는 학교는 선택 불가)"
                     hintDisplay="label-inline"
                     scrollIntoViewOnFocus
                     disabled={isSubmitting || isNicknameLoading}
-                    className="!h-10 !px-3 text-[13px]"
+                    className={COMPACT_FIELD_INPUT_CLASS}
                     onFocus={() => {
                       if (ignoreNextSchoolFocus) {
                         onSetIgnoreNextSchoolFocus(false);
@@ -419,16 +428,43 @@ export function SignupForm({
                   onChange={(next) => onChange("gender", next)}
                 />
 
-                <SelectField
-                  id="grade"
-                  label="학년"
-                  options={GRADE_OPTIONS}
-                  value={values.grade}
-                  error={errors.grade}
-                  scrollIntoViewOnFocus
-                  className="!h-10 !pl-3 !pr-10 text-[13px]"
-                  onChange={(event) => onChange("grade", event.target.value)}
-                />
+                <div className="flex min-w-0 flex-col gap-1 md:col-span-2">
+                  <span className="flex min-h-[22px] flex-wrap items-center gap-x-1 gap-y-0.5 text-xs font-semibold text-slate-800">
+                    학년, 연령대
+                  </span>
+                  <div className="flex min-w-0 flex-row items-start gap-1">
+                    <SelectField
+                      id="grade-band"
+                      label=""
+                      hideLabel
+                      aria-label="초·중·고·어른이 구분"
+                      options={GRADE_BAND_OPTIONS}
+                      value={values.gradeBand}
+                      variant="compact"
+                      scrollIntoViewOnFocus
+                      className="min-w-0 flex-1"
+                      onChange={(event) =>
+                        onChange("gradeBand", event.target.value)
+                      }
+                    />
+                    <SelectField
+                      id="grade"
+                      label=""
+                      hideLabel
+                      aria-label="학년 또는 연령대"
+                      options={gradeDetailOptions}
+                      value={values.grade}
+                      error={errors.grade}
+                      disabled={!values.gradeBand}
+                      variant="compact"
+                      scrollIntoViewOnFocus
+                      className="min-w-0 flex-1"
+                      onChange={(event) =>
+                        onChange("grade", event.target.value)
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </StepSection>

@@ -1,4 +1,6 @@
 export type GenderType = "MALE" | "FEMALE" | "OTHER" | "";
+/** 학교급·성인 구분 — UI 전용, API에는 `grade` 문자열만 전송 */
+export type GradeBandType = "" | "ELEM" | "MIDDLE" | "HIGH" | "ADULT";
 export type GradeType =
   | "ELEM_1"
   | "ELEM_2"
@@ -12,6 +14,11 @@ export type GradeType =
   | "HIGH_1"
   | "HIGH_2"
   | "HIGH_3"
+  | "ADULT_20S"
+  | "ADULT_30S"
+  | "ADULT_40S"
+  | "ADULT_50S"
+  | "ADULT_60_PLUS"
   | "";
 
 export type SchoolOption = {
@@ -30,6 +37,8 @@ export type SignupFormValues = {
   schoolName: string;
   schoolCode: string;
   gender: GenderType;
+  /** 초·중·고·성인 구분 — 서버 미전송 */
+  gradeBand: GradeBandType;
   grade: GradeType;
 };
 

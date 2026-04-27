@@ -8,6 +8,7 @@ import {
   searchSchoolsForMyPage,
   updateMyProfile,
 } from "@/features/user/api";
+import { deriveBandFromGrade } from "@/lib/constants/signup";
 import type {
   GenderType,
   GradeType,
@@ -20,7 +21,12 @@ import type {
 } from "@/features/user/types";
 import type { SchoolOption } from "@/features/signup/types";
 
-type FieldName = "nickname" | "schoolName" | "gender" | "grade";
+type FieldName =
+  | "nickname"
+  | "schoolName"
+  | "gender"
+  | "grade"
+  | "gradeBand";
 type FormErrors = Partial<Record<FieldName, string>>;
 
 const INITIAL_VALUES: MyPageFormValues = {
@@ -30,6 +36,7 @@ const INITIAL_VALUES: MyPageFormValues = {
   schoolName: "",
   schoolCode: "",
   gender: "",
+  gradeBand: "",
   grade: "",
 };
 
@@ -41,13 +48,29 @@ const INITIAL_PASSWORD_VALUES: PasswordFormValues = {
 
 const NEW_PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,12}$/;
 
-function validateForm(values: MyPageFormValues): FormErrors {
+function validateForm(
+  values: MyPageFormValues,
+  originalProfile: MyProfile | null,
+): FormErrors {
   const nextErrors: FormErrors = {};
 
   if (!values.nickname.trim()) {
     nextErrors.nickname = "닉네임을 입력해주세요.";
   } else if (values.nickname.trim().length > 8) {
     nextErrors.nickname = "닉네임은 최대 8자까지 입력할 수 있습니다.";
+  }
+
+  const schoolTrim = values.schoolName.trim();
+  const schoolCodeTrim = values.schoolCode.trim();
+  if (schoolTrim !== "" && schoolCodeTrim === "") {
+    const legacyNameOnlyOk =
+      originalProfile != null &&
+      schoolTrim === (originalProfile.school ?? "").trim() &&
+      !(originalProfile.schoolcode?.trim());
+    if (!legacyNameOnlyOk) {
+      nextErrors.schoolName =
+        "검색 결과 목록에서 학교를 선택해 주세요. 검색되지 않는 학교는 등록할 수 없습니다.";
+    }
   }
 
   return nextErrors;
@@ -91,6 +114,7 @@ function mapProfileToValues(profile: MyProfile): MyPageFormValues {
     schoolName: profile.school ?? "",
     schoolCode: profile.schoolcode ?? "",
     gender: profile.gender ?? "",
+    gradeBand: deriveBandFromGrade(profile.grade ?? ""),
     grade: profile.grade ?? "",
   };
 }
@@ -203,15 +227,29 @@ export function useMyPageForm() {
   const updateField = useCallback((field: FieldName, value: string) => {
     const nextValue = field === "nickname" ? value.slice(0, 8) : value;
 
-    setValues((prev) => ({
-      ...prev,
-      [field]: nextValue,
-      ...(field === "schoolName" ? { schoolCode: "" } : {}),
-    }));
+    setValues((prev) => {
+      const base: MyPageFormValues = {
+        ...prev,
+        [field]: nextValue as MyPageFormValues[typeof field],
+        ...(field === "schoolName" ? { schoolCode: "" } : {}),
+        ...(field === "gradeBand" ? { grade: "" } : {}),
+      };
+      if (field === "grade") {
+        return {
+          ...base,
+          gradeBand:
+            nextValue === ""
+              ? prev.gradeBand
+              : deriveBandFromGrade(nextValue),
+        };
+      }
+      return base;
+    });
 
     setErrors((prev) => ({
       ...prev,
       [field]: undefined,
+      ...(field === "gradeBand" ? { grade: undefined } : {}),
     }));
 
     setSaveMessage(null);
@@ -310,7 +348,11 @@ export function useMyPageForm() {
     setErrors({});
     setSchoolKeyword(nextValues.schoolName);
     setSchoolResults([]);
-    setHasSelectedSchool(Boolean(nextValues.schoolName));
+    setHasSelectedSchool(
+      Boolean(originalProfile.schoolcode?.trim()) ||
+        (!!originalProfile.school?.trim() &&
+          !originalProfile.schoolcode?.trim()),
+    );
     setIsSchoolDropdownOpen(false);
     setIgnoreNextSchoolFocus(false);
     setSaveMessage(null);
@@ -322,7 +364,7 @@ export function useMyPageForm() {
   }, [originalProfile]);
 
   const submit = useCallback(async () => {
-    const nextErrors = validateForm(values);
+    const nextErrors = validateForm(values, originalProfile);
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -377,7 +419,11 @@ export function useMyPageForm() {
       setOriginalProfile(updatedProfile);
       setValues(mapProfileToValues(updatedProfile));
       setSchoolKeyword(updatedProfile.school ?? "");
-      setHasSelectedSchool(Boolean(updatedProfile.school));
+      setHasSelectedSchool(
+        Boolean(updatedProfile.schoolcode?.trim()) ||
+          (!!updatedProfile.school?.trim() &&
+            !updatedProfile.schoolcode?.trim()),
+      );
       setIsSchoolDropdownOpen(false);
       setSchoolResults([]);
 
@@ -475,7 +521,9 @@ export function useMyPageForm() {
       values.schoolName !== (originalProfile.school ?? "") ||
       values.schoolCode !== (originalProfile.schoolcode ?? "") ||
       values.gender !== (originalProfile.gender ?? "") ||
-      values.grade !== (originalProfile.grade ?? "")
+      values.grade !== (originalProfile.grade ?? "") ||
+      values.gradeBand !==
+        deriveBandFromGrade(originalProfile.grade ?? "")
     );
   }, [originalProfile, values]);
 
