@@ -49,7 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/health", "/health", "/api/oauth2/**", "/login/oauth2/**", "/oauth2/**", "/api/login/oauth2/**", "/share/**").permitAll()
                         .requestMatchers("/api/auth/nickname/random", "/auth/nickname/random").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/assets/**").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/admin/assets/sync").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/admin/assets/sync", "/api/admin/assets/reset-sync").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rankings/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments/*/sticker").permitAll()
