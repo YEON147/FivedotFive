@@ -19,8 +19,8 @@ export function isSoftDeletedWishComment(
 }
 
 /**
- * 공개 전 타인 댓글 — API가 `content`·`stickerKey`를 `null`로 내려 마스킹한 경우.
- * (클라이언트 시각이 아니라 응답 필드로 판별.)
+ * 공개 전 타인 댓글 — GET 댓글 목록에서 `content`가 `null`인 경우(서버 `WishCommentService` 마스킹).
+ * 어드민 보드 등 서버가 전부 공개하면 필드가 채워져 여기서는 마스킹으로 취급하지 않음.
  */
 export function isMaskedOthersWishComment(
   c: Pick<CommentData, "content" | "senderName" | "isUser">,
