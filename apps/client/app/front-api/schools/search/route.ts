@@ -1,4 +1,7 @@
-// 학교 검색 api 프론트 처리 로직
+/**
+ * NEIS 학교 검색 — Next.js Route Handler에서만 처리 (Spring 백엔드로 프록시되지 않음).
+ * 환경 변수: NEIS_API_KEY, 선택 NEIS_API_BASE_URL (기본 https://open.neis.go.kr/hub)
+ */
 
 import { NextRequest, NextResponse } from "next/server";
 

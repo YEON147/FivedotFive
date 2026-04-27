@@ -8,6 +8,9 @@ import type { NextConfig } from "next";
  *   Next 로 들어와 매칭 실패 → 백엔드(Spring은 `/api/boards` 만 매핑)에 안 가고 500 등이 날 수 있음.
  *   그 경우 아래 `boards` / `users` / `rankings` 보정 규칙이 `/api` 를 다시 붙여 줌.
  *
+ * 학교 검색(NEIS)은 Spring이 아니라 Next `app/front-api/schools/search/route.ts`에서 처리합니다.
+ * `/api/*` 는 전부 백엔드로 넘기므로 해당 경로는 `/front-api/...` 로 둡니다.
+ *
  * 로컬 Spring: 기본값 http://127.0.0.1:8080
  * 원격: BACKEND_REWRITE_TARGET=https://...(슬래시 없이 origin)
  *

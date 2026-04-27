@@ -17,3 +17,35 @@ export function isSoftDeletedWishComment(
     c.content === WISH_COMMENT_DELETED_CONTENT
   );
 }
+
+/**
+ * 공개 전 타인 댓글 — API가 `content`·`stickerKey`를 `null`로 내려 마스킹한 경우.
+ * (클라이언트 시각이 아니라 응답 필드로 판별.)
+ */
+export function isMaskedOthersWishComment(
+  c: Pick<CommentData, "content" | "senderName" | "isUser">,
+): boolean {
+  return !c.isUser && !isSoftDeletedWishComment(c) && c.content === null;
+}
+
+/**
+ * 댓글 표시용 닉네임.
+ * - 본인 댓글(isUser) — 항상 실제 닉네임(수정·삭제 가능).
+ * - 공개 전·타인(API 마스킹, `content === null`) — "누굴까요?"
+ * - 그 외 타인 — 실제 닉네임
+ * - 소프트 삭제 — 서버가 내려준 문구 유지
+ */
+export function getCommentDisplaySenderName(
+  c: Pick<CommentData, "senderName" | "isUser" | "content">,
+): string {
+  if (isSoftDeletedWishComment(c)) {
+    return c.senderName;
+  }
+  if (c.isUser) {
+    return c.senderName;
+  }
+  if (isMaskedOthersWishComment(c)) {
+    return "누굴까요?";
+  }
+  return c.senderName;
+}

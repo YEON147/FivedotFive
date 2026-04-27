@@ -35,6 +35,15 @@ export default function SignupPage() {
     userEmailCheckMessage,
     nicknameCheckStatus,
     nicknameCheckMessage,
+    schoolKeyword,
+    schoolResults,
+    isSchoolSearching,
+    isSchoolDropdownOpen,
+    hasSelectedSchool,
+    ignoreNextSchoolFocus,
+    selectSchool,
+    setIsSchoolDropdownOpen,
+    setIgnoreNextSchoolFocus,
   } = useSignupForm();
 
   return (
@@ -78,9 +87,18 @@ export default function SignupPage() {
                 userEmailCheckMessage={userEmailCheckMessage}
                 nicknameCheckStatus={nicknameCheckStatus}
                 nicknameCheckMessage={nicknameCheckMessage}
+                schoolKeyword={schoolKeyword}
+                schoolResults={schoolResults}
+                isSchoolSearching={isSchoolSearching}
+                isSchoolDropdownOpen={isSchoolDropdownOpen}
+                hasSelectedSchool={hasSelectedSchool}
+                ignoreNextSchoolFocus={ignoreNextSchoolFocus}
                 onChange={onChange}
                 onRefetchNickname={onRefetchNickname}
                 onSubmit={onSubmit}
+                onSelectSchool={selectSchool}
+                onSetSchoolDropdownOpen={setIsSchoolDropdownOpen}
+                onSetIgnoreNextSchoolFocus={setIgnoreNextSchoolFocus}
               />
             </div>
           </div>

@@ -132,7 +132,7 @@ public class RankingService {
             AtomicInteger rankCounter = new AtomicInteger(1);
             List<UserCommentRankingResponse.RankItem> items = rows.stream()
                     .map(r -> new UserCommentRankingResponse.RankItem(
-                            rankCounter.getAndIncrement(), r.getUsername(), r.getCommentCount()))
+                            rankCounter.getAndIncrement(), r.getUsername(), r.getNickname(), r.getCommentCount()))
                     .toList();
             saveToCache(CACHE_KEY_USER_COMMENT, UserCommentRankingResponse.of(items));
         } catch (Exception e) {
