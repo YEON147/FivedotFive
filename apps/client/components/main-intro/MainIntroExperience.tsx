@@ -3,7 +3,7 @@
 import confetti from "canvas-confetti";
 import Image from "next/image";
 import type { AnimationEvent, CSSProperties } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import "@/components/main-intro/intro-gift-motion.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
@@ -20,8 +20,9 @@ export const INTRO_GIFT_BURST_MS = Math.round((440 / 2250) * INTRO_GIFT_SHAKE_MS
 const INTRO_GIFT_SHAKE_DURATION_CSS = `${INTRO_GIFT_SHAKE_MS / 1000}s` as const;
 const INTRO_GIFT_BURST_DURATION_CSS = `${INTRO_GIFT_BURST_MS / 1000}s` as const;
 
-const introGiftMotionImgClassName =
-  "mx-auto block h-auto max-h-[min(42vh,340px)] w-full max-w-[340px] object-contain drop-shadow-[0_28px_56px_rgba(70,45,140,0.3)]";
+/** iOS WebKit만 filter+transform 조합에서 그림자가 사각으로 잘림 → 그 경우 CSS 페인트 그림자 사용 */
+const introGiftMotionImgBaseClass =
+  "block h-auto max-h-[min(42vh,340px)] w-full object-contain";
 
 function fireGiftExplosionConfetti() {
   confetti({
@@ -56,6 +57,8 @@ type GiftPhase = "shake" | "burst" | "gone";
 export function MainIntroExperience() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [giftPhase, setGiftPhase] = useState<GiftPhase>("shake");
+  /** iPhone/iPad 등 Apple 터치 기기만 true — 여기선 img에 drop-shadow(filter) 대신 레이어 그림자 사용 */
+  const [iosStyleGiftShadow, setIosStyleGiftShadow] = useState(false);
 
   /** `/` 이탈·언마운트 후에도 타이머가 울리면 컨페티가 다른 라우트에 남지 않도록 */
   const introAliveRef = useRef(true);
@@ -66,6 +69,14 @@ export function MainIntroExperience() {
       introAliveRef.current = false;
       confetti.reset();
     };
+  }, []);
+
+  useLayoutEffect(() => {
+    const ua = navigator.userAgent;
+    const appleTouch =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    setIosStyleGiftShadow(appleTouch);
   }, []);
 
   useEffect(() => {
@@ -109,16 +120,29 @@ export function MainIntroExperience() {
   }, [reducedMotion]);
 
   const giftMotionImg = (
-    <img
-      src="/main/main1.png"
-      alt=""
-      width={340}
-      height={340}
-      decoding="async"
-      fetchPriority="high"
-      draggable={false}
-      className={introGiftMotionImgClassName}
-    />
+    <div className={iosStyleGiftShadow ? "intro-gift-stack intro-gift-stack--paint" : "intro-gift-stack"}>
+      {iosStyleGiftShadow ? (
+        <>
+          <span className="intro-gift-shadow-layer intro-gift-shadow-layer--diffuse" aria-hidden />
+          <span className="intro-gift-shadow-layer intro-gift-shadow-layer--mid" aria-hidden />
+          <span className="intro-gift-shadow-layer intro-gift-shadow-layer--core" aria-hidden />
+        </>
+      ) : null}
+      <img
+        src="/main/main1.png"
+        alt=""
+        width={340}
+        height={340}
+        decoding="async"
+        fetchPriority="high"
+        draggable={false}
+        className={
+          iosStyleGiftShadow
+            ? introGiftMotionImgBaseClass
+            : `${introGiftMotionImgBaseClass} drop-shadow-[0_28px_56px_rgba(70,45,140,0.3)]`
+        }
+      />
+    </div>
   );
 
   if (reducedMotion) {

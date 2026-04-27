@@ -3,10 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
+import "@/components/home/main-landing-hero.css";
 import "@/components/home/main-landing-wordmark-float.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
+import { loginUrlForPath } from "@/features/login/post-login-destination";
+import { createMyBoard } from "@/features/wishlist/api";
+import { SESSION_OPEN_DECORATE_AFTER_CREATE_KEY } from "@/features/wishlist/wishlist-session-cache";
 import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 
@@ -35,10 +39,47 @@ export function MainLandingContent({
   hasWishBoard,
 }: MainLandingContentProps) {
   const router = useRouter();
+  const [wishlistPrimaryLoading, setWishlistPrimaryLoading] = useState(false);
+  const [wishlistPrimaryError, setWishlistPrimaryError] = useState<string | null>(null);
 
   useEffect(() => {
     touchTrafficAttribution();
   }, []);
+
+  const handleLoggedInWishlistPrimary = async () => {
+    trackWishlistCtaClick({
+      cta_id: "landing_logged_wishlist_hub",
+      wishlist_entry: hasWishBoard ? "decorate" : "create",
+    });
+
+    if (hasWishBoard) {
+      router.push("/wishlist");
+      return;
+    }
+
+    setWishlistPrimaryError(null);
+    setWishlistPrimaryLoading(true);
+    try {
+      try {
+        await createMyBoard();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (!msg.includes("이미 위시보드가 존재합니다")) {
+          throw e;
+        }
+      }
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
+      }
+      router.push("/wishlist");
+    } catch (e) {
+      setWishlistPrimaryError(
+        e instanceof Error ? e.message : "위시보드를 만들지 못했습니다.",
+      );
+    } finally {
+      setWishlistPrimaryLoading(false);
+    }
+  };
 
   const goBrowseLoggedIn = () => {
     trackWishlistCtaClick({ cta_id: "landing_logged_public_browse" });
@@ -46,10 +87,10 @@ export function MainLandingContent({
   };
 
   return (
-    <main className="wishlist-page-root relative flex min-h-[100dvh] flex-col overflow-y-auto">
+    <main className="wishlist-page-root relative flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden">
       <IntroDesignSparkles />
 
-      <div className="relative z-[3] flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-10 pb-[max(1.5rem,env(safe-area-bottom))]">
+      <div className="relative z-[3] flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-[clamp(1.25rem,3.5vmin,2.25rem)] pb-[max(1.5rem,env(safe-area-bottom))]">
         <div className="main-landing-wordmark-float mb-4 flex w-full justify-center">
           <Image
             src="/main/main3.png"
@@ -79,12 +120,12 @@ export function MainLandingContent({
             width={900}
             height={900}
             priority
-            sizes="(max-width: 768px) 92vw, 720px"
-            className="h-auto max-h-[min(58dvh,92vw)] w-full max-w-[min(92vw,720px)] object-contain"
+            sizes="(max-width: 768px) 92vw, 62vw"
+            className="main-landing-hero-img"
           />
         </div>
 
-        <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
+        <div className="mt-[clamp(1rem,4vmin,2rem)] flex w-full max-w-sm flex-col gap-3">
           {loggedIn && !loggedInCtaReady ? (
             <div
               className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-[18px] bg-slate-100 px-7 text-[15px] font-medium text-[#8b8b8b]"
@@ -94,18 +135,20 @@ export function MainLandingContent({
             </div>
           ) : loggedIn ? (
             <>
+              {wishlistPrimaryError ? (
+                <p className="text-center text-xs text-rose-600">{wishlistPrimaryError}</p>
+              ) : null}
               <button
                 type="button"
-                className={landingPrimaryBtn}
-                onClick={() => {
-                  trackWishlistCtaClick({
-                    cta_id: "landing_logged_wishlist_hub",
-                    wishlist_entry: hasWishBoard ? "decorate" : "create",
-                  });
-                  router.push("/wishlist");
-                }}
+                className={`${landingPrimaryBtn} disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60`}
+                disabled={wishlistPrimaryLoading}
+                onClick={() => void handleLoggedInWishlistPrimary()}
               >
-                {hasWishBoard ? "내 위시리스트 꾸미러 가기" : "위시리스트 만들러 가기"}
+                {wishlistPrimaryLoading
+                  ? "준비 중…"
+                  : hasWishBoard
+                    ? "내 위시리스트 꾸미러 가기"
+                    : "위시리스트 만들러 가기"}
               </button>
               <button
                 type="button"
@@ -128,7 +171,7 @@ export function MainLandingContent({
                 위시리스트 구경가기
               </button>
               <div className="text-center">
-                <Link href="/login" className={landingMutedLink}>
+                <Link href={loginUrlForPath("/")} className={landingMutedLink}>
                   로그인
                 </Link>
                 <span className="mx-2 text-body-sm text-[#c4c4c4]" aria-hidden>

@@ -9,7 +9,7 @@ export function RankingRowCard({
   valueLabel: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-[14px] bg-[var(--color-surface)] px-4 py-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04]">
+    <div className="flex items-center gap-3 rounded-[14px] bg-[var(--color-surface)] px-4 py-3.5">
       <span className="w-7 shrink-0 text-center text-lg font-bold tabular-nums text-[var(--color-text-primary)]">
         {rank}
       </span>

@@ -1,0 +1,20 @@
+/**
+ * 메인 랜딩 중앙 히어로 이미지 — 가로가 길수록 작게.
+ * min-aspect-ratio 구간별 Tailwind를 쓰면 비율 경계(예: 993~1000px 너비)에서
+ * max-height가 단계적으로 바뀌어 덜컥거림 → 뷰포트 가로/세로 비에 연속 보간.
+ */
+.main-landing-hero-img {
+  height: auto;
+  width: 100%;
+  max-width: min(92vw, 720px);
+  object-fit: contain;
+
+  max-height: min(
+    58dvh,
+    92vw,
+    max(
+      26dvh,
+      calc(58dvh - max(0, min(calc(100dvw / 100dvh), 2) - 1.333) * 42dvh)
+    )
+  );
+}
