@@ -23,6 +23,9 @@ echo ">>> [$TARGET_COLOR] (포트: $TARGET_PORT) 배포를 시작합니다."
 echo ">>> 최신 이미지를 가져옵니다 (Frontend & Backend-$TARGET_COLOR)"
 docker compose pull client backend-$TARGET_COLOR
 
+echo ">>> 인프라 컨테이너 상태 확인 및 실행"
+docker compose up -d postgres redis
+
 echo ">>> 프론트엔드(Client) 업데이트 시작"
 docker compose up -d --no-deps client
 
