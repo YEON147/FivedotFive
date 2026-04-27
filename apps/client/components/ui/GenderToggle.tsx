@@ -45,8 +45,9 @@ export function GenderToggle({
     [scrollIntoViewOnFocus],
   );
 
+  /** 추가 정보 줄 input/select 와 동일 세로 34px · 반경 lg · 균등 너비 */
   const btnBase =
-    "h-[34px] flex-1 rounded-lg border text-xs font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-[#7B61FF]/25 disabled:cursor-not-allowed disabled:opacity-60";
+    "box-border h-[34px] min-h-[34px] max-h-[34px] min-w-0 flex-[1_1_0%] rounded-lg border px-3 py-0 text-xs font-semibold leading-normal outline-none transition focus-visible:ring-2 focus-visible:ring-[#7B61FF]/25 disabled:cursor-not-allowed disabled:opacity-60";
   const btnIdle =
     "border-slate-200 bg-white text-slate-700 hover:bg-slate-50/90 active:bg-slate-50";
   const btnActive =
@@ -58,7 +59,7 @@ export function GenderToggle({
         {label}
       </span>
       <div
-        className="flex min-w-0 gap-1"
+        className="flex w-full min-w-0 gap-1"
         role="group"
         aria-labelledby={`${id}-label`}
       >
