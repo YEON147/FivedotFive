@@ -10,7 +10,6 @@ import {
   RANKING_TABS,
   RankingLeaderboard,
   RankingPageHeader,
-  RankingPlaceholderAd,
   type RankEntry,
   type RankingTabId,
 } from "@/components/ranking";
@@ -209,8 +208,6 @@ export default function RankingPage() {
               listLoading={listLoading}
             />
           </div>
-
-          <RankingPlaceholderAd />
         </div>
       </div>
     </main>
