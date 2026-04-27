@@ -7,11 +7,13 @@ import {
   checkUserEmail,
   checkUsername,
   getRandomNickname,
+  searchSchools,
   signup,
 } from "@/features/signup/api";
 import { trackSignUpComplete } from "@/lib/analytics/conversion";
 import type {
   CheckStatus,
+  SchoolOption,
   SignupFormErrors,
   SignupFormValues,
   SignupRequest,
@@ -114,6 +116,13 @@ export function useSignupForm() {
   const [userEmailCheckMessage, setUserEmailCheckMessage] = useState<string | null>(
     null,
   );
+
+  const [schoolKeyword, setSchoolKeyword] = useState("");
+  const [schoolResults, setSchoolResults] = useState<SchoolOption[]>([]);
+  const [isSchoolSearching, setIsSchoolSearching] = useState(false);
+  const [isSchoolDropdownOpen, setIsSchoolDropdownOpen] = useState(false);
+  const [hasSelectedSchool, setHasSelectedSchool] = useState(false);
+  const [ignoreNextSchoolFocus, setIgnoreNextSchoolFocus] = useState(false);
 
   const signupEmailRef = useRef(values.email);
   signupEmailRef.current = values.email;
@@ -334,12 +343,67 @@ export function useSignupForm() {
     return () => clearTimeout(timer);
   }, [values.nickname, isNicknameDirty]);
 
+  useEffect(() => {
+    const trimmedKeyword = schoolKeyword.trim();
+
+    if (!trimmedKeyword || hasSelectedSchool) {
+      if (!trimmedKeyword) {
+        setSchoolResults([]);
+        setIsSchoolDropdownOpen(false);
+      }
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setIsSchoolSearching(true);
+
+      try {
+        const schools = await searchSchools(trimmedKeyword);
+        setSchoolResults(schools);
+        setIsSchoolDropdownOpen(schools.length > 0);
+      } catch (error) {
+        console.error("[signup] school search failed", error);
+        setSchoolResults([]);
+        setIsSchoolDropdownOpen(false);
+      } finally {
+        setIsSchoolSearching(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [schoolKeyword, hasSelectedSchool]);
+
+  const selectSchool = useCallback((school: SchoolOption) => {
+    setValues((prev) => ({
+      ...prev,
+      schoolName: school.schoolName,
+      schoolCode: school.schoolCode,
+    }));
+    setSchoolKeyword(school.schoolName);
+    setSchoolResults([]);
+    setHasSelectedSchool(true);
+    setIsSchoolDropdownOpen(false);
+    setIgnoreNextSchoolFocus(true);
+
+    setErrors((prev) => ({
+      ...prev,
+      schoolName: undefined,
+    }));
+  }, []);
+
   const onChange = useCallback(
     (name: keyof SignupFormValues, value: string) => {
       setValues((prev) => ({
         ...prev,
         [name]: value,
+        ...(name === "schoolName" ? { schoolCode: "" } : {}),
       }));
+
+      if (name === "schoolName") {
+        setSchoolKeyword(value);
+        setHasSelectedSchool(false);
+        setIgnoreNextSchoolFocus(false);
+      }
 
       if (name === "username") {
         setUsernameCheckStatus("idle");
@@ -508,5 +572,15 @@ export function useSignupForm() {
     nicknameCheckStatus,
     nicknameCheckMessage,
     isNicknameDirty,
+
+    schoolKeyword,
+    schoolResults,
+    isSchoolSearching,
+    isSchoolDropdownOpen,
+    hasSelectedSchool,
+    ignoreNextSchoolFocus,
+    selectSchool,
+    setIsSchoolDropdownOpen,
+    setIgnoreNextSchoolFocus,
   };
 }

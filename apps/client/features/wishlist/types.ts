@@ -1,7 +1,8 @@
 export type CommentData = {
   id: number;
   senderName: string;
-  content: string;
+  /** 공개 전(예: 2026-05-05 08:00 KST 이전) 타인 댓글은 API가 `null`로 마스킹할 수 있음 */
+  content: string | null;
   stickerKey: string | null;
   /** 본인 댓글 — API는 `isUser` 또는 Jackson `user` */
   isUser: boolean;
