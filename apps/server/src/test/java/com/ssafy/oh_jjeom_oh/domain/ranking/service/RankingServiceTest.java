@@ -105,8 +105,8 @@ class RankingServiceTest {
     @DisplayName("개인별 댓글 수 랭킹 - Redis 캐시 반환 성공")
     void getUserCommentRanking_fromCache() throws Exception {
         UserCommentRankingResponse cached = UserCommentRankingResponse.of(List.of(
-                new UserCommentRankingResponse.RankItem(1, "yeonjae123", 56),
-                new UserCommentRankingResponse.RankItem(2, "minjae456", 43)
+                new UserCommentRankingResponse.RankItem(1, "yeonjae123", "연재", 56),
+                new UserCommentRankingResponse.RankItem(2, "minjae456", "민재", 43)
         ));
         String json = objectMapper.writeValueAsString(cached);
         given(valueOperations.get("ranking:user:comments")).willReturn(json);
@@ -116,6 +116,7 @@ class RankingServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getRankings()).hasSize(2);
         assertThat(result.getRankings().get(0).getUsername()).isEqualTo("yeonjae123");
+        assertThat(result.getRankings().get(0).getNickname()).isEqualTo("연재");
         assertThat(result.getRankings().get(0).getCommentCount()).isEqualTo(56);
     }
 
@@ -251,8 +252,13 @@ class RankingServiceTest {
     }
 
     private UserCommentRankRow mockUserCommentRow(String username, Long commentCount) {
+        return mockUserCommentRow(username, username + "_nick", commentCount);
+    }
+
+    private UserCommentRankRow mockUserCommentRow(String username, String nickname, Long commentCount) {
         return new UserCommentRankRow() {
             public String getUsername() { return username; }
+            public String getNickname() { return nickname; }
             public Long getCommentCount() { return commentCount; }
         };
     }

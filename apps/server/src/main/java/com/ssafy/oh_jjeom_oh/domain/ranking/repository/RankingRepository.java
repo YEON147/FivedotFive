@@ -32,11 +32,11 @@ public interface RankingRepository extends JpaRepository<WishComment, Long> {
     List<SchoolCommentRankRow> findSchoolCommentRanking(Pageable pageable);
 
     @Query("""
-            SELECT u.username AS username, COUNT(wc.id) AS commentCount
+            SELECT u.username AS username, u.nickname AS nickname, COUNT(wc.id) AS commentCount
             FROM User u
             LEFT JOIN WishComment wc ON wc.user = u AND wc.isUser = true
             WHERE u.status = 'ACTIVE'
-            GROUP BY u.id, u.username
+            GROUP BY u.id, u.username, u.nickname
             ORDER BY COUNT(wc.id) DESC, u.username ASC
             """)
     List<UserCommentRankRow> findUserCommentRanking(Pageable pageable);

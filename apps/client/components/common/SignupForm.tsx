@@ -7,6 +7,7 @@ import { TextField } from "@/components/ui/TextField";
 import { GRADE_OPTIONS } from "@/lib/constants/signup";
 import type {
   CheckStatus,
+  SchoolOption,
   SignupFormErrors,
   SignupFormValues,
 } from "@/features/signup/types";
@@ -25,9 +26,18 @@ type SignupFormProps = {
   userEmailCheckMessage: string | null;
   nicknameCheckStatus: CheckStatus;
   nicknameCheckMessage: string | null;
+  schoolKeyword: string;
+  schoolResults: SchoolOption[];
+  isSchoolSearching: boolean;
+  isSchoolDropdownOpen: boolean;
+  hasSelectedSchool: boolean;
+  ignoreNextSchoolFocus: boolean;
   onChange: (name: keyof SignupFormValues, value: string) => void;
   onRefetchNickname: () => Promise<void>;
   onSubmit: () => Promise<unknown>;
+  onSelectSchool: (school: SchoolOption) => void;
+  onSetSchoolDropdownOpen: (open: boolean) => void;
+  onSetIgnoreNextSchoolFocus: (ignore: boolean) => void;
 };
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,12}$/;
@@ -55,9 +65,18 @@ export function SignupForm({
   userEmailCheckMessage,
   nicknameCheckStatus,
   nicknameCheckMessage,
+  schoolKeyword,
+  schoolResults,
+  isSchoolSearching,
+  isSchoolDropdownOpen,
+  hasSelectedSchool,
+  ignoreNextSchoolFocus,
   onChange,
   onRefetchNickname,
   onSubmit,
+  onSelectSchool,
+  onSetSchoolDropdownOpen,
+  onSetIgnoreNextSchoolFocus,
 }: SignupFormProps) {
   const usernameStatusClass =
     usernameCheckStatus === "available"
@@ -330,18 +349,65 @@ export function SignupForm({
               </div>
 
               <div className="grid gap-2 md:grid-cols-2 [&_label]:gap-1 [&_label]:scroll-mt-6 [&_label>span]:min-h-0 [&_label>span]:text-xs">
-                <div className="md:col-span-2">
+                <div className="relative md:col-span-2">
                   <TextField
                     id="school"
                     label="학교"
-                    placeholder="학교명 (선택)"
-                    value={values.schoolName}
-                    hint="선택 사항입니다."
+                    placeholder="학교명 검색 (선택)"
+                    value={schoolKeyword}
+                    error={errors.schoolName}
+                    hint="선택 항목 · 검색 후 목록에서 선택"
                     hintDisplay="label-inline"
                     scrollIntoViewOnFocus
+                    disabled={isSubmitting || isNicknameLoading}
                     className="!h-10 px-3 text-[13px]"
+                    onFocus={() => {
+                      if (ignoreNextSchoolFocus) {
+                        onSetIgnoreNextSchoolFocus(false);
+                        return;
+                      }
+
+                      if (!hasSelectedSchool && schoolResults.length > 0) {
+                        onSetSchoolDropdownOpen(true);
+                      }
+                    }}
                     onChange={(event) => onChange("schoolName", event.target.value)}
                   />
+
+                  {isSchoolDropdownOpen ? (
+                    <div className="scrollbar-hidden absolute z-30 mt-1 max-h-44 w-full overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
+                      {isSchoolSearching ? (
+                        <div className="px-2.5 py-2 text-xs text-[var(--color-text-secondary)]">
+                          검색 중…
+                        </div>
+                      ) : schoolResults.length > 0 ? (
+                        schoolResults.map((school) => (
+                          <button
+                            key={`${school.schoolCode}-${school.officeCode}`}
+                            type="button"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              onSelectSchool(school);
+                            }}
+                            className="flex w-full flex-col items-start gap-0.5 border-b border-[var(--color-border)] px-2.5 py-2 text-left last:border-b-0 hover:bg-[var(--color-bg-subtle)]"
+                          >
+                            <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+                              {school.schoolName}
+                            </span>
+                            {school.address ? (
+                              <span className="text-[11px] text-[var(--color-text-secondary)]">
+                                {school.address}
+                              </span>
+                            ) : null}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-2.5 py-2 text-xs text-[var(--color-text-secondary)]">
+                          결과 없음
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
 
                 <GenderToggle

@@ -3,7 +3,8 @@ export const USERNAME_CHECK_API_PATH = "/api/auth/check/username";
 export const NICKNAME_CHECK_API_PATH = "/api/auth/check/nickname";
 export const USEREMAIL_CHECK_API_PATH = "/api/auth/check/useremail";
 export const RANDOM_NICKNAME_API_PATH = "/api/auth/nickname/random";
-export const SCHOOL_SEARCH_API_PATH = "/api/schools/search";
+/** Next Route Handler 전용 — `next.config`의 `/api`→백엔드 프록시와 충돌하지 않도록 `/front-api` 사용 */
+export const SCHOOL_SEARCH_API_PATH = "/front-api/schools/search";
 
 export const GENDER_OPTIONS = [
   { label: "선택 안 함", value: "" },
