@@ -836,15 +836,25 @@ export default function PublicWishlistPage({
                     </div>
 
                     {currentVisualPage === 0 ? (
-                      <button
-                        type="button"
-                        onClick={handleGoToLastCommentPage}
-                        className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
-                        aria-label="댓글 작성하러 가기"
-                        title="댓글 작성하러 가기"
-                      >
-                        <ChatCircleDots size={23} weight="bold" />
-                      </button>
+                      !visitorMenuLoggedIn && showEmptyCommentSlots ? (
+                        <button
+                          type="button"
+                          onClick={() => setGuestAuthModalOpen(true)}
+                          className="pointer-events-auto shrink-0 rounded-full bg-[#7B61FF] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6b52e0] active:scale-[0.98]"
+                        >
+                          댓글 작성
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleGoToLastCommentPage}
+                          className="pointer-events-auto flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
+                          aria-label="댓글 작성하러 가기"
+                          title="댓글 작성하러 가기"
+                        >
+                          <ChatCircleDots size={23} weight="bold" />
+                        </button>
+                      )
                     ) : null}
                   </div>
                 </div>
