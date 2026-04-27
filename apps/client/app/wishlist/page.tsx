@@ -128,6 +128,9 @@ const WISHLIST_APP_SHELL_MAX_LOADING =
 const WISHLIST_BOARD_FRAME_BASE =
   "relative isolate overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1";
 
+/** 선물 이름 프론트 입력 제한 (서버 DB는 더 길게 허용 가능) */
+const WISH_ITEM_NAME_MAX_LENGTH = 24;
+
 /** 선물 아이콘 모달「기본 선물」첫 칸 — `public/default_icon.png` (저장 키와 동일) */
 const GIFT_MODAL_PRESET_IMAGE_SRC = STORED_PUBLIC_DEFAULT_GIFT_ICON_KEY;
 
@@ -354,10 +357,25 @@ export default function WishlistPage() {
           }
 
           if (!profile.hasWishBoard) {
-            setHasMyBoard(false);
-            setAllWishSlotsEmpty(true);
-            setBoardAssets([]);
-            persistEmptySnapshot(displayName);
+            /**
+             * 방금 POST /boards 직후에는 `hasWishBoard`가 아직 false인 경우가 있음.
+             * 이 상태로 두면 `getMyBoard`를 안 타고 메인 리다이렉트(useEffect)로 튕김 →
+             * 프로필과 무관하게 GET /boards/me로 실제 보드 존재를 한 번 확인한다.
+             */
+            try {
+              const board = await getMyBoard();
+              if (cancelled) return;
+              applyLoadedBoard(board);
+              setHasMyBoard(true);
+              persistBoardSnapshot(displayName, board);
+            } catch {
+              if (!cancelled) {
+                setHasMyBoard(false);
+                setAllWishSlotsEmpty(true);
+                setBoardAssets([]);
+                persistEmptySnapshot(displayName);
+              }
+            }
             return;
           }
 
@@ -835,7 +853,7 @@ export default function WishlistPage() {
   const openGiftModalEdit = (slotIndex: number) => {
     setGiftModalMode("edit");
     setGiftModalSlotIndex(slotIndex);
-    setModalGiftName(wishTexts[slotIndex] ?? "");
+    setModalGiftName((wishTexts[slotIndex] ?? "").slice(0, WISH_ITEM_NAME_MAX_LENGTH));
     setModalSelectedIconId(null);
     const key = wishGiftIconKeys[slotIndex]?.trim() ?? "";
     if (!key || matchesGiftPresetIcon(key, giftIcons[0]?.assetKey)) {
@@ -848,7 +866,7 @@ export default function WishlistPage() {
   };
 
   const handleSaveGiftModal = async () => {
-    const name = modalGiftName.trim();
+    const name = modalGiftName.trim().slice(0, WISH_ITEM_NAME_MAX_LENGTH);
     if (!name || giftModalSaving || giftModalDeleting) {
       return;
     }
@@ -1645,11 +1663,21 @@ export default function WishlistPage() {
                   ) : null}
 
                   <label className="block shrink-0">
-                    <span className="text-sm font-medium text-slate-800">선물 이름</span>
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-medium text-slate-800">선물 이름</span>
+                      <span className="text-xs tabular-nums text-slate-400">
+                        {modalGiftName.length}/{WISH_ITEM_NAME_MAX_LENGTH}
+                      </span>
+                    </span>
                     <input
                       type="text"
                       value={modalGiftName}
-                      onChange={(event) => setModalGiftName(event.target.value)}
+                      maxLength={WISH_ITEM_NAME_MAX_LENGTH}
+                      onChange={(event) =>
+                        setModalGiftName(
+                          event.target.value.slice(0, WISH_ITEM_NAME_MAX_LENGTH),
+                        )
+                      }
                       placeholder="예: 터보 RC카"
                       className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF]"
                     />

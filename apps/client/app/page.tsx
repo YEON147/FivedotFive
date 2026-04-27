@@ -79,7 +79,8 @@ export default function Home() {
     return () => window.clearTimeout(id);
   }, []);
 
-  useEffect(() => {
+  /** `guestShellMounted`가 바뀔 때마다 토큰 동기화 — 페인트 전에 반영해 로그인 직후 CTA가 한 박자 비로그인으로 보이지 않게 */
+  useLayoutEffect(() => {
     setLoggedIn(!!getAccessToken());
   }, [guestShellMounted]);
 
