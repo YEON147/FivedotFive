@@ -16,6 +16,10 @@ export type WishlistPageSessionCache = {
   hasMyBoard: boolean;
 };
 
+/** 메인에서 보드 생성 직후 `/wishlist` 진입 시 한 번만 꾸미기 모드로 연다 */
+export const SESSION_OPEN_DECORATE_AFTER_CREATE_KEY =
+  "oh_jjeom_oh_wishlist_open_decorate_after_create";
+
 let cache: WishlistPageSessionCache | null = null;
 
 export function getWishlistPageSessionCache(): WishlistPageSessionCache | null {

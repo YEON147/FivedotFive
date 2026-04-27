@@ -3,10 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import "@/components/home/main-landing-wordmark-float.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
+import { createMyBoard } from "@/features/wishlist/api";
+import { SESSION_OPEN_DECORATE_AFTER_CREATE_KEY } from "@/features/wishlist/wishlist-session-cache";
 import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 
@@ -35,10 +37,47 @@ export function MainLandingContent({
   hasWishBoard,
 }: MainLandingContentProps) {
   const router = useRouter();
+  const [wishlistPrimaryLoading, setWishlistPrimaryLoading] = useState(false);
+  const [wishlistPrimaryError, setWishlistPrimaryError] = useState<string | null>(null);
 
   useEffect(() => {
     touchTrafficAttribution();
   }, []);
+
+  const handleLoggedInWishlistPrimary = async () => {
+    trackWishlistCtaClick({
+      cta_id: "landing_logged_wishlist_hub",
+      wishlist_entry: hasWishBoard ? "decorate" : "create",
+    });
+
+    if (hasWishBoard) {
+      router.push("/wishlist");
+      return;
+    }
+
+    setWishlistPrimaryError(null);
+    setWishlistPrimaryLoading(true);
+    try {
+      try {
+        await createMyBoard();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (!msg.includes("이미 위시보드가 존재합니다")) {
+          throw e;
+        }
+      }
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
+      }
+      router.push("/wishlist");
+    } catch (e) {
+      setWishlistPrimaryError(
+        e instanceof Error ? e.message : "위시보드를 만들지 못했습니다.",
+      );
+    } finally {
+      setWishlistPrimaryLoading(false);
+    }
+  };
 
   const goBrowseLoggedIn = () => {
     trackWishlistCtaClick({ cta_id: "landing_logged_public_browse" });
@@ -94,18 +133,20 @@ export function MainLandingContent({
             </div>
           ) : loggedIn ? (
             <>
+              {wishlistPrimaryError ? (
+                <p className="text-center text-xs text-rose-600">{wishlistPrimaryError}</p>
+              ) : null}
               <button
                 type="button"
-                className={landingPrimaryBtn}
-                onClick={() => {
-                  trackWishlistCtaClick({
-                    cta_id: "landing_logged_wishlist_hub",
-                    wishlist_entry: hasWishBoard ? "decorate" : "create",
-                  });
-                  router.push("/wishlist");
-                }}
+                className={`${landingPrimaryBtn} disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60`}
+                disabled={wishlistPrimaryLoading}
+                onClick={() => void handleLoggedInWishlistPrimary()}
               >
-                {hasWishBoard ? "내 위시리스트 꾸미러 가기" : "위시리스트 만들러 가기"}
+                {wishlistPrimaryLoading
+                  ? "준비 중…"
+                  : hasWishBoard
+                    ? "내 위시리스트 꾸미러 가기"
+                    : "위시리스트 만들러 가기"}
               </button>
               <button
                 type="button"

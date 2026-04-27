@@ -57,12 +57,12 @@ function PodiumCell({
         </span>
       ) : null}
 
-      <div className="ranking-podium-copy relative isolate flex max-w-full flex-col items-center px-1 py-2 text-center">
+      <div className="ranking-podium-copy relative isolate flex max-w-full flex-col items-center px-1 pb-1 pt-1.5 text-center">
         <span className="ranking-podium-text-glow" aria-hidden />
         <div className={`flex max-w-full flex-col items-center ${PODIUM_TEXT_SLANT}`}>
           {position !== "center" ? <div className="mb-1 min-h-[28px]" aria-hidden /> : null}
           <p
-            className={`ranking-podium-title relative z-[1] line-clamp-2 min-h-[2.5rem] text-[14px] font-semibold leading-snug ${
+            className={`ranking-podium-title relative z-[1] line-clamp-2 min-h-0 text-[14px] font-semibold leading-snug ${
               muted ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"
             }`}
           >
@@ -101,7 +101,7 @@ export function RankingPodium({ orderedTop3, enterKey }: RankingPodiumProps) {
       </div>
 
       {/* 위로 당겨 글자가 포디움 이미지 상단을 살짝 덮도록 */}
-      <div className="relative z-0 mx-auto -mt-12 w-full max-w-[340px]">
+      <div className="relative z-0 mx-auto -mt-[3.75rem] w-full max-w-[340px]">
         <Image
           src="/ranking/podium.png"
           alt=""
