@@ -253,6 +253,8 @@ export default function WishlistPage() {
   const [viewerName, setViewerName] = useState(
     () => getWishlistPageSessionCache()?.viewerName ?? "회원",
   );
+  /** 꾸미기 진입 시 에셋 동기화 API는 관리자만 호출 */
+  const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
   const [backgroundAssets, setBackgroundAssets] = useState<BackgroundAssetDto[]>([]);
   const [backgroundsLoading, setBackgroundsLoading] = useState(false);
   const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
@@ -342,6 +344,7 @@ export default function WishlistPage() {
           const displayName =
             profile.nickname?.trim() || profile.username?.trim() || "회원";
           setViewerName(displayName);
+          setViewerIsAdmin(profile.role === "ADMIN");
 
           if (
             profile.role === "ADMIN" &&
@@ -398,6 +401,8 @@ export default function WishlistPage() {
           return;
         }
 
+        setViewerIsAdmin(false);
+
         try {
           const board = await getMyBoard();
           if (cancelled) {
@@ -420,6 +425,7 @@ export default function WishlistPage() {
         }
       } catch {
         if (!cancelled) {
+          setViewerIsAdmin(false);
           setHasMyBoard(false);
           setAllWishSlotsEmpty(true);
           setBoardAssets([]);
@@ -1400,9 +1406,11 @@ export default function WishlistPage() {
                       })();
                       return;
                     }
-                    void postAdminAssetsSync().catch((error) => {
-                      console.warn("에셋 동기화 요청 실패", error);
-                    });
+                    if (viewerIsAdmin) {
+                      void postAdminAssetsSync().catch(() => {
+                        /* 동기화 실패해도 꾸미기 진입은 허용 */
+                      });
+                    }
                     setIsDecorateMode(true);
                   }}
                   className={`pointer-events-auto flex size-[42px] items-center justify-center rounded-full text-body shadow-lg transition ${

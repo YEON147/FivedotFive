@@ -241,7 +241,7 @@ type AssetsSyncApiResponse = {
   };
 };
 
-/** POST /api/admin/assets/sync — S3 에셋을 DB와 동기화 (권한 스펙: 공개 호출) */
+/** POST /api/admin/assets/sync — S3 에셋을 DB와 동기화 (서버: ADMIN + JWT) */
 export async function postAdminAssetsSync(): Promise<AssetsSyncApiResponse> {
   return apiClient<AssetsSyncApiResponse>("/api/admin/assets/sync", {
     method: "POST",
