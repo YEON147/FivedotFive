@@ -33,6 +33,9 @@ public class AuthController {
         if (username == null || username.isBlank()) {
             throw new CustomException(ErrorCode.NONE_ID);
         }
+        if (!username.matches("^[a-zA-Z0-9]+$")) {
+            throw new CustomException(ErrorCode.INVALID_ID_FORMAT);
+        }
         boolean isDuplicate = authService.isUsernameDuplicate(username);
         if (isDuplicate) {
             throw new CustomException(ErrorCode.DUPLICATE_ID);
@@ -145,6 +148,9 @@ public class AuthController {
             @RequestParam(required = false) String nickname) {
         if (nickname == null || nickname.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_NICKNAME);
+        }
+        if (!nickname.matches("^[a-zA-Z0-9]+$")) {
+            throw new CustomException(ErrorCode.INVALID_NICKNAME_FORMAT);
         }
         boolean isDuplicate = authService.isNicknameDuplicate(nickname);
         if (isDuplicate) {
