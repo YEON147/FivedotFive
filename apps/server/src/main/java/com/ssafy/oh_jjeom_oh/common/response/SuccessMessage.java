@@ -75,7 +75,15 @@ public enum SuccessMessage {
     SHARE_LINK_CREATED("공유 링크가 생성되었습니다."),
 
     // 에셋 동기화
-    ASSET_SYNC_COMPLETED("에셋 동기화가 완료되었습니다.");
+    ASSET_SYNC_COMPLETED("에셋 동기화가 완료되었습니다."),
+
+    // 공지사항
+    NOTICE_LIST_FOUND("공지사항 목록 조회가 완료되었습니다."),
+    NOTICE_FOUND("공지사항 조회가 완료되었습니다."),
+    NOTICE_CREATED("공지사항이 등록되었습니다."),
+    NOTICE_UPDATED("공지사항이 수정되었습니다."),
+    NOTICE_DELETED("공지사항이 삭제되었습니다."),
+    BANNER_LIST_FOUND("배너 목록 조회가 완료되었습니다.");
 
     private final String message;
 }
