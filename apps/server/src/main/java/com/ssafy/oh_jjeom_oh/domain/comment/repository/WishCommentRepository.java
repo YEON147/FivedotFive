@@ -26,4 +26,8 @@ public interface WishCommentRepository extends JpaRepository<WishComment, Long> 
     @Modifying
     @Query("delete from WishComment c where c.wishBoard.id = (select b.id from WishBoard b where b.user.id = :userId)")
     void deleteByUserId(@Param("userId") Long userId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("delete from WishComment c where c.user.id = :userId")
+    void deleteByAuthorId(@Param("userId") Long userId);
 }

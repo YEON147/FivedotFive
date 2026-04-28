@@ -149,6 +149,7 @@ public class UserService {
             }
         }
 
+        wishCommentRepository.deleteByAuthorId(userId);
         boardAssetRepository.deleteByUserId(userId);
         wishItemRepository.deleteByUserId(userId);
         wishCommentRepository.deleteByUserId(userId);
