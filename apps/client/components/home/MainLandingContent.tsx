@@ -7,6 +7,14 @@ import { useEffect, useState } from "react";
 
 import "@/components/home/main-landing-hero.css";
 import "@/components/home/main-landing-wordmark-float.css";
+import {
+  easeTowardCap,
+  nextFrame,
+  runDecorateFillRamp,
+  WISH_CTA_DECORATE_RAMP,
+  WISH_CTA_FILL,
+  WISH_CTA_PROGRESS_TICK_MS,
+} from "@/components/home/landing-wish-cta-helpers";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { createMyBoard } from "@/features/wishlist/api";
@@ -15,23 +23,23 @@ import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 
 const landingPrimaryBtn =
-  "inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)]";
+  "relative inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center overflow-hidden rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color,opacity] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-[0.72] disabled:hover:bg-[var(--color-primary-main)]";
+
+const landingPrimaryBtnLoadingExtra =
+  "cursor-wait opacity-[0.92] hover:bg-[var(--color-primary-main)] active:scale-100";
 
 const landingMutedLink =
   "text-body-sm font-medium text-[#6e6e6e] underline-offset-4 transition-opacity hover:underline";
 
+const BOARD_EXISTS_MSG = "이미 위시보드가 존재합니다";
+
 type MainLandingContentProps = {
   loggedIn: boolean;
-  /** 로그인 시 프로필 조회 완료 전에는 `false` — CTA 깜빡임 방지용 로딩 */
   loggedInCtaReady: boolean;
   adminPublicBoardSlug: string;
   hasWishBoard: boolean;
 };
 
-/**
- * 비로그인: 관리자 공개 위시(댓글 페이지) + 로그인·회원가입.
- * 로그인: 위시 보드 유무에 따라 꾸미기/만들기 + 구경가기(관리자 공개 위시·댓글 페이지).
- */
 export function MainLandingContent({
   loggedIn,
   loggedInCtaReady,
@@ -40,6 +48,7 @@ export function MainLandingContent({
 }: MainLandingContentProps) {
   const router = useRouter();
   const [wishlistPrimaryLoading, setWishlistPrimaryLoading] = useState(false);
+  const [wishlistPrimaryFill, setWishlistPrimaryFill] = useState(0);
   const [wishlistPrimaryError, setWishlistPrimaryError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,37 +56,59 @@ export function MainLandingContent({
   }, []);
 
   const handleLoggedInWishlistPrimary = async () => {
+    if (wishlistPrimaryLoading) return;
+
     trackWishlistCtaClick({
       cta_id: "landing_logged_wishlist_hub",
       wishlist_entry: hasWishBoard ? "decorate" : "create",
     });
 
     if (hasWishBoard) {
+      setWishlistPrimaryLoading(true);
+      await runDecorateFillRamp(setWishlistPrimaryFill, WISH_CTA_DECORATE_RAMP);
       router.push("/wishlist");
       return;
     }
 
     setWishlistPrimaryError(null);
     setWishlistPrimaryLoading(true);
+    setWishlistPrimaryFill(WISH_CTA_FILL.start);
+
+    let progressId: number | null = null;
+
     try {
+      await nextFrame();
+      setWishlistPrimaryFill(WISH_CTA_FILL.afterFirstFrame);
+
+      progressId = window.setInterval(() => {
+        setWishlistPrimaryFill((p) => easeTowardCap(p, WISH_CTA_FILL.capWhileApi));
+      }, WISH_CTA_PROGRESS_TICK_MS);
+
       try {
         await createMyBoard();
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "";
-        if (!msg.includes("이미 위시보드가 존재합니다")) {
-          throw e;
-        }
+        if (!(e instanceof Error) || !e.message.includes(BOARD_EXISTS_MSG)) throw e;
       }
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
+
+      if (progressId !== null) {
+        window.clearInterval(progressId);
+        progressId = null;
       }
+
+      setWishlistPrimaryFill(WISH_CTA_FILL.beforeNavigate);
+      await nextFrame();
+      setWishlistPrimaryFill(WISH_CTA_FILL.full);
+      await nextFrame();
+
+      sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
       router.push("/wishlist");
     } catch (e) {
+      if (progressId !== null) window.clearInterval(progressId);
       setWishlistPrimaryError(
         e instanceof Error ? e.message : "위시보드를 만들지 못했습니다.",
       );
-    } finally {
       setWishlistPrimaryLoading(false);
+      setWishlistPrimaryFill(0);
     }
   };
 
@@ -140,20 +171,33 @@ export function MainLandingContent({
               ) : null}
               <button
                 type="button"
-                className={`${landingPrimaryBtn} disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60`}
+                className={`${landingPrimaryBtn} ${wishlistPrimaryLoading ? landingPrimaryBtnLoadingExtra : ""}`}
                 disabled={wishlistPrimaryLoading}
+                aria-busy={wishlistPrimaryLoading}
                 onClick={() => void handleLoggedInWishlistPrimary()}
               >
-                {wishlistPrimaryLoading
-                  ? "준비 중…"
-                  : hasWishBoard
-                    ? "내 위시리스트 꾸미러 가기"
-                    : "위시리스트 만들러 가기"}
+                {wishlistPrimaryLoading ? (
+                  <span
+                    className="main-landing-wish-cta-fill"
+                    style={{ transform: `scaleX(${wishlistPrimaryFill})` }}
+                    aria-hidden
+                  />
+                ) : null}
+                <span className="relative z-[1] flex items-center justify-center">
+                  {wishlistPrimaryLoading
+                    ? hasWishBoard
+                      ? "이동 중…"
+                      : "보드 생성 중…"
+                    : hasWishBoard
+                      ? "내 위시리스트 꾸미러 가기"
+                      : "위시리스트 만들러 가기"}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={goBrowseLoggedIn}
-                className="text-center text-body-sm font-medium text-[#8b8b8b] underline-offset-4 transition-colors hover:text-[#6e6e6e] hover:underline"
+                disabled={wishlistPrimaryLoading}
+                className="text-center text-body-sm font-medium text-[#8b8b8b] underline-offset-4 transition-colors hover:text-[#6e6e6e] hover:underline disabled:pointer-events-none disabled:opacity-45"
               >
                 구경가기
               </button>

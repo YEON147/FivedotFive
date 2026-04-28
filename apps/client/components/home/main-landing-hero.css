@@ -18,3 +18,20 @@
     )
   );
 }
+
+/* 메인 랜딩 위시 CTA 로딩 — scaleX는 React `style`로 진행률 제어, 전환만 CSS */
+.main-landing-wish-cta-fill {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform-origin: left center;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(199, 180, 255, 0.55) 45%,
+    rgba(123, 97, 255, 0.88) 100%
+  );
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.32, 1);
+  will-change: transform;
+}
