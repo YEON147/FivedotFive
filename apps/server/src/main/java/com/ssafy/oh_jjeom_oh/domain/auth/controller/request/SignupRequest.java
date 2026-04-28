@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 public record SignupRequest(
         @NotBlank(message = "필수 항목이 누락되었습니다.")
         @Size(max = 12, message = "아이디는 최대 12자까지 입력 가능합니다.")
+        @Pattern(regexp = "^[a-zA-Z0-9]+$", message = "아이디는 영문과 숫자만 가능합니다.")
         String username,
 
         @NotBlank(message = "필수 항목이 누락되었습니다.")
@@ -17,6 +18,7 @@ public record SignupRequest(
 
         @NotBlank(message = "필수 항목이 누락되었습니다.")
         @Size(max = 8, message = "닉네임은 최대 8자까지 입력 가능합니다.")
+        @Pattern(regexp = "^[a-zA-Z0-9가-힣]+$", message = "닉네임은 한글, 영문, 숫자만 가능합니다.")
         String nickname,
 
         @Email(message = "이메일 형식이 올바르지 않습니다.")
