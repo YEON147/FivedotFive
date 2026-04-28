@@ -35,6 +35,12 @@ const STICKER_SLOT_IMAGE_MASKED = "__oh_jjeom_oh_sticker_masked__";
 const MIN_GIFT_SIZE = STICKER_SIZE + 20;
 
 /**
+ * 이름이 있는 선물 클러스터끼리 동일 z일 때 DOM 뒤쪽 아이콘이 앞쪽 텍스트를 덮는 문제 방지.
+ * id가 작은 슬롯일수록 위로 올려 이웃 아이콘보다 레이블이 위에 오도록 함 (스티커 z-[12]·단독 선물 z-20보다 큼).
+ */
+const GIFT_CLUSTER_WITH_LABEL_Z_BASE = 56;
+
+/**
  * 디자인 캔버스(320×680) 기준 선물 배치.
  * - 슬롯 수가 늘수록 지름은 줄이되 `MIN_GIFT_SIZE` 이상 유지
  * - `stickerSlots` 원형과 선물 원형이 겹치지 않도록 좌표·크기 조정됨
@@ -48,9 +54,9 @@ const giftLayouts: Record<GiftLayoutCount, GiftSlot[]> = {
   ],
   3: [
     // 3개일 때는 원이 겹치지 않게 최소 크기(MIN_GIFT_SIZE) 근처로 축소
-    { id: 1, top: 265, left: 154, size: 100 },
+    { id: 1, top: 255, left: 158, size: 100 },
     { id: 2, top: 408, left: 102, size: 100 },
-    { id: 3, top: 360, left: 230, size: 100 },
+    { id: 3, top: 365, left: 235, size: 100 },
   ],
 };
 
@@ -289,18 +295,19 @@ function GiftSlots({
     return (
       <div
         key={slot.id}
-        className="absolute z-20 flex max-w-[min(100%,42%)] flex-col items-center overflow-visible"
+        className="absolute flex max-w-[min(100%,42%)] flex-col items-center overflow-visible"
         style={{
           top: toYPercent(slot.top),
           left: toXPercent(slot.left),
           width: toXPercent(sizePx),
           transform: "translate(-50%, -50%)",
+          zIndex: GIFT_CLUSTER_WITH_LABEL_Z_BASE - slot.id,
         }}
       >
         <div className="relative aspect-square w-full shrink-0 overflow-visible">
           <SlotBubble {...bubbleProps} giftLayoutPosition="embedded" />
         </div>
-        <p className="text-wish-body line-clamp-2 w-full max-w-full px-0.5 text-center text-[10px] font-normal leading-tight text-slate-800 drop-shadow-[0_1px_0_rgb(255_255_255/0.85)] sm:text-[11px]">
+        <p className="text-wish-body relative z-[35] line-clamp-2 w-full max-w-full px-0.5 text-center text-[10px] font-normal !leading-[1.22] text-slate-800 drop-shadow-[0_1px_0_rgb(255_255_255/0.85)] sm:text-[11px]">
           {caption}
         </p>
       </div>

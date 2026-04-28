@@ -148,7 +148,7 @@ function WishlistProfileTitleHeader({
       <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
         <span className="block">
           <span className="inline-flex items-baseline gap-0.5">
-            <span className="font-bold text-[#7B61FF]">{viewerName}</span>
+            <span className="font-bold leading-[1.18] text-[#7B61FF]">{viewerName}</span>
             <span className="text-[18px] font-light leading-none text-slate-900">
               님의
             </span>
