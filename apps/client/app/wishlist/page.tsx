@@ -64,6 +64,7 @@ import {
   resolveBackgroundDisplayLabel,
   fetchGiftIcons,
   fetchStickerAssets,
+  fetchStickerFolders,
   fetchStickersByFolder,
   postAdminAssetsResetSync,
   postAdminAssetsSync,
@@ -77,6 +78,7 @@ import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
+import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
 import {
   GIFT_ICON_CATEGORY_LABELS,
   giftIconCategoryFromAssetKey,
@@ -88,20 +90,22 @@ type GiftModalSpecial = "present" | null;
 /** ADMIN: 탭당 1회 — `/api/admin/assets/reset-sync` (에셋 DB 전체 재동기화) */
 const SESSION_ADMIN_RESET_SYNC_KEY = "oh_jjeom_oh_admin_assets_reset_sync_once";
 
-/** 스티커 폴더명(`assets/stickers/{id}/`)과 동일한 id — 한글은 UI 표시용 */
-const STICKER_MODAL_TABS = [
-  { id: "all", label: "전체" },
-  { id: "balloon", label: "풍선" },
-  { id: "universe", label: "우주" },
-  { id: "message", label: "메시지" },
-  { id: "dinosaur", label: "공룡" },
-  { id: "bubble", label: "버블" },
-  { id: "cute", label: "귀여운" },
-  { id: "dessert", label: "디저트" },
-  { id: "toy", label: "토이" },
-] as const;
+/**
+ * `GET /api/assets/stickers/folders?boardSlug=` 실패 시에만 사용하는 기본 폴더 id.
+ * 야구 전용 폴더는 포함하지 않음(구단 보드는 API로만 폴더 목록 확보).
+ */
+const FALLBACK_STICKER_FOLDER_IDS: readonly string[] = [
+  "balloon",
+  "universe",
+  "message",
+  "dinosaur",
+  "bubble",
+  "cute",
+  "dessert",
+  "toy",
+];
 
-type StickerModalTabId = (typeof STICKER_MODAL_TABS)[number]["id"];
+type StickerModalTabId = "all" | string;
 
 /** 선물 아이콘 S3 카테고리(`icons/{id}/…`) — 스티커 탭과 동일한 pill UI */
 const GIFT_ICON_MODAL_TABS = [
@@ -266,6 +270,8 @@ export default function WishlistPage() {
   const [stickerSheetError, setStickerSheetError] = useState<string | null>(null);
   const [stickerSlotSaving, setStickerSlotSaving] = useState(false);
   const [stickerSlotSaveError, setStickerSlotSaveError] = useState<string | null>(null);
+  /** `GET /api/assets/stickers/folders?boardSlug=` — 구단 보드면 야구 폴더 포함 목록 */
+  const [stickerFolderIds, setStickerFolderIds] = useState<string[]>([]);
   const backgroundHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stickerTabStripScroll = useMouseDragHorizontalScroll();
   const backgroundPickerStripScroll = useMouseDragHorizontalScroll();
@@ -287,6 +293,46 @@ export default function WishlistPage() {
     setWishGiftIconKeys(derived.wishGiftIconKeys);
     setBigCircleCount(derived.bigCircleCount);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const folders = await fetchStickerFolders(boardSlug);
+        if (cancelled) return;
+        setStickerFolderIds(
+          folders.length > 0 ? folders : [...FALLBACK_STICKER_FOLDER_IDS],
+        );
+      } catch {
+        if (!cancelled) {
+          setStickerFolderIds([...FALLBACK_STICKER_FOLDER_IDS]);
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [boardSlug]);
+
+  const stickerModalTabs = useMemo(() => {
+    const ids =
+      stickerFolderIds.length > 0 ? stickerFolderIds : [...FALLBACK_STICKER_FOLDER_IDS];
+    return [
+      { id: "all" as const, label: "전체" },
+      ...ids.map((id) => ({
+        id,
+        label: getStickerFolderLabel(id),
+      })),
+    ];
+  }, [stickerFolderIds]);
+
+  useEffect(() => {
+    const allowed = new Set(stickerModalTabs.map((t) => t.id));
+    if (!allowed.has(stickerModalTab)) {
+      setStickerModalTab("all");
+    }
+  }, [stickerModalTabs, stickerModalTab]);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -1864,7 +1910,7 @@ export default function WishlistPage() {
                   className="scrollbar-x-none flex cursor-grab gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 px-2 pb-2 pt-2 select-none active:cursor-grabbing touch-pan-x"
                   onPointerDown={stickerTabStripScroll.onPointerDown}
                 >
-                  {STICKER_MODAL_TABS.map((tab) => {
+                  {stickerModalTabs.map((tab) => {
                     const active = stickerModalTab === tab.id;
                     return (
                       <button
