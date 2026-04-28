@@ -61,7 +61,10 @@ public enum ErrorCode {
     COMMENT_INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "댓글 슬롯 번호는 0~5 사이여야 합니다."),
 
     // 공유 링크
-    SHARE_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, "유효하지 않거나 만료된 공유 링크입니다.");
+    SHARE_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, "유효하지 않거나 만료된 공유 링크입니다."),
+
+    // 공지사항
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
