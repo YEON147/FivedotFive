@@ -35,6 +35,7 @@ public enum SuccessMessage {
     BOARD_FOUND("위시보드 조회가 완료되었습니다."),
     BOARD_EXISTS_CHECKED("위시보드 존재 여부 조회가 완료되었습니다."),
     BOARD_UPDATED("위시보드가 수정되었습니다."),
+    BOARD_VISIBILITY_UPDATED("보드 공개 여부가 변경되었습니다."),
 
     // 위시 아이템
     WISH_ITEM_FOUND("위시 아이템 조회가 완료되었습니다."),
@@ -75,7 +76,15 @@ public enum SuccessMessage {
     SHARE_LINK_CREATED("공유 링크가 생성되었습니다."),
 
     // 에셋 동기화
-    ASSET_SYNC_COMPLETED("에셋 동기화가 완료되었습니다.");
+    ASSET_SYNC_COMPLETED("에셋 동기화가 완료되었습니다."),
+
+    // 공지사항
+    NOTICE_LIST_FOUND("공지사항 목록 조회가 완료되었습니다."),
+    NOTICE_FOUND("공지사항 조회가 완료되었습니다."),
+    NOTICE_CREATED("공지사항이 등록되었습니다."),
+    NOTICE_UPDATED("공지사항이 수정되었습니다."),
+    NOTICE_DELETED("공지사항이 삭제되었습니다."),
+    BANNER_LIST_FOUND("배너 목록 조회가 완료되었습니다.");
 
     private final String message;
 }

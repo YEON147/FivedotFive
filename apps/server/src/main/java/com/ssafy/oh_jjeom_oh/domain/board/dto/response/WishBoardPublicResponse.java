@@ -12,22 +12,24 @@ public class WishBoardPublicResponse {
     private final String boardSlug;
     private final String username;
     private final String nickname;
+    private final String teamTag;
     private final LocalDate targetDate;
     private final List<WishItemResponse> items;
     private final List<BoardAssetResponse> assets;
 
-    private WishBoardPublicResponse(String boardSlug, String username, String nickname, LocalDate targetDate,
-                                     List<WishItemResponse> items, List<BoardAssetResponse> assets) {
+    private WishBoardPublicResponse(String boardSlug, String username, String nickname, String teamTag,
+                                     LocalDate targetDate, List<WishItemResponse> items, List<BoardAssetResponse> assets) {
         this.boardSlug = boardSlug;
         this.username = username;
         this.nickname = nickname;
+        this.teamTag = teamTag;
         this.targetDate = targetDate;
         this.items = items;
         this.assets = assets;
     }
 
-    public static WishBoardPublicResponse of(String boardSlug, String username, String nickname, LocalDate targetDate,
-                                              List<WishItemResponse> items, List<BoardAssetResponse> assets) {
-        return new WishBoardPublicResponse(boardSlug, username, nickname, targetDate, items, assets);
+    public static WishBoardPublicResponse of(String boardSlug, String username, String nickname, String teamTag,
+                                              LocalDate targetDate, List<WishItemResponse> items, List<BoardAssetResponse> assets) {
+        return new WishBoardPublicResponse(boardSlug, username, nickname, teamTag, targetDate, items, assets);
     }
 }

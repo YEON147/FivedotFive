@@ -5,6 +5,7 @@ import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.Asset;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.AssetType;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.AssetRepository;
+import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,9 @@ class AssetServiceTest {
     @Mock
     private AssetRepository assetRepository;
 
+    @Mock
+    private WishBoardRepository wishBoardRepository;
+
     private Asset buildSticker(Long id, String assetKey, int order) {
         Asset asset = Asset.builder()
                 .assetType(AssetType.STICKER)
@@ -40,12 +44,12 @@ class AssetServiceTest {
     // ===================== getStickerFolders =====================
 
     @Test
-    @DisplayName("스티커 폴더 목록 조회 성공 - 여러 폴더 존재")
+    @DisplayName("스티커 폴더 목록 조회 성공 - boardSlug 없으면 일반 폴더만 반환")
     void getStickerFolders_success() {
-        given(assetRepository.findDistinctStickerFolders())
+        given(assetRepository.findGeneralStickerFolders())
                 .willReturn(List.of("balloon", "bubble", "cute"));
 
-        StickerFolderListResponse response = assetService.getStickerFolders();
+        StickerFolderListResponse response = assetService.getStickerFolders(null);
 
         assertThat(response.getFolders()).hasSize(3);
         assertThat(response.getFolders()).containsExactly("balloon", "bubble", "cute");
@@ -54,9 +58,9 @@ class AssetServiceTest {
     @Test
     @DisplayName("스티커 폴더 목록 조회 성공 - 폴더 없으면 빈 리스트 반환")
     void getStickerFolders_empty() {
-        given(assetRepository.findDistinctStickerFolders()).willReturn(List.of());
+        given(assetRepository.findGeneralStickerFolders()).willReturn(List.of());
 
-        StickerFolderListResponse response = assetService.getStickerFolders();
+        StickerFolderListResponse response = assetService.getStickerFolders(null);
 
         assertThat(response.getFolders()).isEmpty();
     }

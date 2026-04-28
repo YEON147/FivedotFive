@@ -2,6 +2,7 @@ package com.ssafy.oh_jjeom_oh.domain.user.service;
 
 import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
 import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
+import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
 import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
@@ -27,6 +28,7 @@ public class UserService {
     private final WishBoardRepository wishBoardRepository;
     private final WishItemRepository wishItemRepository;
     private final WishCommentRepository wishCommentRepository;
+    private final BoardAssetRepository boardAssetRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserInfoResponse getMyInfo(Long userId) {
@@ -146,6 +148,9 @@ public class UserService {
                 throw new CustomException(ErrorCode.WRONG_PASSWORD);
             }
         }
+
+        wishCommentRepository.deleteByAuthorId(userId);
+        boardAssetRepository.deleteByUserId(userId);
         wishItemRepository.deleteByUserId(userId);
         wishCommentRepository.deleteByUserId(userId);
         wishBoardRepository.deleteByUser_Id(userId);

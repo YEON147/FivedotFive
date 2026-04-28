@@ -35,6 +35,8 @@ build_frontend:
       --build-arg NEXT_PUBLIC_NEIS_API_BASE_URL="$NEIS_API_BASE_URL"
       --build-arg BACKEND_REWRITE_TARGET="$BACKEND_REWRITE_TARGET"
       --build-arg NEXT_PUBLIC_ASSET_BASE_URL="$NEXT_PUBLIC_ASSET_BASE_URL"
+      --build-arg NEXT_PUBLIC_OG_ENABLED="$NEXT_PUBLIC_OG_ENABLED"
+      --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL"
       -t ghcr.io/$GHCR_USER/client-image:latest 
       -f apps/client/Dockerfile .
     - docker push ghcr.io/$GHCR_USER/client-image:latest

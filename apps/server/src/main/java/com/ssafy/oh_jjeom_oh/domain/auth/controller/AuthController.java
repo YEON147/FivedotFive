@@ -81,10 +81,10 @@ public class AuthController {
 
         ResponseCookie cookie = ResponseCookie.from("refreshToken", tokenResponse.getRefreshToken())
                 .httpOnly(true)
-                .path("/api/auth")
+                .path("/")
                 .maxAge(604800)
-                .sameSite("None")
-                .secure(false) // 추후 https로 처리할예정 인프라에서
+                .sameSite("Lax")
+                .secure(true) // 추후 https로 처리할예정 인프라에서
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
@@ -105,10 +105,10 @@ public class AuthController {
 
         ResponseCookie cookie = ResponseCookie.from("refreshToken", tokenResponse.getRefreshToken())
                 .httpOnly(true)
-                .path("/api/auth")
+                .path("/")
                 .maxAge(604800)
-                .sameSite("None")
-                .secure(false)
+                .sameSite("Lax")
+                .secure(true)
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
@@ -131,10 +131,10 @@ public class AuthController {
 
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
-                .path("/api/auth")
+                .path("/")
                 .maxAge(0)
-                .sameSite("None")
-                .secure(false) // 추후 https로 처리할예정 인프라에서
+                .sameSite("Lax")
+                .secure(true) // 추후 https로 처리할예정 인프라에서
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
@@ -149,7 +149,7 @@ public class AuthController {
         if (nickname == null || nickname.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_NICKNAME);
         }
-        if (!nickname.matches("^[a-zA-Z0-9]+$")) {
+        if (!nickname.matches("^[a-zA-Z0-9가-힣]+$")) {
             throw new CustomException(ErrorCode.INVALID_NICKNAME_FORMAT);
         }
         boolean isDuplicate = authService.isNicknameDuplicate(nickname);
