@@ -1,7 +1,6 @@
 "use client";
 
 import { CaretLeft, TextAlignJustify } from "@phosphor-icons/react";
-import Link from "next/link";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -14,6 +13,7 @@ import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW,
 } from "@/lib/constants/page-header";
+import { navigateAppBack } from "@/lib/navigate-app-back";
 
 export default function MyPagePage() {
   const router = useRouter();
@@ -81,6 +81,10 @@ export default function MyPagePage() {
     setIsSidebarOpen((prev) => !prev);
   }, []);
 
+  const handleHeaderBack = useCallback(() => {
+    navigateAppBack(router, "/");
+  }, [router]);
+
   return (
     <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
       <AppSideMenu
@@ -92,15 +96,14 @@ export default function MyPagePage() {
       <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
         <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
           <header className={PAGE_HEADER_ROW}>
-            <Link
-              href="/wishlist"
-              scroll={false}
-              prefetch
+            <button
+              type="button"
+              onClick={handleHeaderBack}
               className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="위시리스트로 이동"
+              aria-label="이전 페이지로"
             >
               <CaretLeft size={22} weight="bold" />
-            </Link>
+            </button>
 
             <button
               type="button"

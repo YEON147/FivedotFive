@@ -23,6 +23,7 @@ import {
 } from "@/features/ranking/api";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import { clearAccessToken } from "@/lib/api/token-store";
+import { navigateAppBack } from "@/lib/navigate-app-back";
 
 export default function RankingPage() {
   const router = useRouter();
@@ -138,6 +139,10 @@ export default function RankingPage() {
     setIsSidebarOpen((prev) => !prev);
   }, []);
 
+  const handleHeaderBack = useCallback(() => {
+    navigateAppBack(router, "/");
+  }, [router]);
+
   const listLoading =
     (tab === "schoolStudents" && schoolLoading) ||
     (tab === "schoolComments" && commentLoading) ||
@@ -154,6 +159,7 @@ export default function RankingPage() {
       <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
         <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
           <RankingPageHeader
+            onBack={handleHeaderBack}
             menuOpen={isSidebarOpen}
             onMenuToggle={toggleSidebar}
           />
