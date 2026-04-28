@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT } from "@/components/wishlist/sticker-sheet-layout";
+import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   getCommentDisplaySenderName,
@@ -261,6 +262,23 @@ export function CommentPopup({
               <div className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-lg font-bold text-slate-400">
                 ?
               </div>
+            </div>
+          ) : null}
+          {isMaskedOthersWishComment(comment) ? (
+            <div className="rounded-2xl border border-violet-100 bg-violet-50/90 px-4 py-3 text-center">
+              <p className="text-xs font-semibold text-violet-900">
+                댓글 전체 공개까지
+              </p>
+              <p
+                className="mt-1 text-lg font-bold leading-snug tracking-tight text-violet-700"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <CommentRevealCountdown />
+              </p>
+              <p className="mt-1.5 text-[11px] leading-snug text-violet-700/85">
+                공개 후 작성자 닉네임·내용·선물 아이콘이 표시됩니다.
+              </p>
             </div>
           ) : null}
           {isSoftDeletedWishComment(comment) ? (
