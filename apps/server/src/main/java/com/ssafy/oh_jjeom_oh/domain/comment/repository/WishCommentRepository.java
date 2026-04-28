@@ -21,4 +21,6 @@ public interface WishCommentRepository extends JpaRepository<WishComment, Long> 
      */
     @Query(value = "SELECT COUNT(*) > 0 FROM wish_comments WHERE wish_list_id = :boardId AND slot_index = :slotIndex", nativeQuery = true)
     boolean existsByBoardIdAndSlotIndexNative(@Param("boardId") Long boardId, @Param("slotIndex") Integer slotIndex);
+
+    void deleteByWishBoard(WishBoard wishBoard);
 }

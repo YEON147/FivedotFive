@@ -19,4 +19,6 @@ public interface WishBoardRepository extends JpaRepository<WishBoard, Long> {
     boolean existsByUser_Id(Long userId);
 
     boolean existsByBoardSlug(String boardSlug);
+
+    void deleteByUser_Id(Long userId);
 }

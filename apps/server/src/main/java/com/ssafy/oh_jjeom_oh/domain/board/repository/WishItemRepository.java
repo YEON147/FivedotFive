@@ -14,4 +14,6 @@ public interface WishItemRepository extends JpaRepository<WishItem, Long> {
     Optional<WishItem> findByBoardAndSlotIndex(WishBoard board, Integer slotIndex);
 
     boolean existsByBoardAndSlotIndex(WishBoard board, Integer slotIndex);
+
+    void deleteByBoard(WishBoard board);
 }
