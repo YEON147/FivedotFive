@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,10 +37,12 @@ public class AssetController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_LIST_FOUND, data));
     }
 
-    // GET /api/assets/stickers/folders - 스티커 폴더 목록 조회 (Anyone)
+    // GET /api/assets/stickers/folders?boardSlug={slug} - 스티커 폴더 목록 조회 (Anyone)
+    // boardSlug가 구단 보드이면 야구 폴더도 포함하여 반환합니다.
     @GetMapping("/stickers/folders")
-    public ResponseEntity<ApiResponse<StickerFolderListResponse>> getStickerFolders() {
-        StickerFolderListResponse data = assetService.getStickerFolders();
+    public ResponseEntity<ApiResponse<StickerFolderListResponse>> getStickerFolders(
+            @RequestParam(required = false) String boardSlug) {
+        StickerFolderListResponse data = assetService.getStickerFolders(boardSlug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_FOLDER_LIST_FOUND, data));
     }
 
@@ -51,10 +54,12 @@ public class AssetController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_FOLDER_FOUND, data));
     }
 
-    // GET /api/assets/gift-icons - 선물 아이콘 전체 조회 (Anyone)
+    // GET /api/assets/gift-icons?boardSlug={slug} - 선물 아이콘 조회 (Anyone)
+    // boardSlug가 구단 보드이면 야구 아이콘도 포함하여 반환합니다.
     @GetMapping("/gift-icons")
-    public ResponseEntity<ApiResponse<GiftIconListResponse>> getGiftIcons() {
-        GiftIconListResponse data = assetService.getGiftIcons();
+    public ResponseEntity<ApiResponse<GiftIconListResponse>> getGiftIcons(
+            @RequestParam(required = false) String boardSlug) {
+        GiftIconListResponse data = assetService.getGiftIcons(boardSlug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.GIFT_ICON_LIST_FOUND, data));
     }
 }
