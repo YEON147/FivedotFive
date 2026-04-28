@@ -498,7 +498,7 @@ export default function WishlistPage() {
     };
   }, []);
 
-  /** 선물 슬롯 클릭으로 모달이 열릴 때 — `/api/assets/gift-icons`(assetKey → `icons/{카테고리}/…`) 로드 */
+  /** 선물 슬롯 클릭으로 모달이 열릴 때 — `GET /api/assets/gift-icons?boardSlug=`(내 보드 slug) 로드 */
   useEffect(() => {
     if (!isGiftModalOpen) {
       return;
@@ -510,7 +510,7 @@ export default function WishlistPage() {
       setGiftIconsLoading(true);
       setGiftIconsError(null);
       try {
-        const list = await fetchGiftIcons();
+        const list = await fetchGiftIcons(boardSlug);
         if (!cancelled) {
           setGiftIcons(list);
         }
@@ -535,7 +535,7 @@ export default function WishlistPage() {
     return () => {
       cancelled = true;
     };
-  }, [isGiftModalOpen]);
+  }, [isGiftModalOpen, boardSlug]);
 
   useEffect(() => {
     if (!isGiftModalOpen) {

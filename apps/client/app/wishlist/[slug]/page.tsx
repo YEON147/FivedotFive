@@ -518,10 +518,10 @@ export default function PublicWishlistPage({
   }, [router]);
 
   useEffect(() => {
-    void fetchStickerFolders()
+    void fetchStickerFolders(slug)
       .then((folders) => setApiStickerFolders(folders))
       .catch(() => setApiStickerFolders([]));
-  }, []);
+  }, [slug]);
 
   useEffect(() => {
     let cancelled = false;

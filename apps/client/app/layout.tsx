@@ -1,53 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 
-import { effectivePublicSiteOrigin } from "@/lib/effective-site-origin";
-
 import "./globals.css";
-
-/** 공유 미리보기용 정적 이미지 — `public/OG.png` */
-const OG_IMAGE = "/OG.png";
-
-const ogOn = process.env.NEXT_PUBLIC_OG_ENABLED === "true";
-const siteOrigin = effectivePublicSiteOrigin();
-
-/**
- * 기본(비공개 위시 URL) OG — `NEXT_PUBLIC_OG_ENABLED=true` 이고 `NEXT_PUBLIC_SITE_URL` 이 있을 때만 출력.
- * 공개 위시(`/wishlist/[slug]`)는 해당 segment `layout`에서 덮어씀.
- */
-const openGraphDefaults: Metadata =
-  ogOn && siteOrigin
-    ? {
-        metadataBase: new URL(siteOrigin),
-        openGraph: {
-          type: "website",
-          locale: "ko_KR",
-          siteName: "오쩜오",
-          title: "오쩜오 — 우리들의 위시리스트",
-          description: "친구들과 위시리스트를 공유해 보세요.",
-          url: siteOrigin,
-          images: [
-            {
-              url: OG_IMAGE,
-              width: 1200,
-              height: 630,
-              alt: "오쩜오",
-            },
-          ],
-        },
-        twitter: {
-          card: "summary_large_image",
-          title: "오쩜오 — 우리들의 위시리스트",
-          description: "친구들과 위시리스트를 공유해 보세요.",
-          images: [OG_IMAGE],
-        },
-      }
-    : {};
 
 export const metadata: Metadata = {
   title: "오쩜오",
   description: "%s | 오쩜오",
-  ...openGraphDefaults,
 };
 
 export const viewport: Viewport = {
