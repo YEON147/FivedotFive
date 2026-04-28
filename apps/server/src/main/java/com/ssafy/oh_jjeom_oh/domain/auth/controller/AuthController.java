@@ -149,7 +149,7 @@ public class AuthController {
         if (nickname == null || nickname.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_NICKNAME);
         }
-        if (!nickname.matches("^[a-zA-Z0-9]+$")) {
+        if (!nickname.matches("^[a-zA-Z0-9가-힣]+$")) {
             throw new CustomException(ErrorCode.INVALID_NICKNAME_FORMAT);
         }
         boolean isDuplicate = authService.isNicknameDuplicate(nickname);
