@@ -83,7 +83,7 @@ public class AuthController {
                 .httpOnly(true)
                 .path("/")
                 .maxAge(604800)
-                .sameSite("None")
+                .sameSite("Lax")
                 .secure(true) // 추후 https로 처리할예정 인프라에서
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
@@ -107,7 +107,7 @@ public class AuthController {
                 .httpOnly(true)
                 .path("/")
                 .maxAge(604800)
-                .sameSite("None")
+                .sameSite("Lax")
                 .secure(true)
                 .build();
 
@@ -133,7 +133,7 @@ public class AuthController {
                 .httpOnly(true)
                 .path("/")
                 .maxAge(0)
-                .sameSite("None")
+                .sameSite("Lax")
                 .secure(true) // 추후 https로 처리할예정 인프라에서
                 .build();
 
