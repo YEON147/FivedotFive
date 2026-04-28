@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -32,8 +33,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         User user = userRepository.findByUsername("kakao_" + userInfo.getProviderId())
                 .orElseGet(() -> {
                     String randomNickname = nicknameService.generateRandomNickname();
-                    while (userRepository.existsByNickname(randomNickname)) {
-                        randomNickname = nicknameService.generateRandomNickname();
+                    if (userRepository.existsByNickname(randomNickname)) {
+                        Random localRandom = new Random();
+                        randomNickname = randomNickname.substring(0, Math.min(randomNickname.length(), 6))
+                                + (localRandom.nextInt(89) + 10);
                     }
                     return userRepository.save(User.builder()
                             .username("kakao_" + userInfo.getProviderId())
