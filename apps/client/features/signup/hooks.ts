@@ -459,7 +459,7 @@ export function useSignupForm() {
         setUsernameCheckMessage(null);
       }
 
-      if (name === "email") {
+      if (name === "emailLocal" || name === "emailDomain") {
         setUserEmailCheckStatus("idle");
         setUserEmailCheckMessage(null);
       }
