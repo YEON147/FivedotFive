@@ -1,8 +1,8 @@
 "use client";
 
 import { CaretLeft } from "@phosphor-icons/react";
-import Link from "next/link";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import { SignupForm } from "@/components/common/SignupForm";
 import { useSignupForm } from "@/features/signup/hooks";
@@ -11,9 +11,16 @@ import {
   PAGE_HEADER_END_SPACER,
   PAGE_HEADER_ROW,
 } from "@/lib/constants/page-header";
+import { navigateAppBack } from "@/lib/navigate-app-back";
 import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
 
 export default function SignupPage() {
+  const router = useRouter();
+
+  const handleHeaderBack = useCallback(() => {
+    navigateAppBack(router, "/login");
+  }, [router]);
+
   useEffect(() => {
     touchTrafficAttribution();
   }, []);
@@ -51,15 +58,14 @@ export default function SignupPage() {
       <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
         <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
           <header className={PAGE_HEADER_ROW}>
-            <Link
-              href="/login"
-              scroll={false}
-              prefetch
+            <button
+              type="button"
+              onClick={handleHeaderBack}
               className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="로그인으로 이동"
+              aria-label="이전 페이지로"
             >
               <CaretLeft size={22} weight="bold" />
-            </Link>
+            </button>
 
             <div className="flex min-h-0 min-w-0 flex-1 justify-center px-2">
               <h1 className="text-center text-wish-title leading-tight text-slate-900">
