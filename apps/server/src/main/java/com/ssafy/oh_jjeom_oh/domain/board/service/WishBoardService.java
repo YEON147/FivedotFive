@@ -87,6 +87,14 @@ public class WishBoardService {
         return buildWishBoardPublicResponse(board);
     }
 
+    // PUT /api/admin/boards/{slug}/visibility - 관리자 보드 공개 여부 강제 변경
+    @Transactional
+    public void updateBoardVisibility(String slug, boolean isPublic) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+        board.updateIsPublic(isPublic);
+    }
+
     // ===== private helpers =====
 
     private WishBoardResponse buildWishBoardResponse(WishBoard board) {
@@ -102,6 +110,7 @@ public class WishBoardService {
                 board.getBoardSlug(),
                 board.getUser().getUsername(),
                 board.getUser().getNickname(),
+                board.getUser().getTeamTag(),
                 board.getTargetDate(),
                 itemResponses,
                 assetResponses

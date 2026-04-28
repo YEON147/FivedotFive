@@ -23,6 +23,31 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
             """, nativeQuery = true)
     List<String> findDistinctStickerFolders();
 
+    // 야구(baseball) 폴더를 제외한 일반 스티커 폴더 목록
+    @Query(value = """
+            SELECT DISTINCT SPLIT_PART(asset_key, '/', 2)
+            FROM assets
+            WHERE asset_type = 'STICKER'
+              AND asset_key NOT LIKE 'stickers/baseball/%'
+            ORDER BY SPLIT_PART(asset_key, '/', 2)
+            """, nativeQuery = true)
+    List<String> findGeneralStickerFolders();
+
+    // 일반 폴더 + baseball 하위 서브폴더(baseball/{team}) 목록
+    @Query(value = """
+            SELECT DISTINCT SPLIT_PART(asset_key, '/', 2) AS folder
+            FROM assets
+            WHERE asset_type = 'STICKER'
+              AND asset_key NOT LIKE 'stickers/baseball/%'
+            UNION
+            SELECT DISTINCT CONCAT('baseball/', SPLIT_PART(asset_key, '/', 3)) AS folder
+            FROM assets
+            WHERE asset_type = 'STICKER'
+              AND asset_key LIKE 'stickers/baseball/%'
+            ORDER BY folder
+            """, nativeQuery = true)
+    List<String> findStickerFoldersIncludingBaseball();
+
     @Query(value = """
             SELECT * FROM assets
             WHERE asset_type = 'STICKER'
@@ -30,4 +55,13 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
             ORDER BY display_order ASC
             """, nativeQuery = true)
     List<Asset> findStickersByFolder(@Param("folder") String folder);
+
+    // 야구(baseball) 아이콘을 제외한 일반 선물 아이콘 목록
+    @Query(value = """
+            SELECT * FROM assets
+            WHERE asset_type = 'GIFT_STICKER'
+              AND asset_key NOT LIKE 'icons/baseball/%'
+            ORDER BY display_order ASC
+            """, nativeQuery = true)
+    List<Asset> findGeneralGiftIcons();
 }
