@@ -6,9 +6,9 @@ import { effectivePublicSiteOrigin } from "@/lib/effective-site-origin";
 /** 공유 미리보기용 — `public/OG.png` */
 const OG_IMAGE = "/OG.png";
 
-const WISHLIST_OG_TITLE = "취향과 설렘이 담긴 작은 이야기 - 오쩜오";
+const WISHLIST_OG_TITLE = "설렘이 담긴 작은 이야기 - 오쩜오";
 const WISHLIST_OG_DESCRIPTION =
-  "상대방이 공유한 위시리스트를 지금 확인해보세요 !";
+  "상대방이 위시리스트를 공유했습니다 ! 지금 바로 확인해보세요";
 
 const ogOn = process.env.NEXT_PUBLIC_OG_ENABLED === "true";
 const siteOrigin = effectivePublicSiteOrigin();
