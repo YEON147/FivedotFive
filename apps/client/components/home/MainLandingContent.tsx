@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import "@/components/home/main-landing-hero.css";
+import "@/components/home/main-landing-service-steps.css";
 import "@/components/home/main-landing-wordmark-float.css";
 import {
   easeTowardCap,
@@ -118,10 +119,10 @@ export function MainLandingContent({
   };
 
   return (
-    <main className="wishlist-page-root relative flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden">
+    <main className="wishlist-page-root relative flex min-h-[100dvh] flex-col overflow-y-auto">
       <IntroDesignSparkles />
 
-      <div className="relative z-[3] flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-[clamp(1.25rem,3.5vmin,2.25rem)] pb-[max(1.5rem,env(safe-area-bottom))]">
+      <div className="relative z-[3] flex min-h-[100dvh] flex-1 flex-col items-center justify-center px-6 pt-[max(0.75rem,calc(0.5rem+env(safe-area-inset-top,0px)))] pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:pt-[max(clamp(1rem,3vmin,2.25rem),env(safe-area-inset-top,0px))] sm:pb-[max(clamp(1rem,3vmin,2.25rem),env(safe-area-inset-bottom,0px))]">
         <div className="main-landing-wordmark-float mb-4 flex w-full justify-center">
           <Image
             src="/main/main3.png"
@@ -134,15 +135,15 @@ export function MainLandingContent({
           />
         </div>
 
-        <p className="mb-3 max-w-[min(22rem,92vw)] text-center text-[16px] font-light leading-relaxed tracking-tight text-[var(--color-text-primary)] drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
+        <p className="mb-3 max-w-[min(22rem,92vw)] text-center text-[16px] font-light leading-relaxed tracking-tight text-[var(--color-text-secondary)] drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
           취향과 설렘이 담긴 작은 이야기
         </p>
 
         <div
-          className="inline-block max-w-full"
+          className="relative z-0 inline-block max-w-full"
           style={{
             filter:
-              "drop-shadow(0 22px 40px rgba(123, 97, 255, 0.22)) drop-shadow(0 10px 24px rgba(60, 45, 110, 0.1))",
+              "drop-shadow(0 20px 36px rgba(255, 255, 255, 0.55)) drop-shadow(0 8px 22px rgba(255, 255, 255, 0.85))",
           }}
         >
           <Image
@@ -156,7 +157,52 @@ export function MainLandingContent({
           />
         </div>
 
-        <div className="mt-[clamp(1rem,4vmin,2rem)] flex w-full max-w-sm flex-col gap-3">
+        <section
+          className="relative z-10 mt-3 w-full max-w-sm shrink-0"
+          aria-label="이용 방법"
+        >
+          <ol className="grid grid-cols-3 gap-2 sm:gap-3">
+            <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
+              <span
+                className="main-landing-step-num--blue mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
+                aria-hidden
+              >
+                1
+              </span>
+              <p className="text-[12px] font-normal leading-snug break-keep text-[var(--color-text-secondary)] sm:text-[14px] sm:leading-relaxed">
+                내가 원하는 것{" "}
+                <strong className="font-bold text-[var(--color-text-primary)]">위시리스트</strong>로
+                만들기
+              </p>
+            </li>
+            <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
+              <span
+                className="main-landing-step-num--coral mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
+                aria-hidden
+              >
+                2
+              </span>
+              <p className="text-[12px] font-normal leading-snug break-keep text-[var(--color-text-secondary)] sm:text-[14px] sm:leading-relaxed">
+                친구·가족과{" "}
+                <strong className="font-bold text-[var(--color-text-primary)]">링크 공유</strong>하기
+              </p>
+            </li>
+            <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
+              <span
+                className="main-landing-step-num--green mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
+                aria-hidden
+              >
+                3
+              </span>
+              <p className="text-[12px] font-normal leading-snug break-keep text-[var(--color-text-secondary)] sm:text-[14px] sm:leading-relaxed">
+                스티커·댓글 주고 받으며{" "}
+                <strong className="font-bold text-[var(--color-text-primary)]">소통하기</strong>
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <div className="relative z-10 mt-[clamp(1rem,4vmin,2rem)] flex w-full max-w-sm flex-col gap-3">
           {loggedIn && !loggedInCtaReady ? (
             <div
               className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-[18px] bg-slate-100 px-7 text-[15px] font-medium text-[#8b8b8b]"
@@ -212,7 +258,7 @@ export function MainLandingContent({
                   router.push(`/wishlist/${encodeURIComponent(adminPublicBoardSlug)}`);
                 }}
               >
-                위시리스트 구경가기
+                오쩜오 둘러보기
               </button>
               <div className="text-center">
                 <Link href={loginUrlForPath("/")} className={landingMutedLink}>
