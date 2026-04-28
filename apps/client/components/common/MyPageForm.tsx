@@ -17,6 +17,7 @@ import type {
   NicknameCheckStatus,
 } from "@/features/user/types";
 import type { SchoolOption } from "@/features/signup/types";
+import { useSchoolDropdownKeyboardNavigation } from "@/hooks/useSchoolDropdownKeyboardNavigation";
 
 type MyPageFormProps = {
   values: MyPageFormValues;
@@ -62,6 +63,19 @@ type MyPageFormProps = {
     value: string
   ) => void;
   onSubmitPasswordChange: () => Promise<void>;
+
+  canWithdrawAccount: boolean;
+  isWithdrawModalOpen: boolean;
+  withdrawStep: 1 | 2;
+  withdrawPassword: string;
+  withdrawMessage: string | null;
+  isWithdrawSubmitting: boolean;
+  onOpenWithdrawModal: () => void;
+  onCloseWithdrawModal: () => void;
+  onWithdrawConfirmNext: () => void;
+  onWithdrawConfirmBack: () => void;
+  onChangeWithdrawPassword: (value: string) => void;
+  onSubmitWithdrawAccount: () => Promise<void>;
 };
 
 export function MyPageForm({
@@ -99,6 +113,18 @@ export function MyPageForm({
   onClosePasswordModal,
   onChangePasswordField,
   onSubmitPasswordChange,
+  canWithdrawAccount,
+  isWithdrawModalOpen,
+  withdrawStep,
+  withdrawPassword,
+  withdrawMessage,
+  isWithdrawSubmitting,
+  onOpenWithdrawModal,
+  onCloseWithdrawModal,
+  onWithdrawConfirmNext,
+  onWithdrawConfirmBack,
+  onChangeWithdrawPassword,
+  onSubmitWithdrawAccount,
 }: MyPageFormProps) {
   const greetName =
     values.nickname?.trim() ||
@@ -109,6 +135,22 @@ export function MyPageForm({
     () => getGradeDetailOptions(values.gradeBand),
     [values.gradeBand],
   );
+
+  const {
+    highlightedIndex: schoolHighlightedIndex,
+    listRef: schoolListRef,
+    onSchoolInputKeyDown,
+  } = useSchoolDropdownKeyboardNavigation({
+    isOpen: isSchoolDropdownOpen,
+    isSearching: isSchoolSearching,
+    schoolKeyword,
+    itemCount: schoolResults.length,
+    onSelectIndex: (index) => {
+      const school = schoolResults[index];
+      if (school) onSelectSchool(school);
+    },
+    onClose: () => onSetSchoolDropdownOpen(false),
+  });
 
   if (isLoading && !isLoaded) {
     return (
@@ -235,25 +277,38 @@ export function MyPageForm({
                   onSetSchoolDropdownOpen(true);
                 }
               }}
+              onKeyDown={onSchoolInputKeyDown}
               onChange={(event) => onChange("schoolName", event.target.value)}
             />
 
             {isSchoolDropdownOpen ? (
-              <div className="scrollbar-hidden absolute z-30 mt-1 max-h-44 w-full overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
+              <div
+                ref={schoolListRef}
+                role="listbox"
+                aria-label="학교 검색 결과"
+                className="scrollbar-hidden absolute z-30 mt-1 max-h-44 w-full overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg"
+              >
                 {isSchoolSearching ? (
                   <div className="px-2.5 py-2 text-xs text-[var(--color-text-secondary)]">
                     검색 중…
                   </div>
                 ) : schoolResults.length > 0 ? (
-                  schoolResults.map((school) => (
+                  schoolResults.map((school, index) => (
                     <button
                       key={`${school.schoolCode}-${school.officeCode}`}
                       type="button"
+                      role="option"
+                      aria-selected={schoolHighlightedIndex === index}
+                      data-school-option-index={index}
                       onMouseDown={(event) => {
                         event.preventDefault();
                         onSelectSchool(school);
                       }}
-                      className="flex w-full flex-col items-start gap-0.5 border-b border-[var(--color-border)] px-2.5 py-2 text-left last:border-b-0 hover:bg-[var(--color-bg-subtle)]"
+                      className={`flex w-full flex-col items-start gap-0.5 border-b border-[var(--color-border)] px-2.5 py-2 text-left last:border-b-0 hover:bg-[var(--color-bg-subtle)] ${
+                        schoolHighlightedIndex === index
+                          ? "bg-violet-50 ring-1 ring-inset ring-[#7B61FF]/25"
+                          : ""
+                      }`}
                     >
                       <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                         {school.schoolName}
@@ -364,6 +419,16 @@ export function MyPageForm({
               {isSaving ? "저장 중…" : "저장"}
             </button>
           </div>
+
+          {canWithdrawAccount ? (
+            <button
+              type="button"
+              onClick={onOpenWithdrawModal}
+              className="mt-1 h-9 w-full rounded-lg border border-rose-200/80 bg-rose-50/80 px-3 text-[13px] font-semibold text-rose-800 transition hover:bg-rose-100/90"
+            >
+              회원 탈퇴
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -480,6 +545,128 @@ export function MyPageForm({
                 {isPasswordSaving ? "변경 중…" : "변경"}
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isWithdrawModalOpen ? (
+        <div className="fixed inset-0 z-[210] flex items-end justify-center bg-black/40 px-3 pb-[env(safe-area-inset-bottom,0px)] pt-10 sm:items-center sm:p-4">
+          <div
+            className="w-full max-w-[372px] rounded-t-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_40px_rgba(0,0,0,0.12)] sm:rounded-[18px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mypage-withdraw-title"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h3
+                id="mypage-withdraw-title"
+                className="text-lg font-extrabold leading-snug text-[var(--color-text-primary)]"
+              >
+                {withdrawStep === 1 ? "회원 탈퇴" : "본인 확인"}
+              </h3>
+
+              <button
+                type="button"
+                onClick={onCloseWithdrawModal}
+                disabled={isWithdrawSubmitting}
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="회원 탈퇴 창 닫기"
+              >
+                <X size={18} weight="bold" aria-hidden />
+              </button>
+            </div>
+
+            {withdrawStep === 1 ? (
+              <div className="mt-3 space-y-3 text-left text-[13px] leading-relaxed text-[var(--color-text-secondary)]">
+                <div className="space-y-1.5">
+                  <p>
+                    탈퇴 시 계정과 관련된 정보가 삭제되거나
+                    <br />
+                    복구할 수 없을 수 있습니다.
+                  </p>
+                  <p>
+                    정말 탈퇴하시려면 다음 단계에서
+                    <br />
+                    현재 비밀번호를 입력해 주세요.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)]/60 px-3 py-2.5">
+                  <p className="mb-2 text-[12px] font-semibold tracking-tight text-[var(--color-text-primary)]">
+                    유의 사항
+                  </p>
+                  <ul className="list-outside list-disc space-y-1.5 pl-4 text-[13px] marker:text-[var(--color-text-secondary)]">
+                    <li className="pl-0.5">
+                      위시보드·댓글 등 이용 기록은 서비스 정책에 따라
+                      처리됩니다.
+                    </li>
+                    <li className="pl-0.5">
+                      탈퇴 후 동일 계정으로 즉시 재가입이 제한될 수 있습니다.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3">
+                <TextField
+                  id="mypage-withdraw-password"
+                  type="password"
+                  label="현재 비밀번호"
+                  placeholder="비밀번호 입력"
+                  value={withdrawPassword}
+                  disabled={isWithdrawSubmitting}
+                  className="!h-10 text-[13px]"
+                  scrollIntoViewOnFocus
+                  onChange={(event) =>
+                    onChangeWithdrawPassword(event.target.value)
+                  }
+                />
+              </div>
+            )}
+
+            {withdrawMessage ? (
+              <div className="mt-2 rounded-lg bg-rose-50 px-2.5 py-2 text-[13px] text-rose-700">
+                {withdrawMessage}
+              </div>
+            ) : null}
+
+            {withdrawStep === 1 ? (
+              <div className="mt-4 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={onCloseWithdrawModal}
+                  className="h-9 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={onWithdrawConfirmNext}
+                  className="h-9 flex-[1.2] rounded-lg bg-rose-600 text-[13px] font-semibold text-white shadow-sm transition hover:bg-rose-700"
+                >
+                  다음
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={onWithdrawConfirmBack}
+                  disabled={isWithdrawSubmitting}
+                  className="h-9 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  이전
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onSubmitWithdrawAccount()}
+                  disabled={isWithdrawSubmitting}
+                  className="h-9 flex-[1.2] rounded-lg bg-rose-600 text-[13px] font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isWithdrawSubmitting ? "처리 중…" : "탈퇴하기"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : null}

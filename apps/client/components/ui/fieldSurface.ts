@@ -1,3 +1,5 @@
+import { UI_FOCUS_RING_TINT } from "@/components/ui/focus-ring";
+
 /**
  * TextField 입력란과 동일한 테두리·배경·포커스 링.
  * 높이·좌우 패딩·글자 크기는 각 컴포넌트 `className`으로 지정합니다.
@@ -10,9 +12,9 @@ export function fieldSurfaceState(error: boolean, filled: boolean): string {
     return "border-rose-300 bg-rose-50 focus:ring-rose-200";
   }
   if (filled) {
-    return "border-[#7B61FF]/30 bg-[#faf8ff] focus:ring-[#7B61FF]/25";
+    return `border-[#7B61FF]/30 bg-[#faf8ff] ${UI_FOCUS_RING_TINT}`;
   }
-  return "border-slate-200 bg-white focus:ring-[#7B61FF]/25";
+  return `border-slate-200 bg-white ${UI_FOCUS_RING_TINT}`;
 }
 
 /**

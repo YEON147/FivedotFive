@@ -5,6 +5,18 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      /** 브라우저·서버 스팸 방지 — 실제 출력은 `lib/dev-log.ts`만 */
+      "no-console": "error",
+    },
+  },
+  {
+    files: ["lib/dev-log.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

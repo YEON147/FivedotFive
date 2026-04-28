@@ -82,6 +82,15 @@ export type ChangePasswordResponse = {
   message?: string;
 };
 
+export type DeleteAccountRequest = {
+  password: string;
+};
+
+export type DeleteAccountResponse = {
+  success: boolean;
+  message: string;
+};
+
 export type MyPageFormValues = {
   username: string;
   email: string;

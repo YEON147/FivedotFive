@@ -56,6 +56,19 @@ export default function MyPagePage() {
     closePasswordModal,
     updatePasswordField,
     submitPasswordChange,
+
+    canWithdrawAccount,
+    isWithdrawModalOpen,
+    withdrawStep,
+    withdrawPassword,
+    withdrawMessage,
+    isWithdrawSubmitting,
+    openWithdrawModal,
+    closeWithdrawModal,
+    goWithdrawConfirmNext,
+    goWithdrawConfirmBack,
+    updateWithdrawPassword,
+    submitWithdrawAccount,
   } = useMyPageForm();
 
   const handleLogout = useCallback(() => {
@@ -141,6 +154,18 @@ export default function MyPagePage() {
                 onClosePasswordModal={closePasswordModal}
                 onChangePasswordField={updatePasswordField}
                 onSubmitPasswordChange={submitPasswordChange}
+                canWithdrawAccount={canWithdrawAccount}
+                isWithdrawModalOpen={isWithdrawModalOpen}
+                withdrawStep={withdrawStep}
+                withdrawPassword={withdrawPassword}
+                withdrawMessage={withdrawMessage}
+                isWithdrawSubmitting={isWithdrawSubmitting}
+                onOpenWithdrawModal={openWithdrawModal}
+                onCloseWithdrawModal={closeWithdrawModal}
+                onWithdrawConfirmNext={goWithdrawConfirmNext}
+                onWithdrawConfirmBack={goWithdrawConfirmBack}
+                onChangeWithdrawPassword={updateWithdrawPassword}
+                onSubmitWithdrawAccount={submitWithdrawAccount}
               />
             </div>
           </div>
