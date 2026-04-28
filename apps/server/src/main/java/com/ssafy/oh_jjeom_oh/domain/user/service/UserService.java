@@ -11,6 +11,7 @@ import com.ssafy.oh_jjeom_oh.domain.user.controller.request.UserUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.user.dto.response.UserInfoResponse;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Gender;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Provider;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -140,16 +141,14 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (!user.getPasswordHash().equals("OAUTH_USER")) {
+        if (user.getProvider() == Provider.LOCAL) {
             if (!passwordEncoder.matches(password, user.getPasswordHash())) {
                 throw new CustomException(ErrorCode.WRONG_PASSWORD);
             }
         }
-        wishBoardRepository.findByUser_Id(userId).ifPresent(board -> {
-            wishItemRepository.deleteByBoard(board);
-            wishCommentRepository.deleteByWishBoard(board);
-            wishBoardRepository.delete(board);
-        });
+        wishItemRepository.deleteByUserId(userId);
+        wishCommentRepository.deleteByUserId(userId);
+        wishBoardRepository.deleteByUser_Id(userId);
 
         userRepository.delete(user);
     }

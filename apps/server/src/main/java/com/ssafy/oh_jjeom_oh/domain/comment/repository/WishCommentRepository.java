@@ -5,6 +5,7 @@ import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -22,5 +23,7 @@ public interface WishCommentRepository extends JpaRepository<WishComment, Long> 
     @Query(value = "SELECT COUNT(*) > 0 FROM wish_comments WHERE wish_list_id = :boardId AND slot_index = :slotIndex", nativeQuery = true)
     boolean existsByBoardIdAndSlotIndexNative(@Param("boardId") Long boardId, @Param("slotIndex") Integer slotIndex);
 
-    void deleteByWishBoard(WishBoard wishBoard);
+    @Modifying
+    @Query("delete from WishComment c where c.wishBoard.id = (select b.id from WishBoard b where b.user.id = :userId)")
+    void deleteByUserId(@Param("userId") Long userId);
 }
