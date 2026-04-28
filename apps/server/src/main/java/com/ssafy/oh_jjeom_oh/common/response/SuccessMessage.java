@@ -35,6 +35,7 @@ public enum SuccessMessage {
     BOARD_FOUND("위시보드 조회가 완료되었습니다."),
     BOARD_EXISTS_CHECKED("위시보드 존재 여부 조회가 완료되었습니다."),
     BOARD_UPDATED("위시보드가 수정되었습니다."),
+    BOARD_VISIBILITY_UPDATED("보드 공개 여부가 변경되었습니다."),
 
     // 위시 아이템
     WISH_ITEM_FOUND("위시 아이템 조회가 완료되었습니다."),

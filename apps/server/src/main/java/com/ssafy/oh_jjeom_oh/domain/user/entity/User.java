@@ -61,6 +61,9 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role = Role.CHILD;
 
+    @Column(name = "team_tag", length = 50)
+    private String teamTag;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     @Column(nullable = false, length = 20)
@@ -102,6 +105,11 @@ public class User {
 
     public void promoteToAdmin() {
         this.role = Role.ADMIN;
+    }
+
+    public void promoteToTeam(String teamTag) {
+        this.role = Role.TEAM;
+        this.teamTag = teamTag;
     }
 
     public void withdraw() {

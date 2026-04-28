@@ -47,4 +47,8 @@ public class WishBoard {
     public void updateBoardSlug(String slug) {
         this.boardSlug = slug;
     }
+
+    public void updateIsPublic(boolean isPublic) {
+        this.isPublic = isPublic;
+    }
 }
