@@ -11,6 +11,7 @@ import {
   signup,
 } from "@/features/signup/api";
 import { trackSignUpComplete } from "@/lib/analytics/conversion";
+import { devError } from "@/lib/dev-log";
 import { deriveBandFromGrade } from "@/lib/constants/signup";
 import type {
   CheckStatus,
@@ -372,7 +373,7 @@ export function useSignupForm() {
         setSchoolResults(schools);
         setIsSchoolDropdownOpen(schools.length > 0);
       } catch (error) {
-        console.error("[signup] school search failed", error);
+        devError("[signup] school search failed", error);
         setSchoolResults([]);
         setIsSchoolDropdownOpen(false);
       } finally {
