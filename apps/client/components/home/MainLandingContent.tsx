@@ -7,6 +7,14 @@ import { useEffect, useState } from "react";
 
 import "@/components/home/main-landing-hero.css";
 import "@/components/home/main-landing-wordmark-float.css";
+import {
+  easeTowardCap,
+  nextFrame,
+  runDecorateFillRamp,
+  WISH_CTA_DECORATE_RAMP,
+  WISH_CTA_FILL,
+  WISH_CTA_PROGRESS_TICK_MS,
+} from "@/components/home/landing-wish-cta-helpers";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { createMyBoard } from "@/features/wishlist/api";
@@ -23,18 +31,15 @@ const landingPrimaryBtnLoadingExtra =
 const landingMutedLink =
   "text-body-sm font-medium text-[#6e6e6e] underline-offset-4 transition-opacity hover:underline";
 
+const BOARD_EXISTS_MSG = "이미 위시보드가 존재합니다";
+
 type MainLandingContentProps = {
   loggedIn: boolean;
-  /** 로그인 시 프로필 조회 완료 전에는 `false` — CTA 깜빡임 방지용 로딩 */
   loggedInCtaReady: boolean;
   adminPublicBoardSlug: string;
   hasWishBoard: boolean;
 };
 
-/**
- * 비로그인: 관리자 공개 위시(댓글 페이지) + 로그인·회원가입.
- * 로그인: 위시 보드 유무에 따라 꾸미기/만들기 + 구경가기(관리자 공개 위시·댓글 페이지).
- */
 export function MainLandingContent({
   loggedIn,
   loggedInCtaReady,
@@ -43,7 +48,6 @@ export function MainLandingContent({
 }: MainLandingContentProps) {
   const router = useRouter();
   const [wishlistPrimaryLoading, setWishlistPrimaryLoading] = useState(false);
-  /** 0~1, 보드 생성 API 구간은 실제 대기 시간에 맞춰 상한만큼만 서서히 증가 */
   const [wishlistPrimaryFill, setWishlistPrimaryFill] = useState(0);
   const [wishlistPrimaryError, setWishlistPrimaryError] = useState<string | null>(null);
 
@@ -52,9 +56,7 @@ export function MainLandingContent({
   }, []);
 
   const handleLoggedInWishlistPrimary = async () => {
-    if (wishlistPrimaryLoading) {
-      return;
-    }
+    if (wishlistPrimaryLoading) return;
 
     trackWishlistCtaClick({
       cta_id: "landing_logged_wishlist_hub",
@@ -63,65 +65,45 @@ export function MainLandingContent({
 
     if (hasWishBoard) {
       setWishlistPrimaryLoading(true);
-      setWishlistPrimaryFill(0.06);
-      await new Promise((r) => requestAnimationFrame(r));
-      setWishlistPrimaryFill(0.45);
-      await new Promise((r) => requestAnimationFrame(r));
-      setWishlistPrimaryFill(0.82);
-      await new Promise((r) => requestAnimationFrame(r));
-      setWishlistPrimaryFill(1);
-      await new Promise((r) => requestAnimationFrame(r));
+      await runDecorateFillRamp(setWishlistPrimaryFill, WISH_CTA_DECORATE_RAMP);
       router.push("/wishlist");
       return;
     }
 
     setWishlistPrimaryError(null);
     setWishlistPrimaryLoading(true);
-    setWishlistPrimaryFill(0.05);
+    setWishlistPrimaryFill(WISH_CTA_FILL.start);
 
-    let progressTimer: ReturnType<typeof setInterval> | null = null;
+    let progressId: number | null = null;
 
     try {
-      await new Promise((r) => requestAnimationFrame(r));
-      setWishlistPrimaryFill(0.12);
+      await nextFrame();
+      setWishlistPrimaryFill(WISH_CTA_FILL.afterFirstFrame);
 
-      progressTimer = window.setInterval(() => {
-        setWishlistPrimaryFill((p) => {
-          const cap = 0.88;
-          if (p >= cap - 0.001) {
-            return cap;
-          }
-          return Math.min(cap, p + Math.max(0.012, (cap - p) * 0.06));
-        });
-      }, 100);
+      progressId = window.setInterval(() => {
+        setWishlistPrimaryFill((p) => easeTowardCap(p, WISH_CTA_FILL.capWhileApi));
+      }, WISH_CTA_PROGRESS_TICK_MS);
 
       try {
         await createMyBoard();
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "";
-        if (!msg.includes("이미 위시보드가 존재합니다")) {
-          throw e;
-        }
+        if (!(e instanceof Error) || !e.message.includes(BOARD_EXISTS_MSG)) throw e;
       }
 
-      if (progressTimer !== null) {
-        clearInterval(progressTimer);
-        progressTimer = null;
+      if (progressId !== null) {
+        window.clearInterval(progressId);
+        progressId = null;
       }
 
-      setWishlistPrimaryFill(0.97);
-      await new Promise((r) => requestAnimationFrame(r));
-      setWishlistPrimaryFill(1);
-      await new Promise((r) => requestAnimationFrame(r));
+      setWishlistPrimaryFill(WISH_CTA_FILL.beforeNavigate);
+      await nextFrame();
+      setWishlistPrimaryFill(WISH_CTA_FILL.full);
+      await nextFrame();
 
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
-      }
+      sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
       router.push("/wishlist");
     } catch (e) {
-      if (progressTimer !== null) {
-        clearInterval(progressTimer);
-      }
+      if (progressId !== null) window.clearInterval(progressId);
       setWishlistPrimaryError(
         e instanceof Error ? e.message : "위시보드를 만들지 못했습니다.",
       );
