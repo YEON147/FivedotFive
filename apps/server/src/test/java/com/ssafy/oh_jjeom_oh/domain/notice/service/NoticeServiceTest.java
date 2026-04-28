@@ -270,27 +270,30 @@ class NoticeServiceTest {
         given(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
                 .willReturn(PutObjectResponse.builder().build());
 
-        // 파일명 순서가 뒤집혀 있어도 오름차순 정렬되어야 함
-        MultipartFile file2 = buildMockFile("02_banner.png");
-        MultipartFile file1 = buildMockFile("01_banner.png");
-        List<MultipartFile> images = List.of(file2, file1);
+        // 숫자 기준 정렬: 1.png, 2.png, 10.png 순서여야 함
+        MultipartFile file10 = buildMockFile("10.png");
+        MultipartFile file2 = buildMockFile("2.png");
+        MultipartFile file1 = buildMockFile("1.png");
+        List<MultipartFile> images = List.of(file10, file2, file1);
 
         noticeService.createNotice(req, images);
 
-        // S3 putObject 2회 호출 확인
-        verify(s3Client, times(2)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        // S3 putObject 3회 호출 확인
+        verify(s3Client, times(3)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
 
         // 서비스에서 save()에 전달된 notice 객체를 캡처하여 이미지 확인
         ArgumentCaptor<Notice> noticeCaptor = ArgumentCaptor.forClass(Notice.class);
         verify(noticeRepository).save(noticeCaptor.capture());
         Notice capturedNotice = noticeCaptor.getValue();
 
-        assertThat(capturedNotice.getImages()).hasSize(2);
+        assertThat(capturedNotice.getImages()).hasSize(3);
         assertThat(capturedNotice.getImages().get(0).getDisplayOrder()).isEqualTo(1);
         assertThat(capturedNotice.getImages().get(1).getDisplayOrder()).isEqualTo(2);
-        // 파일명 정렬 확인 (01이 먼저)
-        assertThat(capturedNotice.getImages().get(0).getImageUrl()).contains("01_banner.png");
-        assertThat(capturedNotice.getImages().get(1).getImageUrl()).contains("02_banner.png");
+        assertThat(capturedNotice.getImages().get(2).getDisplayOrder()).isEqualTo(3);
+        // 숫자 기준 정렬 확인: 1 → 2 → 10
+        assertThat(capturedNotice.getImages().get(0).getImageUrl()).contains("1.png");
+        assertThat(capturedNotice.getImages().get(1).getImageUrl()).contains("2.png");
+        assertThat(capturedNotice.getImages().get(2).getImageUrl()).contains("10.png");
     }
 
     @Test
@@ -304,13 +307,19 @@ class NoticeServiceTest {
     }
 
     @Test
-    @DisplayName("공지 작성 실패 - startAt과 endAt이 같으면 예외")
-    void createNotice_samePeriod_throwsException() {
+    @DisplayName("공지 작성 성공 - startAt과 endAt이 같아도 허용")
+    void createNotice_samePeriod_allowed() {
         LocalDateTime same = LocalDateTime.now();
         NoticeCreateRequest req = buildCreateRequest("동일 시각", same, same);
+        given(noticeRepository.save(any())).willAnswer(invocation -> {
+            Notice n = invocation.getArgument(0);
+            ReflectionTestUtils.setField(n, "id", 1L);
+            return n;
+        });
 
-        assertThatThrownBy(() -> noticeService.createNotice(req, null))
-                .isInstanceOf(IllegalArgumentException.class);
+        // 예외 없이 정상 처리되어야 함
+        NoticeCreateResponse response = noticeService.createNotice(req, null);
+        assertThat(response.getId()).isEqualTo(1L);
     }
 
     // ─── updateNotice ────────────────────────────────────────────────────────────
@@ -353,6 +362,48 @@ class NoticeServiceTest {
         verify(s3Client, times(1)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
         // TransactionSynchronizationManager에 afterCommit 콜백 등록 확인
         txSyncManager.verify(() -> TransactionSynchronizationManager.registerSynchronization(any()));
+    }
+
+    @Test
+    @DisplayName("공지 수정 실패 - 제목이 빈 문자열이면 예외")
+    void updateNotice_blankTitle_throwsException() {
+        Notice notice = buildNotice(1L, "제목", NOW_MINUS_1, FUTURE, false);
+        given(noticeRepository.findById(1L)).willReturn(Optional.of(notice));
+
+        NoticeUpdateRequest req = new NoticeUpdateRequest();
+        ReflectionTestUtils.setField(req, "title", "   ");
+
+        assertThatThrownBy(() -> noticeService.updateNotice(1L, req, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("제목은 빈 문자열일 수 없습니다.");
+    }
+
+    @Test
+    @DisplayName("공지 수정 실패 - 배너 문구가 빈 문자열이면 예외")
+    void updateNotice_blankBannerText_throwsException() {
+        Notice notice = buildNotice(1L, "제목", NOW_MINUS_1, FUTURE, false);
+        given(noticeRepository.findById(1L)).willReturn(Optional.of(notice));
+
+        NoticeUpdateRequest req = new NoticeUpdateRequest();
+        ReflectionTestUtils.setField(req, "bannerText", "");
+
+        assertThatThrownBy(() -> noticeService.updateNotice(1L, req, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("배너 문구는 빈 문자열일 수 없습니다.");
+    }
+
+    @Test
+    @DisplayName("공지 수정 성공 - title null이면 빈 문자열 검사 건너뜀")
+    void updateNotice_nullTitle_skipsBlankCheck() {
+        Notice notice = buildNotice(1L, "원래 제목", NOW_MINUS_1, FUTURE, false);
+        given(noticeRepository.findById(1L)).willReturn(Optional.of(notice));
+
+        NoticeUpdateRequest req = new NoticeUpdateRequest();
+        // title null → 검사 없이 통과, 기존 제목 유지
+
+        noticeService.updateNotice(1L, req, null);
+
+        assertThat(notice.getTitle()).isEqualTo("원래 제목");
     }
 
     @Test

@@ -104,6 +104,14 @@ public class NoticeService {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTICE_NOT_FOUND));
 
+        // 값이 있을 때만 빈 문자열 검사
+        if (request.getTitle() != null && request.getTitle().isBlank()) {
+            throw new IllegalArgumentException("제목은 빈 문자열일 수 없습니다.");
+        }
+        if (request.getBannerText() != null && request.getBannerText().isBlank()) {
+            throw new IllegalArgumentException("배너 문구는 빈 문자열일 수 없습니다.");
+        }
+
         LocalDateTime startAt = request.getStartAt() != null ? request.getStartAt() : notice.getStartAt();
         LocalDateTime endAt = request.getEndAt() != null ? request.getEndAt() : notice.getEndAt();
         validatePeriod(startAt, endAt);
@@ -154,7 +162,12 @@ public class NoticeService {
 
     private void uploadImages(Notice notice, List<MultipartFile> images) {
         List<MultipartFile> sorted = new ArrayList<>(images);
-        sorted.sort(Comparator.comparing(f -> f.getOriginalFilename() != null ? f.getOriginalFilename() : ""));
+        // 파일명에서 숫자를 추출해 정수 기준 정렬 (1, 2, 10 순서 보장)
+        sorted.sort(Comparator.comparingInt(f -> {
+            String name = f.getOriginalFilename() != null ? f.getOriginalFilename() : "";
+            String digits = name.replaceAll("\\D", "");
+            return digits.isEmpty() ? Integer.MAX_VALUE : Integer.parseInt(digits);
+        }));
 
         for (int i = 0; i < sorted.size(); i++) {
             MultipartFile file = sorted.get(i);
@@ -207,7 +220,7 @@ public class NoticeService {
     }
 
     private void validatePeriod(LocalDateTime startAt, LocalDateTime endAt) {
-        if (endAt.isBefore(startAt) || endAt.isEqual(startAt)) {
+        if (endAt.isBefore(startAt)) {
             throw new IllegalArgumentException("종료일시는 시작일시보다 이후여야 합니다.");
         }
     }
