@@ -11,6 +11,7 @@ import {
   signup,
 } from "@/features/signup/api";
 import { trackSignUpComplete } from "@/lib/analytics/conversion";
+import { devError } from "@/lib/dev-log";
 import {
   buildSignupEmail,
   DEFAULT_EMAIL_DOMAIN,
@@ -399,7 +400,7 @@ export function useSignupForm() {
         setSchoolResults(schools);
         setIsSchoolDropdownOpen(schools.length > 0);
       } catch (error) {
-        console.error("[signup] school search failed", error);
+        devError("[signup] school search failed", error);
         setSchoolResults([]);
         setIsSchoolDropdownOpen(false);
       } finally {

@@ -11,6 +11,7 @@ import {
   updateMyProfile,
 } from "@/features/user/api";
 import { clearAccessToken } from "@/lib/api/token-store";
+import { devError } from "@/lib/dev-log";
 import { deriveBandFromGrade } from "@/lib/constants/signup";
 import type {
   GenderType,
@@ -185,7 +186,7 @@ export function useMyPageForm() {
 
       setIsLoaded(true);
     } catch (error) {
-      console.error("[mypage] reload failed", error);
+      devError("[mypage] reload failed", error);
       setSaveMessage(
         error instanceof Error
           ? error.message
@@ -223,7 +224,7 @@ export function useMyPageForm() {
         setSchoolResults(schools);
         setIsSchoolDropdownOpen(schools.length > 0);
       } catch (error) {
-        console.error("[mypage] school search failed", error);
+        devError("[mypage] school search failed", error);
         setSchoolResults([]);
         setIsSchoolDropdownOpen(false);
       } finally {

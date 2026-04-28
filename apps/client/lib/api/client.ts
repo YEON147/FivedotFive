@@ -1,4 +1,5 @@
 import { sanitizeInternalReturnPath } from "@/features/login/post-login-destination";
+import { devError } from "@/lib/dev-log";
 import {
   clearAccessToken,
   getAccessToken,
@@ -195,7 +196,7 @@ export async function apiClient<T>(
   }
 
   if (!response.ok) {
-    console.error("API 요청 실패", {
+    devError("API 요청 실패", {
       url: typeof input === "string" ? input : input.toString(),
       method: init?.method ?? "GET",
       status: response.status,
@@ -243,7 +244,7 @@ export async function publicApiClient<T>(
   }
 
   if (!response.ok) {
-    console.error("API 요청 실패", {
+    devError("API 요청 실패", {
       url: typeof input === "string" ? input : input.toString(),
       method: init?.method ?? "GET",
       status: response.status,
@@ -289,7 +290,7 @@ export async function authApiClient<T>(
   }
 
   if (!response.ok) {
-    console.error("인증 API 실패", {
+    devError("인증 API 실패", {
       url: input,
       status: response.status,
       statusText: response.statusText,
