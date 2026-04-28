@@ -21,6 +21,7 @@ import type {
   SignupFormErrors,
   SignupFormValues,
 } from "@/features/signup/types";
+import { useSchoolDropdownKeyboardNavigation } from "@/hooks/useSchoolDropdownKeyboardNavigation";
 
 type SignupFormProps = {
   values: SignupFormValues;
@@ -180,6 +181,22 @@ export function SignupForm({
   const showNickname = showEmail && isEmailReady;
   const showOptionalSection = showNickname && isNicknameReady;
   const showSubmit = showNickname && isNicknameReady;
+
+  const {
+    highlightedIndex: schoolHighlightedIndex,
+    listRef: schoolListRef,
+    onSchoolInputKeyDown,
+  } = useSchoolDropdownKeyboardNavigation({
+    isOpen: isSchoolDropdownOpen,
+    isSearching: isSchoolSearching,
+    schoolKeyword,
+    itemCount: schoolResults.length,
+    onSelectIndex: (index) => {
+      const school = schoolResults[index];
+      if (school) onSelectSchool(school);
+    },
+    onClose: () => onSetSchoolDropdownOpen(false),
+  });
 
   const passwordConfirmStatusMessage = (() => {
     if (!showPasswordConfirm || !debouncedPasswordConfirm.trim()) return null;
@@ -435,25 +452,38 @@ export function SignupForm({
                         onSetSchoolDropdownOpen(true);
                       }
                     }}
+                    onKeyDown={onSchoolInputKeyDown}
                     onChange={(event) => onChange("schoolName", event.target.value)}
                   />
 
                   {isSchoolDropdownOpen ? (
-                    <div className="scrollbar-hidden absolute z-30 mt-1 max-h-44 w-full overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
+                    <div
+                      ref={schoolListRef}
+                      role="listbox"
+                      aria-label="학교 검색 결과"
+                      className="scrollbar-hidden absolute z-30 mt-1 max-h-44 w-full overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg"
+                    >
                       {isSchoolSearching ? (
                         <div className="px-2.5 py-2 text-xs text-[var(--color-text-secondary)]">
                           검색 중…
                         </div>
                       ) : schoolResults.length > 0 ? (
-                        schoolResults.map((school) => (
+                        schoolResults.map((school, index) => (
                           <button
                             key={`${school.schoolCode}-${school.officeCode}`}
                             type="button"
+                            role="option"
+                            aria-selected={schoolHighlightedIndex === index}
+                            data-school-option-index={index}
                             onMouseDown={(event) => {
                               event.preventDefault();
                               onSelectSchool(school);
                             }}
-                            className="flex w-full flex-col items-start gap-0.5 border-b border-[var(--color-border)] px-2.5 py-2 text-left last:border-b-0 hover:bg-[var(--color-bg-subtle)]"
+                            className={`flex w-full flex-col items-start gap-0.5 border-b border-[var(--color-border)] px-2.5 py-2 text-left last:border-b-0 hover:bg-[var(--color-bg-subtle)] ${
+                              schoolHighlightedIndex === index
+                                ? "bg-violet-50 ring-1 ring-inset ring-[#7B61FF]/25"
+                                : ""
+                            }`}
                           >
                             <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                               {school.schoolName}
