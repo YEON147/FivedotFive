@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { devError } from "@/lib/dev-log";
+
 /** NEIS에 없는 삼성 첨단기술·SSAFY 캠퍼스 — 검색 시 API 결과와 병합 */
 const SSAFY_EXTRA_CAMPUSES: Array<{
   schoolName: string;
@@ -113,7 +115,7 @@ export async function GET(request: NextRequest) {
     const rawText = await response.text();
 
     if (!response.ok) {
-      console.error("NEIS API HTTP 오류", {
+      devError("NEIS API HTTP 오류", {
         status: response.status,
         statusText: response.statusText,
         rawText,
@@ -132,8 +134,8 @@ export async function GET(request: NextRequest) {
 
     try {
       json = JSON.parse(rawText) as NeisSchoolInfoResponse;
-    } catch (error) {
-      console.error("NEIS 응답 JSON 파싱 실패", rawText);
+    } catch {
+      devError("NEIS 응답 JSON 파싱 실패", rawText);
       return NextResponse.json(
         {
           success: false,
@@ -169,7 +171,7 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("학교 검색 route 오류:", error);
+    devError("학교 검색 route 오류:", error);
 
     return NextResponse.json(
       {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { Button } from "@/components/ui/Button";
+import { UI_FOCUS_RING } from "@/components/ui/focus-ring";
 import { TextField } from "@/components/ui/TextField";
 import type {
   LoginFormErrors,
@@ -87,7 +88,7 @@ export function LoginForm({
         <p className="text-body-sm text-[#8b8b8b]">계정이 없으신가요 ?</p>
         <Link
           href="/signup"
-          className="text-body-sm text-[#6e6e6e] inline-block rounded-sm outline-none focus:outline-none focus:ring-2 focus:ring-[#7B61FF]/25 focus:ring-offset-0"
+          className={`text-body-sm text-[#6e6e6e] inline-block rounded-sm focus:ring-offset-0 ${UI_FOCUS_RING}`}
           onClick={() => trackSignupButtonClick({ signup_entry: "login" })}
         >
           회원가입
