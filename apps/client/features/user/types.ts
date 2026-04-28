@@ -1,3 +1,5 @@
+import type { GradeBandType } from "@/features/signup/types";
+
 export type GenderType = "MALE" | "FEMALE" | "OTHER" | "";
 export type GradeType =
   | "ELEM_1"
@@ -12,6 +14,11 @@ export type GradeType =
   | "HIGH_1"
   | "HIGH_2"
   | "HIGH_3"
+  | "ADULT_20S"
+  | "ADULT_30S"
+  | "ADULT_40S"
+  | "ADULT_50S"
+  | "ADULT_60_PLUS"
   | "";
 
 export type MyProfile = {
@@ -75,6 +82,15 @@ export type ChangePasswordResponse = {
   message?: string;
 };
 
+export type DeleteAccountRequest = {
+  password: string;
+};
+
+export type DeleteAccountResponse = {
+  success: boolean;
+  message: string;
+};
+
 export type MyPageFormValues = {
   username: string;
   email: string;
@@ -82,6 +98,7 @@ export type MyPageFormValues = {
   schoolName: string;
   schoolCode: string;
   gender: GenderType;
+  gradeBand: GradeBandType;
   grade: GradeType;
 };
 

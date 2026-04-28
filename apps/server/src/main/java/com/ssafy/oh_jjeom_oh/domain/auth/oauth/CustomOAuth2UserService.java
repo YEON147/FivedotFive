@@ -1,5 +1,6 @@
 package com.ssafy.oh_jjeom_oh.domain.auth.oauth;
 
+import com.ssafy.oh_jjeom_oh.domain.auth.service.NicknameService;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Provider;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
@@ -21,30 +22,30 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     private final UserRepository userRepository;
+    private final NicknameService nicknameService;
 
     @Override
     @Transactional
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         OAuth2User oAuth2User = super.loadUser(userRequest);
         KakaoUserInfo userInfo = KakaoUserInfo.ofKakao(oAuth2User.getAttributes());
-
         User user = userRepository.findByUsername("kakao_" + userInfo.getProviderId())
-                .orElseGet(() -> userRepository.save(User.builder()
-                        .username("kakao_" + userInfo.getProviderId())
-                        .passwordHash("OAUTH_USER") // 비밀번호 의미 없음
-                        .nickname(userInfo.getNickname())
-                        .email(userInfo.getEmail())
-                        .provider(Provider.KAKAO)
-                        .providerId(userInfo.getProviderId())
-                        .role(Role.CHILD)
-                        .status(Status.ACTIVE)
-                        .build()));
-
-//        return new DefaultOAuth2User(
-//                Collections.singleton(new SimpleGrantedAuthority(user.getRole().toString())),
-//                oAuth2User.getAttributes(),
-//                "id"
-//        );
+                .orElseGet(() -> {
+                    String randomNickname = nicknameService.generateRandomNickname();
+                    while (userRepository.existsByNickname(randomNickname)) {
+                        randomNickname = nicknameService.generateRandomNickname();
+                    }
+                    return userRepository.save(User.builder()
+                            .username("kakao_" + userInfo.getProviderId())
+                            .passwordHash("OAUTH_USER")
+                            .nickname(randomNickname)
+                            .email(userInfo.getEmail())
+                            .provider(Provider.KAKAO)
+                            .providerId(userInfo.getProviderId())
+                            .role(Role.CHILD)
+                            .status(Status.ACTIVE)
+                            .build());
+                });
         return new CustomOAuth2User(
                 oAuth2User,
                 user.getId(),

@@ -13,6 +13,8 @@ public enum ErrorCode {
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "입력 값이 올바르지 않습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
     INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임을 입력해주세요"),
+    INVALID_ID_FORMAT(HttpStatus.BAD_REQUEST, "올바르지 않은 아이디 형식입니다."),
+    INVALID_NICKNAME_FORMAT(HttpStatus.BAD_REQUEST, "올바르지 않은 닉네임 형식입니다."),
 
     WRONG_PASSWORD(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다."),
     SAME_PASSWORD(HttpStatus.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다."),
@@ -59,7 +61,10 @@ public enum ErrorCode {
     COMMENT_INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "댓글 슬롯 번호는 0~5 사이여야 합니다."),
 
     // 공유 링크
-    SHARE_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, "유효하지 않거나 만료된 공유 링크입니다.");
+    SHARE_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, "유효하지 않거나 만료된 공유 링크입니다."),
+
+    // 공지사항
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;

@@ -253,6 +253,8 @@ export default function WishlistPage() {
   const [viewerName, setViewerName] = useState(
     () => getWishlistPageSessionCache()?.viewerName ?? "회원",
   );
+  /** 꾸미기 진입 시 에셋 동기화 API는 관리자만 호출 */
+  const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
   const [backgroundAssets, setBackgroundAssets] = useState<BackgroundAssetDto[]>([]);
   const [backgroundsLoading, setBackgroundsLoading] = useState(false);
   const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
@@ -342,6 +344,7 @@ export default function WishlistPage() {
           const displayName =
             profile.nickname?.trim() || profile.username?.trim() || "회원";
           setViewerName(displayName);
+          setViewerIsAdmin(profile.role === "ADMIN");
 
           if (
             profile.role === "ADMIN" &&
@@ -398,6 +401,8 @@ export default function WishlistPage() {
           return;
         }
 
+        setViewerIsAdmin(false);
+
         try {
           const board = await getMyBoard();
           if (cancelled) {
@@ -420,6 +425,7 @@ export default function WishlistPage() {
         }
       } catch {
         if (!cancelled) {
+          setViewerIsAdmin(false);
           setHasMyBoard(false);
           setAllWishSlotsEmpty(true);
           setBoardAssets([]);
@@ -1400,9 +1406,11 @@ export default function WishlistPage() {
                       })();
                       return;
                     }
-                    void postAdminAssetsSync().catch((error) => {
-                      console.warn("에셋 동기화 요청 실패", error);
-                    });
+                    if (viewerIsAdmin) {
+                      void postAdminAssetsSync().catch(() => {
+                        /* 동기화 실패해도 꾸미기 진입은 허용 */
+                      });
+                    }
                     setIsDecorateMode(true);
                   }}
                   className={`pointer-events-auto flex size-[42px] items-center justify-center rounded-full text-body shadow-lg transition ${
@@ -1445,7 +1453,7 @@ export default function WishlistPage() {
                 배경 선택
               </p>
               <p className="mt-1 text-[12px] leading-snug text-slate-500">
-                배경을 골라 미리 본 뒤, 시트를 닫으면 위시보드에 반영돼요
+                위시리스트 배경을 꾹 누르면 시트를 열 수 있어요 !
               </p>
             </div>
             <button
@@ -1548,12 +1556,23 @@ export default function WishlistPage() {
         {/** URL 박스 위에만 덮어씀 — 모달·박스 밖으로 블러/배경 안 샘 */}
         <div className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
           <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
-            {boardSlug
-              ? `${typeof window !== "undefined" ? window.location.origin : ""}/wishlist/${boardSlug}`
-              : "링크를 불러오는 중..."}
+            {boardSlug ? (
+              <a
+                href={`/wishlist/${encodeURIComponent(boardSlug)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-[var(--color-text-primary)] underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF]"
+              >
+                {typeof window !== "undefined"
+                  ? `${window.location.origin}/wishlist/${boardSlug}`
+                  : `/wishlist/${boardSlug}`}
+              </a>
+            ) : (
+              "링크를 불러오는 중..."
+            )}
           </div>
           {shareLinkCopyFeedback ? (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden] backdrop-blur-xl">
+            <div className="pointer-events-auto absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden] backdrop-blur-xl">
               <p
                 className="min-w-0 max-w-full px-2 text-center text-sm font-semibold text-slate-700"
                 role="status"
@@ -1573,7 +1592,7 @@ export default function WishlistPage() {
               if (!boardSlug) {
                 return;
               }
-              const url = `${window.location.origin}/wishlist/${boardSlug}`;
+              const url = `${window.location.origin}/wishlist/${encodeURIComponent(boardSlug)}`;
               try {
                 await navigator.clipboard.writeText(url);
                 setShareLinkCopyFeedback(true);
@@ -1592,7 +1611,7 @@ export default function WishlistPage() {
               if (!boardSlug || !navigator.share) return;
               void navigator.share({
                 title: "내 위시리스트",
-                url: `${window.location.origin}/wishlist/${boardSlug}`,
+                url: `${window.location.origin}/wishlist/${encodeURIComponent(boardSlug)}`,
               });
             }}
             className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:opacity-40 disabled:active:scale-100"

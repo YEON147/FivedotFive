@@ -11,6 +11,12 @@ import {
   signup,
 } from "@/features/signup/api";
 import { trackSignUpComplete } from "@/lib/analytics/conversion";
+import { devError } from "@/lib/dev-log";
+import {
+  buildSignupEmail,
+  DEFAULT_EMAIL_DOMAIN,
+  deriveBandFromGrade,
+} from "@/lib/constants/signup";
 import type {
   CheckStatus,
   SchoolOption,
@@ -24,10 +30,12 @@ const INITIAL_VALUES: SignupFormValues = {
   password: "",
   passwordConfirm: "",
   nickname: "",
-  email: "",
+  emailLocal: "",
+  emailDomain: DEFAULT_EMAIL_DOMAIN,
   schoolName: "",
   schoolCode: "",
   gender: "",
+  gradeBand: "",
   grade: "",
 };
 
@@ -63,26 +71,38 @@ function validateSignupForm(values: SignupFormValues): SignupFormErrors {
     errors.nickname = "닉네임은 최대 8자까지 입력 가능합니다.";
   }
 
-  if (!values.email.trim()) {
-    errors.email = "이메일을 입력해주세요.";
-  } else if (!EMAIL_REGEX.test(values.email)) {
+  const emailFull = buildSignupEmail(values.emailLocal, values.emailDomain);
+
+  if (!values.emailLocal.trim()) {
+    errors.email = "이메일 아이디(@ 앞부분)를 입력해주세요.";
+  } else if (values.emailLocal.includes("@")) {
+    errors.email = "아이디에 @를 포함할 수 없습니다.";
+  } else if (!EMAIL_REGEX.test(emailFull.trim())) {
     errors.email = "올바른 이메일 형식을 입력해주세요.";
+  }
+
+  const schoolTrim = values.schoolName.trim();
+  const schoolCodeTrim = values.schoolCode.trim();
+  if (schoolTrim !== "" && schoolCodeTrim === "") {
+    errors.schoolName =
+      "검색 결과 목록에서 학교를 선택해 주세요. 검색되지 않는 학교는 등록할 수 없습니다.";
   }
 
   return errors;
 }
 
 function toSignupRequest(values: SignupFormValues): SignupRequest {
-  const school = values.schoolName.trim();
-  const schoolcode = values.schoolCode.trim();
+  const schoolTrim = values.schoolName.trim();
+  const schoolcodeTrim = values.schoolCode.trim();
+  const schoolVerified = schoolTrim !== "" && schoolcodeTrim !== "";
 
   return {
     username: values.username.trim(),
     password: values.password,
     nickname: values.nickname.trim(),
-    email: values.email.trim(),
-    school: school === "" ? null : school,
-    schoolcode: schoolcode === "" ? null : schoolcode,
+    email: buildSignupEmail(values.emailLocal, values.emailDomain).trim(),
+    school: schoolVerified ? schoolTrim : null,
+    schoolcode: schoolVerified ? schoolcodeTrim : null,
     gender: values.gender === "" ? null : values.gender,
     grade: values.grade === "" ? null : values.grade,
   };
@@ -124,8 +144,13 @@ export function useSignupForm() {
   const [hasSelectedSchool, setHasSelectedSchool] = useState(false);
   const [ignoreNextSchoolFocus, setIgnoreNextSchoolFocus] = useState(false);
 
-  const signupEmailRef = useRef(values.email);
-  signupEmailRef.current = values.email;
+  const signupEmailRef = useRef(
+    buildSignupEmail(values.emailLocal, values.emailDomain),
+  );
+  signupEmailRef.current = buildSignupEmail(
+    values.emailLocal,
+    values.emailDomain,
+  );
 
   /** 가입 화면 진입 시 추천 닉네임을 미리 채움 — 실패 시 빈 값으로 두고 직접 입력 */
   useEffect(() => {
@@ -217,7 +242,10 @@ export function useSignupForm() {
   }, [values.username]);
 
   useEffect(() => {
-    const trimmedEmail = values.email.trim();
+    const trimmedEmail = buildSignupEmail(
+      values.emailLocal,
+      values.emailDomain,
+    ).trim();
 
     if (!trimmedEmail) {
       setUserEmailCheckStatus("idle");
@@ -253,7 +281,12 @@ export function useSignupForm() {
       try {
         const response = await checkUserEmail(requestEmail);
 
-        if (values.email.trim() !== requestEmail) return;
+        if (
+          buildSignupEmail(values.emailLocal, values.emailDomain).trim() !==
+          requestEmail
+        ) {
+          return;
+        }
 
         const available = !!response.data?.available;
 
@@ -265,7 +298,12 @@ export function useSignupForm() {
               : "이미 사용 중인 이메일입니다."),
         );
       } catch (error) {
-        if (values.email.trim() !== requestEmail) return;
+        if (
+          buildSignupEmail(values.emailLocal, values.emailDomain).trim() !==
+          requestEmail
+        ) {
+          return;
+        }
 
         const message =
           error instanceof Error
@@ -278,7 +316,7 @@ export function useSignupForm() {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [values.email]);
+  }, [values.emailLocal, values.emailDomain]);
 
   useEffect(() => {
     const trimmedNickname = values.nickname.trim();
@@ -362,7 +400,7 @@ export function useSignupForm() {
         setSchoolResults(schools);
         setIsSchoolDropdownOpen(schools.length > 0);
       } catch (error) {
-        console.error("[signup] school search failed", error);
+        devError("[signup] school search failed", error);
         setSchoolResults([]);
         setIsSchoolDropdownOpen(false);
       } finally {
@@ -393,11 +431,22 @@ export function useSignupForm() {
 
   const onChange = useCallback(
     (name: keyof SignupFormValues, value: string) => {
-      setValues((prev) => ({
-        ...prev,
-        [name]: value,
-        ...(name === "schoolName" ? { schoolCode: "" } : {}),
-      }));
+      setValues((prev) => {
+        const base: SignupFormValues = {
+          ...prev,
+          [name]: value as SignupFormValues[typeof name],
+          ...(name === "schoolName" ? { schoolCode: "" } : {}),
+          ...(name === "gradeBand" ? { grade: "" } : {}),
+        };
+        if (name === "grade") {
+          return {
+            ...base,
+            gradeBand:
+              value === "" ? prev.gradeBand : deriveBandFromGrade(value),
+          };
+        }
+        return base;
+      });
 
       if (name === "schoolName") {
         setSchoolKeyword(value);
@@ -410,7 +459,7 @@ export function useSignupForm() {
         setUsernameCheckMessage(null);
       }
 
-      if (name === "email") {
+      if (name === "emailLocal" || name === "emailDomain") {
         setUserEmailCheckStatus("idle");
         setUserEmailCheckMessage(null);
       }
@@ -422,6 +471,12 @@ export function useSignupForm() {
       }
 
       setErrors((prev) => {
+        if (name === "gradeBand") {
+          return { ...prev, grade: undefined };
+        }
+        if (name === "emailLocal" || name === "emailDomain") {
+          return { ...prev, email: undefined };
+        }
         if (!prev[name as keyof SignupFormErrors]) return prev;
         return {
           ...prev,
@@ -465,7 +520,7 @@ export function useSignupForm() {
       !!values.password.trim() &&
       !!values.passwordConfirm.trim() &&
       !!values.nickname.trim() &&
-      !!values.email.trim();
+      !!buildSignupEmail(values.emailLocal, values.emailDomain).trim();
 
     const usernamePassed =
       values.username.trim().length >= 2 &&
@@ -477,7 +532,9 @@ export function useSignupForm() {
       !!values.passwordConfirm.trim() &&
       values.password === values.passwordConfirm;
 
-    const emailPassed = EMAIL_REGEX.test(values.email.trim());
+    const emailPassed = EMAIL_REGEX.test(
+      buildSignupEmail(values.emailLocal, values.emailDomain).trim(),
+    );
 
     const nicknamePassed =
       values.nickname.trim().length >= 2 &&

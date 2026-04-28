@@ -14,6 +14,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import {
+  FIELD_SURFACE_FRAME,
+  fieldSurfaceState,
+} from "@/components/ui/fieldSurface";
+
 type TextFieldProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
   "aria-describedby"
@@ -382,13 +387,10 @@ export function TextField({
         id={id}
         aria-describedby={describedBy}
         onFocus={handleFocus}
-        className={`h-11 rounded-xl border px-3.5 text-sm outline-none transition focus:ring-2 ${
-          error
-            ? "border-rose-300 bg-rose-50 focus:ring-rose-200"
-            : hasFilledValue
-              ? "border-[#7B61FF]/30 bg-[#faf8ff] focus:ring-[#7B61FF]/25"
-              : "border-slate-200 bg-white focus:ring-[#7B61FF]/25"
-        } ${className}`}
+        className={`h-11 px-3.5 text-sm ${FIELD_SURFACE_FRAME} ${fieldSurfaceState(
+          Boolean(error),
+          hasFilledValue,
+        )} ${className}`}
       />
       {error ? (
         <span className="text-xs text-rose-600">{error}</span>
