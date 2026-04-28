@@ -101,3 +101,24 @@ export function getGradeDetailOptions(
       return [empty];
   }
 }
+
+/** 회원가입 이메일 도메인 — 기본 `naver.com` */
+export const DEFAULT_EMAIL_DOMAIN = "naver.com";
+
+export const EMAIL_DOMAIN_OPTIONS: Array<{ label: string; value: string }> = [
+  { label: "naver.com", value: "naver.com" },
+  { label: "gmail.com", value: "gmail.com" },
+  { label: "kakao.com", value: "kakao.com" },
+  { label: "daum.net", value: "daum.net" },
+  { label: "hanmail.net", value: "hanmail.net" },
+  { label: "nate.com", value: "nate.com" },
+  { label: "outlook.com", value: "outlook.com" },
+  { label: "yahoo.com", value: "yahoo.com" },
+];
+
+export function buildSignupEmail(
+  emailLocal: string,
+  emailDomain: string,
+): string {
+  return `${emailLocal.trim()}@${emailDomain.trim()}`;
+}

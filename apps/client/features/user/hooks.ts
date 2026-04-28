@@ -1,13 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   changeMyPassword,
   checkNicknameForMyPage,
+  deleteMyAccount,
   getMyProfile,
   searchSchoolsForMyPage,
   updateMyProfile,
 } from "@/features/user/api";
+import { clearAccessToken } from "@/lib/api/token-store";
 import { deriveBandFromGrade } from "@/lib/constants/signup";
 import type {
   GenderType,
@@ -120,6 +123,7 @@ function mapProfileToValues(profile: MyProfile): MyPageFormValues {
 }
 
 export function useMyPageForm() {
+  const router = useRouter();
   const [originalProfile, setOriginalProfile] = useState<MyProfile | null>(null);
   const [values, setValues] = useState<MyPageFormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -152,6 +156,12 @@ export function useMyPageForm() {
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<boolean | null>(null);
   const [isPasswordSaving, setIsPasswordSaving] = useState(false);
+
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawStep, setWithdrawStep] = useState<1 | 2>(1);
+  const [withdrawPassword, setWithdrawPassword] = useState("");
+  const [withdrawMessage, setWithdrawMessage] = useState<string | null>(null);
+  const [isWithdrawSubmitting, setIsWithdrawSubmitting] = useState(false);
 
   const reload = useCallback(async () => {
     setIsLoading(true);
@@ -472,6 +482,70 @@ export function useMyPageForm() {
     []
   );
 
+  const canWithdrawAccount = originalProfile?.role === "CHILD";
+
+  const openWithdrawModal = useCallback(() => {
+    setWithdrawStep(1);
+    setWithdrawPassword("");
+    setWithdrawMessage(null);
+    setIsWithdrawModalOpen(true);
+  }, []);
+
+  const closeWithdrawModal = useCallback(() => {
+    if (isWithdrawSubmitting) return;
+    setIsWithdrawModalOpen(false);
+    setWithdrawStep(1);
+    setWithdrawPassword("");
+    setWithdrawMessage(null);
+  }, [isWithdrawSubmitting]);
+
+  const goWithdrawConfirmNext = useCallback(() => {
+    setWithdrawStep(2);
+    setWithdrawMessage(null);
+  }, []);
+
+  const goWithdrawConfirmBack = useCallback(() => {
+    setWithdrawStep(1);
+    setWithdrawPassword("");
+    setWithdrawMessage(null);
+  }, []);
+
+  const updateWithdrawPassword = useCallback((value: string) => {
+    setWithdrawPassword(value);
+    setWithdrawMessage(null);
+  }, []);
+
+  const submitWithdrawAccount = useCallback(async () => {
+    const trimmed = withdrawPassword.trim();
+    if (!trimmed) {
+      setWithdrawMessage("비밀번호를 입력해 주세요.");
+      return;
+    }
+
+    setIsWithdrawSubmitting(true);
+    setWithdrawMessage(null);
+
+    try {
+      const response = await deleteMyAccount({ password: trimmed });
+
+      if (response.success) {
+        clearAccessToken();
+        router.push("/login");
+        return;
+      }
+
+      setWithdrawMessage(response.message ?? "회원 탈퇴에 실패했습니다.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "회원 탈퇴 처리 중 오류가 발생했습니다.";
+      setWithdrawMessage(message);
+    } finally {
+      setIsWithdrawSubmitting(false);
+    }
+  }, [withdrawPassword, router]);
+
   const submitPasswordChange = useCallback(async () => {
     const nextErrors = validatePasswordForm(passwordValues);
     setPasswordErrors(nextErrors);
@@ -578,5 +652,18 @@ export function useMyPageForm() {
     closePasswordModal,
     updatePasswordField,
     submitPasswordChange,
+
+    canWithdrawAccount,
+    isWithdrawModalOpen,
+    withdrawStep,
+    withdrawPassword,
+    withdrawMessage,
+    isWithdrawSubmitting,
+    openWithdrawModal,
+    closeWithdrawModal,
+    goWithdrawConfirmNext,
+    goWithdrawConfirmBack,
+    updateWithdrawPassword,
+    submitWithdrawAccount,
   };
 }
