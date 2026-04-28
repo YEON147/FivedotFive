@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import "@/components/home/main-landing-hero.css";
+import "@/components/home/main-landing-service-steps.css";
 import "@/components/home/main-landing-wordmark-float.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
@@ -90,7 +91,7 @@ export function MainLandingContent({
     <main className="wishlist-page-root relative flex min-h-[100dvh] flex-col overflow-y-auto">
       <IntroDesignSparkles />
 
-      <div className="relative z-[3] flex min-h-[100dvh] flex-1 flex-col items-center justify-center px-6 pt-[max(0.75rem,calc(0.5rem+env(safe-area-inset-top,0px)))] pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:py-[clamp(1rem,3vmin,2.25rem)]">
+      <div className="relative z-[3] flex min-h-[100dvh] flex-1 flex-col items-center justify-center px-6 pt-[max(0.75rem,calc(0.5rem+env(safe-area-inset-top,0px)))] pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:pt-[max(clamp(1rem,3vmin,2.25rem),env(safe-area-inset-top,0px))] sm:pb-[max(clamp(1rem,3vmin,2.25rem),env(safe-area-inset-bottom,0px))]">
         <div className="main-landing-wordmark-float mb-4 flex w-full justify-center">
           <Image
             src="/main/main3.png"
@@ -132,7 +133,7 @@ export function MainLandingContent({
           <ol className="grid grid-cols-3 gap-2 sm:gap-3">
             <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
               <span
-                className="mb-2 text-[2rem] font-extrabold leading-none text-[color-mix(in_srgb,var(--color-brand-blue)_72%,white)] sm:text-[2.25rem]"
+                className="main-landing-step-num--blue mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
                 aria-hidden
               >
                 1
@@ -145,7 +146,7 @@ export function MainLandingContent({
             </li>
             <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
               <span
-                className="mb-2 text-[2rem] font-extrabold leading-none text-[color-mix(in_srgb,var(--color-brand-coral)_70%,white)] sm:text-[2.25rem]"
+                className="main-landing-step-num--coral mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
                 aria-hidden
               >
                 2
@@ -157,7 +158,7 @@ export function MainLandingContent({
             </li>
             <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
               <span
-                className="mb-2 text-[2rem] font-extrabold leading-none text-[color-mix(in_srgb,var(--color-brand-green)_58%,white)] sm:text-[2.25rem]"
+                className="main-landing-step-num--green mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
                 aria-hidden
               >
                 3

@@ -1,0 +1,18 @@
+/**
+ * 서비스 소개 단계 번호 — color-mix 미지원 브라우저용 고정색 후행 선언으로 폴백.
+ * (≈ globals.css 브랜드 헥스와 동일 비율 혼합 결과)
+ */
+.main-landing-step-num--blue {
+  color: #a3c1ff;
+  color: color-mix(in srgb, var(--color-brand-blue) 72%, white);
+}
+
+.main-landing-step-num--coral {
+  color: #ffae9a;
+  color: color-mix(in srgb, var(--color-brand-coral) 70%, white);
+}
+
+.main-landing-step-num--green {
+  color: #eaf6ae;
+  color: color-mix(in srgb, var(--color-brand-green) 58%, white);
+}
