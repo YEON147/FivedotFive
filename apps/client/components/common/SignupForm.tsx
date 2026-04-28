@@ -4,8 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { GenderToggle } from "@/components/ui/GenderToggle";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
-import { COMPACT_FIELD_INPUT_CLASS } from "@/components/ui/fieldSurface";
 import {
+  COMPACT_FIELD_INPUT_CLASS,
+  FIELD_SURFACE_FRAME,
+  fieldSurfaceState,
+} from "@/components/ui/fieldSurface";
+import {
+  buildSignupEmail,
+  EMAIL_DOMAIN_OPTIONS,
   GRADE_BAND_OPTIONS,
   getGradeDetailOptions,
 } from "@/lib/constants/signup";
@@ -149,7 +155,12 @@ export function SignupForm({
     values.password === values.passwordConfirm &&
     PASSWORD_REGEX.test(values.password);
 
-  const isEmailReady = EMAIL_REGEX.test(values.email.trim());
+  const signupEmailCombined = useMemo(
+    () => buildSignupEmail(values.emailLocal, values.emailDomain).trim(),
+    [values.emailLocal, values.emailDomain],
+  );
+
+  const isEmailReady = EMAIL_REGEX.test(signupEmailCombined);
 
   const isNicknameReady =
     values.nickname.trim().length >= 2 &&
@@ -274,27 +285,71 @@ export function SignupForm({
 
         {showEmail ? (
           <StepSection>
-            <div className="flex flex-col gap-0.5">
-              <TextField
-                id="email"
-                type="email"
-                label="이메일"
-                requiredMark
-                placeholder="example@email.com"
-                value={values.email}
-                error={errors.email}
-                hint="비밀번호 찾기에 사용됩니다."
-                hintDisplay="label-inline"
-                scrollIntoViewOnFocus
-                onChange={(event) => onChange("email", event.target.value)}
-              />
-
-              {userEmailCheckMessage ? (
-                <p className={`text-xs ${userEmailStatusClass}`}>
-                  {userEmailCheckMessage}
-                </p>
+            <fieldset className="min-w-0 scroll-mt-8 border-0 p-0">
+              <legend className="mb-1 flex min-h-[22px] flex-wrap items-center gap-x-1 gap-y-0.5 text-sm font-semibold text-slate-800">
+                이메일
+                <span className="text-rose-500">*</span>
+              </legend>
+              <p className="mb-1.5 text-xs text-slate-500">
+                아이디와 도메인을 선택하세요. 비밀번호 찾기에 사용됩니다.
+              </p>
+              <div className="flex min-w-0 flex-row items-stretch gap-2">
+                <input
+                  id="signup-email-local"
+                  type="text"
+                  inputMode="email"
+                  autoComplete="username"
+                  placeholder="아이디"
+                  value={values.emailLocal}
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={
+                    errors.email || userEmailCheckMessage
+                      ? "signup-email-feedback"
+                      : undefined
+                  }
+                  className={`h-11 min-w-0 flex-1 rounded-xl border px-3.5 text-sm outline-none transition focus:ring-2 ${FIELD_SURFACE_FRAME} ${fieldSurfaceState(
+                    Boolean(errors.email),
+                    values.emailLocal.trim().length > 0,
+                  )}`}
+                  onChange={(event) => {
+                    const next = event.target.value.replace(/@/g, "");
+                    onChange("emailLocal", next);
+                  }}
+                />
+                <span
+                  className="shrink-0 select-none self-center px-0.5 text-sm text-slate-500"
+                  aria-hidden
+                >
+                  @
+                </span>
+                <div className="min-w-0 flex-1 sm:max-w-[13rem]">
+                  <SelectField
+                    id="signup-email-domain"
+                    label=""
+                    hideLabel
+                    aria-label="이메일 도메인"
+                    options={EMAIL_DOMAIN_OPTIONS}
+                    value={values.emailDomain}
+                    scrollIntoViewOnFocus
+                    onChange={(event) =>
+                      onChange("emailDomain", event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+              {errors.email || userEmailCheckMessage ? (
+                <div id="signup-email-feedback" className="mt-1 space-y-1">
+                  {errors.email ? (
+                    <p className="text-xs text-rose-600">{errors.email}</p>
+                  ) : null}
+                  {!errors.email && userEmailCheckMessage ? (
+                    <p className={`text-xs ${userEmailStatusClass}`}>
+                      {userEmailCheckMessage}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
-            </div>
+            </fieldset>
           </StepSection>
         ) : null}
 

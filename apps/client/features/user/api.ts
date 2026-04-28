@@ -3,6 +3,8 @@ import { searchSchools, checkNickname } from "@/features/signup/api";
 import type {
   ChangePasswordRequest,
   ChangePasswordResponse,
+  DeleteAccountRequest,
+  DeleteAccountResponse,
   MyProfile,
   MyProfileResponse,
   UpdateMyProfileRequest,
@@ -49,6 +51,15 @@ export async function changeMyPassword(
 ): Promise<ChangePasswordResponse> {
   return authApiClient<ChangePasswordResponse>(MY_PASSWORD_API_PATH, {
     method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteMyAccount(
+  payload: DeleteAccountRequest
+): Promise<DeleteAccountResponse> {
+  return authApiClient<DeleteAccountResponse>(MY_PROFILE_API_PATH, {
+    method: "DELETE",
     body: JSON.stringify(payload),
   });
 }
