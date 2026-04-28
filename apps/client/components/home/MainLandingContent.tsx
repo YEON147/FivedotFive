@@ -15,7 +15,10 @@ import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 
 const landingPrimaryBtn =
-  "inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)]";
+  "relative inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center overflow-hidden rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color,opacity] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-[0.72] disabled:hover:bg-[var(--color-primary-main)]";
+
+const landingPrimaryBtnLoadingExtra =
+  "cursor-wait opacity-[0.92] hover:bg-[var(--color-primary-main)] active:scale-100";
 
 const landingMutedLink =
   "text-body-sm font-medium text-[#6e6e6e] underline-offset-4 transition-opacity hover:underline";
@@ -40,6 +43,8 @@ export function MainLandingContent({
 }: MainLandingContentProps) {
   const router = useRouter();
   const [wishlistPrimaryLoading, setWishlistPrimaryLoading] = useState(false);
+  /** 0~1, 보드 생성 API 구간은 실제 대기 시간에 맞춰 상한만큼만 서서히 증가 */
+  const [wishlistPrimaryFill, setWishlistPrimaryFill] = useState(0);
   const [wishlistPrimaryError, setWishlistPrimaryError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,19 +52,49 @@ export function MainLandingContent({
   }, []);
 
   const handleLoggedInWishlistPrimary = async () => {
+    if (wishlistPrimaryLoading) {
+      return;
+    }
+
     trackWishlistCtaClick({
       cta_id: "landing_logged_wishlist_hub",
       wishlist_entry: hasWishBoard ? "decorate" : "create",
     });
 
     if (hasWishBoard) {
+      setWishlistPrimaryLoading(true);
+      setWishlistPrimaryFill(0.06);
+      await new Promise((r) => requestAnimationFrame(r));
+      setWishlistPrimaryFill(0.45);
+      await new Promise((r) => requestAnimationFrame(r));
+      setWishlistPrimaryFill(0.82);
+      await new Promise((r) => requestAnimationFrame(r));
+      setWishlistPrimaryFill(1);
+      await new Promise((r) => requestAnimationFrame(r));
       router.push("/wishlist");
       return;
     }
 
     setWishlistPrimaryError(null);
     setWishlistPrimaryLoading(true);
+    setWishlistPrimaryFill(0.05);
+
+    let progressTimer: ReturnType<typeof setInterval> | null = null;
+
     try {
+      await new Promise((r) => requestAnimationFrame(r));
+      setWishlistPrimaryFill(0.12);
+
+      progressTimer = window.setInterval(() => {
+        setWishlistPrimaryFill((p) => {
+          const cap = 0.88;
+          if (p >= cap - 0.001) {
+            return cap;
+          }
+          return Math.min(cap, p + Math.max(0.012, (cap - p) * 0.06));
+        });
+      }, 100);
+
       try {
         await createMyBoard();
       } catch (e) {
@@ -68,16 +103,30 @@ export function MainLandingContent({
           throw e;
         }
       }
+
+      if (progressTimer !== null) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+      }
+
+      setWishlistPrimaryFill(0.97);
+      await new Promise((r) => requestAnimationFrame(r));
+      setWishlistPrimaryFill(1);
+      await new Promise((r) => requestAnimationFrame(r));
+
       if (typeof window !== "undefined") {
         sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
       }
       router.push("/wishlist");
     } catch (e) {
+      if (progressTimer !== null) {
+        clearInterval(progressTimer);
+      }
       setWishlistPrimaryError(
         e instanceof Error ? e.message : "위시보드를 만들지 못했습니다.",
       );
-    } finally {
       setWishlistPrimaryLoading(false);
+      setWishlistPrimaryFill(0);
     }
   };
 
@@ -140,20 +189,33 @@ export function MainLandingContent({
               ) : null}
               <button
                 type="button"
-                className={`${landingPrimaryBtn} disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60`}
+                className={`${landingPrimaryBtn} ${wishlistPrimaryLoading ? landingPrimaryBtnLoadingExtra : ""}`}
                 disabled={wishlistPrimaryLoading}
+                aria-busy={wishlistPrimaryLoading}
                 onClick={() => void handleLoggedInWishlistPrimary()}
               >
-                {wishlistPrimaryLoading
-                  ? "준비 중…"
-                  : hasWishBoard
-                    ? "내 위시리스트 꾸미러 가기"
-                    : "위시리스트 만들러 가기"}
+                {wishlistPrimaryLoading ? (
+                  <span
+                    className="main-landing-wish-cta-fill"
+                    style={{ transform: `scaleX(${wishlistPrimaryFill})` }}
+                    aria-hidden
+                  />
+                ) : null}
+                <span className="relative z-[1] flex items-center justify-center">
+                  {wishlistPrimaryLoading
+                    ? hasWishBoard
+                      ? "이동 중…"
+                      : "보드 생성 중…"
+                    : hasWishBoard
+                      ? "내 위시리스트 꾸미러 가기"
+                      : "위시리스트 만들러 가기"}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={goBrowseLoggedIn}
-                className="text-center text-body-sm font-medium text-[#8b8b8b] underline-offset-4 transition-colors hover:text-[#6e6e6e] hover:underline"
+                disabled={wishlistPrimaryLoading}
+                className="text-center text-body-sm font-medium text-[#8b8b8b] underline-offset-4 transition-colors hover:text-[#6e6e6e] hover:underline disabled:pointer-events-none disabled:opacity-45"
               >
                 구경가기
               </button>
