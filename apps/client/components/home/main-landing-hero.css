@@ -35,3 +35,59 @@
   transition: transform 0.42s cubic-bezier(0.22, 1, 0.32, 1);
   will-change: transform;
 }
+
+/**
+ * 오쩜오 히어로 로고 그림자
+ * - 비 iOS: 래퍼에 filter drop-shadow (기존 인라인 스타일).
+ * - iPhone/iPad WebKit: filter 출력이 종종 이미지 박스만큼 사각으로 보임 → 라디얼 레이어로 유사 광량.
+ */
+.main-landing-hero-stack--paint .main-landing-hero-shadow-layer {
+  position: absolute;
+  left: 50%;
+  pointer-events: none;
+  z-index: 0;
+  transform: translateX(-50%);
+  border-radius: 50%;
+}
+
+.main-landing-hero-stack--paint .main-landing-hero-img {
+  position: relative;
+  z-index: 1;
+}
+
+.main-landing-hero-stack--paint .main-landing-hero-shadow-layer--diffuse {
+  bottom: max(-2%, -8px);
+  width: min(108%, 780px);
+  height: 6rem;
+  max-height: 30vw;
+  background: radial-gradient(
+    ellipse 54% 40% at 50% 56%,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.14) 44%,
+    transparent 74%
+  );
+}
+
+.main-landing-hero-stack--paint .main-landing-hero-shadow-layer--mid {
+  bottom: 2%;
+  width: min(96%, 680px);
+  height: 4rem;
+  background: radial-gradient(
+    ellipse 50% 44% at 50% 52%,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.2) 48%,
+    transparent 72%
+  );
+}
+
+.main-landing-hero-stack--paint .main-landing-hero-shadow-layer--core {
+  bottom: 5%;
+  width: min(78%, 560px);
+  height: 2.75rem;
+  background: radial-gradient(
+    ellipse 46% 50% at 50% 48%,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.28) 52%,
+    transparent 76%
+  );
+}

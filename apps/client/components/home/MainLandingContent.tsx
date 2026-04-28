@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import "@/components/home/main-landing-hero.css";
 import "@/components/home/main-landing-service-steps.css";
@@ -48,12 +48,22 @@ export function MainLandingContent({
   hasWishBoard,
 }: MainLandingContentProps) {
   const router = useRouter();
+  /** iOS WebKit: 히어로 로고에 filter drop-shadow 시 사각 clipping → 레이어 그림자 사용 */
+  const [iosStyleHeroShadow, setIosStyleHeroShadow] = useState(false);
   const [wishlistPrimaryLoading, setWishlistPrimaryLoading] = useState(false);
   const [wishlistPrimaryFill, setWishlistPrimaryFill] = useState(0);
   const [wishlistPrimaryError, setWishlistPrimaryError] = useState<string | null>(null);
 
   useEffect(() => {
     touchTrafficAttribution();
+  }, []);
+
+  useLayoutEffect(() => {
+    const ua = navigator.userAgent;
+    const appleTouch =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    setIosStyleHeroShadow(appleTouch);
   }, []);
 
   const handleLoggedInWishlistPrimary = async () => {
@@ -140,12 +150,32 @@ export function MainLandingContent({
         </p>
 
         <div
-          className="relative z-0 inline-block max-w-full"
-          style={{
-            filter:
-              "drop-shadow(0 20px 36px rgba(255, 255, 255, 0.55)) drop-shadow(0 8px 22px rgba(255, 255, 255, 0.85))",
-          }}
+          className={`relative z-0 inline-block max-w-full ${iosStyleHeroShadow ? "main-landing-hero-stack--paint" : ""}`}
+          style={
+            iosStyleHeroShadow
+              ? undefined
+              : {
+                  filter:
+                    "drop-shadow(0 20px 36px rgba(255, 255, 255, 0.55)) drop-shadow(0 8px 22px rgba(255, 255, 255, 0.85))",
+                }
+          }
         >
+          {iosStyleHeroShadow ? (
+            <>
+              <span
+                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--diffuse"
+                aria-hidden
+              />
+              <span
+                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--mid"
+                aria-hidden
+              />
+              <span
+                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--core"
+                aria-hidden
+              />
+            </>
+          ) : null}
           <Image
             src="/main/main2.png"
             alt="오쩜오"
