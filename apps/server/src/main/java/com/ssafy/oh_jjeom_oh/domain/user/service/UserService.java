@@ -144,6 +144,9 @@ public class UserService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         if (user.getProvider() == Provider.LOCAL) {
+            if (password == null || password.isBlank()) {
+                throw new CustomException(ErrorCode.PASSWORD_REQUIRED);
+            }
             if (!passwordEncoder.matches(password, user.getPasswordHash())) {
                 throw new CustomException(ErrorCode.WRONG_PASSWORD);
             }
