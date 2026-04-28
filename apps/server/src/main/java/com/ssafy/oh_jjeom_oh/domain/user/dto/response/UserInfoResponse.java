@@ -2,6 +2,7 @@ package com.ssafy.oh_jjeom_oh.domain.user.dto.response;
 
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Gender;
+import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Provider;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import lombok.Getter;
 
@@ -15,11 +16,12 @@ public class UserInfoResponse {
     private final String grade;
     private final Gender gender;
     private final Role role;
+    private final Provider provider;
     private final boolean hasWishBoard;
 
     private UserInfoResponse(String username, String nickname, String email,
                               String school, String grade, Gender gender,
-                              Role role, boolean hasWishBoard) {
+                              Role role, Provider provider,boolean hasWishBoard) {
         this.username = username;
         this.nickname = nickname;
         this.email = email;
@@ -27,6 +29,7 @@ public class UserInfoResponse {
         this.grade = grade;
         this.gender = gender;
         this.role = role;
+        this.provider = provider;
         this.hasWishBoard = hasWishBoard;
     }
 
@@ -39,6 +42,7 @@ public class UserInfoResponse {
                 user.getGrade(),
                 user.getGender(),
                 user.getRole(),
+                user.getProvider(),
                 hasWishBoard
         );
     }
