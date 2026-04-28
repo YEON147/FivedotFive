@@ -74,6 +74,11 @@ admin:
   password: ${ADMIN_PASSWORD}
   nickname: ${ADMIN_NICKNAME:오쩜오}
 
+admin2:
+  username: ${ADMIN2_USERNAME:}
+  password: ${ADMIN2_PASSWORD:}
+  nickname: ${ADMIN2_NICKNAME:오쩜오2}
+
 cloud:
   aws:
     s3:

@@ -38,10 +38,28 @@ public class AdminDataInitializer implements ApplicationRunner {
     @Value("${admin.nickname}")
     private String adminNickname;
 
+    @Value("${admin2.username:}")
+    private String admin2Username;
+
+    @Value("${admin2.password:}")
+    private String admin2Password;
+
+    @Value("${admin2.nickname:오쩜오2}")
+    private String admin2Nickname;
+
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        User admin = userRepository.findByUsername(adminUsername)
+        ensureAdminAccount(adminUsername, adminPassword, adminNickname, true);
+
+        // ADMIN2_USERNAME, ADMIN2_PASSWORD 환경변수가 모두 설정된 경우에만 처리
+        if (!admin2Username.isBlank() && !admin2Password.isBlank()) {
+            ensureAdminAccount(admin2Username, admin2Password, admin2Nickname, false);
+        }
+    }
+
+    private void ensureAdminAccount(String username, String password, String nickname, boolean boardPublic) {
+        User admin = userRepository.findByUsername(username)
                 .map(existing -> {
                     if (existing.getRole() != Role.ADMIN) {
                         log.info("[AdminInit] 관리자 계정 role 보정: {} → ADMIN", existing.getRole());
@@ -50,28 +68,32 @@ public class AdminDataInitializer implements ApplicationRunner {
                     return existing;
                 })
                 .orElseGet(() -> {
-                    log.info("[AdminInit] 관리자 계정 생성: username={}", adminUsername);
+                    log.info("[AdminInit] 관리자 계정 생성: username={}", username);
                     return userRepository.save(User.builder()
-                            .username(adminUsername)
-                            .passwordHash(passwordEncoder.encode(adminPassword))
-                            .nickname(adminNickname)
+                            .username(username)
+                            .passwordHash(passwordEncoder.encode(password))
+                            .nickname(nickname)
                             .role(Role.ADMIN)
                             .build());
                 });
 
         wishBoardRepository.findByUser(admin).ifPresentOrElse(
                 board -> {
-                    if (!adminUsername.equals(board.getBoardSlug())) {
-                        log.info("[AdminInit] 관리자 보드 슬러그 보정: {} → {}", board.getBoardSlug(), adminUsername);
-                        board.updateBoardSlug(adminUsername);
+                    if (!username.equals(board.getBoardSlug())) {
+                        log.info("[AdminInit] 관리자 보드 슬러그 보정: {} → {}", board.getBoardSlug(), username);
+                        board.updateBoardSlug(username);
+                    }
+                    if (!Boolean.valueOf(boardPublic).equals(board.getIsPublic())) {
+                        log.info("[AdminInit] 관리자 보드 공개 여부 보정: {} → {}", board.getIsPublic(), boardPublic);
+                        board.updateIsPublic(boardPublic);
                     }
                 },
                 () -> {
-                    log.info("[AdminInit] 관리자 보드 생성: slug={}", adminUsername);
+                    log.info("[AdminInit] 관리자 보드 생성: slug={}, isPublic={}", username, boardPublic);
                     wishBoardRepository.save(WishBoard.builder()
                             .user(admin)
-                            .boardSlug(adminUsername)
-                            .isPublic(true)
+                            .boardSlug(username)
+                            .isPublic(boardPublic)
                             .build());
                 }
         );
