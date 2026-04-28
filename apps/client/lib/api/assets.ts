@@ -138,9 +138,26 @@ type StickerFoldersApiResponse = {
   };
 };
 
-/** GET /api/assets/stickers/folders — 스티커 폴더 목록 (Anyone) */
-export async function fetchStickerFolders(): Promise<string[]> {
-  const res = await apiClient<StickerFoldersApiResponse>("/api/assets/stickers/folders", {
+/** 구단 보드 등일 때 야구 에셋 폴더 포함 여부를 서버가 판별할 수 있도록 쿼리로 전달합니다. */
+function assetsPathWithBoardSlug(
+  path: string,
+  boardSlug?: string | null,
+): string {
+  const slug = boardSlug?.trim();
+  if (!slug) return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}boardSlug=${encodeURIComponent(slug)}`;
+}
+
+/** GET /api/assets/stickers/folders?boardSlug= — 스티커 폴더 목록 (Anyone) */
+export async function fetchStickerFolders(
+  boardSlug?: string | null,
+): Promise<string[]> {
+  const url = assetsPathWithBoardSlug(
+    "/api/assets/stickers/folders",
+    boardSlug,
+  );
+  const res = await apiClient<StickerFoldersApiResponse>(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -215,11 +232,14 @@ type GiftIconsApiResponse = {
 };
 
 /**
- * 선물 아이콘 카탈로그 — 백 GET `/api/assets/gift-icons`.
+ * 선물 아이콘 카탈로그 — 백 GET `/api/assets/gift-icons` (선택 `?boardSlug=`).
  * 각 `assetKey`는 S3 기준 `icons/{카테고리}/{카테고리}-NNN.png` 등(예: `icons/food/food-001.png`) 형태입니다.
  */
-export async function fetchGiftIcons(): Promise<GiftIconDto[]> {
-  const res = await apiClient<GiftIconsApiResponse>("/api/assets/gift-icons", {
+export async function fetchGiftIcons(
+  boardSlug?: string | null,
+): Promise<GiftIconDto[]> {
+  const url = assetsPathWithBoardSlug("/api/assets/gift-icons", boardSlug);
+  const res = await apiClient<GiftIconsApiResponse>(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
