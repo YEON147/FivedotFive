@@ -87,7 +87,7 @@ export function LoginForm({
         <p className="text-body-sm text-[#8b8b8b]">계정이 없으신가요 ?</p>
         <Link
           href="/signup"
-          className="text-body-sm text-[#6e6e6e]"
+          className="text-body-sm text-[#6e6e6e] inline-block rounded-sm outline-none focus:outline-none focus:ring-2 focus:ring-[#7B61FF]/25 focus:ring-offset-0"
           onClick={() => trackSignupButtonClick({ signup_entry: "login" })}
         >
           회원가입
