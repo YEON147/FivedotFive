@@ -2043,6 +2043,7 @@ export default function WishlistPage() {
         open={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
+        isOnMyWishlistEditorPage
         publicWishlistHref={
           boardSlug
             ? `/wishlist/${encodeURIComponent(boardSlug)}`
