@@ -45,7 +45,7 @@ import {
   compactGiftTextsToLayoutSlots,
   deriveWishSlotState,
   firstSemanticallyEmptyApiIndex,
-  matchesGiftPresetIcon,
+  isStoredKeyGiftModalStaticPreset,
   resolveLayoutGiftClickToApiIndex,
 } from "@/features/wishlist/wish-slot-state";
 import type { BoardAssetData, MyBoardData, WishItemData } from "@/features/wishlist/types";
@@ -597,16 +597,15 @@ export default function WishlistPage() {
     }
   }, [isGiftModalOpen, giftIconTabStripScroll]);
 
-  const catalogGiftIconsExtra = useMemo(() => giftIcons.slice(1), [giftIcons]);
-
+  /** 모달: 1번 칸은 고정 기본 선물, 그 다음 칸부터 API `giftIcons` 전체(순서 유지) */
   const filteredCatalogGiftIcons = useMemo(() => {
     if (giftIconModalTab === "all") {
-      return catalogGiftIconsExtra;
+      return giftIcons;
     }
-    return catalogGiftIconsExtra.filter(
+    return giftIcons.filter(
       (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === giftIconModalTab,
     );
-  }, [catalogGiftIconsExtra, giftIconModalTab]);
+  }, [giftIcons, giftIconModalTab]);
 
   /** 야구 아이콘이 없으면(비구단 등) 「야구」 탭 숨김 */
   const giftIconModalTabsForUi = useMemo(() => {
@@ -644,9 +643,8 @@ export default function WishlistPage() {
       return;
     }
     const key = wishGiftIconKeys[giftModalSlotIndex]?.trim() ?? "";
-    const first = giftIcons[0]?.assetKey?.trim();
     giftEditPresetSyncRef.current.done = true;
-    if (first && key && matchesGiftPresetIcon(key, first)) {
+    if (isStoredKeyGiftModalStaticPreset(key)) {
       setGiftModalSpecial("present");
     }
   }, [
@@ -917,7 +915,7 @@ export default function WishlistPage() {
     setGiftModalMode("add");
     setModalGiftName("");
     setModalSelectedIconId(null);
-    /** 첫 칸 ×가 아닌 카탈로그 ①번(기본 선물) 이미지가 기본 선택 */
+    /** 첫 칸은 고정 기본 선물 — 추가 시에도 기본 선물이 선택된 상태로 열림 */
     setGiftModalSpecial("present");
     setGiftModalSaveError(null);
     setIsGiftModalOpen(true);
@@ -929,7 +927,7 @@ export default function WishlistPage() {
     setModalGiftName((wishTexts[slotIndex] ?? "").slice(0, WISH_ITEM_NAME_MAX_LENGTH));
     setModalSelectedIconId(null);
     const key = wishGiftIconKeys[slotIndex]?.trim() ?? "";
-    if (!key || matchesGiftPresetIcon(key, giftIcons[0]?.assetKey)) {
+    if (isStoredKeyGiftModalStaticPreset(key)) {
       setGiftModalSpecial("present");
     } else {
       setGiftModalSpecial(null);
@@ -1089,9 +1087,9 @@ export default function WishlistPage() {
       if (giftModalMode === "edit") {
         const key = wishGiftIconKeys[giftModalSlotIndex]?.trim() ?? "";
         const found = key ? giftIcons.find((g) => g.assetKey === key) : undefined;
-        return found?.id ?? giftIcons[0]!.id;
+        return found?.id ?? giftIcons[0]?.id ?? null;
       }
-      return giftIcons[0]!.id;
+      return giftIcons[0]?.id ?? null;
     });
   }, [
     isGiftModalOpen,
@@ -1875,7 +1873,7 @@ export default function WishlistPage() {
                             </p>
                           ) : giftIconModalTab !== "all" &&
                             filteredCatalogGiftIcons.length === 0 &&
-                            catalogGiftIconsExtra.length > 0 ? (
+                            giftIcons.length > 0 ? (
                             <p className="mt-2 text-center text-body-sm text-slate-500">
                               이 카테고리에 표시할 아이콘이 없습니다. 「전체」에서 선택해 보세요.
                             </p>
