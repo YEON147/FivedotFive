@@ -32,8 +32,32 @@ const backendOrigin =
  */
 const assetCdnOrigin = process.env.ASSET_CDN_REWRITE_TARGET?.replace(/\/$/, "");
 
+/** `NEXT_PUBLIC_ALLOWED_DEV_ORIGINS` — 쉼표로 구분(호스트만 또는 https://host/… 형태). ngrok 등 임시 주소용 */
+function devOriginHostFromEnvEntry(entry: string): string {
+  const t = entry.trim();
+  if (!t) return "";
+  if (/^https?:\/\//i.test(t)) {
+    try {
+      return new URL(t).hostname;
+    } catch {
+      return "";
+    }
+  }
+  return t;
+}
+
+const extraAllowedDevOrigins = (
+  process.env.NEXT_PUBLIC_ALLOWED_DEV_ORIGINS ?? ""
+)
+  .split(",")
+  .map(devOriginHostFromEnvEntry)
+  .filter(Boolean);
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
+    ...extraAllowedDevOrigins,
+    // 테스트 터널 (ngrok 무료는 재시작 시 호스트가 바뀔 수 있음 → 위 env 사용 가능)
+    "d018-14-50-47-78.ngrok-free.app",
     "192.168.31.153",
     "172.24.245.200",
     "192.168.0.12",
