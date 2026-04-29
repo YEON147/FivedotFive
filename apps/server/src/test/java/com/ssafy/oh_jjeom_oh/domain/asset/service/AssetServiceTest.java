@@ -53,10 +53,10 @@ class AssetServiceTest {
     }
 
     @Test
-    @DisplayName("boardSlug가 구단이 아니면 baseball 폴더는 목록에서 제거")
+    @DisplayName("boardSlug가 구단이 아니면 baseball·baseball/하위 폴더는 목록에서 제거")
     void getStickerFolders_nonTeam_removesBaseball() {
         given(assetRepository.findDistinctStickerFolders())
-                .willReturn(List.of("balloon", "baseball", "cute"));
+                .willReturn(List.of("balloon", "baseball", "baseball/giants", "cute"));
 
         StickerFolderListResponse response = assetService.getStickerFolders("myuser");
 
@@ -64,14 +64,31 @@ class AssetServiceTest {
     }
 
     @Test
-    @DisplayName("boardSlug가 구단이면 baseball 폴더가 없어도 추가")
-    void getStickerFolders_team_addsBaseball() {
+    @DisplayName("boardSlug가 구단이면 야구 폴더를 앞에(루트 baseball → common → 팀 순), 일반 폴더는 뒤에")
+    void getStickerFolders_team_includesBaseballSubfolders() {
         given(assetRepository.findDistinctStickerFolders())
-                .willReturn(List.of("balloon", "cute"));
+                .willReturn(List.of(
+                        "balloon",
+                        "baseball/giants",
+                        "baseball",
+                        "baseball/common",
+                        "cute"));
 
         StickerFolderListResponse response = assetService.getStickerFolders("lottegiants");
 
-        assertThat(response.getFolders()).containsExactly("balloon", "baseball", "cute");
+        assertThat(response.getFolders())
+                .containsExactly("baseball", "baseball/common", "baseball/giants", "balloon", "cute");
+    }
+
+    @Test
+    @DisplayName("폴더 API(boardSlug 없음과 동일)는 야구 관련 폴더 id를 내보내지 않음")
+    void getStickerFolders_global_excludesBaseballPaths() {
+        given(assetRepository.findDistinctStickerFolders())
+                .willReturn(List.of("balloon", "baseball/common", "baseball/giants", "cute"));
+
+        StickerFolderListResponse response = assetService.getStickerFolders();
+
+        assertThat(response.getFolders()).containsExactly("balloon", "cute");
     }
 
     @Test
@@ -130,6 +147,20 @@ class AssetServiceTest {
     }
 
     @Test
+    @DisplayName("boardSlug 없으면 전체 스티커에서 baseball 경로 제외")
+    void getStickers_noSlug_excludesBaseballPath() {
+        given(assetRepository.findByAssetTypeOrderByDisplayOrderAsc(AssetType.STICKER)).willReturn(List.of(
+                buildSticker(1L, "stickers/balloon/balloon-01.png", 1),
+                buildSticker(2L, "stickers/baseball/giants/g-01.png", 2)
+        ));
+
+        StickerCatalogListResponse response = assetService.getStickers(null);
+
+        assertThat(response.getStickers()).hasSize(1);
+        assertThat(response.getStickers().get(0).getAssetKey()).isEqualTo("stickers/balloon/balloon-01.png");
+    }
+
+    @Test
     @DisplayName("비구단 boardSlug로 전체 스티커 조회 시 baseball 경로 제외")
     void getStickers_nonTeamBoard_excludesBaseballPath() {
         given(assetRepository.findByAssetTypeOrderByDisplayOrderAsc(AssetType.STICKER)).willReturn(List.of(
@@ -150,5 +181,36 @@ class AssetServiceTest {
 
         assertThat(response.getFolder()).isEqualTo("baseball");
         assertThat(response.getStickers()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("비구단 boardSlug로 baseball/giants 폴더 조회 시 빈 목록")
+    void getStickersByFolder_baseballGiants_nonTeam_returnsEmpty() {
+        StickerFolderResponse response = assetService.getStickersByFolder("baseball/giants", "regular-user");
+
+        assertThat(response.getFolder()).isEqualTo("baseball/giants");
+        assertThat(response.getStickers()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("폴더 id 앞에 /가 붙어도 정규화되어 야구 스티커 조회(LIKE 불일치 방지)")
+    void getStickersByFolder_leadingSlash_baseballSubfolder_teamBoard_returnsStickers() {
+        given(assetRepository.findStickersByFolder("baseball/landers")).willReturn(List.of(
+                buildSticker(1L, "stickers/baseball/landers/s-01.png", 1)
+        ));
+
+        StickerFolderResponse response = assetService.getStickersByFolder("/baseball/landers", "lottegiants");
+
+        assertThat(response.getFolder()).isEqualTo("baseball/landers");
+        assertThat(response.getStickers()).hasSize(1);
+        assertThat(response.getStickers().get(0).getAssetKey()).isEqualTo("stickers/baseball/landers/s-01.png");
+    }
+
+    @Test
+    @DisplayName("normalizeStickerFolderId: 선행·후행 슬래시 및 연속 슬래시 제거")
+    void normalizeStickerFolderId_trimsSlashes() {
+        assertThat(AssetService.normalizeStickerFolderId("/baseball/landers")).isEqualTo("baseball/landers");
+        assertThat(AssetService.normalizeStickerFolderId("baseball/landers/")).isEqualTo("baseball/landers");
+        assertThat(AssetService.normalizeStickerFolderId("//baseball//landers//")).isEqualTo("baseball/landers");
     }
 }
