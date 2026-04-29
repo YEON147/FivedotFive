@@ -58,6 +58,7 @@ export default function MyPagePage() {
     submitPasswordChange,
 
     canWithdrawAccount,
+    withdrawRequiresPassword,
     isWithdrawModalOpen,
     withdrawStep,
     withdrawPassword,
@@ -158,6 +159,7 @@ export default function MyPagePage() {
                 onChangePasswordField={updatePasswordField}
                 onSubmitPasswordChange={submitPasswordChange}
                 canWithdrawAccount={canWithdrawAccount}
+                withdrawRequiresPassword={withdrawRequiresPassword}
                 isWithdrawModalOpen={isWithdrawModalOpen}
                 withdrawStep={withdrawStep}
                 withdrawPassword={withdrawPassword}
