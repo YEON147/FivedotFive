@@ -5,7 +5,6 @@ import { X } from "@phosphor-icons/react";
 import { GenderToggle } from "@/components/ui/GenderToggle";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
-import { COMPACT_FIELD_INPUT_CLASS } from "@/components/ui/fieldSurface";
 import {
   GRADE_BAND_OPTIONS,
   getGradeDetailOptions,
@@ -167,7 +166,7 @@ export function MyPageForm({
 
   return (
     <>
-      <div className="flex w-full flex-col gap-2.5">
+      <div className="flex w-full flex-col gap-4">
         <div className="w-full text-center" aria-label="환영 인사">
           <p className="text-[clamp(15px,4.2vw,19px)] font-extrabold leading-tight text-slate-900">
             <span className="text-[#7B61FF]">{greetName}</span>
@@ -178,14 +177,14 @@ export function MyPageForm({
           </p>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           <TextField
             id="mypage-username"
             label="아이디"
             value={values.username}
             disabled
             readOnly
-            className="h-10 cursor-not-allowed bg-slate-100 text-sm text-slate-500"
+            className="cursor-not-allowed bg-slate-100 text-slate-500"
             hint="변경할 수 없습니다."
             hintDisplay="label-inline"
           />
@@ -197,27 +196,27 @@ export function MyPageForm({
             value={values.email}
             disabled
             readOnly
-            className="h-10 cursor-not-allowed bg-slate-100 text-sm text-slate-500"
+            className="cursor-not-allowed bg-slate-100 text-slate-500"
             hint="변경할 수 없습니다."
             hintDisplay="label-inline"
           />
 
-          <div className="flex flex-col gap-1 scroll-mt-8">
+          <div className="flex flex-col gap-1.5 scroll-mt-8">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-slate-800">닉네임</span>
-              <span className="tabular-nums text-[11px] text-[var(--color-text-secondary)]">
+              <span className="text-sm font-semibold text-slate-800">닉네임</span>
+              <span className="tabular-nums text-xs text-[var(--color-text-secondary)]">
                 {values.nickname.length}/8
               </span>
             </div>
 
-            <div className="flex min-w-0 items-stretch gap-1.5 sm:gap-2">
+            <div className="flex min-w-0 items-stretch gap-2">
               <input
                 id="mypage-nickname"
                 type="text"
                 value={values.nickname}
                 disabled={!isLoaded || isSaving}
                 onChange={(event) => onChange("nickname", event.target.value)}
-                className={`h-10 min-w-0 flex-1 rounded-xl border bg-white px-3 text-sm outline-none transition focus:ring-2 ${
+                className={`h-11 min-w-0 flex-1 rounded-xl border bg-white px-3.5 text-sm outline-none transition focus:ring-2 ${
                   errors.nickname
                     ? "border-rose-300 focus:ring-rose-200"
                     : "border-slate-200 focus:ring-[#7B61FF]/25"
@@ -235,7 +234,7 @@ export function MyPageForm({
                 type="button"
                 onClick={() => void onCheckNickname()}
                 disabled={!isLoaded || isSaving || nicknameCheckStatus === "checking"}
-                className="h-10 shrink-0 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 sm:px-4 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 sm:px-4 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {nicknameCheckStatus === "checking" ? "확인 중…" : "중복확인"}
               </button>
@@ -268,7 +267,6 @@ export function MyPageForm({
               disabled={!isLoaded || isSaving}
               hint="선택 항목 · 검색 후 목록에서 탭해야 등록됩니다 (검색 안 되는 학교는 선택 불가)"
               hintDisplay="label-inline"
-              className={COMPACT_FIELD_INPUT_CLASS}
               scrollIntoViewOnFocus
               onFocus={() => {
                 if (ignoreNextSchoolFocus) {
@@ -338,15 +336,16 @@ export function MyPageForm({
             value={values.gender}
             error={errors.gender}
             disabled={!isLoaded || isSaving}
+            density="comfortable"
             scrollIntoViewOnFocus
             onChange={(next) => onChange("gender", next)}
           />
 
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs font-semibold text-slate-800">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-800">
               학년, 연령대
             </span>
-            <div className="flex min-w-0 flex-row items-start gap-1">
+            <div className="flex min-w-0 flex-row items-start gap-2">
               <SelectField
                 id="mypage-grade-band"
                 label=""
@@ -355,7 +354,6 @@ export function MyPageForm({
                 value={values.gradeBand}
                 options={GRADE_BAND_OPTIONS}
                 disabled={!isLoaded || isSaving}
-                variant="compact"
                 scrollIntoViewOnFocus
                 className="min-w-0 flex-1"
                 onChange={(event) =>
@@ -371,7 +369,6 @@ export function MyPageForm({
                 options={gradeDetailOptions}
                 error={errors.grade}
                 disabled={!isLoaded || isSaving || !values.gradeBand}
-                variant="compact"
                 scrollIntoViewOnFocus
                 className="min-w-0 flex-1"
                 onChange={(event) =>
@@ -394,21 +391,21 @@ export function MyPageForm({
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           <button
             type="button"
             onClick={onOpenPasswordModal}
-            className="h-9 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-semibold text-[var(--color-text-primary)] shadow-sm transition hover:bg-[var(--color-bg-subtle)]"
+            className="h-11 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-sm font-semibold text-[var(--color-text-primary)] shadow-sm transition hover:bg-[var(--color-bg-subtle)]"
           >
             비밀번호 변경
           </button>
 
-          <div className="flex gap-1.5">
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={onReset}
               disabled={!isDirty || isSaving}
-              className="h-9 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[13px] font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-11 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               취소
             </button>
@@ -417,7 +414,7 @@ export function MyPageForm({
               type="button"
               onClick={() => void onSubmit()}
               disabled={!canSubmit}
-              className="h-9 flex-[1.2] rounded-lg bg-[#7B61FF] px-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#6A52E0] disabled:cursor-not-allowed disabled:bg-[var(--color-text-disabled)]"
+              className="h-11 flex-[1.2] rounded-xl bg-[#7B61FF] px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6A52E0] disabled:cursor-not-allowed disabled:bg-[var(--color-text-disabled)]"
             >
               {isSaving ? "저장 중…" : "저장"}
             </button>
@@ -427,7 +424,7 @@ export function MyPageForm({
             <button
               type="button"
               onClick={onOpenWithdrawModal}
-              className="mt-1 h-9 w-full rounded-lg border border-rose-200/80 bg-rose-50/80 px-3 text-[13px] font-semibold text-rose-800 transition hover:bg-rose-100/90"
+              className="mt-0.5 h-11 w-full rounded-xl border border-rose-200/80 bg-rose-50/80 px-4 text-sm font-semibold text-rose-800 transition hover:bg-rose-100/90"
             >
               회원 탈퇴
             </button>
@@ -462,7 +459,7 @@ export function MyPageForm({
               </button>
             </div>
 
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="mt-3 flex flex-col gap-3">
               <TextField
                 id="mypage-current-password"
                 type="password"
@@ -471,7 +468,6 @@ export function MyPageForm({
                 value={passwordValues.currentPassword}
                 error={passwordErrors.currentPassword}
                 disabled={isPasswordSaving}
-                className="!h-10 text-[13px]"
                 scrollIntoViewOnFocus
                 onChange={(event) =>
                   onChangePasswordField("currentPassword", event.target.value)
@@ -490,7 +486,6 @@ export function MyPageForm({
                 disabled={isPasswordSaving}
                 hint="영문과 숫자를 모두 포함한 8~12자입니다."
                 hintDisplay="tooltip"
-                className="!h-10 text-[13px]"
                 scrollIntoViewOnFocus
                 onChange={(event) =>
                   onChangePasswordField("newPassword", event.target.value)
@@ -509,7 +504,6 @@ export function MyPageForm({
                 disabled={isPasswordSaving}
                 hint="위에서 입력한 새 비밀번호와 동일하게 입력해 주세요."
                 hintDisplay="tooltip"
-                className="!h-10 text-[13px]"
                 scrollIntoViewOnFocus
                 onChange={(event) =>
                   onChangePasswordField("newPasswordConfirm", event.target.value)
@@ -529,12 +523,12 @@ export function MyPageForm({
               </div>
             ) : null}
 
-            <div className="mt-4 flex gap-1.5">
+            <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={onClosePasswordModal}
                 disabled={isPasswordSaving}
-                className="h-9 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-sm font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 취소
               </button>
@@ -543,7 +537,7 @@ export function MyPageForm({
                 type="button"
                 onClick={() => void onSubmitPasswordChange()}
                 disabled={isPasswordSaving}
-                className="h-9 flex-[1.2] rounded-lg bg-[#7B61FF] text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#6A52E0] disabled:cursor-not-allowed disabled:bg-[var(--color-text-disabled)]"
+                className="h-11 flex-[1.2] rounded-xl bg-[#7B61FF] text-sm font-semibold text-white shadow-sm transition hover:bg-[#6A52E0] disabled:cursor-not-allowed disabled:bg-[var(--color-text-disabled)]"
               >
                 {isPasswordSaving ? "변경 중…" : "변경"}
               </button>
@@ -632,7 +626,6 @@ export function MyPageForm({
                   placeholder="비밀번호 입력"
                   value={withdrawPassword}
                   disabled={isWithdrawSubmitting}
-                  className="!h-10 text-[13px]"
                   scrollIntoViewOnFocus
                   onChange={(event) =>
                     onChangeWithdrawPassword(event.target.value)
@@ -655,29 +648,29 @@ export function MyPageForm({
             ) : null}
 
             {withdrawStep === 1 ? (
-              <div className="mt-4 flex gap-1.5">
+              <div className="mt-4 flex gap-2">
                 <button
                   type="button"
                   onClick={onCloseWithdrawModal}
-                  className="h-9 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+                  className="h-11 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-sm font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={onWithdrawConfirmNext}
-                  className="h-9 flex-[1.2] rounded-lg bg-rose-600 text-[13px] font-semibold text-white shadow-sm transition hover:bg-rose-700"
+                  className="h-11 flex-[1.2] rounded-xl bg-rose-600 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700"
                 >
                   다음
                 </button>
               </div>
             ) : (
-              <div className="mt-4 flex gap-1.5">
+              <div className="mt-4 flex gap-2">
                 <button
                   type="button"
                   onClick={onWithdrawConfirmBack}
                   disabled={isWithdrawSubmitting}
-                  className="h-9 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-sm font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   이전
                 </button>
@@ -685,7 +678,7 @@ export function MyPageForm({
                   type="button"
                   onClick={() => void onSubmitWithdrawAccount()}
                   disabled={isWithdrawSubmitting}
-                  className="h-9 flex-[1.2] rounded-lg bg-rose-600 text-[13px] font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 flex-[1.2] rounded-xl bg-rose-600 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isWithdrawSubmitting ? "처리 중…" : "탈퇴하기"}
                 </button>

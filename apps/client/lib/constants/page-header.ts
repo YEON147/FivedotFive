@@ -5,7 +5,7 @@
 
 /** 풀폭 페이지 헤더 (`mb-4` · `w-full shrink-0` 포함) — 랭킹·회원가입·내정보 */
 export const PAGE_HEADER_ROW =
-  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pr-[1.8%] pt-[7%]";
+  "relative z-40 mb-3 flex w-full shrink-0 items-center justify-between gap-2.5 pr-[1.8%] pt-[7%]";
 
 /**
  * 위시 메인/공개 프로필 타이틀 줄 — 위와 패딩·정렬은 같고 `mb-4`·`w-full shrink-0` 없음
