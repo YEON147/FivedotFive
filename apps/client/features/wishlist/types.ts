@@ -65,7 +65,11 @@ export type MyBoardData = {
   };
 };
 
+<<<<<<< Updated upstream
 /** GET /api/boards/me/items — `WishItemListResponse` */
+=======
+/** GET /api/boards/me/items — `ApiResponse.data` */
+>>>>>>> Stashed changes
 export type MyWishItemsData = {
   success?: boolean;
   message?: string;

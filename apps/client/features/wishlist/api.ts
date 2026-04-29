@@ -158,15 +158,20 @@ export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
   return apiClient<PublicBoardData>(`/api/boards/${slug}`);
 }
 
+/** Spring `page`는 0부터 — `commentPageIdx`와 동일 */
 export async function getComments(slug: string, page: number): Promise<CommentListData> {
-  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page + 1}&size=6`);
+  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page}&size=6`);
 }
 
 export async function createComment(
   slug: string,
   content: string,
   stickerKey: string,
+<<<<<<< Updated upstream
   slotIndex?: number,
+=======
+  slotIndex: number,
+>>>>>>> Stashed changes
 ): Promise<CommentCreateData> {
   const body: { content: string; stickerKey: string; slotIndex?: number } = {
     content,
@@ -177,7 +182,11 @@ export async function createComment(
   }
   return apiClient<CommentCreateData>(`/api/boards/${slug}/comments`, {
     method: "POST",
+<<<<<<< Updated upstream
     body: JSON.stringify(body),
+=======
+    body: JSON.stringify({ content, stickerKey, slotIndex }),
+>>>>>>> Stashed changes
   });
 }
 
