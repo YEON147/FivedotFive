@@ -65,6 +65,8 @@ type MyPageFormProps = {
   onSubmitPasswordChange: () => Promise<void>;
 
   canWithdrawAccount: boolean;
+  /** false면 카카오 등 — 탈퇴 2단계에서 비밀번호 입력 없음 */
+  withdrawRequiresPassword: boolean;
   isWithdrawModalOpen: boolean;
   withdrawStep: 1 | 2;
   withdrawPassword: string;
@@ -114,6 +116,7 @@ export function MyPageForm({
   onChangePasswordField,
   onSubmitPasswordChange,
   canWithdrawAccount,
+  withdrawRequiresPassword,
   isWithdrawModalOpen,
   withdrawStep,
   withdrawPassword,
@@ -562,7 +565,11 @@ export function MyPageForm({
                 id="mypage-withdraw-title"
                 className="text-lg font-extrabold leading-snug text-[var(--color-text-primary)]"
               >
-                {withdrawStep === 1 ? "회원 탈퇴" : "본인 확인"}
+                {withdrawStep === 1
+                  ? "회원 탈퇴"
+                  : withdrawRequiresPassword
+                    ? "본인 확인"
+                    : "탈퇴 확인"}
               </h3>
 
               <button
@@ -585,9 +592,19 @@ export function MyPageForm({
                     복구할 수 없을 수 있습니다.
                   </p>
                   <p>
-                    정말 탈퇴하시려면 다음 단계에서
-                    <br />
-                    현재 비밀번호를 입력해 주세요.
+                    {withdrawRequiresPassword ? (
+                      <>
+                        정말 탈퇴하시려면 다음 단계에서
+                        <br />
+                        현재 비밀번호를 입력해 주세요.
+                      </>
+                    ) : (
+                      <>
+                        카카오 로그인 계정은 비밀번호 확인 없이
+                        <br />
+                        다음 단계에서 탈퇴를 완료할 수 있습니다.
+                      </>
+                    )}
                   </p>
                 </div>
 
@@ -606,7 +623,7 @@ export function MyPageForm({
                   </ul>
                 </div>
               </div>
-            ) : (
+            ) : withdrawRequiresPassword ? (
               <div className="mt-3">
                 <TextField
                   id="mypage-withdraw-password"
@@ -621,6 +638,13 @@ export function MyPageForm({
                     onChangeWithdrawPassword(event.target.value)
                   }
                 />
+              </div>
+            ) : (
+              <div className="mt-3 text-left text-[13px] leading-relaxed text-[var(--color-text-secondary)]">
+                <p>
+                  카카오로 로그인한 계정입니다. 아래「탈퇴하기」를 누르면 즉시
+                  탈퇴 처리됩니다.
+                </p>
               </div>
             )}
 

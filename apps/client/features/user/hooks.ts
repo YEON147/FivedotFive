@@ -484,6 +484,8 @@ export function useMyPageForm() {
   );
 
   const canWithdrawAccount = originalProfile?.role === "CHILD";
+  /** 카카오는 DB 비밀번호 없음 — 탈퇴 API·UI에서 비밀번호 생략 */
+  const withdrawRequiresPassword = originalProfile?.provider !== "KAKAO";
 
   const openWithdrawModal = useCallback(() => {
     setWithdrawStep(1);
@@ -517,17 +519,22 @@ export function useMyPageForm() {
   }, []);
 
   const submitWithdrawAccount = useCallback(async () => {
-    const trimmed = withdrawPassword.trim();
-    if (!trimmed) {
-      setWithdrawMessage("비밀번호를 입력해 주세요.");
-      return;
+    const needsPassword = originalProfile?.provider !== "KAKAO";
+    if (needsPassword) {
+      const trimmed = withdrawPassword.trim();
+      if (!trimmed) {
+        setWithdrawMessage("비밀번호를 입력해 주세요.");
+        return;
+      }
     }
 
     setIsWithdrawSubmitting(true);
     setWithdrawMessage(null);
 
     try {
-      const response = await deleteMyAccount({ password: trimmed });
+      const response = await deleteMyAccount({
+        password: needsPassword ? withdrawPassword.trim() : "",
+      });
 
       if (response.success) {
         clearAccessToken();
@@ -545,7 +552,7 @@ export function useMyPageForm() {
     } finally {
       setIsWithdrawSubmitting(false);
     }
-  }, [withdrawPassword, router]);
+  }, [withdrawPassword, router, originalProfile?.provider]);
 
   const submitPasswordChange = useCallback(async () => {
     const nextErrors = validatePasswordForm(passwordValues);
@@ -655,6 +662,7 @@ export function useMyPageForm() {
     submitPasswordChange,
 
     canWithdrawAccount,
+    withdrawRequiresPassword,
     isWithdrawModalOpen,
     withdrawStep,
     withdrawPassword,

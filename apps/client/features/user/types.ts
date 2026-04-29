@@ -21,6 +21,8 @@ export type GradeType =
   | "ADULT_60_PLUS"
   | "";
 
+export type AuthProviderType = "LOCAL" | "KAKAO";
+
 export type MyProfile = {
   username: string;
   email: string;
@@ -32,6 +34,8 @@ export type MyProfile = {
   /** 내정보 API `data.hasWishBoard` */
   hasWishBoard: boolean;
   role: "CHILD" | "PARENT" | "ADMIN" | null;
+  /** `GET /api/users/me` — 카카오는 비밀번호 없음, 탈퇴 시 본인 확인 생략 */
+  provider: AuthProviderType | null;
 };
 
 export type MyProfileResponse = {
@@ -47,6 +51,7 @@ export type MyProfileResponse = {
     grade?: Exclude<GradeType, ""> | null;
     hasWishBoard?: boolean;
     role?: string | null;
+    provider?: string | null;
   };
 };
 
@@ -83,6 +88,7 @@ export type ChangePasswordResponse = {
 };
 
 export type DeleteAccountRequest = {
+  /** LOCAL 계정만 필수. KAKAO는 빈 문자열로 전송 */
   password: string;
 };
 
