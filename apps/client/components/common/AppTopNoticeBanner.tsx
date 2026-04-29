@@ -159,19 +159,24 @@ export function AppTopNoticeBanner() {
         <button
           type="button"
           onClick={openNoticeDetailModal}
-          className="flex w-full items-start gap-2 px-3 py-2 text-left transition hover:bg-[#E0D9FF]/80 active:bg-[#E0D9FF]"
+          className="flex w-full justify-center px-4 py-2 transition hover:bg-[#E0D9FF]/80 active:bg-[#E0D9FF]"
         >
-          <span className="mt-0.5 inline-flex shrink-0 text-[var(--color-primary-main)]" aria-hidden>
-            <Bell size={16} weight="bold" />
-          </span>
-          <p className="min-w-0 flex-1 text-[12px] leading-snug text-[var(--color-text-primary)] sm:text-[13px] sm:leading-snug">
-            <span className="line-clamp-2 [overflow-wrap:anywhere]">{target.text}</span>
-          </p>
-          <span
-            className="mt-0.5 inline-flex shrink-0 text-[var(--color-text-secondary)]"
-            aria-hidden
-          >
-            <CaretRight size={16} weight="bold" />
+          {/** 위시 보드보다 살짝 넓은 틀 — (종 + 제목) 왼쪽 묶음 / `>` 는 오른쪽 끝 */}
+          <span className="flex w-full max-w-[400px] items-start justify-between gap-2 sm:max-w-[404px]">
+            <span className="flex min-w-0 flex-1 items-start gap-2">
+              <span className="mt-0.5 mr-1 inline-flex shrink-0 text-[var(--color-primary-main)]" aria-hidden>
+                <Bell size={16} weight="bold" />
+              </span>
+              <p className="min-w-0 flex-1 text-left text-[12px] leading-snug text-[var(--color-text-primary)] sm:text-[13px] sm:leading-snug">
+                <span className="line-clamp-2 [overflow-wrap:anywhere]">{target.text}</span>
+              </p>
+            </span>
+            <span
+              className="mt-0.5 inline-flex shrink-0 self-start text-[var(--color-text-secondary)]"
+              aria-hidden
+            >
+              <CaretRight size={16} weight="bold" />
+            </span>
           </span>
         </button>
       </div>
