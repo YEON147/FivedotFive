@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretRight, PushPin } from "@phosphor-icons/react";
+import { PushPin } from "@phosphor-icons/react";
 
 import type { NoticeItem } from "@/features/notice/api";
 import { formatNoticeListDate } from "@/features/notice/format-notice-datetime";
@@ -10,55 +10,61 @@ type Props = {
   onRowActivate: (id: number) => void;
 };
 
-const CARD_CLASS =
-  "group w-full rounded-[18px] border border-[var(--color-border)]/90 bg-[var(--color-surface)]/95 px-4 py-4 text-left shadow-none backdrop-blur-[2px] transition duration-200 " +
-  "hover:border-[#7B61FF]/35 hover:bg-white hover:shadow-[0_6px_20px_rgba(123,97,255,0.09)] " +
-  "active:scale-[0.995] dark:border-zinc-700/80 dark:bg-zinc-900/35 dark:hover:border-[#7B61FF]/40 dark:hover:bg-zinc-900/55";
+const TABLE_CARD =
+  "w-full overflow-hidden rounded-[18px] border border-[var(--color-border)]/90 bg-[var(--color-surface)] shadow-[0_6px_28px_rgba(15,23,42,0.06)] dark:border-zinc-700/80 dark:bg-zinc-900/40";
+
+const ROW_BUTTON =
+  "flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition hover:bg-[#7B61FF]/[0.06] active:bg-[#7B61FF]/[0.1] dark:hover:bg-white/[0.04]";
 
 /**
- * 공지 목록 — 카드형 리스트 (제목 / 등록일). 탭·Enter 로 상세.
+ * 공지 목록 — 단일 카드 안 테이블형 (헤더 행 + 제목/등록일 열). 탭·Enter 로 상세.
  */
 export function NoticeListTable({ notices, onRowActivate }: Props) {
   return (
-    <ul className="mt-3 flex list-none flex-col gap-2 p-0 sm:gap-2.5">
-      {notices.map((n) => (
-        <li key={n.id}>
-          <button type="button" onClick={() => onRowActivate(n.id)} className={CARD_CLASS}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start gap-2.5">
-                  {n.isPinned ? (
-                    <span
-                      className="mt-0.5 inline-flex shrink-0 text-[#7B61FF]"
-                      aria-label="고정 공지"
-                      title="고정"
-                    >
-                      <PushPin size={18} weight="fill" />
-                    </span>
-                  ) : null}
-                  <span className="min-w-0 text-[15px] font-semibold leading-[1.45] tracking-[-0.01em] text-[var(--color-text-primary)] group-hover:text-[#5B4FC9] sm:text-base">
-                    {n.title}
+    <div className={`mt-3 ${TABLE_CARD}`}>
+      <div className="flex items-center justify-between px-4 pb-2.5 pt-3.5">
+        <span className="text-[12px] font-medium text-[var(--color-text-secondary)] sm:text-[13px]">
+          제목
+        </span>
+        <span className="text-[12px] font-medium text-[var(--color-text-secondary)] sm:text-[13px]">
+          등록일
+        </span>
+      </div>
+      <div className="h-px w-full bg-[var(--color-border)]" aria-hidden />
+      <ul className="m-0 list-none divide-y divide-[var(--color-border)] p-0">
+        {notices.map((n) => (
+          <li key={n.id}>
+            <button type="button" onClick={() => onRowActivate(n.id)} className={ROW_BUTTON}>
+              <div className="flex min-w-0 flex-1 items-start gap-2">
+                {n.isPinned ? (
+                  <span
+                    className="mt-0.5 inline-flex shrink-0 text-[#7B61FF]"
+                    aria-label="고정 공지"
+                    title="고정"
+                  >
+                    <PushPin size={16} weight="fill" />
                   </span>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
-                <time
-                  dateTime={n.createdAt}
-                  className="tabular-nums text-[12px] text-[var(--color-text-secondary)] sm:text-[13px]"
+                ) : null}
+                <span
+                  className={
+                    n.isPinned
+                      ? "min-w-0 flex-1 text-[14px] leading-snug text-[#7B61FF] sm:text-[15px]"
+                      : "min-w-0 flex-1 text-[14px] leading-snug text-[var(--color-text-primary)] sm:text-[15px]"
+                  }
                 >
-                  {formatNoticeListDate(n.createdAt)}
-                </time>
-                <CaretRight
-                  className="size-4 shrink-0 text-slate-300 opacity-60 transition group-hover:translate-x-0.5 group-hover:text-[#7B61FF] group-hover:opacity-100"
-                  weight="bold"
-                  aria-hidden
-                />
+                  {n.title}
+                </span>
               </div>
-            </div>
-          </button>
-        </li>
-      ))}
-    </ul>
+              <time
+                dateTime={n.createdAt}
+                className="shrink-0 tabular-nums text-[12px] text-[var(--color-text-secondary)] sm:text-[13px]"
+              >
+                {formatNoticeListDate(n.createdAt)}
+              </time>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
