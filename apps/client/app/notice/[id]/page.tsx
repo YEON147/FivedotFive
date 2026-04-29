@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   deleteAdminNotice,
   fetchNoticeDetail,
@@ -63,6 +64,8 @@ export default function NoticeDetailPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (noticeId == null) {
@@ -186,21 +189,30 @@ export default function NoticeDetailPage() {
     [bannerText, endAtLocal, files, isPinned, noticeId, router, startAtLocal, title],
   );
 
-  const onDelete = useCallback(async () => {
+  const openDeleteConfirm = useCallback(() => {
+    setDeleteModalError(null);
+    setDeleteConfirmOpen(true);
+  }, []);
+
+  const closeDeleteDialog = useCallback(() => {
+    if (isDeleting) return;
+    setDeleteModalError(null);
+    setDeleteConfirmOpen(false);
+  }, [isDeleting]);
+
+  const handleDeleteConfirm = useCallback(async () => {
     if (noticeId == null) return;
-    if (!window.confirm("이 공지를 삭제할까요? 삭제하면 되돌릴 수 없습니다.")) {
-      return;
-    }
-    setSubmitError(null);
+    setDeleteModalError(null);
     setIsDeleting(true);
     try {
       const res = await deleteAdminNotice(noticeId);
       if (!res.success) {
         throw new Error(res.message ?? "삭제에 실패했습니다.");
       }
+      setDeleteConfirmOpen(false);
       router.replace("/notice");
     } catch (err) {
-      setSubmitError(
+      setDeleteModalError(
         err instanceof Error ? err.message : "삭제 중 오류가 발생했습니다.",
       );
     } finally {
@@ -422,11 +434,11 @@ export default function NoticeDetailPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => void onDelete()}
-                      disabled={isDeleting || isSubmitting}
+                      onClick={openDeleteConfirm}
+                      disabled={isSubmitting}
                       className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-body font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
                     >
-                      {isDeleting ? "삭제 중…" : "삭제"}
+                      삭제
                     </button>
                   </div>
                 </form>
@@ -480,6 +492,43 @@ export default function NoticeDetailPage() {
           </div>
         </div>
       </div>
+
+      <WishlistCenterDialog
+        variant="static"
+        open={deleteConfirmOpen}
+        onClose={closeDeleteDialog}
+        title="공지를 삭제할까요?"
+        titleId="notice-delete-confirm-title"
+        description={
+          <span className="block leading-relaxed">
+            삭제하면 되돌릴 수 없습니다.
+          </span>
+        }
+      >
+        <div className="mt-5 flex flex-col gap-3">
+          {deleteModalError ? (
+            <p className="text-center text-xs text-red-500">{deleteModalError}</p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={closeDeleteDialog}
+              disabled={isDeleting}
+              className="rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeleteConfirm()}
+              disabled={isDeleting}
+              className="rounded-[14px] bg-rose-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-500 disabled:opacity-40"
+            >
+              {isDeleting ? "삭제 중…" : "삭제하기"}
+            </button>
+          </div>
+        </div>
+      </WishlistCenterDialog>
     </main>
   );
 }
