@@ -6,7 +6,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
-import { fetchNotices, type NoticeItem } from "@/features/notice/api";
+import { NoticeReadOnlyDetail } from "@/components/notice/NoticeReadOnlyDetail";
+import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
+import {
+  fetchNoticeDetail,
+  fetchNotices,
+  type NoticeDetail,
+  type NoticeItem,
+} from "@/features/notice/api";
 import { formatNoticeDateTime } from "@/features/notice/format-notice-datetime";
 import { getMyProfile } from "@/features/user/api";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
@@ -24,6 +31,11 @@ export default function NoticePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailData, setDetailData] = useState<NoticeDetail | null>(null);
 
   const loadNotices = useCallback(async () => {
     setIsLoading(true);
@@ -79,6 +91,34 @@ export default function NoticePage() {
   const handleHeaderBack = useCallback(() => {
     navigateAppBack(router, "/");
   }, [router]);
+
+  const closeDetailModal = useCallback(() => {
+    setDetailModalOpen(false);
+    setDetailError(null);
+    setDetailData(null);
+  }, []);
+
+  const openNoticeDetail = useCallback((id: number) => {
+    setDetailModalOpen(true);
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetailData(null);
+    void (async () => {
+      try {
+        const res = await fetchNoticeDetail(id);
+        if (!res.success || !res.data) {
+          throw new Error(res.message ?? "공지를 불러오지 못했습니다.");
+        }
+        setDetailData(res.data);
+      } catch (e) {
+        setDetailError(
+          e instanceof Error ? e.message : "공지를 불러오는 중 오류가 발생했습니다.",
+        );
+      } finally {
+        setDetailLoading(false);
+      }
+    })();
+  }, []);
 
   return (
     <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
@@ -148,9 +188,10 @@ export default function NoticePage() {
               <ul className="flex flex-col gap-2">
                 {notices.map((n) => (
                   <li key={n.id}>
-                    <Link
-                      href={`/notice/${n.id}`}
-                      className="block rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 shadow-sm transition hover:bg-[var(--color-bg-subtle)]"
+                    <button
+                      type="button"
+                      onClick={() => openNoticeDetail(n.id)}
+                      className="block w-full rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-left shadow-sm transition hover:bg-[var(--color-bg-subtle)]"
                     >
                       <div className="flex items-start gap-2">
                         {n.isPinned ? (
@@ -174,7 +215,7 @@ export default function NoticePage() {
                           </p>
                         </div>
                       </div>
-                    </Link>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -182,6 +223,50 @@ export default function NoticePage() {
           </div>
         </div>
       </div>
+
+      <WishlistCenterDialog
+        variant="static"
+        open={detailModalOpen}
+        onClose={closeDetailModal}
+        title={detailData?.title?.trim() ? detailData.title : "공지 상세"}
+        titleLeading={
+          detailData?.isPinned ? (
+            <span className="text-[#7B61FF]" aria-label="고정 공지" title="고정">
+              <PushPin size={20} weight="fill" />
+            </span>
+          ) : undefined
+        }
+        titleId="notice-list-detail-modal-title"
+        description={false}
+      >
+        <div className="mt-1 max-h-[min(72vh,600px)] overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+          {detailLoading ? (
+            <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">
+              불러오는 중…
+            </p>
+          ) : detailError ? (
+            <p className="py-4 text-center text-sm text-rose-600">{detailError}</p>
+          ) : detailData ? (
+            <>
+              <NoticeReadOnlyDetail
+                detail={detailData}
+                asModal
+                summaryOnly={!isAdmin}
+                suppressTitleRow
+              />
+              {isAdmin ? (
+                <Link
+                  href={`/notice/${detailData.id}`}
+                  onClick={closeDetailModal}
+                  className="mt-5 flex w-full items-center justify-center rounded-xl bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
+                >
+                  수정하기
+                </Link>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </WishlistCenterDialog>
     </main>
   );
 }

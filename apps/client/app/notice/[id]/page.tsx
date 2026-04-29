@@ -1,10 +1,11 @@
 "use client";
 
-import { CaretLeft, PushPin, TextAlignJustify } from "@phosphor-icons/react";
+import { CaretLeft, TextAlignJustify } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { NoticeReadOnlyDetail } from "@/components/notice/NoticeReadOnlyDetail";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   deleteAdminNotice,
@@ -12,7 +13,6 @@ import {
   updateAdminNotice,
   type NoticeDetail,
 } from "@/features/notice/api";
-import { formatNoticeDateTime } from "@/features/notice/format-notice-datetime";
 import { getMyProfile } from "@/features/user/api";
 import { compressImagesForUpload } from "@/lib/images/compress-images-for-upload";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
@@ -389,7 +389,7 @@ export default function NoticeDetailPage() {
                             <img
                               src={img.imageUrl}
                               alt=""
-                              className="max-h-48 w-full rounded-lg object-contain ring-1 ring-black/5"
+                              className="max-h-48 w-full object-contain"
                             />
                           </li>
                         ))}
@@ -444,50 +444,7 @@ export default function NoticeDetailPage() {
                 </form>
               </>
             ) : (
-              <>
-                <div className="mb-4 flex items-start gap-2">
-                  {detail.isPinned ? (
-                    <span
-                      className="mt-1 inline-flex shrink-0 text-[#7B61FF]"
-                      aria-label="고정 공지"
-                      title="고정"
-                    >
-                      <PushPin size={22} weight="fill" />
-                    </span>
-                  ) : null}
-                  <h1 className="text-h2 min-w-0 flex-1 text-[var(--color-text-primary)]">
-                    {detail.title}
-                  </h1>
-                </div>
-
-                {detail.bannerText ? (
-                  <p className="mb-3 text-body text-[var(--color-text-secondary)]">
-                    {detail.bannerText}
-                  </p>
-                ) : null}
-
-                <p className="text-xs text-[var(--color-text-secondary)]">
-                  등록 {formatNoticeDateTime(detail.createdAt)}
-                </p>
-                <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-                  노출 {formatNoticeDateTime(detail.startAt)} ~{" "}
-                  {formatNoticeDateTime(detail.endAt)}
-                </p>
-
-                {sortedImages.length > 0 ? (
-                  <ul className="mt-4 flex flex-col gap-3">
-                    {sortedImages.map((img) => (
-                      <li key={`${img.displayOrder}-${img.imageUrl}`}>
-                        <img
-                          src={img.imageUrl}
-                          alt=""
-                          className="w-full rounded-xl object-contain ring-1 ring-black/5"
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </>
+              <NoticeReadOnlyDetail detail={detail} summaryOnly />
             )}
           </div>
         </div>
