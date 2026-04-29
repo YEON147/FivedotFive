@@ -72,6 +72,7 @@ import {
 import { getAssetImageUrl } from "@/lib/asset-url";
 import {
   PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_LEADING_CLUSTER,
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
@@ -161,25 +162,27 @@ function PublicBoardProfileHeader({
 
   return (
     <header className={PAGE_HEADER_ROW_COMPACT}>
-      {onBack ? (
-        <button
-          type="button"
-          onClick={onBack}
-          className={PAGE_HEADER_BACK_BUTTON}
-          aria-label="이전 페이지로"
-        >
-          <CaretLeftIcon size={22} weight="bold" />
-        </button>
-      ) : null}
-      <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
-        <span className="block">
-          <span className="inline-flex items-baseline gap-0.5">
-            <span className="font-bold leading-[0.8] text-[#7B61FF]">{displayName}</span>
-            <span className="text-[18px] font-light leading-none text-slate-900">님의</span>
+      <div className={`${PAGE_HEADER_LEADING_CLUSTER} items-start`}>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className={PAGE_HEADER_BACK_BUTTON}
+            aria-label="이전 페이지로"
+          >
+            <CaretLeftIcon size={22} weight="bold" />
+          </button>
+        ) : null}
+        <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
+          <span className="block">
+            <span className="inline-flex items-baseline gap-0.5">
+              <span className="font-bold leading-[0.8] text-[#7B61FF]">{displayName}</span>
+              <span className="text-[18px] font-light leading-none text-slate-900">님의</span>
+            </span>
           </span>
-        </span>
-        <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">위시리스트</span>
-      </h1>
+          <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">위시리스트</span>
+        </h1>
+      </div>
       <button
         type="button"
         onClick={onMenuClick}

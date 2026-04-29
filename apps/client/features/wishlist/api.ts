@@ -166,10 +166,18 @@ export async function createComment(
   slug: string,
   content: string,
   stickerKey: string,
+  slotIndex?: number,
 ): Promise<CommentCreateData> {
+  const body: { content: string; stickerKey: string; slotIndex?: number } = {
+    content,
+    stickerKey,
+  };
+  if (slotIndex !== undefined) {
+    body.slotIndex = slotIndex;
+  }
   return apiClient<CommentCreateData>(`/api/boards/${slug}/comments`, {
     method: "POST",
-    body: JSON.stringify({ content, stickerKey }),
+    body: JSON.stringify(body),
   });
 }
 

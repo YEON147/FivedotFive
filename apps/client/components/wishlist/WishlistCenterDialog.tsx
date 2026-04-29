@@ -52,10 +52,7 @@ function DialogChrome({
           {titleLeading != null && titleLeading !== false ? (
             <span className="mt-0.5 inline-flex shrink-0">{titleLeading}</span>
           ) : null}
-          <h2
-            id={titleId}
-            className="min-w-0 flex-1 text-[17px] font-extrabold leading-snug tracking-[-0.02em] text-slate-800 sm:text-[18px]"
-          >
+          <h2 id={titleId} className="min-w-0 flex-1 text-h3 text-slate-900">
             {title}
           </h2>
         </div>
@@ -104,12 +101,12 @@ export function WishlistCenterDialog({
       <>
         <button
           type="button"
-          className="fixed inset-0 z-[100] cursor-default bg-black/45"
+          className="fixed inset-0 z-[40] cursor-default bg-black/45"
           aria-label="닫기"
           onClick={onClose}
         />
         <div
-          className={`fixed left-1/2 top-1/2 z-[101] -translate-x-1/2 -translate-y-1/2 ${panelClassName}`}
+          className={`fixed left-1/2 top-1/2 z-[41] -translate-x-1/2 -translate-y-1/2 ${panelClassName}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
