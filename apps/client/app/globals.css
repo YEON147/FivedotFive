@@ -140,6 +140,21 @@ body,
     );
 }
 
+/** 공지 상세 등 — 모달 패널을 페이지 오로라와 맞출 때 (`WishlistCenterDialog` panelTone=aurora) */
+.app-dialog-panel-aurora {
+  background:
+    radial-gradient(ellipse 130% 85% at 18% 12%, rgba(214, 236, 255, 0.72) 0%, transparent 58%),
+    radial-gradient(ellipse 95% 75% at 92% 38%, rgba(236, 228, 255, 0.78) 0%, transparent 52%),
+    radial-gradient(ellipse 110% 70% at 42% 95%, rgba(199, 228, 255, 0.42) 0%, transparent 48%),
+    linear-gradient(
+      168deg,
+      #f3f8ff 0%,
+      var(--color-bg-lavender) 36%,
+      #dceeff 68%,
+      #ebe4ff 100%
+    );
+}
+
 html {
   min-width: var(--app-min-viewport-width);
   overflow-x: auto;
@@ -315,17 +330,23 @@ select:-webkit-autofill:focus {
  */
 .app-shell-viewport-floor {
   position: fixed;
-  top: 0;
+  /* 루트 공지 배너(`AppTopNoticeBanner`) 높이만큼 아래에서 시작 — 전체 화면 고정이 배너를 가리지 않음 */
+  top: var(--app-top-banner-h, 0px);
   left: 0;
   bottom: 0;
   box-sizing: border-box;
   min-width: var(--app-min-viewport-width);
   width: max(100vw, var(--app-min-viewport-width));
-  height: 100dvh;
-  max-height: 100dvh;
-  max-height: 100svh;
+  height: calc(100dvh - var(--app-top-banner-h, 0px));
+  max-height: calc(100dvh - var(--app-top-banner-h, 0px));
+  max-height: calc(100svh - var(--app-top-banner-h, 0px));
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/** 배너가 노치 영역을 이미 채움 — 고정 셸에서는 중복 safe-area 상단 패딩 제거 */
+html[data-notice-banner-visible] main.wishlist-page-root.app-shell-viewport-floor {
+  padding-top: 0 !important;
 }
 
 /** 위시 `main`만 — 뷰포트 셸 `overflow:hidden`이 스티커·호버 링을 잘라내지 않도록 */

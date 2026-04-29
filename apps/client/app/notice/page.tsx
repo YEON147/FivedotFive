@@ -13,7 +13,6 @@ import {
   NoticeListLoadingPlaceholder,
 } from "@/components/notice/NoticeListPlaceholders";
 import { NoticeListTable } from "@/components/notice/NoticeListTable";
-import { NoticePageHeading } from "@/components/notice/NoticePageHeading";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   fetchNoticeDetail,
@@ -152,6 +151,10 @@ export default function NoticePage() {
               <CaretLeft size={22} weight="bold" />
             </button>
 
+            <h1 className="min-w-0 flex-1 truncate text-center text-h3 text-[var(--color-text-primary)]">
+              공지사항
+            </h1>
+
             <button
               type="button"
               onClick={(event) => {
@@ -167,20 +170,16 @@ export default function NoticePage() {
           </header>
 
           <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-4 pt-0 sm:px-3">
-            <NoticePageHeading
-              title="공지사항"
-              description="서비스 안내와 업데이트를 확인하세요"
-              action={
-                isAdmin ? (
-                  <Link
-                    href="/notice/write"
-                    className="rounded-full bg-[#7B61FF] px-3.5 py-2 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(123,97,255,0.35)] transition hover:bg-[#6B51EF] hover:shadow-[0_4px_12px_rgba(123,97,255,0.4)] active:scale-[0.98]"
-                  >
-                    작성
-                  </Link>
-                ) : undefined
-              }
-            />
+            {isAdmin ? (
+              <div className="mb-4 flex justify-end">
+                <Link
+                  href="/notice/write"
+                  className="rounded-full bg-[#7B61FF] px-3.5 py-2 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(123,97,255,0.35)] transition hover:bg-[#6B51EF] hover:shadow-[0_4px_12px_rgba(123,97,255,0.4)] active:scale-[0.98]"
+                >
+                  작성
+                </Link>
+              </div>
+            ) : null}
 
             {loadError ? (
               <NoticeListErrorBanner message={loadError} onRetry={() => void loadNotices()} />
@@ -199,6 +198,7 @@ export default function NoticePage() {
 
       <WishlistCenterDialog
         variant="static"
+        panelTone="aurora"
         open={detailModalOpen}
         onClose={closeDetailModal}
         title={detailData?.title?.trim() ? detailData.title : "공지 상세"}
