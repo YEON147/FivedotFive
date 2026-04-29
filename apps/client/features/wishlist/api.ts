@@ -158,26 +158,24 @@ export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
   return apiClient<PublicBoardData>(`/api/boards/${slug}`);
 }
 
+/** Spring `page`는 0부터 — `commentPageIdx`와 동일 */
 export async function getComments(slug: string, page: number): Promise<CommentListData> {
-  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page + 1}&size=6`);
+  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page}&size=6`);
 }
 
+/**
+ * POST /api/boards/:slug/comments — CHILD
+ * 서버 `CommentCreateRequest`: `slotIndex` 필수(`@NotNull`), `stickerKey` 선택
+ */
 export async function createComment(
   slug: string,
   content: string,
   stickerKey: string,
-  slotIndex?: number,
+  slotIndex: number,
 ): Promise<CommentCreateData> {
-  const body: { content: string; stickerKey: string; slotIndex?: number } = {
-    content,
-    stickerKey,
-  };
-  if (slotIndex !== undefined) {
-    body.slotIndex = slotIndex;
-  }
   return apiClient<CommentCreateData>(`/api/boards/${slug}/comments`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ content, stickerKey, slotIndex }),
   });
 }
 
