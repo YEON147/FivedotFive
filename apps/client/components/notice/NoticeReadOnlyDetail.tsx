@@ -126,6 +126,9 @@ function NoticeImageCarousel({
       ? "relative min-h-0 w-full flex-1 overflow-hidden select-none"
       : "relative h-[min(60vh,520px)] w-full overflow-hidden select-none";
 
+  /** 모바일: 부모 `overflow-y-auto`가 세로 스크롤로 터치를 가로채지 않도록 가로 스와이프 구역만 기본 제스처 차단 */
+  const touchSwipeClass = images.length > 1 ? "touch-none" : "";
+
   return (
     <div
       className={
@@ -136,7 +139,7 @@ function NoticeImageCarousel({
     >
       <div
         ref={viewportRef}
-        className={viewportClass}
+        className={`${viewportClass} ${touchSwipeClass}`.trim()}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

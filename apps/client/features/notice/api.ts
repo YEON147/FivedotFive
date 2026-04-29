@@ -32,6 +32,29 @@ export async function fetchNotices(): Promise<NoticesListResponse> {
   });
 }
 
+/** GET /api/notices/banners — 노출 기간·배너 문구가 있는 공지만 (Anyone) */
+export type NoticeBannerItem = {
+  id: number;
+  bannerText: string;
+};
+
+export type NoticeBannersListResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    banners: NoticeBannerItem[];
+  };
+};
+
+export async function fetchNoticeBanners(): Promise<NoticeBannersListResponse> {
+  return apiClient<NoticeBannersListResponse>(`${NOTICES_PATH}/banners`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 const ADMIN_NOTICES_PATH = "/api/admin/notices";
 
 export type AdminNoticeCreatePayload = {

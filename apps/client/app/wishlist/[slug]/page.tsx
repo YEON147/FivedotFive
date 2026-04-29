@@ -19,6 +19,7 @@ import {
   type TouchEvent,
 } from "react";
 
+import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { CommentPopup, type CommentStickerTab } from "@/components/wishlist/CommentPopup";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
@@ -996,13 +997,21 @@ export default function PublicWishlistPage({
         </button>
       </WishlistCenterDialog>
 
-      <PublicWishlistVisitorMenu
-        open={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        loggedIn={visitorMenuLoggedIn}
-        onLogout={handleVisitorLogout}
-        loginHref={loginHrefWithReturn}
-      />
+      {visitorMenuLoggedIn ? (
+        <AppSideMenu
+          open={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          onLogout={handleVisitorLogout}
+        />
+      ) : (
+        <PublicWishlistVisitorMenu
+          open={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          loggedIn={false}
+          onLogout={handleVisitorLogout}
+          loginHref={loginHrefWithReturn}
+        />
+      )}
 
       {selectedSlot !== null ? (
         <CommentPopup
