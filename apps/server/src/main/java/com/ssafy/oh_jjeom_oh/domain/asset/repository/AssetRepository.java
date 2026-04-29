@@ -14,15 +14,27 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     List<Asset> findByAssetKeyIn(List<String> assetKeys);
 
-    // stickers/{folder}/{file} 구조에서 folder명을 SPLIT_PART로 추출 (PostgreSQL 전용)
+    /**
+     * 일반: {@code stickers/{폴더}/…} → 첫 경로 세그먼트(balloon 등).
+     * 야구: {@code stickers/baseball/{팀}/…} → 폴더 id {@code baseball/{팀}}.
+     */
     @Query(value = """
-            SELECT DISTINCT SPLIT_PART(asset_key, '/', 2)
+            SELECT DISTINCT CASE
+                WHEN LOWER(asset_key) LIKE 'stickers/baseball/%' THEN
+                    CONCAT(
+                        SPLIT_PART(asset_key, '/', 2),
+                        '/',
+                        SPLIT_PART(asset_key, '/', 3)
+                    )
+                ELSE SPLIT_PART(asset_key, '/', 2)
+            END
             FROM assets
             WHERE asset_type = 'STICKER'
-            ORDER BY SPLIT_PART(asset_key, '/', 2)
+            ORDER BY 1
             """, nativeQuery = true)
     List<String> findDistinctStickerFolders();
 
+    /** {@code folder} 예: {@code balloon}, {@code baseball/giants} — 슬래시 포함 */
     @Query(value = """
             SELECT * FROM assets
             WHERE asset_type = 'STICKER'

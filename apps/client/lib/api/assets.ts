@@ -173,7 +173,7 @@ export async function fetchStickerFolders(
 
 /**
  * GET /api/assets/stickers?boardSlug= — 권한 anyone.
- * 비구단 `boardSlug`이면 서버에서 `stickers/baseball/` 스티커가 제외됩니다.
+ * `boardSlug` 없음·비구단이면 `stickers/baseball/` 제외. 구단 슬러그면 야구 스티커 포함.
  */
 export async function fetchStickerAssets(
   boardSlug?: string | null,
@@ -203,16 +203,37 @@ type StickerFolderApiResponse = {
 };
 
 /**
+ * 폴더 id → URL 경로.
+ * - 일반: `balloon` → `.../folders/balloon` (한 세그먼트)
+ * - 야구: `baseball/giants` → `.../folders/baseball/giants` (Spring 매핑 `baseball/{team}`; %2F 한 덩어리 금지)
+ */
+export function stickerFolderToUrlPath(folder: string): string {
+  const parts = folder.trim().split("/").filter(Boolean);
+  if (parts.length >= 2 && parts[0].toLowerCase() === "baseball") {
+    const rest = parts
+      .slice(1)
+      .map((s) => encodeURIComponent(s))
+      .join("/");
+    return `baseball/${rest}`;
+  }
+  if (parts.length === 1) {
+    return encodeURIComponent(parts[0]!);
+  }
+  return parts.map((s) => encodeURIComponent(s)).join("/");
+}
+
+/**
  * GET /api/assets/stickers/folders/{folder}?boardSlug= — 권한 anyone.
+ * `baseball/bears` → `.../folders/baseball/bears` (슬래시는 경로 구분자).
  * 비구단 보드 문맥에서는 `baseball` 폴더가 빈 목록으로 올 수 있습니다.
  */
 export async function fetchStickersByFolder(
   folder: string,
   boardSlug?: string | null,
 ): Promise<StickerAssetDto[]> {
-  const encoded = encodeURIComponent(folder.trim());
+  const pathSeg = stickerFolderToUrlPath(folder);
   const url = assetsPathWithBoardSlug(
-    `/api/assets/stickers/folders/${encoded}`,
+    `/api/assets/stickers/folders/${pathSeg}`,
     boardSlug,
   );
   const res = await apiClient<StickerFolderApiResponse>(url, {
