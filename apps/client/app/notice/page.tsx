@@ -198,6 +198,7 @@ export default function NoticePage() {
 
       <WishlistCenterDialog
         variant="static"
+        panelTone="aurora"
         open={detailModalOpen}
         onClose={closeDetailModal}
         title={detailData?.title?.trim() ? detailData.title : "공지 상세"}

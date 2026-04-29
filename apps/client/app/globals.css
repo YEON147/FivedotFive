@@ -140,6 +140,21 @@ body,
     );
 }
 
+/** 공지 상세 등 — 모달 패널을 페이지 오로라와 맞출 때 (`WishlistCenterDialog` panelTone=aurora) */
+.app-dialog-panel-aurora {
+  background:
+    radial-gradient(ellipse 130% 85% at 18% 12%, rgba(214, 236, 255, 0.72) 0%, transparent 58%),
+    radial-gradient(ellipse 95% 75% at 92% 38%, rgba(236, 228, 255, 0.78) 0%, transparent 52%),
+    radial-gradient(ellipse 110% 70% at 42% 95%, rgba(199, 228, 255, 0.42) 0%, transparent 48%),
+    linear-gradient(
+      168deg,
+      #f3f8ff 0%,
+      var(--color-bg-lavender) 36%,
+      #dceeff 68%,
+      #ebe4ff 100%
+    );
+}
+
 html {
   min-width: var(--app-min-viewport-width);
   overflow-x: auto;
