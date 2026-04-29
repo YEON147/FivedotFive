@@ -2024,6 +2024,11 @@ export default function WishlistPage() {
         open={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
+        publicWishlistHref={
+          boardSlug
+            ? `/wishlist/${encodeURIComponent(boardSlug)}`
+            : null
+        }
       />
     </main>
   );

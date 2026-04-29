@@ -101,7 +101,7 @@ export function useLoginForm(nextParam?: string | null) {
         nextParam ?? null,
         response.data?.hasWishBoard,
       );
-      router.push(destination);
+      router.replace(destination);
     } catch (error) {
       const message =
         error instanceof Error

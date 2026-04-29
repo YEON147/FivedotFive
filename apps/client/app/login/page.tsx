@@ -4,7 +4,12 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoginForm } from "@/components/common/LoginForm";
 import { useLoginForm } from "@/features/login/hooks";
-import { stashLoginReturnFromReferrer } from "@/features/login/post-login-destination";
+import {
+  resolvePostLoginDestination,
+  stashLoginReturnFromReferrer,
+  stashLoginReturnPath,
+} from "@/features/login/post-login-destination";
+import { getMyProfile } from "@/features/user/api";
 import { getAccessToken } from "@/lib/api/token-store";
 import { KAKAO_OAUTH_START_URL } from "@/lib/constants/login";
 import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
@@ -35,11 +40,28 @@ function LoginPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) return;
-    router.replace("/");
-  }, [router]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await getMyProfile();
+        if (cancelled) return;
+        router.replace(
+          resolvePostLoginDestination(nextParam, profile.hasWishBoard),
+        );
+      } catch {
+        if (cancelled) return;
+        router.replace(resolvePostLoginDestination(nextParam, false));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, nextParam]);
 
   const handleKakaoLogin = () => {
-    stashLoginReturnFromReferrer();
+    if (!stashLoginReturnPath(nextParam)) {
+      stashLoginReturnFromReferrer();
+    }
     window.location.href = KAKAO_OAUTH_START_URL;
   };
 

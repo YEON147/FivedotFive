@@ -18,6 +18,8 @@ import type { NextConfig } from "next";
  * 정적 에셋(상대 /stickers 등 404 방지): ASSET_CDN_REWRITE_TARGET=CloudFront·S3 웹사이트 등 오리진(슬래시 없음).
  * 설정 후 `next dev` 재시작 필요.
  *
+ * ngrok 등 외부 접속: `apps/client/.env.local` 에 NEXT_PUBLIC_NGROK_URL (또는 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS).
+ *
  * 프론트 코드 점검: `fetch`·apiClient 경로는 항상 `/api/...` 로 시작하는지 확인
  * (`/boards/me` 절대 경로만 쓰면 브라우저는 동일 오리진에 두고 /api 가 빠질 수 있음)
  */
@@ -32,8 +34,45 @@ const backendOrigin =
  */
 const assetCdnOrigin = process.env.ASSET_CDN_REWRITE_TARGET?.replace(/\/$/, "");
 
+/**
+ * `.env.local` — NEXT_PUBLIC_NGROK_URL = 터널 전체 URL (예: https://xxxx.ngrok-free.app)
+ * 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS (쉼표, 호스트 또는 URL)
+ */
+function devOriginHostFromEnvEntry(entry: string): string {
+  const t = entry.trim();
+  if (!t) return "";
+  if (/^https?:\/\//i.test(t)) {
+    try {
+      return new URL(t).hostname;
+    } catch {
+      return "";
+    }
+  }
+  return t;
+}
+
+function hostnameFromTunnelUrl(url: string | undefined): string {
+  const u = url?.trim();
+  if (!u) return "";
+  try {
+    return new URL(u).hostname;
+  } catch {
+    return "";
+  }
+}
+
+const tunnelHostsFromEnv = [
+  hostnameFromTunnelUrl(process.env.NEXT_PUBLIC_NGROK_URL),
+  ...(process.env.NEXT_PUBLIC_ALLOWED_DEV_ORIGINS ?? "")
+    .split(",")
+    .map(devOriginHostFromEnvEntry),
+].filter(Boolean);
+
+const extraAllowedDevOrigins = [...new Set(tunnelHostsFromEnv)];
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
+    ...extraAllowedDevOrigins,
     "192.168.31.153",
     "172.24.245.200",
     "192.168.0.12",
@@ -81,3 +120,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+
