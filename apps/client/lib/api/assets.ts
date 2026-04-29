@@ -138,9 +138,26 @@ type StickerFoldersApiResponse = {
   };
 };
 
-/** GET /api/assets/stickers/folders — 스티커 폴더 목록 (Anyone) */
-export async function fetchStickerFolders(): Promise<string[]> {
-  const res = await apiClient<StickerFoldersApiResponse>("/api/assets/stickers/folders", {
+/** 구단 보드 등일 때 야구 에셋 폴더 포함 여부를 서버가 판별할 수 있도록 쿼리로 전달합니다. */
+function assetsPathWithBoardSlug(
+  path: string,
+  boardSlug?: string | null,
+): string {
+  const slug = boardSlug?.trim();
+  if (!slug) return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}boardSlug=${encodeURIComponent(slug)}`;
+}
+
+/** GET /api/assets/stickers/folders?boardSlug= — 스티커 폴더 목록 (Anyone) */
+export async function fetchStickerFolders(
+  boardSlug?: string | null,
+): Promise<string[]> {
+  const url = assetsPathWithBoardSlug(
+    "/api/assets/stickers/folders",
+    boardSlug,
+  );
+  const res = await apiClient<StickerFoldersApiResponse>(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -154,9 +171,15 @@ export async function fetchStickerFolders(): Promise<string[]> {
   return res.data.folders;
 }
 
-/** GET /api/assets/stickers — 권한 anyone */
-export async function fetchStickerAssets(): Promise<StickerAssetDto[]> {
-  const res = await apiClient<StickersApiResponse>("/api/assets/stickers", {
+/**
+ * GET /api/assets/stickers?boardSlug= — 권한 anyone.
+ * `boardSlug` 없음·비구단이면 `stickers/baseball/` 제외. 구단 슬러그면 야구 스티커 포함.
+ */
+export async function fetchStickerAssets(
+  boardSlug?: string | null,
+): Promise<StickerAssetDto[]> {
+  const url = assetsPathWithBoardSlug("/api/assets/stickers", boardSlug);
+  const res = await apiClient<StickersApiResponse>(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -179,20 +202,46 @@ type StickerFolderApiResponse = {
   };
 };
 
-/** GET /api/assets/stickers/folders/{folder} — 권한 anyone */
+/**
+ * 폴더 id → URL 경로.
+ * - 일반: `balloon` → `.../folders/balloon` (한 세그먼트)
+ * - 야구: `baseball/giants` → `.../folders/baseball/giants` (Spring 매핑 `baseball/{team}`; %2F 한 덩어리 금지)
+ */
+export function stickerFolderToUrlPath(folder: string): string {
+  const parts = folder.trim().split("/").filter(Boolean);
+  if (parts.length >= 2 && parts[0].toLowerCase() === "baseball") {
+    const rest = parts
+      .slice(1)
+      .map((s) => encodeURIComponent(s))
+      .join("/");
+    return `baseball/${rest}`;
+  }
+  if (parts.length === 1) {
+    return encodeURIComponent(parts[0]!);
+  }
+  return parts.map((s) => encodeURIComponent(s)).join("/");
+}
+
+/**
+ * GET /api/assets/stickers/folders/{folder}?boardSlug= — 권한 anyone.
+ * `baseball/bears` → `.../folders/baseball/bears` (슬래시는 경로 구분자).
+ * 비구단 보드 문맥에서는 `baseball` 폴더가 빈 목록으로 올 수 있습니다.
+ */
 export async function fetchStickersByFolder(
   folder: string,
+  boardSlug?: string | null,
 ): Promise<StickerAssetDto[]> {
-  const encoded = encodeURIComponent(folder.trim());
-  const res = await apiClient<StickerFolderApiResponse>(
-    `/api/assets/stickers/folders/${encoded}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
+  const pathSeg = stickerFolderToUrlPath(folder);
+  const url = assetsPathWithBoardSlug(
+    `/api/assets/stickers/folders/${pathSeg}`,
+    boardSlug,
   );
+  const res = await apiClient<StickerFolderApiResponse>(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
   if (!res.success || !Array.isArray(res.data?.stickers)) {
     return [];
@@ -215,11 +264,14 @@ type GiftIconsApiResponse = {
 };
 
 /**
- * 선물 아이콘 카탈로그 — 백 GET `/api/assets/gift-icons`.
+ * 선물 아이콘 카탈로그 — 백 GET `/api/assets/gift-icons` (선택 `?boardSlug=`).
  * 각 `assetKey`는 S3 기준 `icons/{카테고리}/{카테고리}-NNN.png` 등(예: `icons/food/food-001.png`) 형태입니다.
  */
-export async function fetchGiftIcons(): Promise<GiftIconDto[]> {
-  const res = await apiClient<GiftIconsApiResponse>("/api/assets/gift-icons", {
+export async function fetchGiftIcons(
+  boardSlug?: string | null,
+): Promise<GiftIconDto[]> {
+  const url = assetsPathWithBoardSlug("/api/assets/gift-icons", boardSlug);
+  const res = await apiClient<GiftIconsApiResponse>(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",

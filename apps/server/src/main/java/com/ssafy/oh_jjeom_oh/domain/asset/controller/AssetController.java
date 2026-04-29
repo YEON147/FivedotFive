@@ -30,10 +30,11 @@ public class AssetController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BACKGROUND_LIST_FOUND, data));
     }
 
-    // GET /api/assets/stickers - 스티커 전체 조회 (Anyone)
+    // GET /api/assets/stickers?boardSlug= - 스티커 전체 조회 (Anyone). boardSlug 없음·비구단이면 야구 제외, 구단 슬러그면 포함.
     @GetMapping("/stickers")
-    public ResponseEntity<ApiResponse<StickerCatalogListResponse>> getStickers() {
-        StickerCatalogListResponse data = assetService.getStickers();
+    public ResponseEntity<ApiResponse<StickerCatalogListResponse>> getStickers(
+            @RequestParam(required = false) String boardSlug) {
+        StickerCatalogListResponse data = assetService.getStickers(boardSlug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_LIST_FOUND, data));
     }
 
@@ -46,16 +47,26 @@ public class AssetController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_FOLDER_LIST_FOUND, data));
     }
 
-    // GET /api/assets/stickers/folders/{folder} - 특정 폴더의 스티커 조회 (Anyone)
+    // 야구 하위: .../folders/baseball/{team} — {*folder} 단일 세그먼트(balloon 등) 바인딩이 깨지는 환경이 있어 분리.
+    @GetMapping("/stickers/folders/baseball/{team}")
+    public ResponseEntity<ApiResponse<StickerFolderResponse>> getStickersByBaseballTeam(
+            @PathVariable String team,
+            @RequestParam(required = false) String boardSlug) {
+        StickerFolderResponse data = assetService.getStickersByFolder("baseball/" + team, boardSlug);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_FOLDER_FOUND, data));
+    }
+
+    // 일반 폴더(balloon 등) 및 단일 세그먼트 baseball — 한 경로 세그먼트만 캡처.
     @GetMapping("/stickers/folders/{folder}")
     public ResponseEntity<ApiResponse<StickerFolderResponse>> getStickersByFolder(
-            @PathVariable String folder) {
-        StickerFolderResponse data = assetService.getStickersByFolder(folder);
+            @PathVariable String folder,
+            @RequestParam(required = false) String boardSlug) {
+        StickerFolderResponse data = assetService.getStickersByFolder(folder, boardSlug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_FOLDER_FOUND, data));
     }
 
     // GET /api/assets/gift-icons?boardSlug={slug} - 선물 아이콘 조회 (Anyone)
-    // boardSlug가 구단 보드이면 야구 아이콘도 포함하여 반환합니다.
+    // boardSlug 없음·비구단이면 icons/baseball/ 제외, 구단이면 포함.
     @GetMapping("/gift-icons")
     public ResponseEntity<ApiResponse<GiftIconListResponse>> getGiftIcons(
             @RequestParam(required = false) String boardSlug) {

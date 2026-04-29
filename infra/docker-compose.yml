@@ -33,6 +33,8 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
+      - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
       - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -58,6 +60,8 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
+      - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
       - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -84,6 +88,8 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
+      - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
       - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -107,6 +113,7 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_NGROK_URL=${NEXT_PUBLIC_NGROK_URL}
     networks:
       - oh-jjeom-oh-net
     restart: always

@@ -55,9 +55,10 @@ public class WishCommentService {
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
         WishBoard board = getBoardBySlug(slug);
 
-        // 어드민 보드이거나 공개 시각이 지난 경우 마스킹 해제
-        boolean isAdminBoard = board.getUser().getRole() == Role.ADMIN;
-        boolean revealed = isAdminBoard || !clock.instant().isBefore(revealAt.atZone(KST).toInstant());
+        // 어드민/구단 보드이거나 공개 시각이 지난 경우 마스킹 해제
+        Role boardOwnerRole = board.getUser().getRole();
+        boolean isAlwaysRevealed = boardOwnerRole == Role.ADMIN || boardOwnerRole == Role.TEAM;
+        boolean revealed = isAlwaysRevealed || !clock.instant().isBefore(revealAt.atZone(KST).toInstant());
 
         Page<WishComment> commentPage =
                 wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(board, PageRequest.of(page, size));

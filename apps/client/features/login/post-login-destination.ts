@@ -81,6 +81,23 @@ export function consumeStashedReturnPath(): string | null {
   return v;
 }
 
+/**
+ * OAuth 등 `next` 쿼리가 유실되기 쉬운 흐름 직전에 호출해 sessionStorage에 복귀 경로를 박아 둠.
+ * `resolvePostLoginDestination`이 `next`가 없을 때 동일 키로 복구한다.
+ */
+export function stashLoginReturnPath(path: string | null | undefined): boolean {
+  if (typeof sessionStorage === "undefined") return false;
+  const safe = sanitizeInternalReturnPath(path ?? null);
+  if (!safe) return false;
+  try {
+    sessionStorage.setItem(RETURN_PATH_STORAGE_KEY, safe);
+    return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 /** 로그인 직후 시점의 referrer (동일 탭에서 비밀번호 로그인 시 간헐적으로 유효) */
 function pathFromDocumentReferrer(): string | null {
   if (typeof document === "undefined" || !document.referrer) return null;

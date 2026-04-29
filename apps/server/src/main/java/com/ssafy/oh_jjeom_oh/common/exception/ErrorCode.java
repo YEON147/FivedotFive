@@ -15,6 +15,7 @@ public enum ErrorCode {
     INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임을 입력해주세요"),
     INVALID_ID_FORMAT(HttpStatus.BAD_REQUEST, "올바르지 않은 아이디 형식입니다."),
     INVALID_NICKNAME_FORMAT(HttpStatus.BAD_REQUEST, "올바르지 않은 닉네임 형식입니다."),
+    PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "비밀번호를 입력해주세요."),
 
     WRONG_PASSWORD(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다."),
     SAME_PASSWORD(HttpStatus.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다."),

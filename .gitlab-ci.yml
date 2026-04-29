@@ -31,6 +31,7 @@ build_frontend:
     # 프론트엔드는 빌드할 때 백엔드 주소가 필요하므로 --build-arg를 넣어줍니다
     - docker build 
       --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL"
+      --build-arg NEXT_PUBLIC_NGROK_URL="$NEXT_PUBLIC_NGROK_URL"
       --build-arg NEXT_PUBLIC_NEIS_API_KEY="$NEIS_API_KEY"
       --build-arg NEXT_PUBLIC_NEIS_API_BASE_URL="$NEIS_API_BASE_URL"
       --build-arg BACKEND_REWRITE_TARGET="$BACKEND_REWRITE_TARGET"
@@ -60,6 +61,8 @@ deploy_staging:
     - export AWS_ACCESS_KEY=$AWS_ACCESS_KEY
     - export AWS_SECRET_KEY=$AWS_SECRET_KEY
     - export ADMIN_PASSWORD=$ADMIN_PASSWORD
+    - export ADMIN2_USERNAME=$ADMIN2_USERNAME 
+    - export ADMIN2_PASSWORD=$ADMIN2_PASSWORD 
     - export AWS_REGION=ap-northeast-2
     - export S3_BUCKET=five-dot-five
     - docker compose up -d postgres redis
@@ -97,6 +100,8 @@ deploy_production:
         export AWS_ACCESS_KEY=$AWS_ACCESS_KEY &&
         export AWS_SECRET_KEY=$AWS_SECRET_KEY &&
         export ADMIN_PASSWORD=$ADMIN_PASSWORD &&
+        export ADMIN2_USERNAME=$ADMIN2_USERNAME &&
+        export ADMIN2_PASSWORD=$ADMIN2_PASSWORD && 
         export MAIL_PASSWORD=$MAIL_PASSWORD &&
         export AWS_REGION=ap-northeast-2 &&
         export S3_BUCKET=five-dot-five &&

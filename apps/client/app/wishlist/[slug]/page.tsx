@@ -3,7 +3,6 @@
 import {
   CaretLeftIcon,
   CaretRightIcon,
-  ChatCircleDots,
   TextAlignJustify,
 } from "@phosphor-icons/react";
 import Link from "next/link";
@@ -17,6 +16,7 @@ import {
   useState,
   type MouseEvent,
   type ReactNode,
+  type TouchEvent,
 } from "react";
 
 import { CommentPopup, type CommentStickerTab } from "@/components/wishlist/CommentPopup";
@@ -70,9 +70,11 @@ import {
 } from "@/lib/api/token-store";
 import { getAssetImageUrl } from "@/lib/asset-url";
 import {
+  PAGE_HEADER_BACK_BUTTON,
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
+import { navigateAppBack } from "@/lib/navigate-app-back";
 import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
 
 function stickerOptionLabelFromAssetKey(assetKey: string): string {
@@ -81,6 +83,19 @@ function stickerOptionLabelFromAssetKey(assetKey: string): string {
   const last = seg[seg.length - 1] ?? assetKey;
   return last.replace(/\.[^.]+$/, "") || assetKey;
 }
+
+/** 캐러셀 스와이프: 버튼·링크 등에서는 페이지 넘김 무시 */
+function isCarouselSwipeInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      "button, a, [role='button'], input, textarea, select, label",
+    ),
+  );
+}
+
+const CAROUSEL_SWIPE_MIN_PX = 56;
+const CAROUSEL_SWIPE_HORIZONTAL_RATIO = 1.15;
 
 /** 서버·Jackson 필드명 차이 + `hasNext` 생략 시에도 `totalCount`로 마지막 면 꽉 참 판별 */
 function resolveIsLastPageFull(p: CommentListPayload): boolean {
@@ -133,19 +148,32 @@ function PublicBoardProfileHeader({
   ownerName,
   isSidebarOpen,
   onMenuClick,
+  onBack,
 }: {
   ownerName: string;
   isSidebarOpen: boolean;
   onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  /** 없으면 좌측 뒤로 버튼 숨김 */
+  onBack?: () => void;
 }) {
   const displayName = ownerName.trim() || "회원";
 
   return (
     <header className={PAGE_HEADER_ROW_COMPACT}>
+      {onBack ? (
+        <button
+          type="button"
+          onClick={onBack}
+          className={PAGE_HEADER_BACK_BUTTON}
+          aria-label="이전 페이지로"
+        >
+          <CaretLeftIcon size={22} weight="bold" />
+        </button>
+      ) : null}
       <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
         <span className="block">
           <span className="inline-flex items-baseline gap-0.5">
-            <span className="font-bold text-[#7B61FF]">{displayName}</span>
+            <span className="font-bold leading-[0.8] text-[#7B61FF]">{displayName}</span>
             <span className="text-[18px] font-light leading-none text-slate-900">님의</span>
           </span>
         </span>
@@ -394,6 +422,11 @@ export default function PublicWishlistPage({
   const [selectedComment, setSelectedComment] = useState<CommentData | null>(null);
 
   const isSliding = useRef(false);
+  const carouselSwipeStartRef = useRef<{
+    x: number;
+    y: number;
+    swipeAllowed: boolean;
+  } | null>(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
@@ -517,11 +550,19 @@ export default function PublicWishlistPage({
     router.push("/login");
   }, [router]);
 
+  const handleNavigateBack = useCallback(() => {
+    navigateAppBack(router, "/");
+  }, [router]);
+
   useEffect(() => {
-    void fetchStickerFolders()
+    void fetchStickerFolders(slug)
       .then((folders) => setApiStickerFolders(folders))
       .catch(() => setApiStickerFolders([]));
-  }, []);
+  }, [slug]);
+
+  useEffect(() => {
+    setCommentStickerFolderId("all");
+  }, [slug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -531,8 +572,8 @@ export default function PublicWishlistPage({
       try {
         const list =
           commentStickerFolderId === "all"
-            ? await fetchStickerAssets()
-            : await fetchStickersByFolder(commentStickerFolderId);
+            ? await fetchStickerAssets(slug)
+            : await fetchStickersByFolder(commentStickerFolderId, slug);
         if (!cancelled) setCommentStickerSheet(list);
       } catch (e) {
         if (!cancelled) {
@@ -549,7 +590,7 @@ export default function PublicWishlistPage({
     return () => {
       cancelled = true;
     };
-  }, [commentStickerFolderId]);
+  }, [commentStickerFolderId, slug]);
 
   useEffect(() => {
     if (selectedSlot !== null && popupMode === "write") {
@@ -630,15 +671,53 @@ export default function PublicWishlistPage({
   }, [currentVisualPage, commentTotalPages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** `totalVisualPagesOverride`: 방금 갱신한 댓글 면 수 반영 전에도 이동할 때 사용 */
-  const navigateTo = (visualPage: number, totalVisualPagesOverride?: number) => {
-    const cap = totalVisualPagesOverride ?? totalVisualPages;
-    if (visualPage < 0 || visualPage >= cap || isSliding.current) return;
-    isSliding.current = true;
-    setCurrentVisualPage(visualPage);
-    setTimeout(() => {
-      isSliding.current = false;
-    }, 350);
-  };
+  const navigateTo = useCallback(
+    (visualPage: number, totalVisualPagesOverride?: number) => {
+      const cap = totalVisualPagesOverride ?? totalVisualPages;
+      if (visualPage < 0 || visualPage >= cap || isSliding.current) return;
+      if (visualPage === currentVisualPage) return;
+      isSliding.current = true;
+      setCurrentVisualPage(visualPage);
+      window.setTimeout(() => {
+        isSliding.current = false;
+      }, 350);
+    },
+    [totalVisualPages, currentVisualPage],
+  );
+
+  const onCarouselTouchStart = useCallback(
+    (e: TouchEvent<HTMLDivElement>) => {
+      if (selectedSlot !== null) return;
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      carouselSwipeStartRef.current = {
+        x: t.clientX,
+        y: t.clientY,
+        swipeAllowed: !isCarouselSwipeInteractiveTarget(e.target),
+      };
+    },
+    [selectedSlot],
+  );
+
+  const onCarouselTouchEnd = useCallback(
+    (e: TouchEvent<HTMLDivElement>) => {
+      const start = carouselSwipeStartRef.current;
+      carouselSwipeStartRef.current = null;
+      if (selectedSlot !== null || !start?.swipeAllowed) return;
+      if (e.changedTouches.length !== 1) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      if (Math.abs(dx) < CAROUSEL_SWIPE_MIN_PX) return;
+      if (Math.abs(dx) < Math.abs(dy) * CAROUSEL_SWIPE_HORIZONTAL_RATIO) return;
+      if (dx < 0) {
+        navigateTo(currentVisualPage + 1);
+      } else {
+        navigateTo(currentVisualPage - 1);
+      }
+    },
+    [currentVisualPage, navigateTo, selectedSlot],
+  );
 
   const handleGoToLastCommentPage = () => {
     if (!visitorMenuLoggedIn) {
@@ -774,7 +853,11 @@ export default function PublicWishlistPage({
                 ) : null}
 
                 {/** 가로 슬라이드만 여기서 — 높이·좌표는 보드 박스 전체(320×680 비율) = 내 위시와 동일 */}
-                <div className="absolute inset-0 z-10 overflow-hidden rounded-[18px]">
+                <div
+                  className="absolute inset-0 z-10 overflow-hidden rounded-[18px] touch-pan-y"
+                  onTouchStart={onCarouselTouchStart}
+                  onTouchEnd={onCarouselTouchEnd}
+                >
                   <div
                     className="absolute inset-0 flex h-full min-h-0 transition-transform duration-300 ease-out"
                     style={{
@@ -843,26 +926,17 @@ export default function PublicWishlistPage({
                       </button>
                     </div>
 
-                    {currentVisualPage === 0 ? (
-                      !visitorMenuLoggedIn && showEmptyCommentSlots ? (
-                        <button
-                          type="button"
-                          onClick={() => setGuestAuthModalOpen(true)}
-                          className="pointer-events-auto shrink-0 rounded-full bg-[#7B61FF] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6b52e0] active:scale-[0.98]"
-                        >
-                          댓글 작성
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleGoToLastCommentPage}
-                          className="pointer-events-auto flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0]"
-                          aria-label="댓글 작성하러 가기"
-                          title="댓글 작성하러 가기"
-                        >
-                          <ChatCircleDots size={23} weight="bold" />
-                        </button>
-                      )
+                    {currentVisualPage === 0 && totalVisualPages > 1 ? (
+                      <button
+                        type="button"
+                        onClick={handleGoToLastCommentPage}
+                        className="pointer-events-auto flex max-w-[min(200px,calc(100vw-6rem))] shrink-0 items-center justify-center gap-2 rounded-full bg-[#7B61FF] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6b52e0] active:scale-[0.98]"
+                        aria-label="마지막 댓글 페이지로 이동"
+                        title="위시 다음 페이지들 중 가장 마지막(댓글)으로 이동합니다"
+                      >
+                        <CaretRightIcon size={20} weight="bold" className="shrink-0 opacity-95" aria-hidden />
+                        <span className="min-w-0 truncate">마지막 페이지로</span>
+                      </button>
                     ) : null}
                   </div>
                 </div>
@@ -871,6 +945,7 @@ export default function PublicWishlistPage({
                   ownerName={ownerName}
                   isSidebarOpen={isSidebarOpen}
                   onMenuClick={handleVisitorMenuClick}
+                  onBack={handleNavigateBack}
                 />
               </div>
             </div>
