@@ -29,6 +29,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -38,6 +39,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class NoticeService {
+
+    /**
+     * 관리자 화면·클라이언트 {@code datetime-local} 값은 사용자 로컬(서비스 대상: 한국) 벽시계로 저장됩니다.
+     * JVM 기본 타임존(도커 등에서 UTC)과 섞이면 노출 기간 비교가 어긋나 일반 사용자 목록이 비게 됩니다.
+     */
+    private static final ZoneId NOTICE_ZONE = ZoneId.of("Asia/Seoul");
 
     private final NoticeRepository noticeRepository;
     private final S3Client s3Client;
@@ -54,7 +61,7 @@ public class NoticeService {
     public NoticeListResponse getNotices() {
         List<Notice> notices = isAdmin()
                 ? noticeRepository.findAllByOrderByIsPinnedDescStartAtDesc()
-                : noticeRepository.findActiveNotices(LocalDateTime.now());
+                : noticeRepository.findActiveNotices(noticeNow());
         return NoticeListResponse.of(notices);
     }
 
@@ -71,7 +78,7 @@ public class NoticeService {
 
     @Transactional(readOnly = true)
     public BannerListResponse getBanners() {
-        List<Notice> banners = noticeRepository.findActiveBanners(LocalDateTime.now());
+        List<Notice> banners = noticeRepository.findActiveBanners(noticeNow());
         return BannerListResponse.of(banners);
     }
 
@@ -226,8 +233,13 @@ public class NoticeService {
     }
 
     private boolean isActive(Notice notice) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = noticeNow();
         return !now.isBefore(notice.getStartAt()) && !now.isAfter(notice.getEndAt());
+    }
+
+    /** 공지 노출 구간 비교용 현재 시각 (저장된 start/end 와 동일한 벽시계 기준). */
+    private LocalDateTime noticeNow() {
+        return LocalDateTime.now(NOTICE_ZONE);
     }
 
     private boolean isAdmin() {
