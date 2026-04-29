@@ -426,6 +426,7 @@ export function useMyPageForm() {
         grade: response.data?.grade ?? payload.grade,
         hasWishBoard: originalProfile?.hasWishBoard ?? false,
         role: originalProfile?.role ?? null,
+        provider: originalProfile?.provider ?? null,
       };
 
       setOriginalProfile(updatedProfile);
