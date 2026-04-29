@@ -163,30 +163,19 @@ export async function getComments(slug: string, page: number): Promise<CommentLi
   return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page}&size=6`);
 }
 
+/**
+ * POST /api/boards/:slug/comments — CHILD
+ * 서버 `CommentCreateRequest`: `slotIndex` 필수(`@NotNull`), `stickerKey` 선택
+ */
 export async function createComment(
   slug: string,
   content: string,
   stickerKey: string,
-<<<<<<< Updated upstream
-  slotIndex?: number,
-=======
   slotIndex: number,
->>>>>>> Stashed changes
 ): Promise<CommentCreateData> {
-  const body: { content: string; stickerKey: string; slotIndex?: number } = {
-    content,
-    stickerKey,
-  };
-  if (slotIndex !== undefined) {
-    body.slotIndex = slotIndex;
-  }
   return apiClient<CommentCreateData>(`/api/boards/${slug}/comments`, {
     method: "POST",
-<<<<<<< Updated upstream
-    body: JSON.stringify(body),
-=======
     body: JSON.stringify({ content, stickerKey, slotIndex }),
->>>>>>> Stashed changes
   });
 }
 
