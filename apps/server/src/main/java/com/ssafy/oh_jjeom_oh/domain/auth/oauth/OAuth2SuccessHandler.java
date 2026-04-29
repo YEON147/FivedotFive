@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -39,9 +41,19 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         redisTemplate.opsForValue().set("RT:" + refreshToken, username, 604800, TimeUnit.SECONDS);
 
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(604800)
+                .sameSite("Lax")
+                .domain("fivedotfive.co.kr") // 실서버 무결성을 위해 도메인 명시
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
         String targetUrl = UriComponentsBuilder.fromUriString("https://fivedotfive.co.kr/oauth/callback")
                 .queryParam("accessToken", accessToken)
-                .queryParam("refreshToken", refreshToken)
+                //.queryParam("refreshToken", refreshToken)
                 .build().toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);

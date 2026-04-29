@@ -561,6 +561,10 @@ export default function PublicWishlistPage({
   }, [slug]);
 
   useEffect(() => {
+    setCommentStickerFolderId("all");
+  }, [slug]);
+
+  useEffect(() => {
     let cancelled = false;
     setCommentStickersLoading(true);
     setCommentStickersError(null);
@@ -568,8 +572,8 @@ export default function PublicWishlistPage({
       try {
         const list =
           commentStickerFolderId === "all"
-            ? await fetchStickerAssets()
-            : await fetchStickersByFolder(commentStickerFolderId);
+            ? await fetchStickerAssets(slug)
+            : await fetchStickersByFolder(commentStickerFolderId, slug);
         if (!cancelled) setCommentStickerSheet(list);
       } catch (e) {
         if (!cancelled) {
@@ -586,7 +590,7 @@ export default function PublicWishlistPage({
     return () => {
       cancelled = true;
     };
-  }, [commentStickerFolderId]);
+  }, [commentStickerFolderId, slug]);
 
   useEffect(() => {
     if (selectedSlot !== null && popupMode === "write") {

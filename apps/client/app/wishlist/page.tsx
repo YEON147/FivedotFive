@@ -114,6 +114,7 @@ const GIFT_ICON_MODAL_TABS = [
   { id: "kpop", label: GIFT_ICON_CATEGORY_LABELS.kpop },
   { id: "hobby", label: GIFT_ICON_CATEGORY_LABELS.hobby },
   { id: "life", label: GIFT_ICON_CATEGORY_LABELS.life },
+  { id: "baseball", label: GIFT_ICON_CATEGORY_LABELS.baseball },
 ] as const;
 
 type GiftIconModalTabId = "all" | GiftIconCategoryId;
@@ -607,6 +608,26 @@ export default function WishlistPage() {
     );
   }, [catalogGiftIconsExtra, giftIconModalTab]);
 
+  /** 야구 아이콘이 없으면(비구단 등) 「야구」 탭 숨김 */
+  const giftIconModalTabsForUi = useMemo(() => {
+    const hasBaseball = giftIcons.some(
+      (g) => giftIconCategoryFromAssetKey(g.assetKey) === "baseball",
+    );
+    return GIFT_ICON_MODAL_TABS.filter(
+      (tab) => tab.id !== "baseball" || hasBaseball,
+    );
+  }, [giftIcons]);
+
+  useEffect(() => {
+    if (giftIconModalTab !== "baseball") return;
+    const hasBaseball = giftIcons.some(
+      (g) => giftIconCategoryFromAssetKey(g.assetKey) === "baseball",
+    );
+    if (!hasBaseball) {
+      setGiftIconModalTab("all");
+    }
+  }, [giftIcons, giftIconModalTab]);
+
   /** 목록 최초 로드 후 — 저장된 키가 카탈로그 첫 항목과 같으면 「기본 선물」로 표시 */
   useEffect(() => {
     if (!isGiftModalOpen || giftModalMode !== "edit") {
@@ -685,12 +706,12 @@ export default function WishlistPage() {
       setStickerSheetError(null);
       try {
         if (stickerModalTab === "all") {
-          const list = await fetchStickerAssets();
+          const list = await fetchStickerAssets(boardSlug);
           if (!cancelled) {
             setStickerSheetList(list);
           }
         } else {
-          const list = await fetchStickersByFolder(stickerModalTab);
+          const list = await fetchStickersByFolder(stickerModalTab, boardSlug);
           if (!cancelled) {
             setStickerSheetList(list);
           }
@@ -716,7 +737,7 @@ export default function WishlistPage() {
     return () => {
       cancelled = true;
     };
-  }, [isBottomSheetOpen, stickerModalTab]);
+  }, [isBottomSheetOpen, stickerModalTab, boardSlug]);
 
   useEffect(() => {
     if (!isBottomSheetOpen) {
@@ -1765,7 +1786,7 @@ export default function WishlistPage() {
                             className="scrollbar-x-none flex shrink-0 cursor-grab gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 px-2 pb-2 pt-2 select-none active:cursor-grabbing touch-pan-x"
                             onPointerDown={giftIconTabStripScroll.onPointerDown}
                           >
-                            {GIFT_ICON_MODAL_TABS.map((tab) => {
+                            {giftIconModalTabsForUi.map((tab) => {
                               const active = giftIconModalTab === tab.id;
                               return (
                                 <button

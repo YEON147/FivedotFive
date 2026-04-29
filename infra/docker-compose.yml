@@ -113,6 +113,7 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_NGROK_URL=${NEXT_PUBLIC_NGROK_URL}
     networks:
       - oh-jjeom-oh-net
     restart: always
