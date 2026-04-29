@@ -14,7 +14,7 @@ import {
   type NoticeDetail,
   type NoticeItem,
 } from "@/features/notice/api";
-import { formatNoticeDateTime } from "@/features/notice/format-notice-datetime";
+import { formatNoticeListDate } from "@/features/notice/format-notice-datetime";
 import { getMyProfile } from "@/features/user/api";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
 import {
@@ -155,12 +155,17 @@ export default function NoticePage() {
           </header>
 
           <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-4 pt-0 sm:px-3">
-            <div className="mb-3 flex min-h-[2.25rem] items-center justify-between gap-2">
-              <h1 className="text-h2 text-[var(--color-text-primary)]">공지사항</h1>
+            <div className="mb-5 flex min-h-[2.25rem] items-end justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-h2 text-[var(--color-text-primary)]">공지사항</h1>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+                  서비스 안내와 업데이트를 확인하세요
+                </p>
+              </div>
               {isAdmin ? (
                 <Link
                   href="/notice/write"
-                  className="shrink-0 rounded-full bg-[#7B61FF] px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-95"
+                  className="shrink-0 rounded-full bg-[#7B61FF] px-3.5 py-2 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(123,97,255,0.35)] transition hover:bg-[#6B51EF] hover:shadow-[0_4px_12px_rgba(123,97,255,0.4)] active:scale-[0.98]"
                 >
                   작성
                 </Link>
@@ -181,44 +186,84 @@ export default function NoticePage() {
             ) : null}
 
             {isLoading ? (
-              <p className="text-body text-[var(--color-text-secondary)]">불러오는 중…</p>
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-200/90 bg-[#7B61FF]/[0.03] py-14 dark:border-zinc-600 dark:bg-[#7B61FF]/[0.06]">
+                <span
+                  className="size-9 animate-pulse rounded-full bg-[#7B61FF]/20 dark:bg-[#7B61FF]/30"
+                  aria-hidden
+                />
+                <p className="text-sm text-[var(--color-text-secondary)]">불러오는 중…</p>
+              </div>
             ) : !loadError && notices.length === 0 ? (
-              <p className="text-body text-[var(--color-text-secondary)]">등록된 공지가 없습니다.</p>
+              <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/80 px-6 py-12 text-center dark:border-zinc-600 dark:bg-zinc-900/40">
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                  등록된 공지가 없습니다
+                </p>
+                <p className="mt-1.5 text-xs text-[var(--color-text-secondary)]">
+                  새 소식이 올라오면 이곳에서 알려드릴게요
+                </p>
+              </div>
             ) : !loadError ? (
-              <ul className="flex flex-col gap-2">
-                {notices.map((n) => (
-                  <li key={n.id}>
-                    <button
-                      type="button"
-                      onClick={() => openNoticeDetail(n.id)}
-                      className="block w-full rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 text-left shadow-sm transition hover:bg-[var(--color-bg-subtle)]"
-                    >
-                      <div className="flex items-start gap-2">
-                        {n.isPinned ? (
-                          <span
-                            className="mt-0.5 inline-flex shrink-0 text-[#7B61FF]"
-                            aria-label="고정 공지"
-                            title="고정"
-                          >
-                            <PushPin size={18} weight="fill" />
-                          </span>
-                        ) : null}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-body font-semibold text-[var(--color-text-primary)]">
-                            {n.title}
-                          </p>
-                          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                            등록 {formatNoticeDateTime(n.createdAt)}
-                          </p>
-                          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-                            노출 {formatNoticeDateTime(n.startAt)} ~ {formatNoticeDateTime(n.endAt)}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="overflow-hidden rounded-2xl border border-zinc-200/90 bg-[var(--color-surface)] shadow-[0_2px_16px_rgba(15,23,42,0.04)] dark:border-zinc-700/90 dark:bg-zinc-900/30 dark:shadow-[0_2px_20px_rgba(0,0,0,0.25)]">
+                <table className="w-full table-fixed border-collapse text-left">
+                  <colgroup>
+                    <col className="min-w-0" />
+                    <col className="w-[5.25rem] sm:w-[6rem]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-b border-zinc-200/90 dark:border-zinc-700">
+                      <th
+                        scope="col"
+                        className="min-w-0 py-3 pl-5 pr-3 text-left text-[11px] font-semibold tracking-wide text-zinc-500 dark:text-zinc-400 sm:pl-6 sm:pr-4"
+                      >
+                        제목
+                      </th>
+                      <th
+                        scope="col"
+                        className="py-3 pl-5 pr-3 text-left text-[11px] font-semibold tracking-wide text-zinc-500 dark:text-zinc-400 sm:pl-6 sm:pr-4"
+                      >
+                        등록일
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {notices.map((n) => (
+                      <tr
+                        key={n.id}
+                        role="button"
+                        tabIndex={0}
+                        className="group cursor-pointer border-b border-zinc-200/90 transition-colors duration-200 last:border-b-0 hover:bg-[#7B61FF]/[0.05] active:bg-[#7B61FF]/[0.08] dark:border-zinc-700 dark:hover:bg-white/[0.06] dark:active:bg-white/[0.08]"
+                        onClick={() => openNoticeDetail(n.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openNoticeDetail(n.id);
+                          }
+                        }}
+                      >
+                        <td className="min-w-0 px-3 py-3.5 align-middle sm:px-4">
+                          <div className="flex min-w-0 items-center gap-2">
+                            {n.isPinned ? (
+                              <span
+                                className="inline-flex shrink-0 text-[#7B61FF]"
+                                aria-label="고정 공지"
+                                title="고정"
+                              >
+                                <PushPin size={16} weight="fill" />
+                              </span>
+                            ) : null}
+                            <span className="min-w-0 text-[13px] font-medium leading-snug text-[#5B4FC9] decoration-[#7B61FF]/40 underline-offset-2 group-hover:text-[#7B61FF] group-hover:underline dark:text-[#A78BFA] dark:group-hover:text-[#C4B5FD]">
+                              {n.title}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3.5 text-right align-middle tabular-nums text-[11px] text-zinc-500 dark:text-zinc-400 sm:px-4">
+                          {formatNoticeListDate(n.createdAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : null}
           </div>
         </div>

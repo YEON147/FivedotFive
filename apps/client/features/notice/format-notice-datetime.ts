@@ -21,3 +21,13 @@ export function formatNoticeDateOnly(iso: string): string {
     day: "2-digit",
   });
 }
+
+/** 목록용 `YYYY.MM.DD` (시간 없음) */
+export function formatNoticeListDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
