@@ -43,7 +43,7 @@ type SelectFieldProps = Omit<
   error?: string;
   hint?: string;
   scrollIntoViewOnFocus?: boolean;
-  /** `compact`: 학교 검색 TextField와 같은 높이·글자 크기·좌 패딩(우측은 화살표용) */
+  /** `compact`: 학교 검색 줄과 같은 글자·테두리 규격(34px) */
   variant?: "default" | "compact";
   "aria-describedby"?: string;
 };
