@@ -284,15 +284,17 @@ export default function NoticePage() {
         titleId="notice-list-detail-modal-title"
         description={false}
       >
-        <div className="mt-1 max-h-[min(72vh,600px)] overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+        <div className="mt-1 flex h-[min(72vh,400px)] max-h-[85vh] flex-col overflow-hidden">
           {detailLoading ? (
             <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">
               불러오는 중…
             </p>
           ) : detailError ? (
-            <p className="py-4 text-center text-sm text-rose-600">{detailError}</p>
+            <p className="flex-1 overflow-y-auto py-4 text-center text-sm text-rose-600">
+              {detailError}
+            </p>
           ) : detailData ? (
-            <>
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
               <NoticeReadOnlyDetail
                 detail={detailData}
                 asModal
@@ -303,12 +305,12 @@ export default function NoticePage() {
                 <Link
                   href={`/notice/${detailData.id}`}
                   onClick={closeDetailModal}
-                  className="mt-5 flex w-full items-center justify-center rounded-xl bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
+                  className="mt-4 flex w-full shrink-0 items-center justify-center rounded-xl bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
                 >
                   수정하기
                 </Link>
               ) : null}
-            </>
+            </div>
           ) : null}
         </div>
       </WishlistCenterDialog>
