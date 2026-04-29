@@ -415,8 +415,9 @@ export function useMyPageForm() {
     try {
       const response = await updateMyProfile(payload);
 
+      const base = originalProfile!;
       const updatedProfile: MyProfile = {
-        provider: originalProfile?.provider ?? null,
+        ...base,
         username: response.data?.username ?? values.username,
         email: response.data?.email ?? values.email,
         nickname: response.data?.nickname ?? values.nickname.trim(),
@@ -424,9 +425,9 @@ export function useMyPageForm() {
         schoolcode: response.data?.schoolcode ?? payload.schoolcode,
         gender: response.data?.gender ?? payload.gender,
         grade: response.data?.grade ?? payload.grade,
-        hasWishBoard: originalProfile?.hasWishBoard ?? false,
-        role: originalProfile?.role ?? null,
-        provider: originalProfile?.provider ?? null,
+        hasWishBoard: base.hasWishBoard,
+        role: base.role,
+        provider: base.provider,
       };
 
       setOriginalProfile(updatedProfile);
