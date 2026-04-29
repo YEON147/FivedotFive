@@ -1,11 +1,11 @@
 package com.ssafy.oh_jjeom_oh.domain.asset.service;
 
+import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerCatalogListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.Asset;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.AssetType;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.AssetRepository;
-import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,9 +28,6 @@ class AssetServiceTest {
     @Mock
     private AssetRepository assetRepository;
 
-    @Mock
-    private WishBoardRepository wishBoardRepository;
-
     private Asset buildSticker(Long id, String assetKey, int order) {
         Asset asset = Asset.builder()
                 .assetType(AssetType.STICKER)
@@ -44,23 +41,45 @@ class AssetServiceTest {
     // ===================== getStickerFolders =====================
 
     @Test
-    @DisplayName("스티커 폴더 목록 조회 성공 - boardSlug 없으면 일반 폴더만 반환")
+    @DisplayName("스티커 폴더 목록 조회 성공 - 여러 폴더 존재")
     void getStickerFolders_success() {
-        given(assetRepository.findGeneralStickerFolders())
+        given(assetRepository.findDistinctStickerFolders())
                 .willReturn(List.of("balloon", "bubble", "cute"));
 
-        StickerFolderListResponse response = assetService.getStickerFolders(null);
+        StickerFolderListResponse response = assetService.getStickerFolders();
 
         assertThat(response.getFolders()).hasSize(3);
         assertThat(response.getFolders()).containsExactly("balloon", "bubble", "cute");
     }
 
     @Test
+    @DisplayName("boardSlug가 구단이 아니면 baseball 폴더는 목록에서 제거")
+    void getStickerFolders_nonTeam_removesBaseball() {
+        given(assetRepository.findDistinctStickerFolders())
+                .willReturn(List.of("balloon", "baseball", "cute"));
+
+        StickerFolderListResponse response = assetService.getStickerFolders("myuser");
+
+        assertThat(response.getFolders()).containsExactly("balloon", "cute");
+    }
+
+    @Test
+    @DisplayName("boardSlug가 구단이면 baseball 폴더가 없어도 추가")
+    void getStickerFolders_team_addsBaseball() {
+        given(assetRepository.findDistinctStickerFolders())
+                .willReturn(List.of("balloon", "cute"));
+
+        StickerFolderListResponse response = assetService.getStickerFolders("lottegiants");
+
+        assertThat(response.getFolders()).containsExactly("balloon", "baseball", "cute");
+    }
+
+    @Test
     @DisplayName("스티커 폴더 목록 조회 성공 - 폴더 없으면 빈 리스트 반환")
     void getStickerFolders_empty() {
-        given(assetRepository.findGeneralStickerFolders()).willReturn(List.of());
+        given(assetRepository.findDistinctStickerFolders()).willReturn(List.of());
 
-        StickerFolderListResponse response = assetService.getStickerFolders(null);
+        StickerFolderListResponse response = assetService.getStickerFolders();
 
         assertThat(response.getFolders()).isEmpty();
     }
@@ -108,5 +127,28 @@ class AssetServiceTest {
         assertThat(response.getStickers()).hasSize(3);
         assertThat(response.getStickers().get(0).getId()).isEqualTo(1L);
         assertThat(response.getStickers().get(2).getId()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("비구단 boardSlug로 전체 스티커 조회 시 baseball 경로 제외")
+    void getStickers_nonTeamBoard_excludesBaseballPath() {
+        given(assetRepository.findByAssetTypeOrderByDisplayOrderAsc(AssetType.STICKER)).willReturn(List.of(
+                buildSticker(1L, "stickers/balloon/balloon-01.png", 1),
+                buildSticker(2L, "stickers/baseball/giants/g-01.png", 2)
+        ));
+
+        StickerCatalogListResponse response = assetService.getStickers("regular-user");
+
+        assertThat(response.getStickers()).hasSize(1);
+        assertThat(response.getStickers().get(0).getAssetKey()).isEqualTo("stickers/balloon/balloon-01.png");
+    }
+
+    @Test
+    @DisplayName("비구단 boardSlug로 baseball 폴더 조회 시 빈 목록")
+    void getStickersByFolder_baseball_nonTeam_returnsEmpty() {
+        StickerFolderResponse response = assetService.getStickersByFolder("baseball", "regular-user");
+
+        assertThat(response.getFolder()).isEqualTo("baseball");
+        assertThat(response.getStickers()).isEmpty();
     }
 }

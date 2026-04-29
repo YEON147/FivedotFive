@@ -30,10 +30,11 @@ public class AssetController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BACKGROUND_LIST_FOUND, data));
     }
 
-    // GET /api/assets/stickers - 스티커 전체 조회 (Anyone)
+    // GET /api/assets/stickers?boardSlug= - 스티커 전체 조회 (Anyone). 비구단 boardSlug면 야구 경로 제외.
     @GetMapping("/stickers")
-    public ResponseEntity<ApiResponse<StickerCatalogListResponse>> getStickers() {
-        StickerCatalogListResponse data = assetService.getStickers();
+    public ResponseEntity<ApiResponse<StickerCatalogListResponse>> getStickers(
+            @RequestParam(required = false) String boardSlug) {
+        StickerCatalogListResponse data = assetService.getStickers(boardSlug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_LIST_FOUND, data));
     }
 
@@ -46,11 +47,12 @@ public class AssetController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_FOLDER_LIST_FOUND, data));
     }
 
-    // GET /api/assets/stickers/folders/{folder} - 특정 폴더의 스티커 조회 (Anyone)
+    // GET /api/assets/stickers/folders/{folder}?boardSlug= - 특정 폴더 스티커 (Anyone). 비구단이면 baseball 빈 목록.
     @GetMapping("/stickers/folders/{folder}")
     public ResponseEntity<ApiResponse<StickerFolderResponse>> getStickersByFolder(
-            @PathVariable String folder) {
-        StickerFolderResponse data = assetService.getStickersByFolder(folder);
+            @PathVariable String folder,
+            @RequestParam(required = false) String boardSlug) {
+        StickerFolderResponse data = assetService.getStickersByFolder(folder, boardSlug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.STICKER_FOLDER_FOUND, data));
     }
 
