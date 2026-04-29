@@ -171,9 +171,15 @@ export async function fetchStickerFolders(
   return res.data.folders;
 }
 
-/** GET /api/assets/stickers — 권한 anyone */
-export async function fetchStickerAssets(): Promise<StickerAssetDto[]> {
-  const res = await apiClient<StickersApiResponse>("/api/assets/stickers", {
+/**
+ * GET /api/assets/stickers?boardSlug= — 권한 anyone.
+ * 비구단 `boardSlug`이면 서버에서 `stickers/baseball/` 스티커가 제외됩니다.
+ */
+export async function fetchStickerAssets(
+  boardSlug?: string | null,
+): Promise<StickerAssetDto[]> {
+  const url = assetsPathWithBoardSlug("/api/assets/stickers", boardSlug);
+  const res = await apiClient<StickersApiResponse>(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -196,20 +202,25 @@ type StickerFolderApiResponse = {
   };
 };
 
-/** GET /api/assets/stickers/folders/{folder} — 권한 anyone */
+/**
+ * GET /api/assets/stickers/folders/{folder}?boardSlug= — 권한 anyone.
+ * 비구단 보드 문맥에서는 `baseball` 폴더가 빈 목록으로 올 수 있습니다.
+ */
 export async function fetchStickersByFolder(
   folder: string,
+  boardSlug?: string | null,
 ): Promise<StickerAssetDto[]> {
   const encoded = encodeURIComponent(folder.trim());
-  const res = await apiClient<StickerFolderApiResponse>(
+  const url = assetsPathWithBoardSlug(
     `/api/assets/stickers/folders/${encoded}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
+    boardSlug,
   );
+  const res = await apiClient<StickerFolderApiResponse>(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
   if (!res.success || !Array.isArray(res.data?.stickers)) {
     return [];
