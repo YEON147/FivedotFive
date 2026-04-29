@@ -1,19 +1,23 @@
 "use client";
 
 import {
+  Bell,
   ChatCircleDots,
   Gift,
-  MegaphoneSimple,
   SignOut,
   Trophy,
   User,
   X,
 } from "@phosphor-icons/react";
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
+import {
+  SideMenuLinkRow,
+  SideMenuLogoutRow,
+  SideMenuSection,
+} from "@/components/common/SideMenuPrimitives";
 
 type AppSideMenuProps = {
   open: boolean;
@@ -25,14 +29,15 @@ type AppSideMenuProps = {
   isOnMyWishlistEditorPage?: boolean;
 };
 
-const SIDE_MENU_ICON_WRAP_PRIMARY =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-[#7B61FF]/12 text-[#7B61FF]";
+const ICON_22 = { size: 22 as const, weight: "bold" as const };
 
-const SIDE_MENU_ICON_WRAP_ROSE =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600";
-
-const ROW =
-  "flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]";
+function useClientMounted() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}
 
 /**
  * 위시리스트·랭킹·마이페이지 등 로그인 사용자 햄버거 메뉴.
@@ -45,11 +50,7 @@ export function AppSideMenu({
   publicWishlistHref,
   isOnMyWishlistEditorPage = false,
 }: AppSideMenuProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useClientMounted();
 
   useEffect(() => {
     if (!open) return;
@@ -71,19 +72,17 @@ export function AppSideMenu({
   const publicHref = publicWishlistHref?.trim() ?? "";
   const firstPrimaryRow =
     isOnMyWishlistEditorPage && publicHref !== "" ? (
-      <Link href={publicHref} onClick={onClose} className={ROW}>
-        <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-          <ChatCircleDots size={22} weight="bold" />
-        </span>
+      <SideMenuLinkRow
+        href={publicHref}
+        onNavigate={onClose}
+        icon={<ChatCircleDots {...ICON_22} />}
+      >
         댓글 보러 가기
-      </Link>
+      </SideMenuLinkRow>
     ) : !isOnMyWishlistEditorPage ? (
-      <Link href="/wishlist" onClick={onClose} className={ROW}>
-        <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-          <Gift size={22} weight="bold" />
-        </span>
+      <SideMenuLinkRow href="/wishlist" onNavigate={onClose} icon={<Gift {...ICON_22} />}>
         내 위시리스트 보러가기
-      </Link>
+      </SideMenuLinkRow>
     ) : null;
 
   return createPortal(
@@ -102,7 +101,7 @@ export function AppSideMenu({
         }`}
         aria-hidden={!open}
       >
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-3">
           <span className="text-h3 text-[var(--color-text-primary)]">메뉴</span>
           <button
             type="button"
@@ -114,45 +113,29 @@ export function AppSideMenu({
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 p-3">
-          {firstPrimaryRow}
+        <nav className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-2 pt-0">
+          <SideMenuSection title="나의 활동">
+            {firstPrimaryRow}
+            <SideMenuLinkRow href="/ranking" onNavigate={onClose} icon={<Trophy {...ICON_22} />}>
+              오쩜오 랭킹
+            </SideMenuLinkRow>
+          </SideMenuSection>
 
-          <Link href="/ranking" onClick={onClose} className={ROW}>
-            <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-              <Trophy size={22} weight="bold" />
-            </span>
-            오쩜오 랭킹
-          </Link>
+          <SideMenuSection title="콘텐츠">
+            <KboTeamWishlistNavSection sideMenuOpen={open} onNavigate={onClose} />
+            <SideMenuLinkRow href="/notice" onNavigate={onClose} icon={<Bell {...ICON_22} />}>
+              공지사항
+            </SideMenuLinkRow>
+          </SideMenuSection>
 
-          <KboTeamWishlistNavSection sideMenuOpen={open} onNavigate={onClose} />
-
-          {/* 4 — 공지 */}
-          <Link href="/notice" onClick={onClose} className={ROW}>
-            <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-              <MegaphoneSimple size={22} weight="bold" />
-            </span>
-            공지사항
-          </Link>
-
-          {/* 5 — 내 정보 */}
-          <Link href="/mypage" onClick={onClose} className={ROW}>
-            <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-              <User size={22} weight="bold" />
-            </span>
-            내 정보
-          </Link>
-
-          {/* 6 — 로그아웃 */}
-          <button
-            type="button"
-            onClick={onLogout}
-            className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
-          >
-            <span className={SIDE_MENU_ICON_WRAP_ROSE} aria-hidden>
-              <SignOut size={22} weight="bold" />
-            </span>
-            로그아웃
-          </button>
+          <SideMenuSection title="계정">
+            <SideMenuLinkRow href="/mypage" onNavigate={onClose} icon={<User {...ICON_22} />}>
+              내 정보
+            </SideMenuLinkRow>
+            <SideMenuLogoutRow onLogout={onLogout} icon={<SignOut {...ICON_22} />}>
+              로그아웃
+            </SideMenuLogoutRow>
+          </SideMenuSection>
         </nav>
       </aside>
     </>,
