@@ -1,4 +1,15 @@
+server:
+  tomcat:
+    # 멀티파트 업로드 중 예외 시 나머지 본문을 삼키지 못하면 연결이 RST 로 끊길 수 있음
+    max-swallow-size: 250MB
+    # 기본 2MB 등으로 남아 있으면 큰 POST 전체가 잘림 (multipart 전체 한도)
+    max-http-form-post-size: 250MB
+
 spring:
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 250MB
   application:
     name: oh-jjeom-oh
   datasource:

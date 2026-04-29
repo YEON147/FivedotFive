@@ -10,6 +10,8 @@ type WishlistCenterDialogProps = {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** 제목(h2) 앞에 붙는 영역(예: 고정 핀 아이콘) */
+  titleLeading?: ReactNode;
   titleId: string;
   description?: ReactNode;
   children: ReactNode;
@@ -24,12 +26,14 @@ type WishlistCenterDialogProps = {
 
 function DialogChrome({
   title,
+  titleLeading,
   titleId,
   description,
   onClose,
   closeLabel,
 }: {
   title: string;
+  titleLeading?: ReactNode;
   titleId: string;
   description?: ReactNode;
   onClose: () => void;
@@ -38,9 +42,14 @@ function DialogChrome({
   return (
     <>
       <div className="flex min-w-0 items-start justify-between gap-2">
-        <h2 id={titleId} className="min-w-0 text-h3 text-slate-900">
-          {title}
-        </h2>
+        <div className="flex min-w-0 flex-1 items-start gap-1.5">
+          {titleLeading != null && titleLeading !== false ? (
+            <span className="mt-0.5 inline-flex shrink-0">{titleLeading}</span>
+          ) : null}
+          <h2 id={titleId} className="min-w-0 flex-1 text-h3 text-slate-900">
+            {title}
+          </h2>
+        </div>
         <button
           type="button"
           onClick={onClose}
@@ -67,6 +76,7 @@ export function WishlistCenterDialog({
   open,
   onClose,
   title,
+  titleLeading,
   titleId,
   description,
   children,
@@ -93,6 +103,7 @@ export function WishlistCenterDialog({
         >
           <DialogChrome
             title={title}
+            titleLeading={titleLeading}
             titleId={titleId}
             description={description}
             onClose={onClose}
@@ -118,6 +129,7 @@ export function WishlistCenterDialog({
     >
       <DialogChrome
         title={title}
+        titleLeading={titleLeading}
         titleId={titleId}
         description={description}
         onClose={onClose}

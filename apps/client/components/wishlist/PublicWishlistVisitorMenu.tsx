@@ -1,6 +1,6 @@
 "use client";
 
-import { Gift, SignIn, SignOut, Trophy, User, UserPlus, X } from "@phosphor-icons/react";
+import { Gift, MegaphoneSimple, SignIn, SignOut, Trophy, User, UserPlus, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -92,6 +92,16 @@ export function PublicWishlistVisitorMenu({
                 내 위시리스트 보러가기
               </Link>
               <Link
+                href="/notice"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+              >
+                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+                  <MegaphoneSimple size={22} weight="bold" />
+                </span>
+                공지사항
+              </Link>
+              <Link
                 href="/ranking"
                 onClick={onClose}
                 className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
@@ -147,6 +157,16 @@ export function PublicWishlistVisitorMenu({
                   <UserPlus size={22} weight="bold" />
                 </span>
                 회원가입
+              </Link>
+              <Link
+                href="/notice"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+              >
+                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+                  <MegaphoneSimple size={22} weight="bold" />
+                </span>
+                공지사항
               </Link>
               <Link
                 href="/ranking"
