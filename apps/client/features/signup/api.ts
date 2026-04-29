@@ -3,6 +3,7 @@ import {
   RANDOM_NICKNAME_API_PATH,
   SCHOOL_SEARCH_API_PATH,
   SIGNUP_API_PATH,
+  USEREMAIL_CHECK_API_PATH,
   USERNAME_CHECK_API_PATH,
 } from "@/lib/constants/signup";
 import type {
@@ -12,12 +13,13 @@ import type {
   SchoolSearchResponse,
   SignupRequest,
   SignupResponse,
+  UserEmailCheckResponse,
   UsernameCheckResponse,
 } from "@/features/signup/types";
-import { apiClient } from "@/lib/api/client";
+import { publicApiClient } from "@/lib/api/client";
 
 export async function getRandomNickname(): Promise<string> {
-  const response = await apiClient<RandomNicknameResponse>(
+  const response = await publicApiClient<RandomNicknameResponse>(
     RANDOM_NICKNAME_API_PATH,
     {
       method: "GET",
@@ -40,7 +42,7 @@ export async function checkUsername(
     username: username.trim(),
   }).toString();
 
-  return apiClient<UsernameCheckResponse>(
+  return publicApiClient<UsernameCheckResponse>(
     `${USERNAME_CHECK_API_PATH}?${query}`,
     {
       method: "GET",
@@ -55,8 +57,23 @@ export async function checkNickname(
     nickname: nickname.trim(),
   }).toString();
 
-  return apiClient<NicknameCheckResponse>(
+  return publicApiClient<NicknameCheckResponse>(
     `${NICKNAME_CHECK_API_PATH}?${query}`,
+    {
+      method: "GET",
+    }
+  );
+}
+
+export async function checkUserEmail(
+  useremail: string
+): Promise<UserEmailCheckResponse> {
+  const query = new URLSearchParams({
+    useremail: useremail.trim(),
+  }).toString();
+
+  return publicApiClient<UserEmailCheckResponse>(
+    `${USEREMAIL_CHECK_API_PATH}?${query}`,
     {
       method: "GET",
     }
@@ -68,7 +85,7 @@ export async function searchSchools(keyword: string): Promise<SchoolOption[]> {
     keyword: keyword.trim(),
   }).toString();
 
-  const response = await apiClient<SchoolSearchResponse>(
+  const response = await publicApiClient<SchoolSearchResponse>(
     `${SCHOOL_SEARCH_API_PATH}?${query}`,
     {
       method: "GET",
@@ -79,7 +96,7 @@ export async function searchSchools(keyword: string): Promise<SchoolOption[]> {
 }
 
 export async function signup(payload: SignupRequest): Promise<SignupResponse> {
-  return apiClient<SignupResponse>(SIGNUP_API_PATH, {
+  return publicApiClient<SignupResponse>(SIGNUP_API_PATH, {
     method: "POST",
     body: JSON.stringify(payload),
   });

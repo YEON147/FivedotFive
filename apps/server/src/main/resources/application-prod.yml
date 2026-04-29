@@ -14,19 +14,77 @@ spring:
       hibernate:
         format_sql: false
 
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: "https://fivedotfive.co.kr/api/login/oauth2/code/kakao"
+            scope: profile_nickname, account_email
+            client-name: Kakao
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: l17806500@gmail.com
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          timeout: 5000
+          connectiontimeout: 5000
+          writetimeout: 5000
+
 server:
   port: 8080
+  forward-headers-strategy: native
+  tomcat:
+    remote-ip-header: x-forwarded-for
+    protocol-header: x-forwarded-proto
 
 jwt:
   secret: ${JWT_SECRET}
-  access-expiration: 1800000    # 30분 (ms)
-  refresh-expiration: 604800000 # 7일 (ms)
+  access-token-expiration: 1800000    # 30분 (ms)
+  refresh-token-expiration: 604800000 # 7일 (ms)
 
 logging:
   level:
     com.ssafy.oh_jjeom_oh: INFO
+
+admin:
+  username: ${ADMIN_USERNAME:ohjeomoh}
+  password: ${ADMIN_PASSWORD}
+  nickname: ${ADMIN_NICKNAME:오쩜오}
+
+admin2:
+  username: ${ADMIN2_USERNAME:}
+  password: ${ADMIN2_PASSWORD:}
+  nickname: ${ADMIN2_NICKNAME:오쩜오2}
+
+cloud:
+  aws:
+    s3:
+      bucket: ${S3_BUCKET}
+    region:
+      static: ${AWS_REGION:ap-northeast-2}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}

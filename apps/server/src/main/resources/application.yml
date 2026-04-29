@@ -1,21 +1,61 @@
 spring:
   application:
     name: oh-jjeom-oh
-  data:
-    redis:
-      host: localhost
-      port: 6379
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres
-    username: postgres
-    password: '1234'
+    url: ${DB_URL:jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:12345678}
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: "https://fivedotfive.co.kr/api/login/oauth2/code/kakao"
+            scope: profile_nickname, account_email
+            client-name: Kakao
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
 
 jwt:
-  secret: your-very-long-secret-key-that-is-at-least-32-bytes-long-and-secure
+  secret: ${JWT_SECRET}
   access-token-expiration: 3600000 # 1시간 (ms)
   refresh-token-expiration: 604800 # 7일 (seconds, Redis용)
+
+app:
+  frontend-url: ${FRONTEND_URL:https://fivedotfive.co.kr}
+
+comment:
+  reveal-at: 2026-05-05T08:00:00  # KST 기준 댓글 내용 공개 시각 (서버는 KST로 실행됨을 전제)
+
+cloud:
+  aws:
+    s3:
+      bucket: ${S3_BUCKET:five-dot-five}
+    region:
+      static: ${AWS_REGION:ap-northeast-2}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}

@@ -1,0 +1,353 @@
+/**
+ * 메인 인트로 선물상자 — 잔잔한 록 + 터짐(눌림·광·비대칭 파열)
+ */
+/*
+ * 타임라인 5구간(비율): 0~8% | 8~30% | 30~75% | 75~83% | 84~100% (83~84%는 동일 자세로 연결)
+ * 59~81%: 터지기 직전 왕복 2회(긴 간격·낮은 진폭) / 84~100%: 좌우 고정 + 몸통 스쿼시
+ */
+@keyframes intro-gift-sway-x {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  4.44% {
+    transform: translate3d(0, 0, 0);
+  }
+  8% {
+    transform: translate3d(-0.9px, 0, 0);
+  }
+  18% {
+    transform: translate3d(-3.8px, 0, 0);
+  }
+  28% {
+    transform: translate3d(4.5px, 0, 0);
+  }
+  40% {
+    transform: translate3d(-6.75px, 0, 0);
+  }
+  52% {
+    transform: translate3d(6.75px, 0, 0);
+  }
+  /* 큰 스윙 후 감쇠 구간: 중간값으로 꺾임 완화 */
+  55% {
+    transform: translate3d(3.6px, 0, 0);
+  }
+  57.5% {
+    transform: translate3d(-0.35px, 0, 0);
+  }
+  59% {
+    transform: translate3d(-2.85px, 0, 0);
+  }
+  75% {
+    transform: translate3d(1.95px, 0, 0);
+  }
+  78% {
+    transform: translate3d(-0.65px, 0, 0);
+  }
+  80% {
+    transform: translate3d(-3.35px, 0, 0);
+  }
+  81% {
+    transform: translate3d(-4.73px, 0, 0);
+  }
+  83% {
+    transform: translate3d(-1.35px, 0, 0);
+  }
+  84% {
+    transform: translate3d(-1.35px, 0, 0);
+  }
+  100% {
+    transform: translate3d(-1.35px, 0, 0);
+  }
+}
+
+@keyframes intro-gift-sway-body {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  4.44% {
+    transform: translate3d(0, 2px, 0) rotate(-3.5deg) scale(1.003);
+  }
+  8% {
+    transform: translate3d(0, -2px, 0) rotate(3.2deg) scale(1);
+  }
+  18% {
+    transform: translate3d(0, 2px, 0) rotate(-4.5deg) scale(1.005);
+  }
+  28% {
+    transform: translate3d(0, -2px, 0) rotate(4deg) scale(1.003);
+  }
+  40% {
+    transform: translate3d(0, 3px, 0) rotate(-5.8deg) scale(1.01);
+  }
+  52% {
+    transform: translate3d(0, -2px, 0) rotate(5.2deg) scale(1.007);
+  }
+  55% {
+    transform: translate3d(0, 1px, 0) rotate(2.4deg) scale(1.005);
+  }
+  57.5% {
+    transform: translate3d(0, -1px, 0) rotate(-1.2deg) scale(1.004);
+  }
+  59% {
+    transform: translate3d(0, 2px, 0) rotate(-4.8deg) scale(1.007);
+  }
+  75% {
+    transform: translate3d(0, -2px, 0) rotate(4deg) scale(1.004);
+  }
+  78% {
+    transform: translate3d(0, 1px, 0) rotate(0.5deg) scale(1.005);
+  }
+  80% {
+    transform: translate3d(0, -1px, 0) rotate(-3.2deg) scale(1.008);
+  }
+  81% {
+    transform: translate3d(0, 2px, 0) rotate(-5.5deg) scale(1.011);
+  }
+  83% {
+    transform: translate3d(0, 2px, 0) rotate(-4deg) scale(1.008);
+  }
+  84% {
+    transform: translate3d(0, 2px, 0) rotate(-4deg) scale(1.008);
+  }
+  /* 터지기 직전: 스쿼시 — scale·회전을 잘게 나눠 한 방향으로만 줄어듦(중간 되살림 제거) */
+  85% {
+    transform: translate3d(0, 2px, 0) rotate(-3.88deg) scale(0.998, 0.995);
+  }
+  87% {
+    transform: translate3d(0, 2px, 0) rotate(-3.62deg) scale(0.991, 0.985);
+  }
+  89.5% {
+    transform: translate3d(0, 2px, 0) rotate(-3.28deg) scale(0.982, 0.962);
+  }
+  92% {
+    transform: translate3d(0, 2px, 0) rotate(-2.92deg) scale(0.973, 0.938);
+  }
+  94.5% {
+    transform: translate3d(0, 2px, 0) rotate(-2.58deg) scale(0.966, 0.926);
+  }
+  97% {
+    transform: translate3d(0, 2px, 0) rotate(-2.38deg) scale(0.962, 0.922);
+  }
+  100% {
+    transform: translate3d(0, 2px, 0) rotate(-2.2deg) scale(0.96, 0.92);
+  }
+}
+
+/* 터짐: 본체는 transform+opacity만(필터 키프레임 제거) — 광은 ::before, 예전 brightness 리듬은 opacity 딥/피크로만 흉내 */
+@keyframes intro-gift-burst {
+  /* shake 마지막 프레임과 동일 → 짧게 숨 고른 뒤 부풀어 오름 */
+  0% {
+    transform: translate3d(0, 2px, 0) rotate(-2.2deg) scale(0.96, 0.92);
+    opacity: 1;
+  }
+  5% {
+    transform: translate3d(0, 1px, 0) rotate(-1.6deg) scale(0.98, 0.945);
+    opacity: 1;
+  }
+  11% {
+    transform: translate3d(0, -1px, 0) rotate(-1deg) scale(1.018);
+    opacity: 1;
+  }
+  17% {
+    /* 살짝 눌림(구 brightness dip 대체) */
+    transform: translate3d(0.5px, 0.5px, 0) rotate(0.8deg) scale(0.975);
+    opacity: 0.9;
+  }
+  21% {
+    transform: translate3d(-0.5px, -3px, 0) rotate(-2deg) scale(1.04);
+    opacity: 0.98;
+  }
+  22.5% {
+    transform: translate3d(-1.2px, -5.5px, 0) rotate(-2.9deg) scale(1.085);
+    opacity: 0.995;
+  }
+  24% {
+    /* 터짐 정점(구 flash 느낌) */
+    transform: translate3d(-2px, -8px, 0) rotate(-3.7deg) scale(1.12);
+    opacity: 1;
+  }
+  /* 이후: 좌우·회전 왕복 없이 위로만 덜컥 올라가며 흩어짐 */
+  38% {
+    transform: translate3d(0, -24px, 0) rotate(2.5deg) scale(1.42);
+    opacity: 0.97;
+  }
+  55% {
+    transform: translate3d(1px, -42px, 0) rotate(1deg) scale(1.72);
+    opacity: 0.85;
+  }
+  72% {
+    transform: translate3d(2px, -62px, 0) rotate(0.25deg) scale(2.05);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate3d(2px, -90px, 0) rotate(0deg) scale(2.35);
+    opacity: 0;
+  }
+}
+
+/**
+ * 광: 본체 transform과 싸우지 않도록 opacity만(타임스탬프는 intro-gift-burst %와 동일)
+ * → linear + 동일 duration 으로 “한 덩어리”로 읽힘
+ */
+@keyframes intro-gift-burst-glow {
+  0% {
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.08;
+  }
+  11% {
+    opacity: 0.32;
+  }
+  17% {
+    opacity: 0.12;
+  }
+  21% {
+    opacity: 0.4;
+  }
+  24% {
+    opacity: 0.88;
+  }
+  38% {
+    opacity: 0.45;
+  }
+  55% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.intro-gift-shake-x-layer {
+  animation-name: intro-gift-sway-x;
+  animation-duration: var(--intro-gift-shake-duration, 2.35s);
+  /* 구간마다 덜 “툭” 멈추게: ease-out 쪽으로 살짝 비대칭 */
+  animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1);
+  animation-fill-mode: forwards;
+  animation-play-state: running;
+  transform-origin: center bottom;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.intro-gift-shake-body-layer {
+  animation-name: intro-gift-sway-body;
+  animation-duration: var(--intro-gift-shake-duration, 2.35s);
+  /* 스쿼시 끝이 덜 딱딱 끊기도록 살짝 ease-out 성격 */
+  animation-timing-function: cubic-bezier(0.4, 0, 0.22, 1);
+  animation-fill-mode: forwards;
+  animation-play-state: running;
+  transform-origin: center 78%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/**
+ * 선물 그림자
+ * - Android·데스크톱: img에 drop-shadow(filter) — 자연스러운 번짐.
+ * - iPhone/iPad WebKit: transform 애니메이션과 함께 쓰면 filter 출력이 사각으로 잘리는 경우가 많아
+ *   filter 없이 타원 레이어 3장으로 비슷한 농도·번짐을 맞춤 (--paint).
+ */
+.intro-gift-stack {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 340px;
+}
+
+.intro-gift-stack img {
+  position: relative;
+  z-index: 1;
+}
+
+/* iOS 전용: 원래 drop-shadow(0 28px 56px …)에 가깝게 — 고정 높이로 구형 안드로이드도 레이아웃 안정 */
+.intro-gift-stack--paint .intro-gift-shadow-layer {
+  position: absolute;
+  left: 50%;
+  pointer-events: none;
+  z-index: 0;
+  transform: translateX(-50%);
+  border-radius: 50%;
+}
+
+/* 넓게 퍼진 바깥 번짐 (blur radius 큰 느낌) */
+.intro-gift-stack--paint .intro-gift-shadow-layer--diffuse {
+  bottom: max(-4%, -10px);
+  width: min(104%, 360px);
+  height: 5.5rem;
+  max-height: 28vw;
+  background: radial-gradient(
+    ellipse 52% 38% at 50% 55%,
+    rgba(70, 45, 140, 0.11) 0%,
+    rgba(70, 45, 140, 0.05) 42%,
+    transparent 72%
+  );
+}
+
+.intro-gift-stack--paint .intro-gift-shadow-layer--mid {
+  bottom: 2%;
+  width: min(92%, 320px);
+  height: 3.25rem;
+  background: radial-gradient(
+    ellipse 48% 42% at 50% 52%,
+    rgba(70, 45, 140, 0.2) 0%,
+    rgba(70, 45, 140, 0.08) 46%,
+    transparent 70%
+  );
+}
+
+.intro-gift-stack--paint .intro-gift-shadow-layer--core {
+  bottom: 5%;
+  width: min(74%, 260px);
+  height: 2.25rem;
+  background: radial-gradient(
+    ellipse 44% 48% at 50% 48%,
+    rgba(70, 45, 140, 0.28) 0%,
+    rgba(70, 45, 140, 0.12) 52%,
+    transparent 74%
+  );
+}
+
+.intro-gift-burst-layer {
+  position: relative;
+  isolation: isolate;
+  animation-name: intro-gift-burst;
+  animation-duration: var(--intro-gift-burst-duration, 0.459s);
+  /* 초반 스냅만 살짝, 후반은 와리가리 없이 상승만 읽히게 */
+  animation-timing-function: cubic-bezier(0.22, 0.78, 0.24, 1);
+  animation-fill-mode: forwards;
+  animation-play-state: running;
+  transform-origin: 50% 58%;
+  will-change: transform, opacity;
+}
+
+/* 선물 뒤 라디얼: 회전 기준(58%)에 맞춤 — 본체와 같이만 움직이고 opacity만 펄스 */
+.intro-gift-burst-layer::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  z-index: 0;
+  width: 150%;
+  min-width: 200px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 230, 255, 0.55) 0%,
+    rgba(123, 97, 255, 0.24) 36%,
+    rgba(174, 233, 225, 0.12) 52%,
+    transparent 70%
+  );
+  /* easing은 본체(burst)와 달리 linear → 키프레임 %가 시간과 1:1 */
+  animation: intro-gift-burst-glow var(--intro-gift-burst-duration, 0.459s) linear forwards;
+  will-change: opacity;
+  backface-visibility: hidden;
+}
+

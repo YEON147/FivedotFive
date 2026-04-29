@@ -1,0 +1,5 @@
+# infra/Caddyfile
+:80 {
+    reverse_proxy /api/* backend-blue:8080
+    reverse_proxy client:3000
+}

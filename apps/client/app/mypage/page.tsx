@@ -1,18 +1,29 @@
 "use client";
 
-import Link from "next/link";
+import { CaretLeft, TextAlignJustify } from "@phosphor-icons/react";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { MyPageForm } from "@/components/common/MyPageForm";
 import { useMyPageForm } from "@/features/user/hooks";
+import { clearAccessToken } from "@/lib/api/token-store";
+import {
+  PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_MENU_BUTTON,
+  PAGE_HEADER_ROW,
+} from "@/lib/constants/page-header";
+import { navigateAppBack } from "@/lib/navigate-app-back";
 
 export default function MyPagePage() {
+  const router = useRouter();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const {
     values,
     errors,
     isLoading,
     isLoaded,
-    isPreviewMode,
-    loadMessage,
-    loadSuccess,
     saveMessage,
     saveSuccess,
     isSaving,
@@ -30,56 +41,139 @@ export default function MyPagePage() {
     selectSchool,
     submit,
     resetChanges,
-    reload,
+
+    nicknameCheckStatus,
+    nicknameCheckMessage,
+    checkNickname,
+
+    isPasswordModalOpen,
+    passwordValues,
+    passwordErrors,
+    passwordMessage,
+    passwordSuccess,
+    isPasswordSaving,
+    openPasswordModal,
+    closePasswordModal,
+    updatePasswordField,
+    submitPasswordChange,
+
+    canWithdrawAccount,
+    isWithdrawModalOpen,
+    withdrawStep,
+    withdrawPassword,
+    withdrawMessage,
+    isWithdrawSubmitting,
+    openWithdrawModal,
+    closeWithdrawModal,
+    goWithdrawConfirmNext,
+    goWithdrawConfirmBack,
+    updateWithdrawPassword,
+    submitWithdrawAccount,
   } = useMyPageForm();
 
+  const handleLogout = useCallback(() => {
+    clearAccessToken();
+    setIsSidebarOpen(false);
+    router.push("/login");
+  }, [router]);
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarOpen((prev) => !prev);
+  }, []);
+
+  const handleHeaderBack = useCallback(() => {
+    navigateAppBack(router, "/");
+  }, [router]);
+
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-6 py-12">
-      <section className="w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">마이페이지</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              학교, 학년, 성별만 수정 가능하도록 제한하고 회원가입과 동일한 타입과 학교 검색 흐름을 재사용했습니다.
-            </p>
+    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+      <AppSideMenu
+        open={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        onLogout={handleLogout}
+      />
+
+      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
+        <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
+          <header className={PAGE_HEADER_ROW}>
+            <button
+              type="button"
+              onClick={handleHeaderBack}
+              className={PAGE_HEADER_BACK_BUTTON}
+              aria-label="이전 페이지로"
+            >
+              <CaretLeft size={22} weight="bold" />
+            </button>
+
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleSidebar();
+              }}
+              className={PAGE_HEADER_MENU_BUTTON}
+              aria-label="메뉴 열기"
+              aria-expanded={isSidebarOpen}
+            >
+              <TextAlignJustify size={23} weight="bold" />
+            </button>
+          </header>
+
+          {/** 위시와 동일 오로라 배경 위 콘텐츠 */}
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-4 pt-0 sm:px-3">
+              <MyPageForm
+                values={values}
+                errors={errors}
+                isLoading={isLoading}
+                isLoaded={isLoaded}
+                saveMessage={saveMessage}
+                saveSuccess={saveSuccess}
+                isSaving={isSaving}
+                schoolKeyword={schoolKeyword}
+                schoolResults={schoolResults}
+                isSchoolSearching={isSchoolSearching}
+                isSchoolDropdownOpen={isSchoolDropdownOpen}
+                hasSelectedSchool={hasSelectedSchool}
+                ignoreNextSchoolFocus={ignoreNextSchoolFocus}
+                isDirty={isDirty}
+                canSubmit={canSubmit}
+                nicknameCheckStatus={nicknameCheckStatus}
+                nicknameCheckMessage={nicknameCheckMessage}
+                onChange={updateField}
+                onCheckNickname={checkNickname}
+                onSelectSchool={selectSchool}
+                onSetSchoolDropdownOpen={setIsSchoolDropdownOpen}
+                onSetIgnoreNextSchoolFocus={setIgnoreNextSchoolFocus}
+                onSubmit={submit}
+                onReset={resetChanges}
+                isPasswordModalOpen={isPasswordModalOpen}
+                passwordValues={passwordValues}
+                passwordErrors={passwordErrors}
+                passwordMessage={passwordMessage}
+                passwordSuccess={passwordSuccess}
+                isPasswordSaving={isPasswordSaving}
+                onOpenPasswordModal={openPasswordModal}
+                onClosePasswordModal={closePasswordModal}
+                onChangePasswordField={updatePasswordField}
+                onSubmitPasswordChange={submitPasswordChange}
+                canWithdrawAccount={canWithdrawAccount}
+                isWithdrawModalOpen={isWithdrawModalOpen}
+                withdrawStep={withdrawStep}
+                withdrawPassword={withdrawPassword}
+                withdrawMessage={withdrawMessage}
+                isWithdrawSubmitting={isWithdrawSubmitting}
+                onOpenWithdrawModal={openWithdrawModal}
+                onCloseWithdrawModal={closeWithdrawModal}
+                onWithdrawConfirmNext={goWithdrawConfirmNext}
+                onWithdrawConfirmBack={goWithdrawConfirmBack}
+                onChangeWithdrawPassword={updateWithdrawPassword}
+                onSubmitWithdrawAccount={submitWithdrawAccount}
+              />
+            </div>
           </div>
-
-          <Link
-            href="/signup"
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            회원가입 화면 보기
-          </Link>
         </div>
-
-        <MyPageForm
-          values={values}
-          errors={errors}
-          isLoading={isLoading}
-          isLoaded={isLoaded}
-          isPreviewMode={isPreviewMode}
-          loadMessage={loadMessage}
-          loadSuccess={loadSuccess}
-          saveMessage={saveMessage}
-          saveSuccess={saveSuccess}
-          isSaving={isSaving}
-          schoolKeyword={schoolKeyword}
-          schoolResults={schoolResults}
-          isSchoolSearching={isSchoolSearching}
-          isSchoolDropdownOpen={isSchoolDropdownOpen}
-          hasSelectedSchool={hasSelectedSchool}
-          ignoreNextSchoolFocus={ignoreNextSchoolFocus}
-          isDirty={isDirty}
-          canSubmit={canSubmit}
-          onReload={reload}
-          onChange={updateField}
-          onSelectSchool={selectSchool}
-          onSetSchoolDropdownOpen={setIsSchoolDropdownOpen}
-          onSetIgnoreNextSchoolFocus={setIgnoreNextSchoolFocus}
-          onSubmit={submit}
-          onReset={resetChanges}
-        />
-      </section>
+      </div>
     </main>
   );
 }

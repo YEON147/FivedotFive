@@ -1,9 +1,30 @@
 "use client";
 
+import { CaretLeft } from "@phosphor-icons/react";
+import { useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
 import { SignupForm } from "@/components/common/SignupForm";
 import { useSignupForm } from "@/features/signup/hooks";
+import {
+  PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_END_SPACER,
+  PAGE_HEADER_ROW,
+} from "@/lib/constants/page-header";
+import { navigateAppBack } from "@/lib/navigate-app-back";
+import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
 
 export default function SignupPage() {
+  const router = useRouter();
+
+  const handleHeaderBack = useCallback(() => {
+    navigateAppBack(router, "/login");
+  }, [router]);
+
+  useEffect(() => {
+    touchTrafficAttribution();
+  }, []);
+
   const {
     values,
     errors,
@@ -15,61 +36,80 @@ export default function SignupPage() {
     onChange,
     onSubmit,
     onRefetchNickname,
+    usernameCheckStatus,
+    usernameCheckMessage,
+    userEmailCheckStatus,
+    userEmailCheckMessage,
+    nicknameCheckStatus,
+    nicknameCheckMessage,
     schoolKeyword,
     schoolResults,
     isSchoolSearching,
     isSchoolDropdownOpen,
     hasSelectedSchool,
     ignoreNextSchoolFocus,
-    usernameCheckStatus,
-    usernameCheckMessage,
-    nicknameCheckStatus,
-    nicknameCheckMessage,
-    isNicknameDirty,
-    onSchoolKeywordChange,
-    onSelectSchool,
+    selectSchool,
     setIsSchoolDropdownOpen,
     setIgnoreNextSchoolFocus,
   } = useSignupForm();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-6 py-12">
-      <section className="w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">회원가입</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            필수 정보를 입력하고 회원가입을 진행해주세요.
-          </p>
-        </div>
+    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
+        <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
+          <header className={PAGE_HEADER_ROW}>
+            <button
+              type="button"
+              onClick={handleHeaderBack}
+              className={PAGE_HEADER_BACK_BUTTON}
+              aria-label="이전 페이지로"
+            >
+              <CaretLeft size={22} weight="bold" />
+            </button>
 
-        <SignupForm
-          values={values}
-          errors={errors}
-          isSubmitting={isSubmitting}
-          isNicknameLoading={isNicknameLoading}
-          canSubmit={canSubmit}
-          submitMessage={submitMessage}
-          submitSuccess={submitSuccess}
-          schoolKeyword={schoolKeyword}
-          schoolResults={schoolResults}
-          isSchoolSearching={isSchoolSearching}
-          isSchoolDropdownOpen={isSchoolDropdownOpen}
-          hasSelectedSchool={hasSelectedSchool}
-          ignoreNextSchoolFocus={ignoreNextSchoolFocus}
-          usernameCheckStatus={usernameCheckStatus}
-          usernameCheckMessage={usernameCheckMessage}
-          nicknameCheckStatus={nicknameCheckStatus}
-          nicknameCheckMessage={nicknameCheckMessage}
-          isNicknameDirty={isNicknameDirty}
-          onChange={onChange}
-          onSchoolKeywordChange={onSchoolKeywordChange}
-          onSelectSchool={onSelectSchool}
-          onRefetchNickname={onRefetchNickname}
-          setIsSchoolDropdownOpen={setIsSchoolDropdownOpen}
-          setIgnoreNextSchoolFocus={setIgnoreNextSchoolFocus}
-          onSubmit={onSubmit}
-        />
-      </section>
+            <div className="flex min-h-0 min-w-0 flex-1 justify-center px-2">
+              <h1 className="text-center text-wish-title leading-tight text-slate-900">
+                회원가입
+              </h1>
+            </div>
+
+            <div className={PAGE_HEADER_END_SPACER} aria-hidden />
+          </header>
+
+          {/** 랭킹·My Page와 동일 — `wishlist-page-root` 오로라 위에 셸 없이 폼 */}
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-5 pt-1 sm:px-3">
+              <SignupForm
+                values={values}
+                errors={errors}
+                isSubmitting={isSubmitting}
+                isNicknameLoading={isNicknameLoading}
+                canSubmit={canSubmit}
+                submitMessage={submitMessage}
+                submitSuccess={submitSuccess}
+                usernameCheckStatus={usernameCheckStatus}
+                usernameCheckMessage={usernameCheckMessage}
+                userEmailCheckStatus={userEmailCheckStatus}
+                userEmailCheckMessage={userEmailCheckMessage}
+                nicknameCheckStatus={nicknameCheckStatus}
+                nicknameCheckMessage={nicknameCheckMessage}
+                schoolKeyword={schoolKeyword}
+                schoolResults={schoolResults}
+                isSchoolSearching={isSchoolSearching}
+                isSchoolDropdownOpen={isSchoolDropdownOpen}
+                hasSelectedSchool={hasSelectedSchool}
+                ignoreNextSchoolFocus={ignoreNextSchoolFocus}
+                onChange={onChange}
+                onRefetchNickname={onRefetchNickname}
+                onSubmit={onSubmit}
+                onSelectSchool={selectSchool}
+                onSetSchoolDropdownOpen={setIsSchoolDropdownOpen}
+                onSetIgnoreNextSchoolFocus={setIgnoreNextSchoolFocus}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

@@ -1,3 +1,5 @@
+import { sanitizeInternalReturnPath } from "@/features/login/post-login-destination";
+import { devError } from "@/lib/dev-log";
 import {
   clearAccessToken,
   getAccessToken,
@@ -5,8 +7,6 @@ import {
 } from "@/lib/api/token-store";
 
 const REFRESH_API_PATH = "/api/auth/refresh";
-const TOKEN_EXPIRED_CODES = new Set(["TOKEN_EXPIRED", "ACCESS_TOKEN_EXPIRED"]);
-
 type ApiMessage = {
   code?: string;
   message?: string;
@@ -72,10 +72,13 @@ function getErrorCode(data: unknown): string | null {
   );
 }
 
-function isTokenExpiredError(response: Response, data: unknown): boolean {
-  if (response.status !== 401) return false;
+function shouldAttemptRefresh(response: Response, data: unknown): boolean {
+  if (response.status !== 401) {
+    return false;
+  }
+
   const code = getErrorCode(data);
-  return !!code && TOKEN_EXPIRED_CODES.has(code);
+  return !code || code === "TOKEN_EXPIRED" || code === "ACCESS_TOKEN_EXPIRED";
 }
 
 function runSessionExpiredFlow() {
@@ -86,7 +89,12 @@ function runSessionExpiredFlow() {
   window.dispatchEvent(new CustomEvent("auth:session-expired"));
 
   if (window.location.pathname !== "/login") {
-    window.location.href = "/login";
+    const full =
+      window.location.pathname + window.location.search + window.location.hash;
+    const next = sanitizeInternalReturnPath(full);
+    window.location.href = next
+      ? `/login?next=${encodeURIComponent(next)}`
+      : "/login";
   }
 }
 
@@ -149,10 +157,7 @@ async function requestWithAuth(
   const responseData = await parseResponseData(response.clone());
   const isRefreshEndpoint = toPath(input).includes(REFRESH_API_PATH);
 
-  if (
-    !isRefreshEndpoint &&
-    isTokenExpiredError(response, responseData)
-  ) {
+  if (!isRefreshEndpoint && shouldAttemptRefresh(response, responseData)) {
     try {
       const refreshedToken = await getRefreshedTokenSingleFlight();
 
@@ -180,12 +185,78 @@ export async function apiClient<T>(
   init?: RequestInit
 ): Promise<T> {
   const response = await requestWithAuth(input, init);
-  const data = await parseResponseData(response);
+
+  const rawText = await response.text();
+  let data: unknown = null;
+
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
 
   if (!response.ok) {
+    devError("API 요청 실패", {
+      url: typeof input === "string" ? input : input.toString(),
+      method: init?.method ?? "GET",
+      status: response.status,
+      statusText: response.statusText,
+      requestBody: init?.body ?? null,
+      responseBody: rawText,
+    });
+
     const message =
       (data as ApiMessage | null)?.message ??
       `요청 처리 중 오류가 발생했습니다. (${response.status})`;
+
+    throw new Error(message);
+  }
+
+  if (!data) {
+    throw new Error("서버 응답이 비어 있거나 JSON 형식이 아닙니다.");
+  }
+
+  return data as T;
+}
+
+/**
+ * Authorization 헤더·토큰 재발급 없이 호출합니다.
+ * 회원가입 중복 검사 등 로그인 없이 사용해야 하는 API에 사용합니다.
+ */
+export async function publicApiClient<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(input, {
+    ...init,
+    headers: buildHeaders(init, undefined),
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  const rawText = await response.text();
+  let data: unknown = null;
+
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    devError("API 요청 실패", {
+      url: typeof input === "string" ? input : input.toString(),
+      method: init?.method ?? "GET",
+      status: response.status,
+      statusText: response.statusText,
+      requestBody: init?.body ?? null,
+      responseBody: rawText,
+    });
+
+    const message =
+      (data as ApiMessage | null)?.message ??
+      `요청 처리 중 오류가 발생했습니다. (${response.status})`;
+
     throw new Error(message);
   }
 
@@ -200,11 +271,12 @@ export async function authApiClient<T>(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<T> {
-  const accessToken = getStoredAccessToken();
+  const accessToken = getAccessToken();
 
   const response = await fetch(input, {
     ...init,
     headers: buildHeaders(init, accessToken ?? undefined),
+    credentials: "include",
     cache: "no-store",
   });
 
@@ -218,7 +290,7 @@ export async function authApiClient<T>(
   }
 
   if (!response.ok) {
-    console.error("인증 API 실패", {
+    devError("인증 API 실패", {
       url: input,
       status: response.status,
       statusText: response.statusText,

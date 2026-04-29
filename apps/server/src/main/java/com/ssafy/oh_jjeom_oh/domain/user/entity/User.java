@@ -23,13 +23,13 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 12)
+    @Column(nullable = false, unique = true, length = 50)
     private String username;
 
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(nullable = false, unique = true, length = 8)
+    @Column(nullable = false, unique = true, length = 50)
     private String nickname;
 
     @Column(unique = true, length = 100)
@@ -61,6 +61,9 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role = Role.CHILD;
 
+    @Column(name = "team_tag", length = 50)
+    private String teamTag;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     @Column(nullable = false, length = 20)
@@ -73,4 +76,51 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public void registerProfile(String school, Gender gender, String grade) {
+        this.school = school;
+        this.gender = gender;
+        this.grade = grade;
+    }
+
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public void updateSchool(String school) {
+        this.school = school;
+    }
+
+    public void updateGender(Gender gender) {
+        this.gender = gender;
+    }
+
+    public void updateGrade(String grade) {
+        this.grade = grade;
+    }
+
+    public void promoteToAdmin() {
+        this.role = Role.ADMIN;
+    }
+
+    public void promoteToTeam(String teamTag) {
+        this.role = Role.TEAM;
+        this.teamTag = teamTag;
+    }
+
+    public void withdraw() {
+        this.status = Status.DELETED; // Status.INACTIVE
+    }
+
+    public void updateProfile(String school, String nickname, Gender gender, String grade, String schoolcode) {
+        this.school = school;
+        this.nickname = nickname;
+        this.gender = gender;
+        this.grade = grade;
+        this.schoolcode = schoolcode;
+    }
 }

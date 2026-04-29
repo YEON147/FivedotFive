@@ -1,13 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   checkNickname,
+  checkUserEmail,
   checkUsername,
   getRandomNickname,
   searchSchools,
   signup,
 } from "@/features/signup/api";
+import { trackSignUpComplete } from "@/lib/analytics/conversion";
+import { devError } from "@/lib/dev-log";
+import {
+  buildSignupEmail,
+  DEFAULT_EMAIL_DOMAIN,
+  deriveBandFromGrade,
+} from "@/lib/constants/signup";
 import type {
   CheckStatus,
   SchoolOption,
@@ -21,15 +30,19 @@ const INITIAL_VALUES: SignupFormValues = {
   password: "",
   passwordConfirm: "",
   nickname: "",
-  email: "",
+  emailLocal: "",
+  emailDomain: DEFAULT_EMAIL_DOMAIN,
   schoolName: "",
   schoolCode: "",
   gender: "",
+  gradeBand: "",
   grade: "",
 };
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,12}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** 형식 오류 문구는 입력이 잠시 멈춘 뒤에만 표시 (글자 단위 즉시 노출 방지) */
+const EMAIL_FORMAT_MESSAGE_DEBOUNCE_MS = 500;
 
 function validateSignupForm(values: SignupFormValues): SignupFormErrors {
   const errors: SignupFormErrors = {};
@@ -58,35 +71,71 @@ function validateSignupForm(values: SignupFormValues): SignupFormErrors {
     errors.nickname = "닉네임은 최대 8자까지 입력 가능합니다.";
   }
 
-  if (!values.email.trim()) {
-    errors.email = "이메일을 입력해주세요.";
-  } else if (!EMAIL_REGEX.test(values.email)) {
+  const emailFull = buildSignupEmail(values.emailLocal, values.emailDomain);
+
+  if (!values.emailLocal.trim()) {
+    errors.email = "이메일 아이디(@ 앞부분)를 입력해주세요.";
+  } else if (values.emailLocal.includes("@")) {
+    errors.email = "아이디에 @를 포함할 수 없습니다.";
+  } else if (!EMAIL_REGEX.test(emailFull.trim())) {
     errors.email = "올바른 이메일 형식을 입력해주세요.";
+  }
+
+  const schoolTrim = values.schoolName.trim();
+  const schoolCodeTrim = values.schoolCode.trim();
+  if (schoolTrim !== "" && schoolCodeTrim === "") {
+    errors.schoolName =
+      "검색 결과 목록에서 학교를 선택해 주세요. 검색되지 않는 학교는 등록할 수 없습니다.";
   }
 
   return errors;
 }
 
 function toSignupRequest(values: SignupFormValues): SignupRequest {
+  const schoolTrim = values.schoolName.trim();
+  const schoolcodeTrim = values.schoolCode.trim();
+  const schoolVerified = schoolTrim !== "" && schoolcodeTrim !== "";
+
   return {
     username: values.username.trim(),
     password: values.password,
     nickname: values.nickname.trim(),
-    email: values.email.trim(),
-    school: values.schoolName.trim() || undefined,
-    schoolcode: values.schoolCode.trim() || undefined,
-    gender: values.gender || undefined,
-    grade: values.grade || undefined,
+    email: buildSignupEmail(values.emailLocal, values.emailDomain).trim(),
+    school: schoolVerified ? schoolTrim : null,
+    schoolcode: schoolVerified ? schoolcodeTrim : null,
+    gender: values.gender === "" ? null : values.gender,
+    grade: values.grade === "" ? null : values.grade,
   };
 }
 
 export function useSignupForm() {
+  const router = useRouter();
   const [values, setValues] = useState<SignupFormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<SignupFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isNicknameLoading, setIsNicknameLoading] = useState(false);
+  /** 최초 진입 시 추천 닉네임 API 호출까지 true */
+  const [isNicknameLoading, setIsNicknameLoading] = useState(true);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
+
+  const [isNicknameDirty, setIsNicknameDirty] = useState(false);
+  const [nicknameCheckStatus, setNicknameCheckStatus] =
+    useState<CheckStatus>("idle");
+  const [nicknameCheckMessage, setNicknameCheckMessage] = useState<string | null>(
+    null,
+  );
+
+  const [usernameCheckStatus, setUsernameCheckStatus] =
+    useState<CheckStatus>("idle");
+  const [usernameCheckMessage, setUsernameCheckMessage] = useState<string | null>(
+    null,
+  );
+
+  const [userEmailCheckStatus, setUserEmailCheckStatus] =
+    useState<CheckStatus>("idle");
+  const [userEmailCheckMessage, setUserEmailCheckMessage] = useState<string | null>(
+    null,
+  );
 
   const [schoolKeyword, setSchoolKeyword] = useState("");
   const [schoolResults, setSchoolResults] = useState<SchoolOption[]>([]);
@@ -95,45 +144,45 @@ export function useSignupForm() {
   const [hasSelectedSchool, setHasSelectedSchool] = useState(false);
   const [ignoreNextSchoolFocus, setIgnoreNextSchoolFocus] = useState(false);
 
-  const [isNicknameDirty, setIsNicknameDirty] = useState(false);
-  const [nicknameCheckStatus, setNicknameCheckStatus] =
-    useState<CheckStatus>("idle");
-  const [nicknameCheckMessage, setNicknameCheckMessage] = useState<string | null>(
-    null
+  const signupEmailRef = useRef(
+    buildSignupEmail(values.emailLocal, values.emailDomain),
+  );
+  signupEmailRef.current = buildSignupEmail(
+    values.emailLocal,
+    values.emailDomain,
   );
 
-  const [usernameCheckStatus, setUsernameCheckStatus] =
-    useState<CheckStatus>("idle");
-  const [usernameCheckMessage, setUsernameCheckMessage] = useState<string | null>(
-    null
-  );
-
+  /** 가입 화면 진입 시 추천 닉네임을 미리 채움 — 실패 시 빈 값으로 두고 직접 입력 */
   useEffect(() => {
-    const trimmed = schoolKeyword.trim();
+    let cancelled = false;
 
-    if (!trimmed || hasSelectedSchool) {
-      setSchoolResults([]);
-      setIsSchoolDropdownOpen(false);
-      return;
-    }
+    setIsNicknameLoading(true);
 
-    const timer = setTimeout(async () => {
-      setIsSchoolSearching(true);
+    void (async () => {
       try {
-        const result = await searchSchools(trimmed);
-        setSchoolResults(result);
-        setIsSchoolDropdownOpen(result.length > 0);
-      } catch (error) {
-        console.error("학교 검색 실패:", error);
-        setSchoolResults([]);
-        setIsSchoolDropdownOpen(false);
+        const nickname = await getRandomNickname();
+        if (cancelled) return;
+        setValues((prev) => ({ ...prev, nickname }));
+        setIsNicknameDirty(true);
+        setNicknameCheckStatus("idle");
+        setNicknameCheckMessage(null);
+      } catch {
+        if (cancelled) return;
+        setIsNicknameDirty(false);
+        setNicknameCheckStatus("idle");
+        setNicknameCheckMessage(null);
       } finally {
-        setIsSchoolSearching(false);
+        if (!cancelled) {
+          setIsNicknameLoading(false);
+        }
       }
-    }, 300);
+    })();
 
-    return () => clearTimeout(timer);
-  }, [schoolKeyword, hasSelectedSchool]);
+    return () => {
+      cancelled = true;
+      setIsNicknameLoading(false);
+    };
+  }, []);
 
   useEffect(() => {
     const trimmedUsername = values.username.trim();
@@ -174,18 +223,100 @@ export function useSignupForm() {
           response.message ||
             (available
               ? "사용 가능한 아이디입니다."
-              : "이미 사용 중인 아이디입니다.")
+              : "이미 사용 중인 아이디입니다."),
         );
-      } catch {
+      } catch (error) {
         if (values.username.trim() !== requestUsername) return;
 
-        setUsernameCheckStatus("idle");
-        setUsernameCheckMessage("중복 확인은 백엔드 연결 후 가능합니다.");
+        const message =
+          error instanceof Error
+            ? error.message
+            : "아이디 중복 확인 중 오류가 발생했습니다.";
+
+        setUsernameCheckStatus("unavailable");
+        setUsernameCheckMessage(message);
       }
     }, 400);
 
     return () => clearTimeout(timer);
   }, [values.username]);
+
+  useEffect(() => {
+    const trimmedEmail = buildSignupEmail(
+      values.emailLocal,
+      values.emailDomain,
+    ).trim();
+
+    if (!trimmedEmail) {
+      setUserEmailCheckStatus("idle");
+      setUserEmailCheckMessage(null);
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setUserEmailCheckStatus("idle");
+      setUserEmailCheckMessage(null);
+
+      const formatTimer = window.setTimeout(() => {
+        const latest = signupEmailRef.current.trim();
+        if (!latest) {
+          setUserEmailCheckStatus("idle");
+          setUserEmailCheckMessage(null);
+          return;
+        }
+        if (EMAIL_REGEX.test(latest)) return;
+        setUserEmailCheckStatus("idle");
+        setUserEmailCheckMessage("올바른 이메일 형식을 입력해주세요.");
+      }, EMAIL_FORMAT_MESSAGE_DEBOUNCE_MS);
+
+      return () => window.clearTimeout(formatTimer);
+    }
+
+    const timer = setTimeout(async () => {
+      const requestEmail = trimmedEmail;
+
+      setUserEmailCheckStatus("checking");
+      setUserEmailCheckMessage("이메일 확인 중입니다.");
+
+      try {
+        const response = await checkUserEmail(requestEmail);
+
+        if (
+          buildSignupEmail(values.emailLocal, values.emailDomain).trim() !==
+          requestEmail
+        ) {
+          return;
+        }
+
+        const available = !!response.data?.available;
+
+        setUserEmailCheckStatus(available ? "available" : "unavailable");
+        setUserEmailCheckMessage(
+          response.message ||
+            (available
+              ? "사용 가능한 이메일입니다."
+              : "이미 사용 중인 이메일입니다."),
+        );
+      } catch (error) {
+        if (
+          buildSignupEmail(values.emailLocal, values.emailDomain).trim() !==
+          requestEmail
+        ) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "이메일 중복 확인 중 오류가 발생했습니다.";
+
+        setUserEmailCheckStatus("unavailable");
+        setUserEmailCheckMessage(message);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [values.emailLocal, values.emailDomain]);
 
   useEffect(() => {
     const trimmedNickname = values.nickname.trim();
@@ -232,30 +363,95 @@ export function useSignupForm() {
           response.message ||
             (available
               ? "사용 가능한 닉네임입니다."
-              : "이미 사용 중인 닉네임입니다.")
+              : "이미 사용 중인 닉네임입니다."),
         );
-      } catch {
+      } catch (error) {
         if (values.nickname.trim() !== requestNickname) return;
 
-        setNicknameCheckStatus("idle");
-        setNicknameCheckMessage("중복 확인은 백엔드 연결 후 가능합니다.");
+        const message =
+          error instanceof Error
+            ? error.message
+            : "닉네임 중복 확인 중 오류가 발생했습니다.";
+
+        setNicknameCheckStatus("unavailable");
+        setNicknameCheckMessage(message);
       }
     }, 400);
 
     return () => clearTimeout(timer);
   }, [values.nickname, isNicknameDirty]);
 
+  useEffect(() => {
+    const trimmedKeyword = schoolKeyword.trim();
+
+    if (!trimmedKeyword || hasSelectedSchool) {
+      if (!trimmedKeyword) {
+        setSchoolResults([]);
+        setIsSchoolDropdownOpen(false);
+      }
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setIsSchoolSearching(true);
+
+      try {
+        const schools = await searchSchools(trimmedKeyword);
+        setSchoolResults(schools);
+        setIsSchoolDropdownOpen(schools.length > 0);
+      } catch (error) {
+        devError("[signup] school search failed", error);
+        setSchoolResults([]);
+        setIsSchoolDropdownOpen(false);
+      } finally {
+        setIsSchoolSearching(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [schoolKeyword, hasSelectedSchool]);
+
+  const selectSchool = useCallback((school: SchoolOption) => {
+    setValues((prev) => ({
+      ...prev,
+      schoolName: school.schoolName,
+      schoolCode: school.schoolCode,
+    }));
+    setSchoolKeyword(school.schoolName);
+    setSchoolResults([]);
+    setHasSelectedSchool(true);
+    setIsSchoolDropdownOpen(false);
+    setIgnoreNextSchoolFocus(true);
+
+    setErrors((prev) => ({
+      ...prev,
+      schoolName: undefined,
+    }));
+  }, []);
+
   const onChange = useCallback(
     (name: keyof SignupFormValues, value: string) => {
-      setValues((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+      setValues((prev) => {
+        const base: SignupFormValues = {
+          ...prev,
+          [name]: value as SignupFormValues[typeof name],
+          ...(name === "schoolName" ? { schoolCode: "" } : {}),
+          ...(name === "gradeBand" ? { grade: "" } : {}),
+        };
+        if (name === "grade") {
+          return {
+            ...base,
+            gradeBand:
+              value === "" ? prev.gradeBand : deriveBandFromGrade(value),
+          };
+        }
+        return base;
+      });
 
-      if (name === "nickname") {
-        setIsNicknameDirty(true);
-        setNicknameCheckStatus("idle");
-        setNicknameCheckMessage(null);
+      if (name === "schoolName") {
+        setSchoolKeyword(value);
+        setHasSelectedSchool(false);
+        setIgnoreNextSchoolFocus(false);
       }
 
       if (name === "username") {
@@ -263,7 +459,24 @@ export function useSignupForm() {
         setUsernameCheckMessage(null);
       }
 
+      if (name === "emailLocal" || name === "emailDomain") {
+        setUserEmailCheckStatus("idle");
+        setUserEmailCheckMessage(null);
+      }
+
+      if (name === "nickname") {
+        setIsNicknameDirty(true);
+        setNicknameCheckStatus("idle");
+        setNicknameCheckMessage(null);
+      }
+
       setErrors((prev) => {
+        if (name === "gradeBand") {
+          return { ...prev, grade: undefined };
+        }
+        if (name === "emailLocal" || name === "emailDomain") {
+          return { ...prev, email: undefined };
+        }
         if (!prev[name as keyof SignupFormErrors]) return prev;
         return {
           ...prev,
@@ -276,38 +489,29 @@ export function useSignupForm() {
         setSubmitSuccess(null);
       }
     },
-    [submitMessage]
+    [submitMessage],
   );
 
   const onRefetchNickname = useCallback(async () => {
-    setSubmitMessage("랜덤 닉네임 기능은 백엔드 연결 후 사용할 수 있습니다.");
-    setSubmitSuccess(false);
-  }, []);
-
-  const onSchoolKeywordChange = useCallback((value: string) => {
-    setHasSelectedSchool(false);
-    setIgnoreNextSchoolFocus(false);
-    setSchoolKeyword(value);
-
-    setValues((prev) => ({
-      ...prev,
-      schoolName: value,
-      schoolCode: "",
-    }));
-  }, []);
-
-  const onSelectSchool = useCallback((school: SchoolOption) => {
-    setValues((prev) => ({
-      ...prev,
-      schoolName: school.schoolName,
-      schoolCode: school.schoolCode,
-    }));
-
-    setSchoolKeyword(school.schoolName);
-    setSchoolResults([]);
-    setIsSchoolDropdownOpen(false);
-    setHasSelectedSchool(true);
-    setIgnoreNextSchoolFocus(true);
+    setIsNicknameLoading(true);
+    try {
+      const nickname = await getRandomNickname();
+      setValues((prev) => ({ ...prev, nickname }));
+      setIsNicknameDirty(true);
+      setNicknameCheckStatus("idle");
+      setNicknameCheckMessage(null);
+      setSubmitMessage(null);
+      setSubmitSuccess(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "랜덤 닉네임을 불러오지 못했습니다.";
+      setSubmitMessage(message);
+      setSubmitSuccess(false);
+    } finally {
+      setIsNicknameLoading(false);
+    }
   }, []);
 
   const canSubmit = useMemo(() => {
@@ -316,7 +520,7 @@ export function useSignupForm() {
       !!values.password.trim() &&
       !!values.passwordConfirm.trim() &&
       !!values.nickname.trim() &&
-      !!values.email.trim();
+      !!buildSignupEmail(values.emailLocal, values.emailDomain).trim();
 
     const usernamePassed =
       values.username.trim().length >= 2 &&
@@ -328,11 +532,18 @@ export function useSignupForm() {
       !!values.passwordConfirm.trim() &&
       values.password === values.passwordConfirm;
 
-    const emailPassed = EMAIL_REGEX.test(values.email.trim());
+    const emailPassed = EMAIL_REGEX.test(
+      buildSignupEmail(values.emailLocal, values.emailDomain).trim(),
+    );
 
     const nicknamePassed =
       values.nickname.trim().length >= 2 &&
       values.nickname.trim().length <= 8;
+
+    const duplicateChecksOk =
+      usernameCheckStatus === "available" &&
+      userEmailCheckStatus === "available" &&
+      nicknameCheckStatus === "available";
 
     return (
       hasRequiredFields &&
@@ -341,10 +552,18 @@ export function useSignupForm() {
       passwordConfirmPassed &&
       emailPassed &&
       nicknamePassed &&
+      duplicateChecksOk &&
       !isSubmitting &&
       !isNicknameLoading
     );
-  }, [values, isSubmitting, isNicknameLoading]);
+  }, [
+    values,
+    isSubmitting,
+    isNicknameLoading,
+    usernameCheckStatus,
+    userEmailCheckStatus,
+    nicknameCheckStatus,
+  ]);
 
   const onSubmit = useCallback(async () => {
     const nextErrors = validateSignupForm(values);
@@ -352,6 +571,16 @@ export function useSignupForm() {
 
     if (Object.keys(nextErrors).length > 0) {
       setSubmitMessage("입력값을 다시 확인해주세요.");
+      setSubmitSuccess(false);
+      return;
+    }
+
+    if (
+      usernameCheckStatus !== "available" ||
+      userEmailCheckStatus !== "available" ||
+      nicknameCheckStatus !== "available"
+    ) {
+      setSubmitMessage("중복 확인 후 다시 시도해 주세요.");
       setSubmitSuccess(false);
       return;
     }
@@ -364,8 +593,11 @@ export function useSignupForm() {
       const payload = toSignupRequest(values);
       const response = await signup(payload);
 
+      trackSignUpComplete("email");
+
       setSubmitMessage(response.message ?? "회원가입이 완료되었습니다.");
       setSubmitSuccess(true);
+      router.push("/login");
     } catch (error) {
       const message =
         error instanceof Error
@@ -377,7 +609,7 @@ export function useSignupForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [values]);
+  }, [router, values, usernameCheckStatus, userEmailCheckStatus, nicknameCheckStatus]);
 
   return {
     values,
@@ -390,20 +622,22 @@ export function useSignupForm() {
     onChange,
     onSubmit,
     onRefetchNickname,
+    usernameCheckStatus,
+    usernameCheckMessage,
+    userEmailCheckStatus,
+    userEmailCheckMessage,
+    nicknameCheckStatus,
+    nicknameCheckMessage,
+    isNicknameDirty,
+
     schoolKeyword,
     schoolResults,
     isSchoolSearching,
     isSchoolDropdownOpen,
     hasSelectedSchool,
     ignoreNextSchoolFocus,
-    onSchoolKeywordChange,
-    onSelectSchool,
+    selectSchool,
     setIsSchoolDropdownOpen,
     setIgnoreNextSchoolFocus,
-    nicknameCheckStatus,
-    nicknameCheckMessage,
-    isNicknameDirty,
-    usernameCheckStatus,
-    usernameCheckMessage,
   };
 }

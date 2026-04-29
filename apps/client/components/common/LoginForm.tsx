@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { Button } from "@/components/ui/Button";
+import { UI_FOCUS_RING } from "@/components/ui/focus-ring";
 import { TextField } from "@/components/ui/TextField";
 import type {
   LoginFormErrors,
@@ -41,6 +43,8 @@ export function LoginForm({
     >
       <TextField
         id="username"
+        name="username"
+        autoComplete="username"
         label="아이디"
         value={values.username}
         placeholder="아이디를 입력해주세요"
@@ -50,11 +54,14 @@ export function LoginForm({
 
       <TextField
         id="password"
+        name="password"
         type="password"
+        autoComplete="current-password"
         label="비밀번호"
         value={values.password}
         placeholder="비밀번호를 입력해주세요"
         error={errors.password}
+        filledMinLength={8}
         onChange={(event) => onChange("password", event.target.value)}
       />
 
@@ -69,7 +76,7 @@ export function LoginForm({
       ) : null}
 
       <div className="mt-2 flex flex-col gap-3">
-        <Button type="submit" disabled={!canSubmit}>
+        <Button type="submit" variant="brand" disabled={!canSubmit}>
           {isSubmitting ? "로그인 중..." : "로그인"}
         </Button>
         <Button type="button" variant="kakao" onClick={onKakaoLogin}>
@@ -79,7 +86,11 @@ export function LoginForm({
 
       <div className="mt-3 text-center">
         <p className="text-body-sm text-[#8b8b8b]">계정이 없으신가요 ?</p>
-        <Link href="/signup" className="text-body-sm text-[#6e6e6e]">
+        <Link
+          href="/signup"
+          className={`text-body-sm text-[#6e6e6e] inline-block rounded-sm focus:ring-offset-0 ${UI_FOCUS_RING}`}
+          onClick={() => trackSignupButtonClick({ signup_entry: "login" })}
+        >
           회원가입
         </Link>
       </div>

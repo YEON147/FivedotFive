@@ -9,6 +9,7 @@ import com.ssafy.oh_jjeom_oh.domain.auth.jwt.JwtUtil;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Gender;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
+import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,9 +26,11 @@ import java.util.concurrent.TimeUnit;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final WishBoardRepository wishBoardRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final RedisTemplate<String, String> redisTemplate;
+    private final EmailService emailService;
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshExpiration;
@@ -36,7 +39,7 @@ public class AuthService {
         User user = userRepository.findByUsername(request.username())
                 .orElseThrow(() -> new CustomException(ErrorCode.LOGIN_FAILED));
 
-        if (Status.BANNED.equals(user.getStatus()) || Status.INACTIVE.equals(user.getStatus())) {
+        if (Status.BANNED.equals(user.getStatus()) || Status.INACTIVE.equals(user.getStatus()) || Status.DELETED.equals(user.getStatus())) {
             throw new CustomException(ErrorCode.USER_FORBIDDEN);
         }
 
@@ -69,35 +72,98 @@ public class AuthService {
         return userRepository.existsByUsername(username);
     }
 
+    public boolean isEmailDuplicate(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    public boolean isNicknameDuplicate(String nickname) {
+        return userRepository.existsByNickname(nickname);
+    }
+
     @Transactional
     public Long signup(SignupRequest request) {
         if (isUsernameDuplicate(request.username())) {
             throw new CustomException(ErrorCode.DUPLICATE_ID);
         }
+        if (isEmailDuplicate(request.email())) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        Gender gender = (request.gender() != null && !request.gender().isBlank())
+                ? Gender.valueOf(request.gender().toUpperCase())
+                : null;
+        String school = (request.school() != null && !request.school().isBlank()) ? request.school() : null;
+        String schoolcode = (request.schoolcode() != null && !request.schoolcode().isBlank()) ? request.schoolcode() : null;
+        String grade = (request.grade() != null && !request.grade().isBlank()) ? request.grade() : null;
 
         User user = User.builder()
                 .username(request.username())
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .nickname(request.nickname())
                 .email(request.email())
-                .school(request.school())
-                .schoolcode(request.schoolcode())
-                .gender(Gender.valueOf(request.gender().toUpperCase()))
-                .grade(request.grade())
+                .school(school)
+                .schoolcode(schoolcode)
+                .gender(gender)
+                .grade(grade)
                 .build();
         return userRepository.save(user).getId();
     }
 
     private TokenResponse generateTokenResponse(User user) {
-        String accessToken = jwtUtil.createAccessToken(user.getUsername(), String.valueOf(user.getRole()));
+        String accessToken = jwtUtil.createAccessToken(user.getId(), user.getUsername(), String.valueOf(user.getRole()));
         String refreshToken = UUID.randomUUID().toString();
 
         redisTemplate.opsForValue().set("RT:" + refreshToken, user.getUsername(), refreshExpiration, TimeUnit.SECONDS);
+
+        boolean hasWishBoard = wishBoardRepository.existsByUser_Id(user.getId());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .username(user.getUsername())
+                .hasWishBoard(hasWishBoard)
                 .build();
+    }
+
+    public void sendResetOtp(String email) {
+        if (!userRepository.existsByEmail(email)) {
+            throw new CustomException(ErrorCode.EMAIL_NOT_FOUND);
+        }
+
+        String otp = String.valueOf((int)(Math.random() * 899999) + 100000);
+
+        redisTemplate.opsForValue().set("OTP:" + email, otp, 300, TimeUnit.SECONDS);
+
+        String title = "[오쩜오] 비밀번호 재설정 인증번호입니다.";
+        String content = "인증번호는 [" + otp + "] 입니다. 5분 이내에 입력해주세요.";
+        emailService.sendEmail(email, title, content);
+    }
+
+    public void verifyOtp(String email, String otp) {
+        String savedOtp = redisTemplate.opsForValue().get("OTP:" + email);
+
+        if (savedOtp == null) {
+            throw new CustomException(ErrorCode.OTP_EXPIRED);
+        }
+        if (!savedOtp.equals(otp)) {
+            throw new CustomException(ErrorCode.INVALID_OTP);
+        }
+
+        redisTemplate.opsForValue().set("VERIFIED:" + email, "true", 600, TimeUnit.SECONDS);
+        redisTemplate.delete("OTP:" + email);
+    }
+
+    @Transactional
+    public void resetPassword(String email, String newPassword) {
+        String isVerified = redisTemplate.opsForValue().get("VERIFIED:" + email);
+        if (isVerified == null) {
+            throw new CustomException(ErrorCode.NOT_VERIFIED_EMAIL);
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        user.updatePassword(passwordEncoder.encode(newPassword));
+
+        redisTemplate.delete("VERIFIED:" + email);
     }
 }

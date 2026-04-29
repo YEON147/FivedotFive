@@ -1,6 +1,10 @@
-import { authApiClient, getStoredAccessToken } from "@/lib/api/client";
-import { searchSchools } from "@/features/signup/api";
+import { authApiClient } from "@/lib/api/client";
+import { searchSchools, checkNickname } from "@/features/signup/api";
 import type {
+  ChangePasswordRequest,
+  ChangePasswordResponse,
+  DeleteAccountRequest,
+  DeleteAccountResponse,
   MyProfile,
   MyProfileResponse,
   UpdateMyProfileRequest,
@@ -9,49 +13,53 @@ import type {
 import type { SchoolOption } from "@/features/signup/types";
 
 const MY_PROFILE_API_PATH = "/api/users/me";
+const MY_PASSWORD_API_PATH = "/api/users/me/password";
 
-export const MY_PROFILE_PREVIEW_DATA: MyProfile = {
-  username: "preview_user",
-  email: "preview@email.com",
-  school: "미리보기 초등학교",
-  gender: "FEMALE",
-  grade: "ELEM_3",
-};
+function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
+  return {
+    hasWishBoard: response.data?.hasWishBoard ?? false,
+    role: (response.data?.role as MyProfile["role"]) ?? null,
+    username: response.data?.username ?? "",
+    email: response.data?.email ?? "",
+    nickname: response.data?.nickname ?? "",
+    school: response.data?.school ?? null,
+    schoolcode: response.data?.schoolcode ?? null,
+    gender: response.data?.gender ?? null,
+    grade: response.data?.grade ?? null,
+  };
+}
 
 export async function getMyProfile(): Promise<MyProfile> {
-  const accessToken = getStoredAccessToken();
-
-  if (!accessToken) {
-    return MY_PROFILE_PREVIEW_DATA;
-  }
-
   const response = await authApiClient<MyProfileResponse>(MY_PROFILE_API_PATH, {
     method: "GET",
   });
 
-  return {
-    username: response.data?.username ?? "",
-    email: response.data?.email ?? "",
-    school: response.data?.school ?? "",
-    gender: response.data?.gender ?? "",
-    grade: response.data?.grade ?? "",
-  };
+  return mapProfileResponseToProfile(response);
 }
 
 export async function updateMyProfile(
   payload: UpdateMyProfileRequest
 ): Promise<UpdateMyProfileResponse> {
-  const accessToken = getStoredAccessToken();
-
-  if (!accessToken) {
-    return {
-      success: true,
-      message: "백엔드 미연결 상태이므로 화면에서만 수정 내용을 반영했습니다.",
-    };
-  }
-
   return authApiClient<UpdateMyProfileResponse>(MY_PROFILE_API_PATH, {
     method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function changeMyPassword(
+  payload: ChangePasswordRequest
+): Promise<ChangePasswordResponse> {
+  return authApiClient<ChangePasswordResponse>(MY_PASSWORD_API_PATH, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteMyAccount(
+  payload: DeleteAccountRequest
+): Promise<DeleteAccountResponse> {
+  return authApiClient<DeleteAccountResponse>(MY_PROFILE_API_PATH, {
+    method: "DELETE",
     body: JSON.stringify(payload),
   });
 }
@@ -60,4 +68,29 @@ export async function searchSchoolsForMyPage(
   keyword: string
 ): Promise<SchoolOption[]> {
   return searchSchools(keyword);
+}
+
+export async function checkNicknameForMyPage(
+  nickname: string
+): Promise<{ available: boolean; message: string }> {
+  try {
+    const result = await checkNickname(nickname);
+
+    return {
+      available: result.data?.available ?? false,
+      message: result.message ?? "사용 가능한 닉네임입니다.",
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      return {
+        available: false,
+        message: error.message,
+      };
+    }
+
+    return {
+      available: false,
+      message: "닉네임 중복 확인 중 오류가 발생했습니다.",
+    };
+  }
 }

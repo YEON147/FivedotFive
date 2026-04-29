@@ -1,0 +1,21 @@
+@keyframes main-landing-wordmark-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+.main-landing-wordmark-float {
+  animation: main-landing-wordmark-float 2.85s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-landing-wordmark-float {
+    animation: none;
+    will-change: auto;
+  }
+}
