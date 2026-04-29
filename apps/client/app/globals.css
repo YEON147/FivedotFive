@@ -315,17 +315,23 @@ select:-webkit-autofill:focus {
  */
 .app-shell-viewport-floor {
   position: fixed;
-  top: 0;
+  /* 루트 공지 배너(`AppTopNoticeBanner`) 높이만큼 아래에서 시작 — 전체 화면 고정이 배너를 가리지 않음 */
+  top: var(--app-top-banner-h, 0px);
   left: 0;
   bottom: 0;
   box-sizing: border-box;
   min-width: var(--app-min-viewport-width);
   width: max(100vw, var(--app-min-viewport-width));
-  height: 100dvh;
-  max-height: 100dvh;
-  max-height: 100svh;
+  height: calc(100dvh - var(--app-top-banner-h, 0px));
+  max-height: calc(100dvh - var(--app-top-banner-h, 0px));
+  max-height: calc(100svh - var(--app-top-banner-h, 0px));
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/** 배너가 노치 영역을 이미 채움 — 고정 셸에서는 중복 safe-area 상단 패딩 제거 */
+html[data-notice-banner-visible] main.wishlist-page-root.app-shell-viewport-floor {
+  padding-top: 0 !important;
 }
 
 /** 위시 `main`만 — 뷰포트 셸 `overflow:hidden`이 스티커·호버 링을 잘라내지 않도록 */

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 
+import { AppTopNoticeBanner } from "@/components/common/AppTopNoticeBanner";
 import { effectivePublicSiteOrigin } from "@/lib/effective-site-origin";
 
 import "./globals.css";
@@ -113,7 +114,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: GA4_GTAG_INLINE }}
         />
 
-        {children}
+        <header className="relative z-[95] shrink-0">
+          <AppTopNoticeBanner />
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </body>
     </html>
   );
