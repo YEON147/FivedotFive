@@ -65,7 +65,7 @@ export type MyBoardData = {
   };
 };
 
-/** GET /api/boards/me/items — `WishItemListResponse` */
+/** GET /api/boards/me/items — `ApiResponse.data`(내부 `WishItemListResponse`) */
 export type MyWishItemsData = {
   success?: boolean;
   message?: string;
