@@ -17,9 +17,17 @@ import { getMyProfile } from "@/features/user/api";
 import { compressImagesForUpload } from "@/lib/images/compress-images-for-upload";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
 import {
+  APP_MAIN_COLUMN,
+  APP_MAIN_SCROLL_BODY,
+  APP_SHELL_STAGE,
+  APP_SHELL_VIEWPORT_MAIN,
+} from "@/lib/constants/app-shell-layout";
+import {
   PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_LEADING_CLUSTER,
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW,
+  PAGE_HEADER_TITLE_INLINE,
 } from "@/lib/constants/page-header";
 
 function datetimeLocalToApiString(value: string): string {
@@ -229,30 +237,38 @@ export default function NoticeDetailPage() {
 
   if (gate === "loading") {
     return (
-      <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
-        <p className="px-3 pt-8 text-body text-[var(--color-text-secondary)]">불러오는 중…</p>
+      <main className={APP_SHELL_VIEWPORT_MAIN}>
+        <div className={APP_SHELL_STAGE}>
+          <div className={`${APP_MAIN_COLUMN} px-2 pt-8 sm:px-3`}>
+            <p className="text-body text-[var(--color-text-secondary)]">불러오는 중…</p>
+          </div>
+        </div>
       </main>
     );
   }
 
   if (gate === "notfound" || !detail) {
     return (
-      <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+      <main className={APP_SHELL_VIEWPORT_MAIN}>
         <AppSideMenu
           open={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           onLogout={handleLogout}
         />
-        <div className="relative z-10 mx-auto flex w-full max-w-[372px] flex-1 flex-col px-2 pt-4 sm:px-3">
+        <div className={APP_SHELL_STAGE}>
+          <div className={`${APP_MAIN_COLUMN} px-2 pt-4 sm:px-3`}>
           <header className={PAGE_HEADER_ROW}>
-            <button
-              type="button"
-              onClick={handleHeaderBack}
-              className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="공지사항 목록으로"
-            >
-              <CaretLeft size={22} weight="bold" />
-            </button>
+            <div className={PAGE_HEADER_LEADING_CLUSTER}>
+              <button
+                type="button"
+                onClick={handleHeaderBack}
+                className={PAGE_HEADER_BACK_BUTTON}
+                aria-label="공지사항 목록으로"
+              >
+                <CaretLeft size={22} weight="bold" />
+              </button>
+              <h1 className={PAGE_HEADER_TITLE_INLINE}>공지</h1>
+            </div>
             <button
               type="button"
               onClick={(event) => {
@@ -269,6 +285,7 @@ export default function NoticeDetailPage() {
           <p className="mt-6 text-body text-[var(--color-text-secondary)]">
             {loadError ?? "공지를 찾을 수 없습니다."}
           </p>
+          </div>
         </div>
       </main>
     );
@@ -277,24 +294,30 @@ export default function NoticeDetailPage() {
   const sortedImages = [...detail.images].sort((a, b) => a.displayOrder - b.displayOrder);
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+    <main className={APP_SHELL_VIEWPORT_MAIN}>
       <AppSideMenu
         open={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
       />
 
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
-        <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
+      <div className={APP_SHELL_STAGE}>
+        <div className={APP_MAIN_COLUMN}>
           <header className={PAGE_HEADER_ROW}>
-            <button
-              type="button"
-              onClick={handleHeaderBack}
-              className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="공지사항 목록으로"
-            >
-              <CaretLeft size={22} weight="bold" />
-            </button>
+            <div className={PAGE_HEADER_LEADING_CLUSTER}>
+              <button
+                type="button"
+                onClick={handleHeaderBack}
+                className={PAGE_HEADER_BACK_BUTTON}
+                aria-label="공지사항 목록으로"
+              >
+                <CaretLeft size={22} weight="bold" />
+              </button>
+
+              <h1 className={PAGE_HEADER_TITLE_INLINE}>
+                {isAdmin ? "공지 작성" : "공지"}
+              </h1>
+            </div>
 
             <button
               type="button"
@@ -310,11 +333,9 @@ export default function NoticeDetailPage() {
             </button>
           </header>
 
-          <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-4 pt-0 sm:px-3">
+          <div className={APP_MAIN_SCROLL_BODY}>
             {isAdmin ? (
               <>
-                <h1 className="text-h2 mb-4 text-[var(--color-text-primary)]">공지 작성</h1>
-
                 <form onSubmit={onSubmitEdit} className="flex flex-col gap-4">
                   <label className="block text-body font-medium text-[var(--color-text-primary)]">
                     제목 <span className="text-rose-600">*</span>

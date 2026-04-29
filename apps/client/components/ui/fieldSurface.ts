@@ -29,7 +29,7 @@ export const COMPACT_FIELD_INPUT_CLASS =
   `${COMPACT_CONTROL_BOX_CLASS} !px-3`;
 
 /**
- * 같은 시각 크기의 native select — 우측 화살표 여역(pr-9)
+ * 같은 시각 크기의 native select — 우측 화살표 여역(pr-9). 34px(학교·성별 줄과 맞춤).
  */
 export const COMPACT_FIELD_SELECT_CLASS =
   `${COMPACT_CONTROL_BOX_CLASS} !pl-3 !pr-9 shrink-0 cursor-pointer appearance-none bg-no-repeat disabled:cursor-not-allowed !bg-[length:0.875rem_0.875rem]`;
