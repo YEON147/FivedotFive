@@ -32,7 +32,8 @@ public final class WallpaperDisplayNames {
             Map.entry("wallpaper-22.png", "풍선파티"),
             Map.entry("wallpaper-23.png", "동화속숲"),
             Map.entry("wallpaper-24.png", "냥냥"),
-            Map.entry("wallpaper-25.png", "토끼토끼")
+            Map.entry("wallpaper-25.png", "토끼토끼"),
+            Map.entry("wallpaper-26.png", "야구장")
     );
 
     // assetKey에서 파일명 추출 후 표시명 반환 (없으면 파일명 그대로)
