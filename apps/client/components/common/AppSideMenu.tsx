@@ -29,7 +29,7 @@ type AppSideMenuProps = {
   isOnMyWishlistEditorPage?: boolean;
 };
 
-const ICON_22 = { size: 22 as const, weight: "bold" as const };
+const ICON_20 = { size: 20 as const, weight: "bold" as const };
 
 function useClientMounted() {
   return useSyncExternalStore(
@@ -75,12 +75,12 @@ export function AppSideMenu({
       <SideMenuLinkRow
         href={publicHref}
         onNavigate={onClose}
-        icon={<ChatCircleDots {...ICON_22} />}
+        icon={<ChatCircleDots {...ICON_20} />}
       >
         댓글 보러 가기
       </SideMenuLinkRow>
     ) : !isOnMyWishlistEditorPage ? (
-      <SideMenuLinkRow href="/wishlist" onNavigate={onClose} icon={<Gift {...ICON_22} />}>
+      <SideMenuLinkRow href="/wishlist" onNavigate={onClose} icon={<Gift {...ICON_20} />}>
         내 위시리스트 보러가기
       </SideMenuLinkRow>
     ) : null;
@@ -106,33 +106,33 @@ export function AppSideMenu({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
             aria-label="메뉴 닫기"
           >
-            <X size={22} weight="bold" aria-hidden />
+            <X size={20} weight="bold" aria-hidden />
           </button>
         </div>
 
         <nav className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-2 pt-0">
           <SideMenuSection title="나의 활동">
             {firstPrimaryRow}
-            <SideMenuLinkRow href="/ranking" onNavigate={onClose} icon={<Trophy {...ICON_22} />}>
+            <SideMenuLinkRow href="/ranking" onNavigate={onClose} icon={<Trophy {...ICON_20} />}>
               오쩜오 랭킹
             </SideMenuLinkRow>
           </SideMenuSection>
 
           <SideMenuSection title="콘텐츠">
             <KboTeamWishlistNavSection sideMenuOpen={open} onNavigate={onClose} />
-            <SideMenuLinkRow href="/notice" onNavigate={onClose} icon={<Bell {...ICON_22} />}>
+            <SideMenuLinkRow href="/notice" onNavigate={onClose} icon={<Bell {...ICON_20} />}>
               공지사항
             </SideMenuLinkRow>
           </SideMenuSection>
 
           <SideMenuSection title="계정">
-            <SideMenuLinkRow href="/mypage" onNavigate={onClose} icon={<User {...ICON_22} />}>
+            <SideMenuLinkRow href="/mypage" onNavigate={onClose} icon={<User {...ICON_20} />}>
               내 정보
             </SideMenuLinkRow>
-            <SideMenuLogoutRow onLogout={onLogout} icon={<SignOut {...ICON_22} />}>
+            <SideMenuLogoutRow onLogout={onLogout} icon={<SignOut {...ICON_20} />}>
               로그아웃
             </SideMenuLogoutRow>
           </SideMenuSection>

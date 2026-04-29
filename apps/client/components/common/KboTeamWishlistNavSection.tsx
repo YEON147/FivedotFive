@@ -4,7 +4,10 @@ import { Baseball, CaretDown } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { SIDE_MENU_ICON_WRAP_PRIMARY } from "@/components/common/SideMenuPrimitives";
+import {
+  SIDE_MENU_ICON_WRAP_PRIMARY,
+  SIDE_MENU_ROW_CLASS,
+} from "@/components/common/SideMenuPrimitives";
 import { KBO_TEAM_WISHLIST_BOARDS } from "@/lib/constants/kbo-team-wishlist-boards";
 
 type KboTeamWishlistNavSectionProps = {
@@ -30,17 +33,17 @@ export function KboTeamWishlistNavSection({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 rounded-[14px] px-4 py-2.5 text-left text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+        className={`${SIDE_MENU_ROW_CLASS} w-full text-left`}
         aria-expanded={expanded}
         aria-controls="kbo-team-wishlist-list"
         id="kbo-team-wishlist-toggle"
       >
         <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-          <Baseball size={22} weight="bold" />
+          <Baseball size={20} weight="bold" />
         </span>
         <span className="min-w-0 flex-1">야구 응원가기</span>
         <CaretDown
-          size={18}
+          size={16}
           weight="bold"
           className={`shrink-0 text-[var(--color-text-secondary)] transition-transform duration-200 ${
             expanded ? "rotate-180" : ""
@@ -61,7 +64,7 @@ export function KboTeamWishlistNavSection({
               <Link
                 href={`/wishlist/${slug}`}
                 onClick={onNavigate}
-                className="block rounded-[10px] px-3 py-2 text-[13px] font-medium leading-snug text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+                className="block rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium leading-snug text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
               >
                 {label}
               </Link>
