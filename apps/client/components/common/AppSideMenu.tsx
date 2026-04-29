@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatCircleDots, SignOut, Trophy, User, X } from "@phosphor-icons/react";
+import { ChatCircleDots, MegaphoneSimple, SignOut, Trophy, User, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -21,7 +21,7 @@ const SIDE_MENU_ICON_WRAP_ROSE =
   "flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600";
 
 /**
- * 위시리스트 헤더 햄버거와 동일한 우측 슬라이드 메뉴 (랭킹 / 내정보 / 로그아웃).
+ * 위시리스트 헤더 햄버거와 동일한 우측 슬라이드 메뉴 (공지사항 / 랭킹 / 내정보 / 로그아웃).
  */
 export function AppSideMenu({
   open,
@@ -93,6 +93,17 @@ export function AppSideMenu({
               댓글 확인하러 가기
             </Link>
           ) : null}
+
+          <Link
+            href="/notice"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
+          >
+            <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+              <MegaphoneSimple size={22} weight="bold" />
+            </span>
+            공지사항
+          </Link>
 
           <Link
             href="/ranking"
