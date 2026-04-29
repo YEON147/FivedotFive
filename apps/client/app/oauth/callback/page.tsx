@@ -5,6 +5,11 @@ import { Suspense, useEffect, useState } from "react";
 import { trackSignUpComplete } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution } from "@/lib/analytics/wishlistCta";
 import { setAccessToken } from "@/lib/api/token-store";
+import {
+  APP_MAIN_COLUMN_AUTH,
+  APP_SHELL_STAGE_CENTERED,
+  APP_SHELL_VIEWPORT_MAIN,
+} from "@/lib/constants/app-shell-layout";
 import { resolvePostLoginDestination } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
 
@@ -65,10 +70,14 @@ function OAuthCallbackContent() {
 
 export default function OAuthCallbackPage() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md items-center justify-center px-8">
-      <Suspense fallback={<p className="text-body-sm text-[#6e6e6e]">로그인 처리 중...</p>}>
-        <OAuthCallbackContent />
-      </Suspense>
+    <main className={APP_SHELL_VIEWPORT_MAIN}>
+      <div className={APP_SHELL_STAGE_CENTERED}>
+        <div className={`${APP_MAIN_COLUMN_AUTH} px-2 sm:px-3`}>
+          <Suspense fallback={<p className="text-body-sm text-[#6e6e6e]">로그인 처리 중...</p>}>
+            <OAuthCallbackContent />
+          </Suspense>
+        </div>
+      </div>
     </main>
   );
 }

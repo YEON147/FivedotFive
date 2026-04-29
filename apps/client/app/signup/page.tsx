@@ -7,6 +7,12 @@ import { useRouter } from "next/navigation";
 import { SignupForm } from "@/components/common/SignupForm";
 import { useSignupForm } from "@/features/signup/hooks";
 import {
+  APP_MAIN_COLUMN,
+  APP_MAIN_SCROLL_BODY_FORM,
+  APP_SHELL_STAGE,
+  APP_SHELL_VIEWPORT_MAIN,
+} from "@/lib/constants/app-shell-layout";
+import {
   PAGE_HEADER_BACK_BUTTON,
   PAGE_HEADER_END_SPACER,
   PAGE_HEADER_ROW,
@@ -54,9 +60,9 @@ export default function SignupPage() {
   } = useSignupForm();
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
-        <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
+    <main className={APP_SHELL_VIEWPORT_MAIN}>
+      <div className={APP_SHELL_STAGE}>
+        <div className={APP_MAIN_COLUMN}>
           <header className={PAGE_HEADER_ROW}>
             <button
               type="button"
@@ -78,7 +84,7 @@ export default function SignupPage() {
 
           {/** 랭킹·My Page와 동일 — `wishlist-page-root` 오로라 위에 셸 없이 폼 */}
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-5 pt-1 sm:px-3">
+            <div className={APP_MAIN_SCROLL_BODY_FORM}>
               <SignupForm
                 values={values}
                 errors={errors}
