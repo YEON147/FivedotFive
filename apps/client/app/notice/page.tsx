@@ -30,8 +30,10 @@ import {
 } from "@/lib/constants/app-shell-layout";
 import {
   PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_LEADING_CLUSTER,
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW,
+  PAGE_HEADER_TITLE_INLINE,
 } from "@/lib/constants/page-header";
 import { navigateAppBack } from "@/lib/navigate-app-back";
 
@@ -148,18 +150,18 @@ export default function NoticePage() {
       <div className={APP_SHELL_STAGE}>
         <div className={APP_MAIN_COLUMN}>
           <header className={PAGE_HEADER_ROW}>
-            <button
-              type="button"
-              onClick={handleHeaderBack}
-              className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="이전 페이지로"
-            >
-              <CaretLeft size={22} weight="bold" />
-            </button>
+            <div className={PAGE_HEADER_LEADING_CLUSTER}>
+              <button
+                type="button"
+                onClick={handleHeaderBack}
+                className={PAGE_HEADER_BACK_BUTTON}
+                aria-label="이전 페이지로"
+              >
+                <CaretLeft size={22} weight="bold" />
+              </button>
 
-            <h1 className="min-w-0 flex-1 truncate text-center text-h3 text-[var(--color-text-primary)]">
-              공지사항
-            </h1>
+              <h1 className={PAGE_HEADER_TITLE_INLINE}>공지사항</h1>
+            </div>
 
             <button
               type="button"

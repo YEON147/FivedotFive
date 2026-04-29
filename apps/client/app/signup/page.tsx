@@ -15,6 +15,7 @@ import {
 import {
   PAGE_HEADER_BACK_BUTTON,
   PAGE_HEADER_END_SPACER,
+  PAGE_HEADER_LEADING_CLUSTER,
   PAGE_HEADER_ROW,
 } from "@/lib/constants/page-header";
 import { navigateAppBack } from "@/lib/navigate-app-back";
@@ -64,17 +65,17 @@ export default function SignupPage() {
       <div className={APP_SHELL_STAGE}>
         <div className={APP_MAIN_COLUMN}>
           <header className={PAGE_HEADER_ROW}>
-            <button
-              type="button"
-              onClick={handleHeaderBack}
-              className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="이전 페이지로"
-            >
-              <CaretLeft size={22} weight="bold" />
-            </button>
+            <div className={PAGE_HEADER_LEADING_CLUSTER}>
+              <button
+                type="button"
+                onClick={handleHeaderBack}
+                className={PAGE_HEADER_BACK_BUTTON}
+                aria-label="이전 페이지로"
+              >
+                <CaretLeft size={22} weight="bold" />
+              </button>
 
-            <div className="flex min-h-0 min-w-0 flex-1 justify-center px-2">
-              <h1 className="text-center text-wish-title leading-tight text-slate-900">
+              <h1 className="min-w-0 flex-1 truncate text-left text-wish-title leading-tight text-slate-900">
                 회원가입
               </h1>
             </div>

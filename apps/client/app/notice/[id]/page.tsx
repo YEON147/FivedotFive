@@ -24,8 +24,10 @@ import {
 } from "@/lib/constants/app-shell-layout";
 import {
   PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_LEADING_CLUSTER,
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW,
+  PAGE_HEADER_TITLE_INLINE,
 } from "@/lib/constants/page-header";
 
 function datetimeLocalToApiString(value: string): string {
@@ -256,14 +258,17 @@ export default function NoticeDetailPage() {
         <div className={APP_SHELL_STAGE}>
           <div className={`${APP_MAIN_COLUMN} px-2 pt-4 sm:px-3`}>
           <header className={PAGE_HEADER_ROW}>
-            <button
-              type="button"
-              onClick={handleHeaderBack}
-              className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="공지사항 목록으로"
-            >
-              <CaretLeft size={22} weight="bold" />
-            </button>
+            <div className={PAGE_HEADER_LEADING_CLUSTER}>
+              <button
+                type="button"
+                onClick={handleHeaderBack}
+                className={PAGE_HEADER_BACK_BUTTON}
+                aria-label="공지사항 목록으로"
+              >
+                <CaretLeft size={22} weight="bold" />
+              </button>
+              <h1 className={PAGE_HEADER_TITLE_INLINE}>공지</h1>
+            </div>
             <button
               type="button"
               onClick={(event) => {
@@ -299,14 +304,20 @@ export default function NoticeDetailPage() {
       <div className={APP_SHELL_STAGE}>
         <div className={APP_MAIN_COLUMN}>
           <header className={PAGE_HEADER_ROW}>
-            <button
-              type="button"
-              onClick={handleHeaderBack}
-              className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="공지사항 목록으로"
-            >
-              <CaretLeft size={22} weight="bold" />
-            </button>
+            <div className={PAGE_HEADER_LEADING_CLUSTER}>
+              <button
+                type="button"
+                onClick={handleHeaderBack}
+                className={PAGE_HEADER_BACK_BUTTON}
+                aria-label="공지사항 목록으로"
+              >
+                <CaretLeft size={22} weight="bold" />
+              </button>
+
+              <h1 className={PAGE_HEADER_TITLE_INLINE}>
+                {isAdmin ? "공지 작성" : "공지"}
+              </h1>
+            </div>
 
             <button
               type="button"
@@ -325,8 +336,6 @@ export default function NoticeDetailPage() {
           <div className={APP_MAIN_SCROLL_BODY}>
             {isAdmin ? (
               <>
-                <h1 className="text-h2 mb-4 text-[var(--color-text-primary)]">공지 작성</h1>
-
                 <form onSubmit={onSubmitEdit} className="flex flex-col gap-4">
                   <label className="block text-body font-medium text-[var(--color-text-primary)]">
                     제목 <span className="text-rose-600">*</span>
