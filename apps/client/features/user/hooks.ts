@@ -416,6 +416,7 @@ export function useMyPageForm() {
       const response = await updateMyProfile(payload);
 
       const updatedProfile: MyProfile = {
+        provider: originalProfile?.provider ?? null,
         username: response.data?.username ?? values.username,
         email: response.data?.email ?? values.email,
         nickname: response.data?.nickname ?? values.nickname.trim(),
