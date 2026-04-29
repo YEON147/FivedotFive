@@ -38,6 +38,24 @@ export function matchesGiftPresetIcon(
 }
 
 /**
+ * 모달 **첫 칸「기본 선물」** 으로 저장된 키인지.
+ * API 목록의 `giftIcons[0]`(두 번째 칸)과 구분하기 위해, 카탈로그 첫 행과의 동치 비교는 하지 않습니다.
+ */
+export function isStoredKeyGiftModalStaticPreset(storedKey: string): boolean {
+  const s = storedKey.trim();
+  if (!s) {
+    return true;
+  }
+  if (matchesGiftPresetIcon(s, undefined)) {
+    return true;
+  }
+  if (s.toLowerCase() === SERVER_DEFAULT_GIFT_ICON_KEY.toLowerCase()) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * 선물 이름이 없고, 아이콘도 없거나 서버·클라 ‘기본’ 아이콘만 있으면 빈 슬롯.
  * (`deriveWishSlotState` 배열과 동일 규칙 — 레이아웃 압축 시에도 이걸 써야 빈 칸이 안 생김)
  */

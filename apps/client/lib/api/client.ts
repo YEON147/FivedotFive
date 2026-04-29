@@ -26,8 +26,67 @@ let refreshPromise: Promise<string> | null = null;
 
 function toPath(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
-  if (input instanceof URL) return input.toString();
+  if (input instanceof URL) return input.href;
   return input.url;
+}
+
+/**
+ * `localhost:3000` → `http://127.0.0.1:8080` 처럼 origin이 다르면 `include` 쿠키는
+ * CORS·프리플라이트와 맞물려 이상 동작할 수 있음. API는 JWT(Authorization)만 쓰므로
+ * cross-origin일 때는 `omit`이 안전하다.
+ */
+function credentialsForApiRequest(input: RequestInfo | URL): RequestCredentials {
+  if (typeof window === "undefined") return "include";
+  let href: string;
+  if (typeof input === "string") {
+    href = input;
+  } else if (input instanceof URL) {
+    href = input.href;
+  } else if (input instanceof Request) {
+    href = input.url;
+  } else {
+    return "include";
+  }
+  try {
+    const resolved = new URL(href, window.location.href);
+    return resolved.origin === window.location.origin ? "include" : "omit";
+  } catch {
+    return "include";
+  }
+}
+
+/** 콘솔 디버그용 — FormData 등은 직렬화되지 않아 `{}`로 보이므로 요약한다 */
+function describeRequestBodyForLog(body: RequestInit["body"]): unknown {
+  if (body == null || body === undefined) return null;
+  if (typeof body === "string") {
+    return body.length > 800 ? `${body.slice(0, 800)}… (${body.length} chars)` : body;
+  }
+  if (body instanceof FormData) {
+    const out: Record<string, string[]> = {};
+    for (const [key, value] of body.entries()) {
+      if (!out[key]) out[key] = [];
+      const v: unknown = value;
+      if (v instanceof File) {
+        out[key].push(`File(${v.name}, ${v.size}b)`);
+      } else if (v instanceof Blob) {
+        out[key].push(`Blob(${v.type || "?"}, ${v.size}b)`);
+      } else {
+        out[key].push(String(v).slice(0, 400));
+      }
+    }
+    return out;
+  }
+  if (body instanceof URLSearchParams) {
+    const s = body.toString();
+    return s.length > 800 ? `${s.slice(0, 800)}…` : s;
+  }
+  return Object.prototype.toString.call(body);
+}
+
+function summarizeResponseBodyForLog(rawText: string): string {
+  if (!rawText) return "(empty)";
+  if (rawText.length > 2000) return `${rawText.slice(0, 2000)}… (${rawText.length} chars)`;
+  return rawText;
 }
 
 async function parseResponseData(response: Response): Promise<unknown> {
@@ -41,6 +100,13 @@ async function parseResponseData(response: Response): Promise<unknown> {
 
 function buildHeaders(init?: RequestInit, accessToken?: string): HeadersInit {
   const headers = new Headers(init?.headers);
+
+  // FormData → multipart: 브라우저가 boundary 포함 Content-Type을 붙여야 함.
+  // `Content-Type: application/json` 등이 남으면 "JSON처럼" 보내는 것과 같아 서버가 깨짐.
+  if (init?.body instanceof FormData) {
+    headers.delete("Content-Type");
+  }
+
   const hasJsonBody =
     typeof init?.body === "string" &&
     !headers.has("Content-Type") &&
@@ -146,7 +212,7 @@ async function requestWithAuth(
   const response = await fetch(input, {
     ...init,
     headers: buildHeaders(init, currentToken ?? undefined),
-    credentials: "include",
+    credentials: credentialsForApiRequest(input),
     cache: "no-store",
   });
 
@@ -164,7 +230,7 @@ async function requestWithAuth(
       return fetch(input, {
         ...init,
         headers: buildHeaders(init, refreshedToken),
-        credentials: "include",
+        credentials: credentialsForApiRequest(input),
         cache: "no-store",
       });
     } catch (error) {
@@ -201,8 +267,8 @@ export async function apiClient<T>(
       method: init?.method ?? "GET",
       status: response.status,
       statusText: response.statusText,
-      requestBody: init?.body ?? null,
-      responseBody: rawText,
+      requestBody: describeRequestBodyForLog(init?.body),
+      responseBody: summarizeResponseBodyForLog(rawText),
     });
 
     const message =
@@ -244,13 +310,13 @@ export async function publicApiClient<T>(
   }
 
   if (!response.ok) {
-    devError("API 요청 실패", {
+    devError("API 요청 실패 (public)", {
       url: typeof input === "string" ? input : input.toString(),
       method: init?.method ?? "GET",
       status: response.status,
       statusText: response.statusText,
-      requestBody: init?.body ?? null,
-      responseBody: rawText,
+      requestBody: describeRequestBodyForLog(init?.body),
+      responseBody: summarizeResponseBodyForLog(rawText),
     });
 
     const message =

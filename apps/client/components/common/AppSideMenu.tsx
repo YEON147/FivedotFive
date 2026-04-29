@@ -1,39 +1,56 @@
 "use client";
 
-import { ChatCircleDots, SignOut, Trophy, User, X } from "@phosphor-icons/react";
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import {
+  Bell,
+  ChatCircleDots,
+  Gift,
+  SignOut,
+  Trophy,
+  User,
+  X,
+} from "@phosphor-icons/react";
+import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+
+import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
+import {
+  SideMenuLinkRow,
+  SideMenuLogoutRow,
+  SideMenuSection,
+} from "@/components/common/SideMenuPrimitives";
 
 type AppSideMenuProps = {
   open: boolean;
   onClose: () => void;
   onLogout: () => void;
-  /** 공개 위시 댓글 뷰 (`/wishlist/{slug}`) — 있을 때만 메뉴에 노출 */
+  /** 내 보드 공개 댓글 페이지 URL (`/wishlist/{slug}`) — 꾸미기 화면에서만 1번「댓글 보러 가기」에 사용 */
   publicWishlistHref?: string | null;
+  /** 내 위시 꾸미기(`/wishlist`) 라우트면 true. 이때만 1번이「댓글 보러 가기」로 바뀜(그 외 화면은「내 위시리스트 보러가기」) */
+  isOnMyWishlistEditorPage?: boolean;
 };
 
-/** 메뉴 행 아이콘 — 원형 배지 (랭킹·내정보) */
-const SIDE_MENU_ICON_WRAP_PRIMARY =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-[#7B61FF]/12 text-[#7B61FF]";
+const ICON_20 = { size: 20 as const, weight: "bold" as const };
 
-const SIDE_MENU_ICON_WRAP_ROSE =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600";
+function useClientMounted() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}
 
 /**
- * 위시리스트 헤더 햄버거와 동일한 우측 슬라이드 메뉴 (랭킹 / 내정보 / 로그아웃).
+ * 위시리스트·랭킹·마이페이지 등 로그인 사용자 햄버거 메뉴.
+ * 순서: (1) 내 위시 꾸미기 중이면「댓글 보러 가기」, 아니면「내 위시리스트 보러가기」→ (2) 랭킹 → …
  */
 export function AppSideMenu({
   open,
   onClose,
   onLogout,
   publicWishlistHref,
+  isOnMyWishlistEditorPage = false,
 }: AppSideMenuProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useClientMounted();
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +69,22 @@ export function AppSideMenu({
     return null;
   }
 
+  const publicHref = publicWishlistHref?.trim() ?? "";
+  const firstPrimaryRow =
+    isOnMyWishlistEditorPage && publicHref !== "" ? (
+      <SideMenuLinkRow
+        href={publicHref}
+        onNavigate={onClose}
+        icon={<ChatCircleDots {...ICON_20} />}
+      >
+        댓글 보러 가기
+      </SideMenuLinkRow>
+    ) : !isOnMyWishlistEditorPage ? (
+      <SideMenuLinkRow href="/wishlist" onNavigate={onClose} icon={<Gift {...ICON_20} />}>
+        내 위시리스트 보러가기
+      </SideMenuLinkRow>
+    ) : null;
+
   return createPortal(
     <>
       <div
@@ -68,64 +101,41 @@ export function AppSideMenu({
         }`}
         aria-hidden={!open}
       >
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-3">
           <span className="text-h3 text-[var(--color-text-primary)]">메뉴</span>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
             aria-label="메뉴 닫기"
           >
-            <X size={22} weight="bold" aria-hidden />
+            <X size={20} weight="bold" aria-hidden />
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 p-3">
-          {publicWishlistHref ? (
-            <Link
-              href={publicWishlistHref}
-              onClick={onClose}
-              className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-            >
-              <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                <ChatCircleDots size={22} weight="bold" />
-              </span>
-              댓글 확인하러 가기
-            </Link>
-          ) : null}
+        <nav className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-2 pt-0">
+          <SideMenuSection title="나의 활동">
+            {firstPrimaryRow}
+            <SideMenuLinkRow href="/ranking" onNavigate={onClose} icon={<Trophy {...ICON_20} />}>
+              오쩜오 랭킹
+            </SideMenuLinkRow>
+          </SideMenuSection>
 
-          <Link
-            href="/ranking"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-          >
-            <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-              <Trophy size={22} weight="bold" />
-            </span>
-            오쩜오 랭킹
-          </Link>
+          <SideMenuSection title="콘텐츠">
+            <KboTeamWishlistNavSection sideMenuOpen={open} onNavigate={onClose} />
+            <SideMenuLinkRow href="/notice" onNavigate={onClose} icon={<Bell {...ICON_20} />}>
+              공지사항
+            </SideMenuLinkRow>
+          </SideMenuSection>
 
-          <Link
-            href="/mypage"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-          >
-            <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-              <User size={22} weight="bold" />
-            </span>
-            내정보
-          </Link>
-
-          <button
-            type="button"
-            onClick={onLogout}
-            className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
-          >
-            <span className={SIDE_MENU_ICON_WRAP_ROSE} aria-hidden>
-              <SignOut size={22} weight="bold" />
-            </span>
-            로그아웃
-          </button>
+          <SideMenuSection title="계정">
+            <SideMenuLinkRow href="/mypage" onNavigate={onClose} icon={<User {...ICON_20} />}>
+              내 정보
+            </SideMenuLinkRow>
+            <SideMenuLogoutRow onLogout={onLogout} icon={<SignOut {...ICON_20} />}>
+              로그아웃
+            </SideMenuLogoutRow>
+          </SideMenuSection>
         </nav>
       </aside>
     </>,

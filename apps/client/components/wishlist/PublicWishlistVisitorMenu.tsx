@@ -1,9 +1,26 @@
 "use client";
 
-import { Gift, SignIn, SignOut, Trophy, User, UserPlus, X } from "@phosphor-icons/react";
+import {
+  Gift,
+  MegaphoneSimple,
+  SignIn,
+  SignOut,
+  Trophy,
+  User,
+  UserPlus,
+  X,
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+
+import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
+import {
+  SIDE_MENU_ICON_WRAP_PRIMARY,
+  SIDE_MENU_ICON_WRAP_ROSE,
+  SIDE_MENU_LOGOUT_ROW_CLASS,
+  SIDE_MENU_ROW_CLASS,
+} from "@/components/common/SideMenuPrimitives";
 
 type PublicWishlistVisitorMenuProps = {
   open: boolean;
@@ -14,15 +31,11 @@ type PublicWishlistVisitorMenuProps = {
   loginHref?: string;
 };
 
-const SIDE_MENU_ICON_WRAP_PRIMARY =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-[#7B61FF]/12 text-[#7B61FF]";
-
-const SIDE_MENU_ICON_WRAP_ROSE =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600";
+const ICON_20 = { size: 20 as const, weight: "bold" as const };
 
 /**
- * 타인 공개 위시리스트(`/wishlist/[slug]`) 햄버거 메뉴.
- * 로그인: 내 위시 보러가기 · 랭킹 · 내 정보 · 로그아웃 / 비로그인: 로그인 · 회원가입 · 랭킹
+ * 공개 위시리스트(`/wishlist/[slug]`) 햄버거 메뉴.
+ * 비로그인: 로그인·회원가입만. 로그인 시: 내 위시·랭킹·야구·공지·내 정보·로그아웃.
  */
 export function PublicWishlistVisitorMenu({
   open,
@@ -71,43 +84,42 @@ export function PublicWishlistVisitorMenu({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
             aria-label="메뉴 닫기"
           >
-            <X size={22} weight="bold" aria-hidden />
+            <X {...ICON_20} aria-hidden />
           </button>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 p-3">
           {loggedIn ? (
             <>
-              <Link
-                href="/wishlist"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
+              <Link href="/wishlist" onClick={onClose} className={SIDE_MENU_ROW_CLASS}>
                 <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <Gift size={22} weight="bold" />
+                  <Gift {...ICON_20} />
                 </span>
                 내 위시리스트 보러가기
               </Link>
-              <Link
-                href="/ranking"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
+
+              <Link href="/ranking" onClick={onClose} className={SIDE_MENU_ROW_CLASS}>
                 <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <Trophy size={22} weight="bold" />
+                  <Trophy {...ICON_20} />
                 </span>
                 오쩜오 랭킹
               </Link>
-              <Link
-                href="/mypage"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
+
+              <KboTeamWishlistNavSection sideMenuOpen={open} onNavigate={onClose} />
+
+              <Link href="/notice" onClick={onClose} className={SIDE_MENU_ROW_CLASS}>
                 <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <User size={22} weight="bold" />
+                  <MegaphoneSimple {...ICON_20} />
+                </span>
+                공지사항
+              </Link>
+
+              <Link href="/mypage" onClick={onClose} className={SIDE_MENU_ROW_CLASS}>
+                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+                  <User {...ICON_20} />
                 </span>
                 내 정보
               </Link>
@@ -118,45 +130,27 @@ export function PublicWishlistVisitorMenu({
                   onLogout();
                   onClose();
                 }}
-                className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
+                className={SIDE_MENU_LOGOUT_ROW_CLASS}
               >
                 <span className={SIDE_MENU_ICON_WRAP_ROSE} aria-hidden>
-                  <SignOut size={22} weight="bold" />
+                  <SignOut {...ICON_20} />
                 </span>
                 로그아웃
               </button>
             </>
           ) : (
             <>
-              <Link
-                href={loginHref}
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
+              <Link href={loginHref} onClick={onClose} className={SIDE_MENU_ROW_CLASS}>
                 <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <SignIn size={22} weight="bold" />
+                  <SignIn {...ICON_20} />
                 </span>
                 로그인
               </Link>
-              <Link
-                href="/signup"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
+              <Link href="/signup" onClick={onClose} className={SIDE_MENU_ROW_CLASS}>
                 <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <UserPlus size={22} weight="bold" />
+                  <UserPlus {...ICON_20} />
                 </span>
                 회원가입
-              </Link>
-              <Link
-                href="/ranking"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <Trophy size={22} weight="bold" />
-                </span>
-                오쩜오 랭킹
               </Link>
             </>
           )}
