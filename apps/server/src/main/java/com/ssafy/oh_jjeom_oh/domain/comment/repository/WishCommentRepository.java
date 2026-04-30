@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface WishCommentRepository extends JpaRepository<WishComment, Long> {
 
     Page<WishComment> findByWishBoardOrderBySlotIndexAsc(WishBoard wishBoard, Pageable pageable);
@@ -30,4 +32,6 @@ public interface WishCommentRepository extends JpaRepository<WishComment, Long> 
     @Modifying(clearAutomatically = true)
     @Query("delete from WishComment c where c.user.id = :userId")
     void deleteByAuthorId(@Param("userId") Long userId);
+
+    List<WishComment> findAllByUserId(Long userId);
 }
