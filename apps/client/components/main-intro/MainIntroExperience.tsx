@@ -119,6 +119,7 @@ export function MainIntroExperience() {
     };
   }, [reducedMotion]);
 
+  /** `intro-gift-motion.css`·부모 transform 합성 — next/image 기본 래퍼와 충돌해 애니가 죽을 수 있어 `<img>` 유지 */
   const giftMotionImg = (
     <div className={iosStyleGiftShadow ? "intro-gift-stack intro-gift-stack--paint" : "intro-gift-stack"}>
       {iosStyleGiftShadow ? (
