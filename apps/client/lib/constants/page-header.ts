@@ -5,7 +5,7 @@
 
 /** 풀폭 페이지 헤더 (`mb-4` · `w-full shrink-0` 포함) — 랭킹·회원가입·내정보 */
 export const PAGE_HEADER_ROW =
-  "relative z-40 mb-4 flex w-full shrink-0 items-center justify-between gap-2.5 pl-[5.5%] pr-[4%] pt-[7%]";
+  "relative z-40 mb-3 flex w-full shrink-0 items-center justify-between gap-2.5 pr-[1.8%] pt-[7%]";
 
 /**
  * 위시 메인/공개 프로필 타이틀 줄 — 위와 패딩·정렬은 같고 `mb-4`·`w-full shrink-0` 없음
@@ -24,3 +24,14 @@ export const PAGE_HEADER_BACK_BUTTON =
 
 /** 랭킹 헤더 등 — 우측 메뉴 없을 때 자리 맞춤용 42px */
 export const PAGE_HEADER_END_SPACER = "relative z-40 size-[42px] shrink-0";
+
+/**
+ * 뒤로가기 오른쪽에 타이틀을 붙일 때 — `PAGE_HEADER_ROW` 안 첫 자식으로 두고,
+ * 오른쪽 끝은 메뉴(또는 `PAGE_HEADER_END_SPACER`)를 형제로 둠.
+ */
+export const PAGE_HEADER_LEADING_CLUSTER =
+  "flex min-w-0 flex-1 items-center";
+
+/** 한 줄 타이틀 — 뒤로가기 바로 옆·좌측 정렬 */
+export const PAGE_HEADER_TITLE_INLINE =
+  "min-w-0 flex-1 truncate text-left text-h3 text-[var(--color-text-primary)]";

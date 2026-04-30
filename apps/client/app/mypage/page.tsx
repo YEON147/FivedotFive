@@ -9,9 +9,17 @@ import { MyPageForm } from "@/components/common/MyPageForm";
 import { useMyPageForm } from "@/features/user/hooks";
 import { clearAccessToken } from "@/lib/api/token-store";
 import {
+  APP_MAIN_COLUMN,
+  APP_MAIN_SCROLL_BODY,
+  APP_SHELL_STAGE,
+  APP_SHELL_VIEWPORT_MAIN,
+} from "@/lib/constants/app-shell-layout";
+import {
   PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_LEADING_CLUSTER,
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW,
+  PAGE_HEADER_TITLE_INLINE,
 } from "@/lib/constants/page-header";
 import { navigateAppBack } from "@/lib/navigate-app-back";
 
@@ -87,24 +95,28 @@ export default function MyPagePage() {
   }, [router]);
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+    <main className={APP_SHELL_VIEWPORT_MAIN}>
       <AppSideMenu
         open={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
       />
 
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
-        <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
+      <div className={APP_SHELL_STAGE}>
+        <div className={APP_MAIN_COLUMN}>
           <header className={PAGE_HEADER_ROW}>
-            <button
-              type="button"
-              onClick={handleHeaderBack}
-              className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="이전 페이지로"
-            >
-              <CaretLeft size={22} weight="bold" />
-            </button>
+            <div className={PAGE_HEADER_LEADING_CLUSTER}>
+              <button
+                type="button"
+                onClick={handleHeaderBack}
+                className={PAGE_HEADER_BACK_BUTTON}
+                aria-label="이전 페이지로"
+              >
+                <CaretLeft size={22} weight="bold" />
+              </button>
+
+              <h1 className={PAGE_HEADER_TITLE_INLINE}>내 정보</h1>
+            </div>
 
             <button
               type="button"
@@ -122,7 +134,7 @@ export default function MyPagePage() {
 
           {/** 위시와 동일 오로라 배경 위 콘텐츠 */}
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-4 pt-0 sm:px-3">
+            <div className={APP_MAIN_SCROLL_BODY}>
               <MyPageForm
                 values={values}
                 errors={errors}

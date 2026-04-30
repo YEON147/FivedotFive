@@ -23,6 +23,11 @@ import {
 } from "@/features/ranking/api";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import { clearAccessToken } from "@/lib/api/token-store";
+import {
+  APP_MAIN_COLUMN,
+  APP_SHELL_STAGE,
+  APP_SHELL_VIEWPORT_MAIN,
+} from "@/lib/constants/app-shell-layout";
 import { navigateAppBack } from "@/lib/navigate-app-back";
 
 export default function RankingPage() {
@@ -149,15 +154,15 @@ export default function RankingPage() {
     (tab === "personalComments" && personalLoading);
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+    <main className={APP_SHELL_VIEWPORT_MAIN}>
       <AppSideMenu
         open={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
       />
 
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
-        <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
+      <div className={APP_SHELL_STAGE}>
+        <div className={APP_MAIN_COLUMN}>
           <RankingPageHeader
             onBack={handleHeaderBack}
             menuOpen={isSidebarOpen}

@@ -1,5 +1,11 @@
-import { apiClient, publicApiClient } from "@/lib/api/client";
-import type { CommentCreateData, CommentListData, MyBoardData, PublicBoardData } from "./types";
+import { apiClient } from "@/lib/api/client";
+import type {
+  CommentCreateData,
+  CommentListData,
+  MyBoardData,
+  MyWishItemsData,
+  PublicBoardData,
+} from "./types";
 
 export async function getMyBoard(): Promise<MyBoardData> {
   return apiClient<MyBoardData>("/api/boards/me");
@@ -19,6 +25,16 @@ export async function createMyBoard(): Promise<CreateBoardApiResponse> {
   return apiClient<CreateBoardApiResponse>("/api/boards", {
     method: "POST",
     body: JSON.stringify({}),
+  });
+}
+
+/** GET /api/boards/me/items — CHILD, 슬롯 3개 고정 */
+export async function getMyWishItems(): Promise<MyWishItemsData> {
+  return apiClient<MyWishItemsData>("/api/boards/me/items", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -78,8 +94,10 @@ export type PutMyBoardBackgroundResponse = {
   message: string;
 };
 
-/** PUT /api/boards/me/assets/background — 배경 에셋 키 저장 */
-export async function putMyBoardBackground(assetKey: string): Promise<PutMyBoardBackgroundResponse> {
+/** PUT /api/boards/me/assets/background — 보드 배경 설정 */
+export async function putMyBoardBackground(
+  assetKey: string,
+): Promise<PutMyBoardBackgroundResponse> {
   return apiClient<PutMyBoardBackgroundResponse>("/api/boards/me/assets/background", {
     method: "PUT",
     body: JSON.stringify({ assetKey: assetKey.trim() }),
@@ -91,7 +109,7 @@ export type DeleteMyBoardBackgroundResponse = {
   message: string;
 };
 
-/** DELETE /api/boards/me/assets/background — 기본 배경으로 초기화 */
+/** DELETE /api/boards/me/assets/background — 보드 배경 제거 */
 export async function deleteMyBoardBackground(): Promise<DeleteMyBoardBackgroundResponse> {
   return apiClient<DeleteMyBoardBackgroundResponse>("/api/boards/me/assets/background", {
     method: "DELETE",
@@ -137,28 +155,25 @@ export async function deleteMyWishItem(slotIndex: number): Promise<DeleteMyWishI
 }
 
 export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
-  const safe = encodeURIComponent(slug);
-  return publicApiClient<PublicBoardData>(`/api/boards/${safe}`);
+  return apiClient<PublicBoardData>(`/api/boards/${slug}`);
+}
+
+/** Spring `page`는 0부터 — `commentPageIdx`와 동일 */
+export async function getComments(slug: string, page: number): Promise<CommentListData> {
+  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page}&size=6`);
 }
 
 /**
- * GET /api/boards/:slug/comments?page=&size=6
- * Spring `Pageable`: `page`는 0부터(첫 페이지 = 0), `size`는 6 고정.
- * 로그인 시 `Authorization`을 붙여 `comments[].isUser`(본인 댓글)가 오도록 `apiClient` 사용.
+ * POST /api/boards/:slug/comments — CHILD
+ * 서버 `CommentCreateRequest`: `slotIndex` 필수(`@NotNull`), `stickerKey` 선택
  */
-export async function getComments(slug: string, page: number): Promise<CommentListData> {
-  const safe = encodeURIComponent(slug);
-  return apiClient<CommentListData>(`/api/boards/${safe}/comments?page=${page}&size=6`);
-}
-
 export async function createComment(
   slug: string,
   content: string,
   stickerKey: string,
   slotIndex: number,
 ): Promise<CommentCreateData> {
-  const safe = encodeURIComponent(slug);
-  return apiClient<CommentCreateData>(`/api/boards/${safe}/comments`, {
+  return apiClient<CommentCreateData>(`/api/boards/${slug}/comments`, {
     method: "POST",
     body: JSON.stringify({ content, stickerKey, slotIndex }),
   });
@@ -169,21 +184,14 @@ export async function updateComment(
   commentId: number,
   content: string,
 ): Promise<void> {
-  const safe = encodeURIComponent(slug);
-  await apiClient(`/api/boards/${safe}/comments/${commentId}`, {
+  await apiClient(`/api/boards/${slug}/comments/${commentId}`, {
     method: "PATCH",
     body: JSON.stringify({ content }),
   });
 }
 
-/** DELETE /api/boards/:slug/comments/:commentId — 본인 댓글 소프트 삭제 (JWT 필수) */
 export async function deleteComment(slug: string, commentId: number): Promise<void> {
-  const safe = encodeURIComponent(slug);
-  await apiClient<{ success: boolean; message?: string }>(
-    `/api/boards/${safe}/comments/${commentId}`,
-    {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-    },
-  );
+  await apiClient(`/api/boards/${slug}/comments/${commentId}`, {
+    method: "DELETE",
+  });
 }

@@ -3,8 +3,12 @@
 import { X } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-const PANEL_BASE =
-  "w-[min(340px,calc(100vw-2rem))] min-w-0 max-w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 pb-6 pt-4 shadow-[0_24px_60px_rgba(0,0,0,0.14)]";
+const PANEL_SHELL =
+  "w-[min(340px,calc(100vw-2rem))] min-w-0 max-w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-[18px] border border-[var(--color-border)] px-5 pb-6 pt-4 shadow-[0_24px_60px_rgba(0,0,0,0.14)]";
+
+const PANEL_BG_DEFAULT = "bg-[var(--color-surface)]";
+/** `globals.css` — 페이지 오로라와 동일 */
+const PANEL_BG_AURORA = "app-dialog-panel-aurora";
 
 type WishlistCenterDialogProps = {
   open: boolean;
@@ -22,6 +26,8 @@ type WishlistCenterDialogProps = {
    * `static` — 슬러그 등: 전용 `bg-black/45` 딤(z-40) + 패널(z-41), `open`이면 mount.
    */
   variant: "animated" | "static";
+  /** `aurora` — 흰 패널 대신 서비스 페이지와 같은 연보라 오로라 배경 */
+  panelTone?: "default" | "aurora";
 };
 
 function DialogChrome({
@@ -82,7 +88,11 @@ export function WishlistCenterDialog({
   children,
   closeLabel = "닫기",
   variant,
+  panelTone = "default",
 }: WishlistCenterDialogProps) {
+  const panelBg = panelTone === "aurora" ? PANEL_BG_AURORA : PANEL_BG_DEFAULT;
+  const panelClassName = `${PANEL_SHELL} ${panelBg}`;
+
   if (variant === "static") {
     if (!open) {
       return null;
@@ -96,7 +106,7 @@ export function WishlistCenterDialog({
           onClick={onClose}
         />
         <div
-          className={`fixed left-1/2 top-1/2 z-[41] -translate-x-1/2 -translate-y-1/2 ${PANEL_BASE}`}
+          className={`fixed left-1/2 top-1/2 z-[41] -translate-x-1/2 -translate-y-1/2 ${panelClassName}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -117,7 +127,7 @@ export function WishlistCenterDialog({
 
   return (
     <section
-      className={`fixed left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 ${PANEL_BASE} transition-all duration-300 ${
+      className={`fixed left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 ${panelClassName} transition-all duration-300 ${
         open
           ? "pointer-events-auto scale-100 opacity-100"
           : "pointer-events-none scale-95 opacity-0"

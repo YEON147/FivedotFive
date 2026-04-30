@@ -13,7 +13,6 @@ import {
   NoticeListLoadingPlaceholder,
 } from "@/components/notice/NoticeListPlaceholders";
 import { NoticeListTable } from "@/components/notice/NoticeListTable";
-import { NoticePageHeading } from "@/components/notice/NoticePageHeading";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   fetchNoticeDetail,
@@ -24,9 +23,17 @@ import {
 import { getMyProfile } from "@/features/user/api";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
 import {
+  APP_MAIN_COLUMN,
+  APP_MAIN_SCROLL_BODY,
+  APP_SHELL_STAGE,
+  APP_SHELL_VIEWPORT_MAIN,
+} from "@/lib/constants/app-shell-layout";
+import {
   PAGE_HEADER_BACK_BUTTON,
+  PAGE_HEADER_LEADING_CLUSTER,
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW,
+  PAGE_HEADER_TITLE_INLINE,
 } from "@/lib/constants/page-header";
 import { navigateAppBack } from "@/lib/navigate-app-back";
 
@@ -133,24 +140,28 @@ export default function NoticePage() {
   }, []);
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex flex-col px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+    <main className={APP_SHELL_VIEWPORT_MAIN}>
       <AppSideMenu
         open={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
       />
 
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start">
-        <div className="mx-auto flex w-full min-h-0 max-w-[372px] flex-1 flex-col">
+      <div className={APP_SHELL_STAGE}>
+        <div className={APP_MAIN_COLUMN}>
           <header className={PAGE_HEADER_ROW}>
-            <button
-              type="button"
-              onClick={handleHeaderBack}
-              className={PAGE_HEADER_BACK_BUTTON}
-              aria-label="이전 페이지로"
-            >
-              <CaretLeft size={22} weight="bold" />
-            </button>
+            <div className={PAGE_HEADER_LEADING_CLUSTER}>
+              <button
+                type="button"
+                onClick={handleHeaderBack}
+                className={PAGE_HEADER_BACK_BUTTON}
+                aria-label="이전 페이지로"
+              >
+                <CaretLeft size={22} weight="bold" />
+              </button>
+
+              <h1 className={PAGE_HEADER_TITLE_INLINE}>공지사항</h1>
+            </div>
 
             <button
               type="button"
@@ -166,21 +177,17 @@ export default function NoticePage() {
             </button>
           </header>
 
-          <div className="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-2 pb-4 pt-0 sm:px-3">
-            <NoticePageHeading
-              title="공지사항"
-              description="서비스 안내와 업데이트를 확인하세요"
-              action={
-                isAdmin ? (
-                  <Link
-                    href="/notice/write"
-                    className="rounded-full bg-[#7B61FF] px-3.5 py-2 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(123,97,255,0.35)] transition hover:bg-[#6B51EF] hover:shadow-[0_4px_12px_rgba(123,97,255,0.4)] active:scale-[0.98]"
-                  >
-                    작성
-                  </Link>
-                ) : undefined
-              }
-            />
+          <div className={APP_MAIN_SCROLL_BODY}>
+            {isAdmin ? (
+              <div className="mb-4 flex justify-end">
+                <Link
+                  href="/notice/write"
+                  className="rounded-full bg-[#7B61FF] px-3.5 py-2 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(123,97,255,0.35)] transition hover:bg-[#6B51EF] hover:shadow-[0_4px_12px_rgba(123,97,255,0.4)] active:scale-[0.98]"
+                >
+                  작성
+                </Link>
+              </div>
+            ) : null}
 
             {loadError ? (
               <NoticeListErrorBanner message={loadError} onRetry={() => void loadNotices()} />
@@ -199,6 +206,7 @@ export default function NoticePage() {
 
       <WishlistCenterDialog
         variant="static"
+        panelTone="aurora"
         open={detailModalOpen}
         onClose={closeDetailModal}
         title={detailData?.title?.trim() ? detailData.title : "공지 상세"}
