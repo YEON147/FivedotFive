@@ -678,7 +678,7 @@ export default function WishlistPage() {
       setBackgroundsLoading(true);
       setBackgroundsError(null);
       try {
-        const list = await fetchBackgroundAssets();
+        const list = await fetchBackgroundAssets(boardSlug);
         if (!cancelled) {
           setBackgroundAssets(list);
         }
@@ -701,7 +701,7 @@ export default function WishlistPage() {
     return () => {
       cancelled = true;
     };
-  }, [isCompactBackgroundOpen]);
+  }, [isCompactBackgroundOpen, boardSlug]);
 
   /** 스티커 바텀시트: 탭(전체 / 폴더)에 맞게 API 조회 */
   useEffect(() => {
