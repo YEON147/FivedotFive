@@ -44,6 +44,7 @@ import { resolveBoardBackgroundImageUrl } from "@/features/wishlist/board-backgr
 import {
   computeCommentSheetCount,
   normalizeCommentsToSlotGrid,
+  resolveGlobalSlotIndexForCreate,
 } from "@/features/wishlist/comment-slot-layout";
 import {
   compactGiftAssetKeysToLayoutSlots,
@@ -794,7 +795,13 @@ export default function PublicWishlistPage({
       return;
     }
     const wroteOnPage = popupCommentPage;
-    const globalSlotIndex = wroteOnPage * 6 + inPageSlot;
+    const pageGrid = commentCache[wroteOnPage] ?? [];
+    const pageComments = pageGrid.filter((c): c is CommentData => c != null);
+    const globalSlotIndex = resolveGlobalSlotIndexForCreate(
+      pageComments,
+      wroteOnPage,
+      inPageSlot,
+    );
     await createComment(slug, content, stickerKey, globalSlotIndex);
     const payload = await refreshCommentPage(wroteOnPage);
     handleClosePopup();
