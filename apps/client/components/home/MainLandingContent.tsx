@@ -132,7 +132,7 @@ export function MainLandingContent({
     <main className="wishlist-page-root relative flex min-h-[100dvh] flex-col overflow-y-auto">
       <IntroDesignSparkles />
 
-      <div className="relative z-[3] flex min-h-[100dvh] flex-1 flex-col items-center justify-center px-6 pt-[max(0.75rem,calc(0.5rem+env(safe-area-inset-top,0px)))] pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:pt-[max(clamp(1rem,3vmin,2.25rem),env(safe-area-inset-top,0px))] sm:pb-[max(clamp(1rem,3vmin,2.25rem),env(safe-area-inset-bottom,0px))]">
+      <div className="main-landing-inner relative z-[3] box-border flex min-h-[100dvh] flex-1 flex-col items-center justify-center px-6 pt-[calc(env(safe-area-inset-top,0px)+clamp(0.875rem,5vmin,1.75rem))] pb-[calc(env(safe-area-inset-bottom,0px)+clamp(1.125rem,4vmin,2rem))] sm:pt-[calc(env(safe-area-inset-top,0px)+clamp(1rem,3vmin,2.25rem))] sm:pb-[calc(env(safe-area-inset-bottom,0px)+clamp(1rem,3vmin,2.25rem))]">
         <div className="main-landing-wordmark-float mb-4 flex w-full justify-center">
           <Image
             src="/main/main3.png"
@@ -188,7 +188,7 @@ export function MainLandingContent({
         </div>
 
         <section
-          className="relative z-10 mt-3 w-full max-w-sm shrink-0"
+          className="main-landing-steps relative z-10 mt-3 w-full max-w-sm shrink-0"
           aria-label="이용 방법"
         >
           <ol className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -232,7 +232,7 @@ export function MainLandingContent({
           </ol>
         </section>
 
-        <div className="relative z-10 mt-[clamp(1rem,4vmin,2rem)] flex w-full max-w-sm flex-col gap-3">
+        <div className="main-landing-cta relative z-10 mt-[clamp(1rem,4vmin,2rem)] flex w-full max-w-sm flex-col gap-3">
           {loggedIn && !loggedInCtaReady ? (
             <div
               className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-[18px] bg-slate-100 px-7 text-[15px] font-medium text-[#8b8b8b]"
