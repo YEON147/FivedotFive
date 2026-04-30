@@ -91,9 +91,15 @@ function backgroundsListFromApiData(data: unknown): Record<string, unknown>[] | 
   );
 }
 
-/** GET /api/assets/backgrounds — 권한 anyone */
-export async function fetchBackgroundAssets(): Promise<BackgroundAssetDto[]> {
-  const res = await apiClient<BackgroundsApiResponse>("/api/assets/backgrounds", {
+/**
+ * GET /api/assets/backgrounds?boardSlug= — 권한 anyone.
+ * 구단 보드 slug면 야구 배경 포함: 파일명 `baseball-` 접두, 경로 `/baseball/`, 또는 서버에서 다루는 `wallpaper-26`~`34` 슬롯.
+ */
+export async function fetchBackgroundAssets(
+  boardSlug?: string | null,
+): Promise<BackgroundAssetDto[]> {
+  const url = assetsPathWithBoardSlug("/api/assets/backgrounds", boardSlug);
+  const res = await apiClient<BackgroundsApiResponse>(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
