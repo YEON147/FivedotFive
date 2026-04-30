@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import type { RankingTabId, RankingTabItem } from "./types";
 
 const TAB_ICON_SLOT_CLASS = "flex h-5 w-6 shrink-0 items-center justify-center sm:w-7";
@@ -46,13 +45,12 @@ export function RankingTabs({
                 <span className="inline-flex max-w-full min-w-0 flex-nowrap items-center justify-center gap-1.5">
                   <span className={TAB_ICON_SLOT_CLASS} aria-hidden>
                     {selected ? (
-                      <Image
+                      <img
                         src={indicatorSrc}
                         alt=""
-                        width={64}
-                        height={26}
+                        width={28}
+                        height={20}
                         className="ranking-tab-icon-indicator pointer-events-none h-5 w-auto max-h-5 max-w-[1.75rem] shrink-0 object-contain object-center sm:max-w-[1.875rem]"
-                        unoptimized
                         aria-hidden
                       />
                     ) : (

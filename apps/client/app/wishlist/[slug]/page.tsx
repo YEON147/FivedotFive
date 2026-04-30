@@ -5,6 +5,7 @@ import {
   CaretRightIcon,
   TextAlignJustify,
 } from "@phosphor-icons/react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -78,7 +79,12 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 import { navigateAppBack } from "@/lib/navigate-app-back";
+import { shouldUseNativeImg } from "@/lib/native-img";
 import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
+
+/** 공개 보드 프레임 배경 — 최대 폭 372px·모바일 100vw 근사 */
+const PUBLIC_BOARD_BG_SIZES =
+  "(max-width: 480px) min(420px, calc(100vw - 1.5rem)), min(372px, 100vw)";
 
 function stickerOptionLabelFromAssetKey(assetKey: string): string {
   const norm = assetKey.replace(/\\/g, "/");
@@ -259,11 +265,23 @@ function BoardFrame({
       }
     >
       {backgroundUrl ? (
-        <img
-          src={backgroundUrl}
-          alt=""
-          className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
-        />
+        shouldUseNativeImg(backgroundUrl) ? (
+          <img
+            src={backgroundUrl}
+            alt=""
+            className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
+          />
+        ) : (
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            <Image
+              src={backgroundUrl}
+              alt=""
+              fill
+              sizes={PUBLIC_BOARD_BG_SIZES}
+              className="object-cover"
+            />
+          </div>
+        )
       ) : null}
 
       {showHeader ? (
@@ -855,11 +873,22 @@ export default function PublicWishlistPage({
               >
                 {boardBackgroundUrl ? (
                   <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
-                    <img
-                      src={boardBackgroundUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                    {shouldUseNativeImg(boardBackgroundUrl) ? (
+                      <img
+                        src={boardBackgroundUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Image
+                        src={boardBackgroundUrl}
+                        alt=""
+                        fill
+                        sizes={PUBLIC_BOARD_BG_SIZES}
+                        className="object-cover"
+                        priority
+                      />
+                    )}
                   </div>
                 ) : null}
 

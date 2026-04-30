@@ -251,7 +251,6 @@ export function CommentPopup({
                   src={getAssetImageUrl(comment.stickerKey.trim())}
                   alt=""
                   fill
-                  unoptimized
                   sizes="64px"
                   className="object-contain object-center p-0.5"
                 />
@@ -424,7 +423,6 @@ export function CommentPopup({
                             src={thumb}
                             alt={option.label}
                             fill
-                            unoptimized
                             sizes="(max-width: 340px) 14vw, 48px"
                             className="object-contain object-center p-0.5"
                           />
@@ -474,7 +472,6 @@ export function CommentPopup({
                   src={getAssetImageUrl(comment.stickerKey.trim())}
                   alt=""
                   fill
-                  unoptimized
                   sizes="64px"
                   className="object-contain object-center p-0.5"
                 />

@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/**
+ * OS 다크 모드 무시 — `dark:` 유틸은 `[data-app-dark-ui]` 루트가 있을 때만 적용되도록 덮어씀.
+ * 해당 속성을 문서에 두지 않으므로 기존 `dark:*` 클래스는 항상 비활성.
+ */
+@custom-variant dark (&:where([data-app-dark-ui], [data-app-dark-ui] *));
+
 @font-face {
   font-family: "TmoneyRoundWind";
   src: url("/fonts/TmoneyRoundWindRegular.otf") format("opentype");
@@ -158,6 +164,7 @@ body,
 html {
   min-width: var(--app-min-viewport-width);
   overflow-x: auto;
+  color-scheme: light;
 }
 
 body {

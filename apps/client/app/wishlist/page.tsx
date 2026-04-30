@@ -8,6 +8,7 @@ import {
   TrashSimple,
   X,
 } from "@phosphor-icons/react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -78,6 +79,7 @@ import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
+import { shouldUseNativeImg } from "@/lib/native-img";
 import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
 import {
   GIFT_ICON_CATEGORY_LABELS,
@@ -86,6 +88,12 @@ import {
 } from "@/lib/gift-icon-category";
 
 type GiftModalSpecial = "present" | null;
+
+const WISHLIST_BOARD_BG_SIZES =
+  "(max-width: 480px) min(420px, calc(100vw - 1.5rem)), min(372px, 100vw)";
+const BACKGROUND_PICKER_THUMB_SIZES = "96px";
+const GIFT_ICON_GRID_SIZES = "(max-width: 400px) 30vw, 120px";
+const STICKER_SHEET_CELL_SIZES = "(max-width: 360px) 16vw, 56px";
 
 /** ADMIN: 탭당 1회 — `/api/admin/assets/reset-sync` (에셋 DB 전체 재동기화) */
 const SESSION_ADMIN_RESET_SYNC_KEY = "oh_jjeom_oh_admin_assets_reset_sync_once";
@@ -1351,11 +1359,22 @@ export default function WishlistPage() {
                 >
               {boardBackgroundDisplayUrl ? (
                 <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
-                  <img
-                    src={boardBackgroundDisplayUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  {shouldUseNativeImg(boardBackgroundDisplayUrl) ? (
+                    <img
+                      src={boardBackgroundDisplayUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={boardBackgroundDisplayUrl}
+                      alt=""
+                      fill
+                      sizes={WISHLIST_BOARD_BG_SIZES}
+                      className="object-cover"
+                      priority
+                    />
+                  )}
                 </div>
               ) : null}
 
@@ -1595,12 +1614,22 @@ export default function WishlistPage() {
                         : "ring-slate-200/80"
                     }`}
                   >
-                    <img
-                      src={src}
-                      alt={label}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+                    {shouldUseNativeImg(src) ? (
+                      <img
+                        src={src}
+                        alt={label}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Image
+                        src={src}
+                        alt={label}
+                        fill
+                        sizes={BACKGROUND_PICKER_THUMB_SIZES}
+                        className="object-cover"
+                      />
+                    )}
                   </div>
                 </button>
               );
@@ -1820,7 +1849,7 @@ export default function WishlistPage() {
                                 setGiftModalSpecial("present");
                                 setModalSelectedIconId(null);
                               }}
-                              className={`aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
+                              className={`relative aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
                                 giftModalSpecial === "present"
                                   ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
                                   : "border-slate-200 hover:border-slate-400"
@@ -1828,11 +1857,13 @@ export default function WishlistPage() {
                               aria-label="기본 선물 아이콘"
                               aria-pressed={giftModalSpecial === "present"}
                             >
-                              <img
+                              <Image
                                 src={GIFT_MODAL_PRESET_IMAGE_SRC}
                                 alt=""
+                                width={128}
+                                height={128}
+                                sizes={GIFT_ICON_GRID_SIZES}
                                 className="h-full w-full object-contain p-1"
-                                loading="lazy"
                                 draggable={false}
                               />
                             </button>
@@ -1848,7 +1879,7 @@ export default function WishlistPage() {
                                     setGiftModalSpecial(null);
                                     setModalSelectedIconId(icon.id);
                                   }}
-                                  className={`aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
+                                  className={`relative aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
                                     selected
                                       ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
                                       : "border-slate-200 hover:border-slate-400"
@@ -1856,12 +1887,22 @@ export default function WishlistPage() {
                                   aria-label={`선물 아이콘 ${icon.id}`}
                                   aria-pressed={selected}
                                 >
-                                  <img
-                                    src={src}
-                                    alt=""
-                                    className="h-full w-full object-contain p-1"
-                                    loading="lazy"
-                                  />
+                                  {shouldUseNativeImg(src) ? (
+                                    <img
+                                      src={src}
+                                      alt=""
+                                      className="h-full w-full object-contain p-1"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <Image
+                                      src={src}
+                                      alt=""
+                                      fill
+                                      sizes={GIFT_ICON_GRID_SIZES}
+                                      className="object-contain p-1"
+                                    />
+                                  )}
                                 </button>
                               );
                             })}
@@ -2012,15 +2053,25 @@ export default function WishlistPage() {
                               !sticker.assetKey.trim()
                             }
                             onClick={() => void applyStickerSelection(sticker.assetKey)}
-                            className="aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition enabled:hover:border-[#7B61FF]/50 enabled:active:scale-[0.98] disabled:opacity-50"
+                            className="relative aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition enabled:hover:border-[#7B61FF]/50 enabled:active:scale-[0.98] disabled:opacity-50"
                             aria-label={`스티커 ${sticker.id}`}
                           >
-                            <img
-                              src={getAssetImageUrl(sticker.assetKey)}
-                              alt=""
-                              className="h-full w-full object-contain p-0.5"
-                              loading="lazy"
-                            />
+                            {shouldUseNativeImg(getAssetImageUrl(sticker.assetKey)) ? (
+                              <img
+                                src={getAssetImageUrl(sticker.assetKey)}
+                                alt=""
+                                className="h-full w-full object-contain p-0.5"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <Image
+                                src={getAssetImageUrl(sticker.assetKey)}
+                                alt=""
+                                fill
+                                sizes={STICKER_SHEET_CELL_SIZES}
+                                className="object-contain p-0.5"
+                              />
+                            )}
                           </button>
                         ))}
                       </div>

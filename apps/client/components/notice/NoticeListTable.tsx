@@ -11,10 +11,10 @@ type Props = {
 };
 
 const TABLE_CARD =
-  "w-full overflow-hidden rounded-[18px] border border-[var(--color-border)]/90 bg-[var(--color-surface)] shadow-[0_6px_28px_rgba(15,23,42,0.06)] dark:border-zinc-700/80 dark:bg-zinc-900/40";
+  "w-full overflow-hidden rounded-[18px] border border-[var(--color-border)]/90 bg-[var(--color-surface)] shadow-[0_6px_28px_rgba(15,23,42,0.06)]";
 
 const ROW_BUTTON =
-  "flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition hover:bg-[#7B61FF]/[0.06] active:bg-[#7B61FF]/[0.1] dark:hover:bg-white/[0.04]";
+  "flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition hover:bg-[#7B61FF]/[0.06] active:bg-[#7B61FF]/[0.1]";
 
 /**
  * 공지 목록 — 단일 카드 안 테이블형 (헤더 행 + 제목/등록일 열). 탭·Enter 로 상세.

@@ -16,7 +16,7 @@ export const SIDE_MENU_ROW_CLASS =
   "flex items-center gap-4 rounded-[12px] px-3.5 py-2 text-[15px] leading-snug font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]";
 
 export const SIDE_MENU_LOGOUT_ROW_CLASS =
-  "flex w-full items-center gap-4 rounded-[12px] px-3.5 py-2 text-left text-[15px] leading-snug font-medium text-rose-600 transition hover:bg-rose-50 dark:hover:bg-rose-950/30";
+  "flex w-full items-center gap-4 rounded-[12px] px-3.5 py-2 text-left text-[15px] leading-snug font-medium text-rose-600 transition hover:bg-rose-50";
 
 export function SideMenuSection({
   title,
