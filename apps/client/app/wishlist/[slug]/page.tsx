@@ -878,6 +878,7 @@ export default function PublicWishlistPage({
                         src={boardBackgroundUrl}
                         alt=""
                         className="h-full w-full object-cover"
+                        fetchPriority="high"
                       />
                     ) : (
                       <Image

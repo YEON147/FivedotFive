@@ -1,13 +1,30 @@
 /**
- * `next/image` 대신 네이티브 `<img>`를 쓰는 경우 — 최적화 API·로더와 맞지 않는 소스.
- * (blob/data URL, SVG, GIF 애니메이션 등)
+ * 에셋 CDN(`NEXT_PUBLIC_ASSET_BASE_URL`)·S3·CloudFront 등 원격 풀 URL만 `next/image` 대신 `<img>`.
+ * 상대 경로(`/stickers/...`, `/default_icon.png` 등)는 false → `next/image` 최적화 유지.
  */
 export function shouldUseNativeImg(src: string): boolean {
   const s = (src ?? "").trim();
-  if (!s) return true;
-  if (s.startsWith("blob:") || s.startsWith("data:")) return true;
-  const pathOnly = s.split(/[?#]/)[0]?.toLowerCase() ?? "";
-  if (pathOnly.endsWith(".svg")) return true;
-  if (pathOnly.endsWith(".gif")) return true;
-  return false;
+  if (!s) return false;
+  if (!/^https?:\/\//i.test(s)) {
+    return false;
+  }
+  try {
+    const u = new URL(s);
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
+      return false;
+    }
+    const raw = process.env.NEXT_PUBLIC_ASSET_BASE_URL?.trim();
+    if (raw) {
+      const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      const assetHost = new URL(withProto).hostname;
+      if (u.hostname === assetHost || u.hostname.endsWith(`.${assetHost}`)) {
+        return true;
+      }
+    }
+    if (u.hostname.endsWith(".amazonaws.com")) return true;
+    if (u.hostname.includes("cloudfront.net")) return true;
+    return false;
+  } catch {
+    return false;
+  }
 }
