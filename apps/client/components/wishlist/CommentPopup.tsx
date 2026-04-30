@@ -15,6 +15,7 @@ import {
 import type { CommentData, StickerOption } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
 import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
+import { shouldUseNativeImg } from "@/lib/native-img";
 
 type PopupMode = "view" | "write" | "edit";
 
@@ -247,13 +248,21 @@ export function CommentPopup({
           {comment.stickerKey?.trim() ? (
             <div className="flex justify-center">
               <div className="relative h-16 w-16 overflow-hidden rounded-full border-0 bg-transparent shadow-none">
-                <Image
-                  src={getAssetImageUrl(comment.stickerKey.trim())}
-                  alt=""
-                  fill
-                  sizes="64px"
-                  className="object-contain object-center p-0.5"
-                />
+                {shouldUseNativeImg(getAssetImageUrl(comment.stickerKey.trim())) ? (
+                  <img
+                    src={getAssetImageUrl(comment.stickerKey.trim())}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-contain object-center p-0.5"
+                  />
+                ) : (
+                  <Image
+                    src={getAssetImageUrl(comment.stickerKey.trim())}
+                    alt=""
+                    fill
+                    sizes="64px"
+                    className="object-contain object-center p-0.5"
+                  />
+                )}
               </div>
             </div>
           ) : isMaskedOthersWishComment(comment) ? (
@@ -419,13 +428,21 @@ export function CommentPopup({
                           } disabled:opacity-40`}
                           aria-label={option.label}
                         >
-                          <Image
-                            src={thumb}
-                            alt={option.label}
-                            fill
-                            sizes="(max-width: 340px) 14vw, 48px"
-                            className="object-contain object-center p-0.5"
-                          />
+                          {shouldUseNativeImg(thumb) ? (
+                            <img
+                              src={thumb}
+                              alt={option.label}
+                              className="absolute inset-0 h-full w-full object-contain object-center p-0.5"
+                            />
+                          ) : (
+                            <Image
+                              src={thumb}
+                              alt={option.label}
+                              fill
+                              sizes="(max-width: 340px) 14vw, 48px"
+                              className="object-contain object-center p-0.5"
+                            />
+                          )}
                         </button>
                       );
                     })}
@@ -468,13 +485,21 @@ export function CommentPopup({
           {comment?.stickerKey?.trim() ? (
             <div className="flex justify-center">
               <div className="relative h-16 w-16 overflow-hidden rounded-full border border-slate-100 bg-slate-50">
-                <Image
-                  src={getAssetImageUrl(comment.stickerKey.trim())}
-                  alt=""
-                  fill
-                  sizes="64px"
-                  className="object-contain object-center p-0.5"
-                />
+                {shouldUseNativeImg(getAssetImageUrl(comment.stickerKey.trim())) ? (
+                  <img
+                    src={getAssetImageUrl(comment.stickerKey.trim())}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-contain object-center p-0.5"
+                  />
+                ) : (
+                  <Image
+                    src={getAssetImageUrl(comment.stickerKey.trim())}
+                    alt=""
+                    fill
+                    sizes="64px"
+                    className="object-contain object-center p-0.5"
+                  />
+                )}
               </div>
             </div>
           ) : null}

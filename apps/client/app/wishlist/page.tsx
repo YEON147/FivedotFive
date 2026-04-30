@@ -1364,6 +1364,7 @@ export default function WishlistPage() {
                       src={boardBackgroundDisplayUrl}
                       alt=""
                       className="h-full w-full object-cover"
+                      fetchPriority="high"
                     />
                   ) : (
                     <Image
@@ -1618,7 +1619,7 @@ export default function WishlistPage() {
                       <img
                         src={src}
                         alt={label}
-                        className="h-full w-full object-cover"
+                        className="absolute inset-0 h-full w-full object-cover"
                         loading="lazy"
                       />
                     ) : (
@@ -1891,7 +1892,7 @@ export default function WishlistPage() {
                                     <img
                                       src={src}
                                       alt=""
-                                      className="h-full w-full object-contain p-1"
+                                      className="absolute inset-0 h-full w-full object-contain p-1"
                                       loading="lazy"
                                     />
                                   ) : (
@@ -2060,7 +2061,7 @@ export default function WishlistPage() {
                               <img
                                 src={getAssetImageUrl(sticker.assetKey)}
                                 alt=""
-                                className="h-full w-full object-contain p-0.5"
+                                className="absolute inset-0 h-full w-full object-contain p-0.5"
                                 loading="lazy"
                               />
                             ) : (
