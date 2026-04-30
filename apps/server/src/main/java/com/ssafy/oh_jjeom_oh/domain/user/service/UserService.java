@@ -155,9 +155,9 @@ public class UserService {
             }
         }
 
-        //wishCommentRepository.deleteByAuthorId(userId);
         List<WishComment> myComments = wishCommentRepository.findAllByUserId(userId);
         myComments.forEach(WishComment::softDelete);
+        wishCommentRepository.saveAllAndFlush(myComments);
 
         boardAssetRepository.deleteByUserId(userId);
         wishItemRepository.deleteByUserId(userId);
