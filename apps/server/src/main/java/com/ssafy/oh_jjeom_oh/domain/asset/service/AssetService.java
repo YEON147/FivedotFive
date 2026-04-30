@@ -27,12 +27,58 @@ public class AssetService {
     private final AssetRepository assetRepository;
 
     public BackgroundListResponse getBackgrounds() {
+        return getBackgrounds(null);
+    }
+
+    /**
+     * 구단 전용 배경: (1) 경로 {@code /baseball/} (2) 파일명 {@code baseball-} 접두
+     * (3) DB에 {@code wallpaper-26.png}~{@code wallpaper-34.png} 처럼 올라온 KBO 프리셋(파일명 번호 26~34) —
+     * 표시명은 {@link WallpaperDisplayNames} 와 별개로, 키가 위 형태면 구단({@link TeamBoardSlug})에서만 노출합니다.
+     *
+     * @param boardSlug 내 보드 slug 등 — 없거나 비구단이면 야구 전용 배경 제외
+     */
+    public BackgroundListResponse getBackgrounds(String boardSlug) {
         List<BackgroundItemResponse> items = assetRepository
                 .findByAssetTypeOrderByDisplayOrderAsc(AssetType.BACKGROUND)
                 .stream()
+                .filter(asset -> includeBackgroundForBoardContext(asset.getAssetKey(), boardSlug))
                 .map(asset -> BackgroundItemResponse.of(asset, WallpaperDisplayNames.resolve(asset.getAssetKey())))
                 .toList();
         return BackgroundListResponse.of(items);
+    }
+
+    private static boolean includeBackgroundForBoardContext(String assetKey, String boardSlug) {
+        if (!isTeamOnlyWallpaperAsset(assetKey)) {
+            return true;
+        }
+        return boardSlug != null && !boardSlug.isBlank() && TeamBoardSlug.isTeamBoard(boardSlug);
+    }
+
+    /**
+     * 구단 전용: {@code .../baseball/...}, 파일명 {@code baseball-} 접두, 또는 레거시 {@code wallpaper-26}~{@code 34} 번호 대역.
+     */
+    private static boolean isTeamOnlyWallpaperAsset(String assetKey) {
+        if (assetKey == null || assetKey.isBlank()) {
+            return false;
+        }
+        String norm = assetKey.replace('\\', '/').trim();
+        String lower = norm.toLowerCase();
+        if (lower.contains("/baseball/")) {
+            return true;
+        }
+        int slash = lower.lastIndexOf('/');
+        String fileName = slash >= 0 ? lower.substring(slash + 1) : lower;
+        if (fileName.startsWith("baseball-")) {
+            return true;
+        }
+        return isLegacyKboWallpaperNumberFileName(fileName);
+    }
+
+    /**
+     * S3/DB에 {@code wallpapers/wallpaper-26.png} 형태로만 등록된 야구단 배경 — 파일명 번호 26~34.
+     */
+    private static boolean isLegacyKboWallpaperNumberFileName(String fileNameLower) {
+        return fileNameLower.matches("wallpaper-(2[6-9]|3[0-4])\\.png");
     }
 
     public StickerCatalogListResponse getStickers() {

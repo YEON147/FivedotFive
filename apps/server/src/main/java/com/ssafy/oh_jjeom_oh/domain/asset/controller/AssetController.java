@@ -23,10 +23,11 @@ public class AssetController {
 
     private final AssetService assetService;
 
-    // GET /api/assets/backgrounds - 배경 전체 조회 (Anyone)
+    // GET /api/assets/backgrounds?boardSlug= — 파일명 baseball-{구단명}·경로 /baseball/ 배경은 구단 slug일 때만 포함.
     @GetMapping("/backgrounds")
-    public ResponseEntity<ApiResponse<BackgroundListResponse>> getBackgrounds() {
-        BackgroundListResponse data = assetService.getBackgrounds();
+    public ResponseEntity<ApiResponse<BackgroundListResponse>> getBackgrounds(
+            @RequestParam(required = false) String boardSlug) {
+        BackgroundListResponse data = assetService.getBackgrounds(boardSlug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BACKGROUND_LIST_FOUND, data));
     }
 
