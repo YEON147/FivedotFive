@@ -190,7 +190,7 @@ function NoticeImageCarousel({
               className={`h-1.5 rounded-full transition-all ${
                 i === index
                   ? "w-4 bg-[#7B61FF]"
-                  : "w-1.5 bg-zinc-300 dark:bg-zinc-600"
+                  : "w-1.5 bg-zinc-300"
               }`}
               onClick={() => goTo(i)}
             />

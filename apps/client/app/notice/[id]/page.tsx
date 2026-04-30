@@ -457,7 +457,7 @@ export default function NoticeDetailPage() {
                       type="button"
                       onClick={openDeleteConfirm}
                       disabled={isSubmitting}
-                      className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-body font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                      className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-body font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
                     >
                       삭제
                     </button>
