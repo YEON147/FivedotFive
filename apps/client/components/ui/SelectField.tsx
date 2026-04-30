@@ -99,8 +99,13 @@ export function SelectField({
    * 보이는 라벨이 없을 때 `<label>` 대신 `div` — 래퍼 박스가 select 한 줄과 맞고,
    * 빈 `<label for>` 박스로 인한 크기·클릭 영역 혼동을 줄임 (접근성은 select `aria-label`).
    */
+  /** hideLabel: 라벨 없음 — 래퍼 높이를 TextField `h-11`(또는 compact 34px)과 맞춤. `min-h-0`+flex 시 37px처럼 찌그러짐 방지 */
   const wrapperClassName = hideLabel
-    ? `flex min-h-0 min-w-0 flex-1 flex-col self-start gap-0 p-0 ${variant === "compact" ? "scroll-mt-6" : "scroll-mt-8"}`
+    ? `flex min-w-0 flex-1 flex-col self-start gap-0 p-0 ${
+        variant === "compact"
+          ? "h-[34px] min-h-[34px] shrink-0"
+          : "h-11 min-h-11 shrink-0"
+      } ${variant === "compact" ? "scroll-mt-6" : "scroll-mt-8"}`
     : `flex min-h-0 min-w-0 flex-1 flex-col self-start ${labelGapClass} scroll-mt-8`;
 
   const selectStyle = {
