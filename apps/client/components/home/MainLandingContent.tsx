@@ -141,7 +141,7 @@ export function MainLandingContent({
             height={140}
             priority
             sizes="(max-width: 768px) 72vw, 300px"
-            className="h-auto w-[min(72vw,300px)] max-w-full object-contain drop-shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
+            className="main-landing-wordmark-img h-auto w-[min(72vw,300px)] max-w-full object-contain drop-shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
           />
         </div>
 

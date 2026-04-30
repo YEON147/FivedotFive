@@ -226,7 +226,6 @@ function SlotBubble({
             src={slot.imageSrc ?? ""}
             alt={slot.imageAlt ?? `${kind} ${slot.id}`}
             fill
-            unoptimized
             sizes={slotSizesHint}
             className="object-contain object-center p-[1%]"
           />

@@ -57,6 +57,8 @@ export const viewport: Viewport = {
   /** 웹뷰·노치 기기에서 safe-area env()가 올바르게 잡히도록 */
   viewportFit: "cover",
   themeColor: "#7B61FF",
+  /** 라이트 UI 고정 — OS 다크 모드와 무관하게 폼·스크롤바 등 UA 톤 유지 */
+  colorScheme: "light",
 };
 
 /**

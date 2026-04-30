@@ -101,6 +101,7 @@
     margin-bottom: 0.625rem;
   }
 
+  .main-landing-inner .main-landing-wordmark-float .main-landing-wordmark-img,
   .main-landing-inner .main-landing-wordmark-float img {
     width: min(64vw, 260px);
   }
@@ -158,6 +159,7 @@
     max-height: min(30dvh, 76vw, 220px);
   }
 
+  .main-landing-inner .main-landing-wordmark-float .main-landing-wordmark-img,
   .main-landing-inner .main-landing-wordmark-float img {
     width: min(58vw, 240px);
   }
@@ -168,6 +170,7 @@
     max-height: min(26dvh, 72vw, 190px);
   }
 
+  .main-landing-inner .main-landing-wordmark-float .main-landing-wordmark-img,
   .main-landing-inner .main-landing-wordmark-float img {
     width: min(54vw, 220px);
   }
