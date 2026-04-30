@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 
+import { shouldUseNativeImg } from "@/lib/native-img";
+
 type BaseSlot = {
   id: number;
   top: number;
@@ -163,15 +165,15 @@ function SlotBubble({
   const stickerMaskedChrome =
     "border border-slate-300/90 bg-gradient-to-b from-white to-slate-100/95 shadow-sm backdrop-blur-[2px]";
 
-  /** 보드 최대 폭 372px 가정 시 슬롯이 차지하는 대략적인 CSS 폭 — `sizes` 힌트용 */
-  const slotSizesHint = `${Math.max(48, Math.round((size / DESIGN_WIDTH) * 372))}px`;
-
   const slotTransform =
     kind === "sticker"
       ? getStickerSlotCssTransform(slot.id)
       : "translate(-50%, -50%)";
 
   const isGiftEmbedded = kind === "gift" && giftLayoutPosition === "embedded";
+
+  /** 보드 최대 폭 372px 가정 시 슬롯이 차지하는 대략적인 CSS 폭 — `sizes` 힌트용 */
+  const slotSizesHint = `${Math.max(48, Math.round((size / DESIGN_WIDTH) * 372))}px`;
 
   const positionStyle =
     isGiftEmbedded
@@ -222,14 +224,21 @@ function SlotBubble({
               : "inset-0 overflow-visible"
           }`}
         >
-          <Image
-            src={slot.imageSrc ?? ""}
-            alt={slot.imageAlt ?? `${kind} ${slot.id}`}
-            fill
-            unoptimized
-            sizes={slotSizesHint}
-            className="object-contain object-center p-[1%]"
-          />
+          {shouldUseNativeImg(slot.imageSrc ?? "") ? (
+            <img
+              src={slot.imageSrc ?? ""}
+              alt={slot.imageAlt ?? `${kind} ${slot.id}`}
+              className="absolute inset-0 h-full w-full object-contain object-center p-[1%]"
+            />
+          ) : (
+            <Image
+              src={slot.imageSrc ?? ""}
+              alt={slot.imageAlt ?? `${kind} ${slot.id}`}
+              fill
+              sizes={slotSizesHint}
+              className="object-contain object-center p-[1%]"
+            />
+          )}
         </span>
       ) : isStickerMasked ? (
         <span

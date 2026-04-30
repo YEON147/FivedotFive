@@ -5,6 +5,7 @@ import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
+import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
 import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.controller.request.PasswordUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.user.controller.request.UserRegisterRequest;
@@ -18,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -152,7 +155,10 @@ public class UserService {
             }
         }
 
-        wishCommentRepository.deleteByAuthorId(userId);
+        List<WishComment> myComments = wishCommentRepository.findAllByUserId(userId);
+        myComments.forEach(WishComment::softDelete);
+        wishCommentRepository.saveAllAndFlush(myComments);
+
         boardAssetRepository.deleteByUserId(userId);
         wishItemRepository.deleteByUserId(userId);
         wishCommentRepository.deleteByUserId(userId);

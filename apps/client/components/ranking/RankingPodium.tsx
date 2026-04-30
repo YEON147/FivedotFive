@@ -48,7 +48,6 @@ function PodiumCell({
                 height={120}
                 sizes="48px"
                 className="ranking-crown-img relative z-[1] block h-11 w-auto max-w-[58px] object-contain"
-                unoptimized
               />
             </span>
           ) : (
@@ -110,7 +109,6 @@ export function RankingPodium({ orderedTop3, enterKey }: RankingPodiumProps) {
           sizes="(max-width: 380px) 90vw, 340px"
           className="h-auto w-full object-contain select-none"
           priority
-          unoptimized
         />
       </div>
     </section>

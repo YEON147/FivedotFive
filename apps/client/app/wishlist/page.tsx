@@ -8,6 +8,7 @@ import {
   TrashSimple,
   X,
 } from "@phosphor-icons/react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -22,7 +23,11 @@ import { createPortal } from "react-dom";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
-import { STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT } from "@/components/wishlist/sticker-sheet-layout";
+import {
+  GiftIconModalChromeSkeleton,
+  StickerGridSkeleton,
+  StickerSheetFixedViewport,
+} from "@/components/wishlist/asset-picker-skeletons";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
@@ -78,6 +83,7 @@ import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
+import { shouldUseNativeImg } from "@/lib/native-img";
 import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
 import {
   GIFT_ICON_CATEGORY_LABELS,
@@ -86,6 +92,12 @@ import {
 } from "@/lib/gift-icon-category";
 
 type GiftModalSpecial = "present" | null;
+
+const WISHLIST_BOARD_BG_SIZES =
+  "(max-width: 480px) min(420px, calc(100vw - 1.5rem)), min(372px, 100vw)";
+const BACKGROUND_PICKER_THUMB_SIZES = "96px";
+const GIFT_ICON_GRID_SIZES = "(max-width: 400px) 30vw, 120px";
+const STICKER_SHEET_CELL_SIZES = "(max-width: 360px) 16vw, 56px";
 
 /** ADMIN: 탭당 1회 — `/api/admin/assets/reset-sync` (에셋 DB 전체 재동기화) */
 const SESSION_ADMIN_RESET_SYNC_KEY = "oh_jjeom_oh_admin_assets_reset_sync_once";
@@ -1351,11 +1363,23 @@ export default function WishlistPage() {
                 >
               {boardBackgroundDisplayUrl ? (
                 <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
-                  <img
-                    src={boardBackgroundDisplayUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  {shouldUseNativeImg(boardBackgroundDisplayUrl) ? (
+                    <img
+                      src={boardBackgroundDisplayUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      fetchPriority="high"
+                    />
+                  ) : (
+                    <Image
+                      src={boardBackgroundDisplayUrl}
+                      alt=""
+                      fill
+                      sizes={WISHLIST_BOARD_BG_SIZES}
+                      className="object-cover"
+                      priority
+                    />
+                  )}
                 </div>
               ) : null}
 
@@ -1595,12 +1619,22 @@ export default function WishlistPage() {
                         : "ring-slate-200/80"
                     }`}
                   >
-                    <img
-                      src={src}
-                      alt={label}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+                    {shouldUseNativeImg(src) ? (
+                      <img
+                        src={src}
+                        alt={label}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Image
+                        src={src}
+                        alt={label}
+                        fill
+                        sizes={BACKGROUND_PICKER_THUMB_SIZES}
+                        className="object-cover"
+                      />
+                    )}
                   </div>
                 </button>
               );
@@ -1771,9 +1805,7 @@ export default function WishlistPage() {
 
                   <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-inner">
                     {giftIconsLoading ? (
-                      <div className="flex min-h-[200px] flex-1 items-center justify-center">
-                        <p className="text-body-sm text-slate-500">선물 아이콘 불러오는 중…</p>
-                      </div>
+                      <GiftIconModalChromeSkeleton />
                     ) : giftIconsError ? null : (
                       <>
                         {giftIcons.length > 0 ? (
@@ -1820,7 +1852,7 @@ export default function WishlistPage() {
                                 setGiftModalSpecial("present");
                                 setModalSelectedIconId(null);
                               }}
-                              className={`aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
+                              className={`relative aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
                                 giftModalSpecial === "present"
                                   ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
                                   : "border-slate-200 hover:border-slate-400"
@@ -1828,11 +1860,13 @@ export default function WishlistPage() {
                               aria-label="기본 선물 아이콘"
                               aria-pressed={giftModalSpecial === "present"}
                             >
-                              <img
+                              <Image
                                 src={GIFT_MODAL_PRESET_IMAGE_SRC}
                                 alt=""
+                                width={128}
+                                height={128}
+                                sizes={GIFT_ICON_GRID_SIZES}
                                 className="h-full w-full object-contain p-1"
-                                loading="lazy"
                                 draggable={false}
                               />
                             </button>
@@ -1848,7 +1882,7 @@ export default function WishlistPage() {
                                     setGiftModalSpecial(null);
                                     setModalSelectedIconId(icon.id);
                                   }}
-                                  className={`aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
+                                  className={`relative aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 transition ${
                                     selected
                                       ? "border-[#7B61FF] ring-2 ring-[#7B61FF]/35"
                                       : "border-slate-200 hover:border-slate-400"
@@ -1856,12 +1890,22 @@ export default function WishlistPage() {
                                   aria-label={`선물 아이콘 ${icon.id}`}
                                   aria-pressed={selected}
                                 >
-                                  <img
-                                    src={src}
-                                    alt=""
-                                    className="h-full w-full object-contain p-1"
-                                    loading="lazy"
-                                  />
+                                  {shouldUseNativeImg(src) ? (
+                                    <img
+                                      src={src}
+                                      alt=""
+                                      className="absolute inset-0 h-full w-full object-contain p-1"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <Image
+                                      src={src}
+                                      alt=""
+                                      fill
+                                      sizes={GIFT_ICON_GRID_SIZES}
+                                      className="object-contain p-1"
+                                    />
+                                  )}
                                 </button>
                               );
                             })}
@@ -1964,73 +2008,71 @@ export default function WishlistPage() {
                 ) : null}
 
                 <div className="min-h-0 w-full px-2 pb-3 pt-2 [container-type:inline-size]">
-                  {stickerSheetLoading ? (
-                    <div
-                      className="flex items-center justify-center"
-                      style={{
-                        minHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
-                      }}
-                    >
-                      <p className="text-body-sm text-slate-500">스티커 불러오는 중…</p>
-                    </div>
-                  ) : stickerSheetError ? (
-                    <p
-                      className="px-1 text-center text-body-sm text-red-600"
-                      style={{
-                        minHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
-                      }}
-                      role="alert"
-                    >
-                      {stickerSheetError}
-                    </p>
+                  {stickerSheetError ? (
+                    <StickerSheetFixedViewport className="flex items-center justify-center px-1">
+                      <p className="text-center text-body-sm text-red-600" role="alert">
+                        {stickerSheetError}
+                      </p>
+                    </StickerSheetFixedViewport>
                   ) : (
-                    <div
-                      className="overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y"
-                      style={{
-                        maxHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
-                      }}
-                    >
-                      <div className="grid grid-cols-6 gap-1">
-                        <button
-                          type="button"
-                          disabled={
-                            stickerSlotSaving || stickerTargetSlotId == null
-                          }
-                          onClick={() => void removeStickerFromSlot()}
-                          className="flex aspect-square items-center justify-center overflow-hidden rounded-md border-2 border-slate-300 bg-white text-xl font-semibold text-slate-500 transition enabled:hover:border-red-400 enabled:hover:bg-red-50 enabled:hover:text-red-600 enabled:active:scale-[0.98] disabled:opacity-50"
-                          aria-label="이 슬롯에서 스티커 삭제"
-                        >
-                          ×
-                        </button>
-                        {stickerSheetList.map((sticker) => (
-                          <button
-                            key={sticker.id}
-                            type="button"
-                            disabled={
-                              stickerSlotSaving ||
-                              stickerTargetSlotId == null ||
-                              !sticker.assetKey.trim()
-                            }
-                            onClick={() => void applyStickerSelection(sticker.assetKey)}
-                            className="aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition enabled:hover:border-[#7B61FF]/50 enabled:active:scale-[0.98] disabled:opacity-50"
-                            aria-label={`스티커 ${sticker.id}`}
-                          >
-                            <img
-                              src={getAssetImageUrl(sticker.assetKey)}
-                              alt=""
-                              className="h-full w-full object-contain p-0.5"
-                              loading="lazy"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                      {stickerSheetList.length === 0 ? (
-                        <p className="mt-2 px-1 text-center text-body-sm text-slate-500">
-                          이 탭에 표시할 스티커가 없습니다. 맨 앞 ×로 이 슬롯의 스티커를 지울 수
-                          있어요.
-                        </p>
-                      ) : null}
-                    </div>
+                    <StickerSheetFixedViewport scrollable>
+                      {stickerSheetLoading ? (
+                        <StickerGridSkeleton />
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-6 gap-1">
+                            <button
+                              type="button"
+                              disabled={
+                                stickerSlotSaving || stickerTargetSlotId == null
+                              }
+                              onClick={() => void removeStickerFromSlot()}
+                              className="flex aspect-square items-center justify-center overflow-hidden rounded-md border-2 border-slate-300 bg-white text-xl font-semibold text-slate-500 transition enabled:hover:border-red-400 enabled:hover:bg-red-50 enabled:hover:text-red-600 enabled:active:scale-[0.98] disabled:opacity-50"
+                              aria-label="이 슬롯에서 스티커 삭제"
+                            >
+                              ×
+                            </button>
+                            {stickerSheetList.map((sticker) => (
+                              <button
+                                key={sticker.id}
+                                type="button"
+                                disabled={
+                                  stickerSlotSaving ||
+                                  stickerTargetSlotId == null ||
+                                  !sticker.assetKey.trim()
+                                }
+                                onClick={() => void applyStickerSelection(sticker.assetKey)}
+                                className="relative aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition enabled:hover:border-[#7B61FF]/50 enabled:active:scale-[0.98] disabled:opacity-50"
+                                aria-label={`스티커 ${sticker.id}`}
+                              >
+                                {shouldUseNativeImg(getAssetImageUrl(sticker.assetKey)) ? (
+                                  <img
+                                    src={getAssetImageUrl(sticker.assetKey)}
+                                    alt=""
+                                    className="absolute inset-0 h-full w-full object-contain p-0.5"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <Image
+                                    src={getAssetImageUrl(sticker.assetKey)}
+                                    alt=""
+                                    fill
+                                    sizes={STICKER_SHEET_CELL_SIZES}
+                                    className="object-contain p-0.5"
+                                  />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                          {stickerSheetList.length === 0 ? (
+                            <p className="mt-2 px-1 text-center text-body-sm text-slate-500">
+                              이 탭에 표시할 스티커가 없습니다. 맨 앞 ×로 이 슬롯의 스티커를 지울 수
+                              있어요.
+                            </p>
+                          ) : null}
+                        </>
+                      )}
+                    </StickerSheetFixedViewport>
                   )}
                 </div>
               </div>

@@ -4,7 +4,10 @@ import { X } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-import { STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT } from "@/components/wishlist/sticker-sheet-layout";
+import {
+  StickerGridSkeleton,
+  StickerSheetFixedViewport,
+} from "@/components/wishlist/asset-picker-skeletons";
 import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
@@ -15,6 +18,7 @@ import {
 import type { CommentData, StickerOption } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
 import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
+import { shouldUseNativeImg } from "@/lib/native-img";
 
 type PopupMode = "view" | "write" | "edit";
 
@@ -247,14 +251,21 @@ export function CommentPopup({
           {comment.stickerKey?.trim() ? (
             <div className="flex justify-center">
               <div className="relative h-16 w-16 overflow-hidden rounded-full border-0 bg-transparent shadow-none">
-                <Image
-                  src={getAssetImageUrl(comment.stickerKey.trim())}
-                  alt=""
-                  fill
-                  unoptimized
-                  sizes="64px"
-                  className="object-contain object-center p-0.5"
-                />
+                {shouldUseNativeImg(getAssetImageUrl(comment.stickerKey.trim())) ? (
+                  <img
+                    src={getAssetImageUrl(comment.stickerKey.trim())}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-contain object-center p-0.5"
+                  />
+                ) : (
+                  <Image
+                    src={getAssetImageUrl(comment.stickerKey.trim())}
+                    alt=""
+                    fill
+                    sizes="64px"
+                    className="object-contain object-center p-0.5"
+                  />
+                )}
               </div>
             </div>
           ) : isMaskedOthersWishComment(comment) ? (
@@ -373,66 +384,61 @@ export function CommentPopup({
                 })}
               </div>
             ) : null}
-            {stickersError ? (
-              <p className="mb-2 text-xs text-red-500">{stickersError}</p>
-            ) : null}
-            {/** `app/wishlist/page.tsx` 스티커 시트와 동일 — 6열×3행 높이 후 세로 스크롤 */}
+            {/** 조상만 container-type — 로딩/본문 동일 `scrollable` 래퍼로 틀 고정 */}
             <div className="min-h-0 w-full [container-type:inline-size]">
-              {stickersLoading ? (
-                <div
-                  className="flex items-center justify-center"
-                  style={{
-                    minHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
-                  }}
-                >
-                  <p className="text-center text-xs text-slate-500">스티커 불러오는 중…</p>
-                </div>
-              ) : stickerOptions.length === 0 ? (
-                <p
-                  className="flex items-center justify-center px-1 text-center text-xs text-slate-500"
-                  style={{
-                    minHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
-                  }}
-                >
-                  선택할 스티커가 없습니다.
-                </p>
+              {stickersError ? (
+                <StickerSheetFixedViewport className="flex items-center justify-center px-1">
+                  <p className="text-center text-xs text-red-500">{stickersError}</p>
+                </StickerSheetFixedViewport>
               ) : (
-                <div
-                  className="overflow-y-auto overflow-x-hidden overscroll-contain pr-0.5 [-webkit-overflow-scrolling:touch] touch-pan-y"
-                  style={{
-                    maxHeight: STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT,
-                  }}
-                >
-                  <div className="grid grid-cols-6 gap-1">
-                    {stickerOptions.map((option) => {
-                      const thumb = getAssetImageUrl(option.assetKey);
-                      const selected = selectedSticker === option.assetKey;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => setSelectedSticker(option.assetKey)}
-                          disabled={isWriteBlocked}
-                          className={`relative aspect-square overflow-hidden rounded-md border transition enabled:active:scale-[0.98] ${
-                            selected
-                              ? "border-[#7B61FF] bg-slate-50 shadow-[0_0_0_2px_rgba(123,97,255,0.2)]"
-                              : "border-slate-200 bg-slate-50 enabled:hover:border-[#7B61FF]/50"
-                          } disabled:opacity-40`}
-                          aria-label={option.label}
-                        >
-                          <Image
-                            src={thumb}
-                            alt={option.label}
-                            fill
-                            unoptimized
-                            sizes="(max-width: 340px) 14vw, 48px"
-                            className="object-contain object-center p-0.5"
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <StickerSheetFixedViewport scrollable className="pr-0.5">
+                  {stickersLoading ? (
+                    <StickerGridSkeleton />
+                  ) : stickerOptions.length === 0 ? (
+                    <div className="flex h-full min-h-0 flex-col items-center justify-center px-1">
+                      <p className="text-center text-xs text-slate-500">
+                        선택할 스티커가 없습니다.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-6 gap-1">
+                      {stickerOptions.map((option) => {
+                        const thumb = getAssetImageUrl(option.assetKey);
+                        const selected = selectedSticker === option.assetKey;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setSelectedSticker(option.assetKey)}
+                            disabled={isWriteBlocked}
+                            className={`relative aspect-square overflow-hidden rounded-md border transition enabled:active:scale-[0.98] ${
+                              selected
+                                ? "border-[#7B61FF] bg-slate-50 shadow-[0_0_0_2px_rgba(123,97,255,0.2)]"
+                                : "border-slate-200 bg-slate-50 enabled:hover:border-[#7B61FF]/50"
+                            } disabled:opacity-40`}
+                            aria-label={option.label}
+                          >
+                            {shouldUseNativeImg(thumb) ? (
+                              <img
+                                src={thumb}
+                                alt={option.label}
+                                className="absolute inset-0 h-full w-full object-contain object-center p-0.5"
+                              />
+                            ) : (
+                              <Image
+                                src={thumb}
+                                alt={option.label}
+                                fill
+                                sizes="(max-width: 340px) 14vw, 48px"
+                                className="object-contain object-center p-0.5"
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </StickerSheetFixedViewport>
               )}
             </div>
           </div>
@@ -470,14 +476,21 @@ export function CommentPopup({
           {comment?.stickerKey?.trim() ? (
             <div className="flex justify-center">
               <div className="relative h-16 w-16 overflow-hidden rounded-full border border-slate-100 bg-slate-50">
-                <Image
-                  src={getAssetImageUrl(comment.stickerKey.trim())}
-                  alt=""
-                  fill
-                  unoptimized
-                  sizes="64px"
-                  className="object-contain object-center p-0.5"
-                />
+                {shouldUseNativeImg(getAssetImageUrl(comment.stickerKey.trim())) ? (
+                  <img
+                    src={getAssetImageUrl(comment.stickerKey.trim())}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-contain object-center p-0.5"
+                  />
+                ) : (
+                  <Image
+                    src={getAssetImageUrl(comment.stickerKey.trim())}
+                    alt=""
+                    fill
+                    sizes="64px"
+                    className="object-contain object-center p-0.5"
+                  />
+                )}
               </div>
             </div>
           ) : null}

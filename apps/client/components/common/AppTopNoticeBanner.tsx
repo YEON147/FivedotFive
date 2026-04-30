@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, CaretRight, PushPin } from "@phosphor-icons/react";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { NoticeDetailModalBody } from "@/components/notice/NoticeDetailModalBody";
@@ -22,12 +23,22 @@ function clearAppTopInset() {
   document.documentElement.style.setProperty(APP_TOP_BANNER_H, "0px");
 }
 
+/** 메인·로그인·회원가입에서는 배너·관련 API 호출 생략 */
+function isAppTopBannerSuppressedPath(pathname: string | null): boolean {
+  if (pathname == null || pathname === "") return true;
+  const p = pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+  return p === "/" || p === "/login" || p === "/signup";
+}
+
 /**
  * 전역 상단 배너 — 관리자가 공지에 넣은 `bannerText`가 있고 노출 기간이면 표시.
  * 탭 시 해당 공지 상세 모달 표시.
  * 문서 플로우 상단에 두고 높이를 `--app-top-banner-h` 로 반영해 고정 위시 셸과 겹치지 않게 함.
  */
 export function AppTopNoticeBanner() {
+  const pathname = usePathname();
+  const suppressBanner = isAppTopBannerSuppressedPath(pathname);
+
   const [target, setTarget] = useState<{ id: number; text: string } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +49,10 @@ export function AppTopNoticeBanner() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    if (suppressBanner) {
+      setTarget(null);
+      return;
+    }
     let cancelled = false;
     void fetchNoticeBanners()
       .then((res) => {
@@ -49,6 +64,8 @@ export function AppTopNoticeBanner() {
         );
         if (first) {
           setTarget({ id: first.id, text: first.bannerText.trim() });
+        } else {
+          setTarget(null);
         }
       })
       .catch(() => {
@@ -57,9 +74,13 @@ export function AppTopNoticeBanner() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [suppressBanner]);
 
   useEffect(() => {
+    if (suppressBanner) {
+      queueMicrotask(() => setIsAdmin(false));
+      return;
+    }
     if (!getAccessToken()) {
       queueMicrotask(() => setIsAdmin(false));
       return;
@@ -75,7 +96,7 @@ export function AppTopNoticeBanner() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [suppressBanner]);
 
   const closeDetailModal = useCallback(() => {
     setDetailModalOpen(false);
@@ -107,7 +128,7 @@ export function AppTopNoticeBanner() {
   }, [target]);
 
   useLayoutEffect(() => {
-    if (!target) {
+    if (suppressBanner || !target) {
       clearAppTopInset();
       return;
     }
@@ -135,7 +156,7 @@ export function AppTopNoticeBanner() {
     return () => {
       ro.disconnect();
     };
-  }, [target]);
+  }, [target, suppressBanner]);
 
   useEffect(
     () => () => {
@@ -144,7 +165,7 @@ export function AppTopNoticeBanner() {
     [],
   );
 
-  if (!target) {
+  if (suppressBanner || !target) {
     return null;
   }
 
