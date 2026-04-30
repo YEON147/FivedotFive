@@ -1,6 +1,7 @@
 "use client";
 
 import { PushPin } from "@phosphor-icons/react";
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -14,6 +15,7 @@ import {
   formatNoticeDateOnly,
   formatNoticeDateTime,
 } from "@/features/notice/format-notice-datetime";
+import { shouldUseNativeImg } from "@/lib/native-img";
 
 const SWIPE_THRESHOLD_PX = 56;
 
@@ -126,6 +128,11 @@ function NoticeImageCarousel({
       ? "relative min-h-0 w-full flex-1 overflow-hidden select-none"
       : "relative h-[min(60vh,520px)] w-full overflow-hidden select-none";
 
+  const imageSizes =
+    variant === "modal"
+      ? "(max-width: 640px) 92vw, min(480px, 90vw)"
+      : "(max-width: 768px) 100vw, min(560px, 90vw)";
+
   /** 모바일: 부모 `overflow-y-auto`가 세로 스크롤로 터치를 가로채지 않도록 가로 스와이프 구역만 기본 제스처 차단 */
   const touchSwipeClass = images.length > 1 ? "touch-none" : "";
 
@@ -157,22 +164,36 @@ function NoticeImageCarousel({
             transform: `translate3d(${trackOffset}px,0,0)`,
           }}
         >
-          {images.map((img) => (
+          {images.map((img, imgIdx) => (
             <div
               key={`${img.displayOrder}-${img.imageUrl}`}
-              className="flex h-full shrink-0 items-center justify-center"
+              className="relative flex h-full shrink-0 items-center justify-center"
               style={
                 slideWidth > 0
                   ? { width: slideWidth }
                   : { width: `${100 / images.length}%` }
               }
             >
-              <img
-                src={img.imageUrl}
-                alt=""
-                className="max-h-full max-w-full object-contain"
-                draggable={false}
-              />
+              {shouldUseNativeImg(img.imageUrl) ? (
+                <img
+                  src={img.imageUrl}
+                  alt=""
+                  className="max-h-full max-w-full object-contain"
+                  draggable={false}
+                />
+              ) : (
+                <div className="relative h-full w-full min-h-0">
+                  <Image
+                    src={img.imageUrl}
+                    alt=""
+                    fill
+                    sizes={imageSizes}
+                    className="object-contain"
+                    draggable={false}
+                    priority={variant === "page" && imgIdx === 0}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -128,13 +128,13 @@ export function MainIntroExperience() {
           <span className="intro-gift-shadow-layer intro-gift-shadow-layer--core" aria-hidden />
         </>
       ) : null}
-      <img
+      <Image
         src="/main/main1.png"
         alt=""
         width={340}
         height={340}
-        decoding="async"
-        fetchPriority="high"
+        priority
+        sizes="min(88vw, 340px)"
         draggable={false}
         className={
           iosStyleGiftShadow

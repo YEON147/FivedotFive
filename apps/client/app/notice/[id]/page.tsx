@@ -1,6 +1,7 @@
 "use client";
 
 import { CaretLeft, TextAlignJustify } from "@phosphor-icons/react";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -16,6 +17,7 @@ import {
 import { getMyProfile } from "@/features/user/api";
 import { compressImagesForUpload } from "@/lib/images/compress-images-for-upload";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
+import { shouldUseNativeImg } from "@/lib/native-img";
 import {
   APP_MAIN_COLUMN,
   APP_MAIN_SCROLL_BODY,
@@ -407,11 +409,22 @@ export default function NoticeDetailPage() {
                       <ul className="mt-2 flex flex-col gap-2">
                         {sortedImages.map((img) => (
                           <li key={`${img.displayOrder}-${img.imageUrl}`}>
-                            <img
-                              src={img.imageUrl}
-                              alt=""
-                              className="max-h-48 w-full object-contain"
-                            />
+                            {shouldUseNativeImg(img.imageUrl) ? (
+                              <img
+                                src={img.imageUrl}
+                                alt=""
+                                className="max-h-48 w-full object-contain"
+                              />
+                            ) : (
+                              <Image
+                                src={img.imageUrl}
+                                alt=""
+                                width={1200}
+                                height={800}
+                                sizes="(max-width: 768px) 100vw, min(42rem, 90vw)"
+                                className="max-h-48 w-full object-contain"
+                              />
+                            )}
                           </li>
                         ))}
                       </ul>

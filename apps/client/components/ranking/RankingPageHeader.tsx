@@ -45,7 +45,6 @@ export function RankingPageHeader({
             height={100}
             className="h-10 w-full max-w-full object-contain object-center"
             priority
-            unoptimized
           />
         </h1>
       </div>

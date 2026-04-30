@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
 /**
  * API 프록시: 위에서부터 첫 매칭이 적용됩니다.
@@ -70,6 +71,32 @@ const tunnelHostsFromEnv = [
 
 const extraAllowedDevOrigins = [...new Set(tunnelHostsFromEnv)];
 
+/** `next/image` 원격 최적화 — S3·CDN·로컬 에셋 서버 */
+function buildImageRemotePatterns(): RemotePattern[] {
+  const patterns: RemotePattern[] = [
+    { protocol: "https", hostname: "**.amazonaws.com", pathname: "/**" },
+    { protocol: "http", hostname: "localhost", pathname: "/**" },
+    { protocol: "http", hostname: "127.0.0.1", pathname: "/**" },
+  ];
+  const raw = process.env.NEXT_PUBLIC_ASSET_BASE_URL?.trim();
+  if (raw) {
+    try {
+      const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      const u = new URL(withProto);
+      const protocol = u.protocol === "http:" ? "http" : "https";
+      patterns.push({
+        protocol,
+        hostname: u.hostname,
+        port: u.port || undefined,
+        pathname: "/**",
+      });
+    } catch {
+      /* noop */
+    }
+  }
+  return patterns;
+}
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
     ...extraAllowedDevOrigins,
@@ -79,6 +106,9 @@ const nextConfig: NextConfig = {
     "172.26.208.1",
     "172.26.1.182",
   ],
+  images: {
+    remotePatterns: buildImageRemotePatterns(),
+  },
   async rewrites() {
     const assetRewrites = assetCdnOrigin
       ? [
