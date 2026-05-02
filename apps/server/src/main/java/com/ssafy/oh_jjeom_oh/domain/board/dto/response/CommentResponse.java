@@ -1,5 +1,6 @@
 package com.ssafy.oh_jjeom_oh.domain.board.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
 import lombok.Getter;
 
@@ -18,6 +19,8 @@ public class CommentResponse {
      */
     private final String content;
     private final String stickerKey;
+    /** Jackson 기본명이 {@code user}로 떨어지는 것을 막고 프론트 {@code isUser}와 일치 */
+    @JsonProperty("isUser")
     private final boolean isUser; // 요청자가 댓글 작성자인지 여부
     private final Integer slotIndex; // 보드 댓글 슬롯 위치 (0~5)
     private final LocalDateTime createdAt;
