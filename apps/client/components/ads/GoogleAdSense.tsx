@@ -3,16 +3,22 @@
 import Script from "next/script";
 import { type ReactElement, useEffect, useRef } from "react";
 
+import { reportAdsensePushFailure } from "@/lib/adsense-errors";
+
 /** `public/ads.txt` 게시자 ID와 동일 */
 export const ADSENSE_PUBLISHER_ID = "ca-pub-3821021138447390";
+
+/** 반응형 단위 로드 전 레이아웃 공간 확보용 (CLS 완화) — 전형적인 모바일 배너 높이 근사 */
+const AD_SLOT_MIN_HEIGHT_CLASS =
+  "min-h-[90px] sm:min-h-[100px] w-full [contain:layout]";
 
 function pushAdSlot(): void {
   try {
     const w = window as Window & { adsbygoogle?: unknown[] };
     w.adsbygoogle = w.adsbygoogle || [];
     w.adsbygoogle.push({});
-  } catch {
-    /* 광고 차단·네트워크 등 */
+  } catch (e) {
+    reportAdsensePushFailure(e, "adsbygoogle.push");
   }
 }
 
@@ -54,11 +60,13 @@ export function AdSenseResponsiveUnit({
 
   if (!adSlot.trim()) return null;
 
+  const mergedClass = [AD_SLOT_MIN_HEIGHT_CLASS, className].filter(Boolean).join(" ");
+
   return (
-    <div className={className}>
+    <div className={mergedClass}>
       <ins
-        className="adsbygoogle"
-        style={{ display: "block", overflow: "hidden" }}
+        className="adsbygoogle block min-h-0 w-full overflow-hidden"
+        style={{ display: "block" }}
         data-ad-client={ADSENSE_PUBLISHER_ID}
         data-ad-slot={adSlot.trim()}
         data-ad-format="auto"
