@@ -1,16 +1,9 @@
-/** 서버 `TeamBoardSlug` 및 공개 보드 slug 와 동일 — 야구단 전용 페이지 구분용 */
-export const TEAM_BOARD_SLUGS = new Set([
-  "lottegiants",
-  "ncdinos",
-  "samsung",
-  "eagles",
-  "kiwoom",
-  "twins",
-  "doosan",
-  "kia",
-  "ssg",
-  "wiz",
-]);
+import raw from "./team-board-slugs.json";
+
+/** 서버 `TeamBoardSlug` 및 공개 보드 slug 와 동일 — 목록은 `team-board-slugs.json` 에서 관리 */
+export const TEAM_BOARD_SLUGS = new Set<string>(
+  Array.isArray(raw.slugs) ? raw.slugs.map((s) => String(s).trim()) : [],
+);
 
 export function isTeamBoardSlug(slug: string): boolean {
   return TEAM_BOARD_SLUGS.has(slug.trim());

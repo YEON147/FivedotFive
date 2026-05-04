@@ -36,7 +36,7 @@ export function WishlistAdPlacement(): ReactElement {
       <AdSenseLoader />
       {slot ? (
         <aside
-          className="wishlist-ad-slot mx-auto w-full max-w-[min(420px,calc(100vw-1.5rem))] shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
+          className="wishlist-ad-slot mx-auto w-full max-w-[min(420px,calc(100vw-1.5rem))] shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 [contain:layout]"
           aria-label="광고"
         >
           <AdSenseResponsiveUnit key={`${pathname}-${slot}`} adSlot={slot} />
