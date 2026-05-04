@@ -1,15 +1,32 @@
 import type { CommentData } from "./types";
 
-/** API가 camelCase / snake_case 어디로 오든 `slotIndex`로 통일 */
-function commentWithNormalizedSlot(c: CommentData): CommentData {
-  const r = c as CommentData & { slot_index?: number | null };
+/**
+ * API가 camelCase / snake_case 어디로 오든 `slotIndex`로 통일.
+ * Jackson이 `boolean isUser`를 JSON 키 `user`로 내릴 수 있어 `user`·`is_user`도 본인 댓글 판별에 반영.
+ */
+function commentWithNormalizedFields(c: CommentData): CommentData {
+  const r = c as CommentData & {
+    slot_index?: number | null;
+    is_user?: boolean;
+    user?: boolean;
+  };
   const slotIndex =
     typeof r.slotIndex === "number"
       ? r.slotIndex
       : typeof r.slot_index === "number"
         ? r.slot_index
         : null;
-  return { ...c, slotIndex };
+
+  const isUser =
+    typeof r.isUser === "boolean"
+      ? r.isUser
+      : typeof r.user === "boolean"
+        ? r.user
+        : typeof r.is_user === "boolean"
+          ? r.is_user
+          : false;
+
+  return { ...c, slotIndex, isUser };
 }
 
 /**
@@ -69,7 +86,7 @@ export function normalizeCommentsToSlotGrid(
   comments: CommentData[],
   commentPageIdx: number,
 ): (CommentData | null)[] {
-  const mapped = comments.map((c) => commentWithNormalizedSlot(c));
+  const mapped = comments.map((c) => commentWithNormalizedFields(c));
   const base = commentPageIdx * 6;
   const grid: (CommentData | null)[] = Array.from({ length: 6 }, () => null);
   const loose: CommentData[] = [];
