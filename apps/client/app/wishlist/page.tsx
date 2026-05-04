@@ -126,6 +126,7 @@ const GIFT_ICON_MODAL_TABS = [
   { id: "kpop", label: GIFT_ICON_CATEGORY_LABELS.kpop },
   { id: "hobby", label: GIFT_ICON_CATEGORY_LABELS.hobby },
   { id: "life", label: GIFT_ICON_CATEGORY_LABELS.life },
+  { id: "travel", label: GIFT_ICON_CATEGORY_LABELS.travel },
   { id: "baseball", label: GIFT_ICON_CATEGORY_LABELS.baseball },
 ] as const;
 
