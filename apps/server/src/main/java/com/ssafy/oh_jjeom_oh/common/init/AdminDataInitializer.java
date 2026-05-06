@@ -77,12 +77,8 @@ public class AdminDataInitializer implements ApplicationRunner {
                             .build());
                 });
 
-        wishBoardRepository.findByUser(admin).ifPresentOrElse(
+        wishBoardRepository.findByBoardSlug(username).ifPresentOrElse(
                 board -> {
-                    if (!username.equals(board.getBoardSlug())) {
-                        log.info("[AdminInit] 관리자 보드 슬러그 보정: {} → {}", board.getBoardSlug(), username);
-                        board.updateBoardSlug(username);
-                    }
                     if (!Boolean.valueOf(boardPublic).equals(board.getIsPublic())) {
                         log.info("[AdminInit] 관리자 보드 공개 여부 보정: {} → {}", board.getIsPublic(), boardPublic);
                         board.updateIsPublic(boardPublic);

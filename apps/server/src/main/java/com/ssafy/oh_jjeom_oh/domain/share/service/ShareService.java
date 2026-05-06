@@ -28,7 +28,7 @@ public class ShareService {
     private String frontendUrl;
 
     public String generateShareLink(Long userId) {
-        String slug = wishBoardRepository.findByUser_Id(userId)
+        String slug = wishBoardRepository.findFirstByUser_Id(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND))
                 .getBoardSlug();
 

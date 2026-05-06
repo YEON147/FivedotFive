@@ -5,6 +5,7 @@ import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.AssetType;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.BoardAsset;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.WishBoardCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
@@ -26,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -72,55 +74,69 @@ class WishBoardServiceTest {
     @Test
     @DisplayName("위시보드 생성 성공")
     void createBoard_success() {
-        given(wishBoardRepository.existsByUser_Id(any())).willReturn(false);
+        given(wishBoardRepository.countByUser_Id(any())).willReturn(0L);
         given(userRepository.findById(any())).willReturn(Optional.of(user));
         given(wishBoardRepository.existsByBoardSlug(any())).willReturn(false);
         given(wishBoardRepository.save(any())).willReturn(board);
 
-        WishBoardCreateResponse response = wishBoardService.createBoard(1L);
+        WishBoardCreateResponse response = wishBoardService.createBoard(1L, null);
 
         assertThat(response.getBoardSlug()).isNotBlank();
-        // 보드 생성 시 기본 에셋을 선 생성하지 않음 (유저가 직접 설정할 때만 생성)
         verify(wishBoardRepository).save(any());
     }
 
     @Test
-    @DisplayName("위시보드 생성 실패 - 이미 존재")
-    void createBoard_alreadyExists() {
-        given(wishBoardRepository.existsByUser_Id(any())).willReturn(true);
+    @DisplayName("위시보드 생성 성공 - title 포함")
+    void createBoard_withTitle_success() {
+        given(wishBoardRepository.countByUser_Id(any())).willReturn(2L);
+        given(userRepository.findById(any())).willReturn(Optional.of(user));
+        given(wishBoardRepository.existsByBoardSlug(any())).willReturn(false);
+        given(wishBoardRepository.save(any())).willReturn(board);
 
-        assertThatThrownBy(() -> wishBoardService.createBoard(1L))
-                .isInstanceOf(CustomException.class)
-                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.BOARD_ALREADY_EXISTS));
+        WishBoardCreateRequest request = new WishBoardCreateRequest("내 생일 위시리스트");
+        WishBoardCreateResponse response = wishBoardService.createBoard(1L, request);
+
+        assertThat(response.getBoardSlug()).isNotBlank();
+        verify(wishBoardRepository).save(any());
     }
 
-    // ===================== getMyBoard =====================
+    @Test
+    @DisplayName("위시보드 생성 실패 - 5개 초과")
+    void createBoard_limitExceeded() {
+        given(wishBoardRepository.countByUser_Id(any())).willReturn(5L);
+
+        assertThatThrownBy(() -> wishBoardService.createBoard(1L, null))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.BOARD_LIMIT_EXCEEDED));
+    }
+
+    // ===================== getMyBoards =====================
 
     @Test
-    @DisplayName("내 위시보드 조회 성공")
-    void getMyBoard_success() {
-        given(wishBoardRepository.findByUser_Id(any())).willReturn(Optional.of(board));
+    @DisplayName("내 위시보드 목록 조회 성공")
+    void getMyBoards_success() {
+        given(wishBoardRepository.findAllByUser_IdOrderByCreatedAtDesc(any())).willReturn(List.of(board));
         given(wishItemRepository.findByBoardOrderBySlotIndex(any())).willReturn(List.of());
         given(boardAssetRepository.findByBoard(any())).willReturn(buildDefaultAssets());
 
-        WishBoardResponse response = wishBoardService.getMyBoard(1L);
+        List<WishBoardResponse> responses = wishBoardService.getMyBoards(1L);
 
-        assertThat(response.getBoardSlug()).isEqualTo("abc123def4");
-        assertThat(response.getIsPublic()).isTrue();
-        assertThat(response.getItems()).hasSize(3); // 슬롯 3개 고정
-        assertThat(response.getAssets()).hasSize(7); // BACKGROUND 1 + STICKER 6
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getBoardSlug()).isEqualTo("abc123def4");
+        assertThat(responses.get(0).getIsPublic()).isTrue();
+        assertThat(responses.get(0).getItems()).hasSize(3);
+        assertThat(responses.get(0).getAssets()).hasSize(7); // BACKGROUND 1 + STICKER 6
     }
 
     @Test
-    @DisplayName("내 위시보드 조회 실패 - 보드 없음")
-    void getMyBoard_boardNotFound() {
-        given(wishBoardRepository.findByUser_Id(any())).willReturn(Optional.empty());
+    @DisplayName("내 위시보드 목록 조회 성공 - 보드 없음")
+    void getMyBoards_empty() {
+        given(wishBoardRepository.findAllByUser_IdOrderByCreatedAtDesc(any())).willReturn(List.of());
 
-        assertThatThrownBy(() -> wishBoardService.getMyBoard(1L))
-                .isInstanceOf(CustomException.class)
-                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.BOARD_NOT_FOUND));
+        List<WishBoardResponse> responses = wishBoardService.getMyBoards(1L);
+
+        assertThat(responses).isEmpty();
     }
 
     // ===================== getBoardBySlug =====================
@@ -141,7 +157,7 @@ class WishBoardServiceTest {
         assertThat(response.getNickname()).isEqualTo("테스트");
         assertThat(response.getItems()).hasSize(3);
         assertThat(response.getItems().get(0).getItemName()).isEqualTo("레고");
-        assertThat(response.getItems().get(1).getItemName()).isNull(); // 빈 슬롯
+        assertThat(response.getItems().get(1).getItemName()).isNull();
     }
 
     @Test
@@ -172,7 +188,7 @@ class WishBoardServiceTest {
     // ===== helpers =====
 
     private List<BoardAsset> buildDefaultAssets() {
-        List<BoardAsset> assets = new java.util.ArrayList<>();
+        List<BoardAsset> assets = new ArrayList<>();
         assets.add(BoardAsset.builder().board(board).assetType(AssetType.BACKGROUND).assetKey("default/background.png").build());
         for (int i = 1; i <= 6; i++) {
             assets.add(BoardAsset.builder().board(board).assetType(AssetType.STICKER).assetKey("default/sticker.png").slotIndex(i).build());

@@ -6,6 +6,7 @@ import com.ssafy.oh_jjeom_oh.common.util.SlugGenerator;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.AssetType;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.BoardAsset;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.WishBoardCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.BoardAssetResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
@@ -32,30 +33,36 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class WishBoardService {
 
+    private static final int MAX_TOTAL_BOARDS = 5;
+
     private final WishBoardRepository wishBoardRepository;
     private final WishItemRepository wishItemRepository;
     private final BoardAssetRepository boardAssetRepository;
     private final UserRepository userRepository;
 
-    // POST /api/boards - 위시보드 생성 (회원가입 시 자동 or 수동 호출)
+    // POST /api/boards - 위시보드 생성 (로그인 사용자, 최대 5개 합산 제한)
     @Transactional
-    public WishBoardCreateResponse createBoard(Long userId) {
-        if (wishBoardRepository.existsByUser_Id(userId)) {
-            throw new CustomException(ErrorCode.BOARD_ALREADY_EXISTS);
+    public WishBoardCreateResponse createBoard(Long userId, WishBoardCreateRequest request) {
+        long count = wishBoardRepository.countByUser_Id(userId);
+        if (count >= MAX_TOTAL_BOARDS) {
+            throw new CustomException(ErrorCode.BOARD_LIMIT_EXCEEDED);
         }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 유니크한 slug 생성 (충돌 시 재시도)
         String slug;
         do {
             slug = SlugGenerator.generate();
         } while (wishBoardRepository.existsByBoardSlug(slug));
 
+        String title = (request != null && request.title() != null && !request.title().isBlank())
+                ? request.title() : null;
+
         WishBoard board = WishBoard.builder()
                 .user(user)
                 .boardSlug(slug)
+                .title(title)
                 .build();
         wishBoardRepository.save(board);
 
@@ -67,12 +74,12 @@ public class WishBoardService {
         return WishBoardExistsResponse.of(wishBoardRepository.existsByUser_Id(userId));
     }
 
-    // GET /api/boards/me - 내 위시보드 조회
-    public WishBoardResponse getMyBoard(Long userId) {
-        WishBoard board = wishBoardRepository.findByUser_Id(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
-
-        return buildWishBoardResponse(board);
+    // GET /api/boards/me - 내 위시보드 목록 조회
+    public List<WishBoardResponse> getMyBoards(Long userId) {
+        List<WishBoard> boards = wishBoardRepository.findAllByUser_IdOrderByCreatedAtDesc(userId);
+        return boards.stream()
+                .map(this::buildWishBoardResponse)
+                .collect(Collectors.toList());
     }
 
     // GET /api/boards/{slug} - slug로 위시보드 조회 (공개 여부 체크)
@@ -108,10 +115,12 @@ public class WishBoardService {
         List<BoardAssetResponse> assetResponses = buildAssetResponses(board);
         return WishBoardPublicResponse.of(
                 board.getBoardSlug(),
+                board.getTitle(),
                 board.getUser().getUsername(),
                 board.getUser().getNickname(),
                 board.getUser().getTeamTag(),
                 board.getTargetDate(),
+                board.getRevealAt(),
                 itemResponses,
                 assetResponses
         );
@@ -121,16 +130,13 @@ public class WishBoardService {
         List<WishItem> items = wishItemRepository.findByBoardOrderBySlotIndex(board);
         List<BoardAsset> allAssets = boardAssetRepository.findByBoard(board);
 
-        // GIFT_STICKER를 slot_index -> assetKey 맵으로 변환
         Map<Integer, String> giftIconMap = allAssets.stream()
                 .filter(a -> a.getAssetType() == AssetType.GIFT_STICKER)
                 .collect(Collectors.toMap(BoardAsset::getSlotIndex, BoardAsset::getAssetKey));
 
-        // wish_items를 slot_index로 맵핑
         Map<Integer, WishItem> itemMap = items.stream()
                 .collect(Collectors.toMap(WishItem::getSlotIndex, i -> i));
 
-        // 슬롯 1~3 고정 반환 (없으면 빈 슬롯)
         List<WishItemResponse> result = new ArrayList<>();
         for (int slot = 1; slot <= 3; slot++) {
             WishItem item = itemMap.get(slot);
@@ -145,7 +151,7 @@ public class WishBoardService {
 
     private List<BoardAssetResponse> buildAssetResponses(WishBoard board) {
         return boardAssetRepository.findByBoard(board).stream()
-                .filter(a -> a.getAssetType() != AssetType.GIFT_STICKER) // GIFT_STICKER는 items.iconKey로 노출
+                .filter(a -> a.getAssetType() != AssetType.GIFT_STICKER)
                 .map(BoardAssetResponse::from)
                 .collect(Collectors.toList());
     }

@@ -21,12 +21,15 @@ public class WishBoard {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Column(name = "board_slug", nullable = false, unique = true, length = 100)
     private String boardSlug;
+
+    @Column(length = 100)
+    private String title;
 
     @Column(name = "is_public", nullable = false)
     @Builder.Default
@@ -35,6 +38,9 @@ public class WishBoard {
     @Column(name = "target_date")
     @Builder.Default
     private LocalDate targetDate = LocalDate.of(2026, 5, 5);
+
+    @Column(name = "reveal_at")
+    private LocalDateTime revealAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -50,5 +56,13 @@ public class WishBoard {
 
     public void updateIsPublic(boolean isPublic) {
         this.isPublic = isPublic;
+    }
+
+    public void updateTitle(String title) {
+        this.title = title;
+    }
+
+    public void updateRevealAt(LocalDateTime revealAt) {
+        this.revealAt = revealAt;
     }
 }

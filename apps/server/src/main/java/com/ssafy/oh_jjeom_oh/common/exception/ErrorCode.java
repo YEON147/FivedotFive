@@ -40,6 +40,7 @@ public enum ErrorCode {
     BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "위시보드를 찾을 수 없습니다."),
     BOARD_SLUG_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 슬러그의 위시보드를 찾을 수 없습니다."),
     BOARD_PRIVATE(HttpStatus.FORBIDDEN, "비공개 위시보드입니다."),
+    BOARD_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "위시보드는 최대 5개까지 생성할 수 있습니다."),
 
     // 위시 아이템
     INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "슬롯 번호는 1~3 사이여야 합니다."),

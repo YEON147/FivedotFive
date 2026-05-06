@@ -3,6 +3,7 @@ package com.ssafy.oh_jjeom_oh.domain.board.dto.response;
 import lombok.Getter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 // GET /api/boards/{slug} 응답 (slug로 위시보드 조회)
@@ -10,26 +11,33 @@ import java.util.List;
 public class WishBoardPublicResponse {
 
     private final String boardSlug;
+    private final String title;
     private final String username;
     private final String nickname;
     private final String teamTag;
     private final LocalDate targetDate;
+    private final LocalDateTime revealAt;
     private final List<WishItemResponse> items;
     private final List<BoardAssetResponse> assets;
 
-    private WishBoardPublicResponse(String boardSlug, String username, String nickname, String teamTag,
-                                     LocalDate targetDate, List<WishItemResponse> items, List<BoardAssetResponse> assets) {
+    private WishBoardPublicResponse(String boardSlug, String title, String username, String nickname, String teamTag,
+                                     LocalDate targetDate, LocalDateTime revealAt,
+                                     List<WishItemResponse> items, List<BoardAssetResponse> assets) {
         this.boardSlug = boardSlug;
+        this.title = title;
         this.username = username;
         this.nickname = nickname;
         this.teamTag = teamTag;
         this.targetDate = targetDate;
+        this.revealAt = revealAt;
         this.items = items;
         this.assets = assets;
     }
 
-    public static WishBoardPublicResponse of(String boardSlug, String username, String nickname, String teamTag,
-                                              LocalDate targetDate, List<WishItemResponse> items, List<BoardAssetResponse> assets) {
-        return new WishBoardPublicResponse(boardSlug, username, nickname, teamTag, targetDate, items, assets);
+    public static WishBoardPublicResponse of(String boardSlug, String title, String username, String nickname,
+                                              String teamTag, LocalDate targetDate, LocalDateTime revealAt,
+                                              List<WishItemResponse> items, List<BoardAssetResponse> assets) {
+        return new WishBoardPublicResponse(boardSlug, title, username, nickname, teamTag,
+                targetDate, revealAt, items, assets);
     }
 }

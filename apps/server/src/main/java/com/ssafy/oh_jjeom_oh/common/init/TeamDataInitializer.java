@@ -65,14 +65,9 @@ public class TeamDataInitializer implements ApplicationRunner {
     }
 
     private void ensureBoard(User user, String username, boolean userChanged) {
-        wishBoardRepository.findByUser(user).ifPresentOrElse(
+        wishBoardRepository.findByBoardSlug(username).ifPresentOrElse(
                 board -> {
                     boolean needUpdate = false;
-                    if (!username.equals(board.getBoardSlug())) {
-                        log.info("[TeamInit] 구단 보드 슬러그 보정: {} → {}", board.getBoardSlug(), username);
-                        board.updateBoardSlug(username);
-                        needUpdate = true;
-                    }
                     if (!Boolean.TRUE.equals(board.getIsPublic())) {
                         log.info("[TeamInit] 구단 보드 공개 보정: slug={}", username);
                         board.updateIsPublic(true);

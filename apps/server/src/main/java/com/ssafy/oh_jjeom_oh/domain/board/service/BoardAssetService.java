@@ -119,7 +119,7 @@ public class BoardAssetService {
     // ===================== private helpers =====================
 
     private WishBoard getBoard(Long userId) {
-        return wishBoardRepository.findByUser_Id(userId)
+        return wishBoardRepository.findFirstByUser_Id(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
     }
 

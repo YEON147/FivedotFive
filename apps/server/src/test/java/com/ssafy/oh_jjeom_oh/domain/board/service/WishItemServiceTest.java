@@ -74,7 +74,7 @@ class WishItemServiceTest {
     @Test
     @DisplayName("위시 아이템 슬롯 전체 조회 성공")
     void getItems_success() {
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findFirstByUser_Id(1L)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardOrderBySlotIndex(board)).willReturn(List.of(item));
         given(boardAssetRepository.findByBoardAndAssetType(board, AssetType.GIFT_STICKER))
                 .willReturn(List.of(
@@ -99,7 +99,7 @@ class WishItemServiceTest {
         ReflectionTestUtils.setField(request, "itemName", "닌텐도");
         ReflectionTestUtils.setField(request, "iconKey", "icon/game.png");
 
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findFirstByUser_Id(1L)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
         given(boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, 1))
                 .willReturn(Optional.of(BoardAsset.builder().board(board).assetType(AssetType.GIFT_STICKER)
@@ -117,7 +117,7 @@ class WishItemServiceTest {
         WishItemUpdateRequest request = new WishItemUpdateRequest();
         ReflectionTestUtils.setField(request, "itemName", "레고");
 
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findFirstByUser_Id(1L)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 2)).willReturn(Optional.empty());
 
         wishItemService.updateItem(1L, 2, request);
@@ -146,7 +146,7 @@ class WishItemServiceTest {
                 .board(board).assetType(AssetType.GIFT_STICKER)
                 .assetKey("icon/toy.png").slotIndex(1).build();
 
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findFirstByUser_Id(1L)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
         given(boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, 1))
                 .willReturn(Optional.of(giftIcon));
@@ -160,7 +160,7 @@ class WishItemServiceTest {
     @Test
     @DisplayName("위시 아이템 슬롯 비우기 실패 - 이미 빈 슬롯")
     void clearItem_slotNotFound() {
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findFirstByUser_Id(1L)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 2)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> wishItemService.clearItem(1L, 2))
