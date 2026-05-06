@@ -41,7 +41,15 @@ public final class WallpaperDisplayNames {
             Map.entry("wallpaper-31.png", "baseball-히어로즈"),
             Map.entry("wallpaper-32.png", "baseball-위즈"),
             Map.entry("wallpaper-33.png", "baseball-랜더스"),
-            Map.entry("wallpaper-34.png", "baseball-타이거즈")
+            Map.entry("wallpaper-34.png", "baseball-타이거즈"),
+            Map.entry("wallpaper-35.png", "분식집"),
+            Map.entry("wallpaper-36.png", "마라탕가게"),
+            Map.entry("wallpaper-37.png", "야시장"),
+            Map.entry("wallpaper-38.png", "기사식당"),
+            Map.entry("wallpaper-39.png", "밥상"),
+            Map.entry("wallpaper-40.png", "제주도바다"),
+            Map.entry("wallpaper-41.png", "부산밤바다"),
+            Map.entry("wallpaper-42.png", "마이룸")
     );
 
     // assetKey에서 파일명 추출 후 표시명 반환 (없으면 파일명 그대로)
