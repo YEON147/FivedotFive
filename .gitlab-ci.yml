@@ -12,8 +12,14 @@ build_backend:
     DOCKER_TLS_CERTDIR: ""
   script:
     - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-    - docker build -t ghcr.io/$GHCR_USER/server-image:latest -f apps/server/Dockerfile .
-    - docker push ghcr.io/$GHCR_USER/server-image:latest
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "master" ]; then
+        IMAGE_TAG="prod"
+      else
+        IMAGE_TAG="dev"
+      fi
+    - docker build -t ghcr.io/$GHCR_USER/server-image:$IMAGE_TAG -f apps/server/Dockerfile .
+    - docker push ghcr.io/$GHCR_USER/server-image:$IMAGE_TAG
   only:
     - develop 
     - master
@@ -29,6 +35,12 @@ build_frontend:
   script:
     - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
     # 프론트엔드는 빌드할 때 백엔드 주소가 필요하므로 --build-arg를 넣어줍니다
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "master" ]; then
+        export IMAGE_TAG="prod"
+      else
+        export IMAGE_TAG="dev"
+      fi
     - docker build 
       --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL"
       --build-arg NEXT_PUBLIC_NGROK_URL="$NEXT_PUBLIC_NGROK_URL"
@@ -38,9 +50,9 @@ build_frontend:
       --build-arg NEXT_PUBLIC_ASSET_BASE_URL="$NEXT_PUBLIC_ASSET_BASE_URL"
       --build-arg NEXT_PUBLIC_OG_ENABLED="$NEXT_PUBLIC_OG_ENABLED"
       --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL"
-      -t ghcr.io/$GHCR_USER/client-image:latest 
+      -t ghcr.io/$GHCR_USER/client-image:$IMAGE_TAG 
       -f apps/client/Dockerfile .
-    - docker push ghcr.io/$GHCR_USER/client-image:latest
+    - docker push ghcr.io/$GHCR_USER/client-image:$IMAGE_TAG
   only:
     - develop
     - master
@@ -66,6 +78,8 @@ deploy_staging:
     - export AWS_REGION=ap-northeast-2
     - export S3_BUCKET=five-dot-five
     - docker compose up -d postgres redis
+    - export SERVER_IMAGE_TAG=dev
+    - export CLIENT_IMAGE_TAG=dev
     - docker compose pull client backend-blue
     - docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --force-recreate client backend-blue caddy
   only:
@@ -106,6 +120,8 @@ deploy_production:
         export AWS_REGION=ap-northeast-2 &&
         export S3_BUCKET=five-dot-five &&
         chmod +x deploy.sh &&
+        export SERVER_IMAGE_TAG=prod &&
+        export CLIENT_IMAGE_TAG=prod &&
         ./deploy.sh
       "
   only:
