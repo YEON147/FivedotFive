@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +37,12 @@ public interface WishBoardRepository extends JpaRepository<WishBoard, Long> {
 
     // 내가 저장한 복사본 목록 (최신순)
     List<WishBoard> findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(Long savedByUserId);
+
+    // 통합 목록용: 원본만, 최신순
+    List<WishBoard> findAllByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(Long userId);
+
+    // 스케줄러용: targetDate 경과 + 원본 + 미삭제
+    List<WishBoard> findAllByTargetDateBeforeAndIsSavedCopyFalseAndDeletedAtIsNull(LocalDate date);
 
     @Modifying
     @Query("delete from WishBoard b where b.user.id = :userId")

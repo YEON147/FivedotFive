@@ -30,6 +30,9 @@ public enum SuccessMessage {
     LOGOUT_SUCCESS("로그아웃 되었습니다."),
     REFRESH_SUCCESS("토큰이 재발급되었습니다."),
 
+    // 통합 목록
+    BOARDS_ALL_FOUND("보드 통합 목록 조회가 완료되었습니다."),
+
     // 위시보드
     BOARD_CREATED("위시보드가 생성되었습니다."),
     BOARD_FOUND("위시보드 조회가 완료되었습니다."),
