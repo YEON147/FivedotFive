@@ -338,11 +338,13 @@ export default function WishlistPage() {
     }));
   }, [stickerFolderIds]);
 
-  useEffect(() => {
+  /** 폴더 목록이 바뀌어도 탭 상태와 목록이 어긋나지 않도록 실제 조회·하이라이트에 사용 */
+  const stickerModalTabEffective = useMemo(() => {
     const allowed = new Set(stickerModalTabs.map((t) => t.id));
-    if (!allowed.has(stickerModalTab)) {
-      setStickerModalTab(stickerModalTabs[0]?.id ?? FALLBACK_STICKER_FOLDER_IDS[0] ?? "balloon");
+    if (allowed.has(stickerModalTab)) {
+      return stickerModalTab;
     }
+    return stickerModalTabs[0]?.id ?? FALLBACK_STICKER_FOLDER_IDS[0] ?? "balloon";
   }, [stickerModalTabs, stickerModalTab]);
 
   useEffect(() => {
@@ -617,44 +619,45 @@ export default function WishlistPage() {
     );
   }, [giftIcons]);
 
+  /** 숨겨진 야구 탭·불가능한 선택이 남아 있어도 목록·탭 하이라이스트와 일치 */
+  const giftIconModalTabEffective = useMemo(() => {
+    const tabs = giftIconModalTabsForUi;
+    const allowed = new Set(tabs.map((tab) => tab.id));
+    const selected = giftIconModalTab;
+    if (!allowed.has(selected)) {
+      return tabs[0]?.id ?? "food";
+    }
+    if (selected === "baseball") {
+      const hasBaseball = giftIcons.some(
+        (g) => giftIconCategoryFromAssetKey(g.assetKey) === "baseball",
+      );
+      if (!hasBaseball) {
+        return tabs[0]?.id ?? "food";
+      }
+    }
+    return selected;
+  }, [giftIconModalTab, giftIconModalTabsForUi, giftIcons]);
+
   /** 모달: 1번 칸은 고정 기본 선물, 그 다음 칸부터 API 목록 — 카테고리 미분류는 첫 탭에만 합침 */
   const filteredCatalogGiftIcons = useMemo(() => {
     const firstTabId = giftIconModalTabsForUi[0]?.id;
+    const tab = giftIconModalTabEffective;
     const uncategorized = giftIcons.filter(
       (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === null,
     );
     const inCategory = giftIcons.filter(
-      (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === giftIconModalTab,
+      (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === tab,
     );
     if (
       firstTabId !== undefined &&
-      giftIconModalTab === firstTabId &&
+      tab === firstTabId &&
       uncategorized.length > 0
     ) {
       const seen = new Set(inCategory.map((i) => i.id));
       return [...uncategorized.filter((u) => !seen.has(u.id)), ...inCategory];
     }
     return inCategory;
-  }, [giftIcons, giftIconModalTab, giftIconModalTabsForUi]);
-
-  useEffect(() => {
-    const allowed = new Set(giftIconModalTabsForUi.map((t) => t.id));
-    if (allowed.has(giftIconModalTab)) {
-      return;
-    }
-    const fallback = giftIconModalTabsForUi[0]?.id ?? "food";
-    setGiftIconModalTab(fallback);
-  }, [giftIconModalTabsForUi, giftIconModalTab]);
-
-  useEffect(() => {
-    if (giftIconModalTab !== "baseball") return;
-    const hasBaseball = giftIcons.some(
-      (g) => giftIconCategoryFromAssetKey(g.assetKey) === "baseball",
-    );
-    if (!hasBaseball) {
-      setGiftIconModalTab(giftIconModalTabsForUi[0]?.id ?? "food");
-    }
-  }, [giftIcons, giftIconModalTab, giftIconModalTabsForUi]);
+  }, [giftIcons, giftIconModalTabEffective, giftIconModalTabsForUi]);
 
   /** 목록 최초 로드 후 — 저장된 키가 카탈로그 첫 항목과 같으면 「기본 선물」로 표시 */
   useEffect(() => {
@@ -732,7 +735,7 @@ export default function WishlistPage() {
       setStickerSheetLoading(true);
       setStickerSheetError(null);
       try {
-        const list = await fetchStickersByFolder(stickerModalTab, boardSlug);
+        const list = await fetchStickersByFolder(stickerModalTabEffective, boardSlug);
         if (!cancelled) {
           setStickerSheetList(list);
         }
@@ -757,7 +760,7 @@ export default function WishlistPage() {
     return () => {
       cancelled = true;
     };
-  }, [isBottomSheetOpen, stickerModalTab, boardSlug]);
+  }, [isBottomSheetOpen, stickerModalTabEffective, boardSlug]);
 
   useEffect(() => {
     if (!isBottomSheetOpen) {
@@ -1829,7 +1832,7 @@ export default function WishlistPage() {
                             onPointerDown={giftIconTabStripScroll.onPointerDown}
                           >
                             {giftIconModalTabsForUi.map((tab) => {
-                              const active = giftIconModalTab === tab.id;
+                              const active = giftIconModalTabEffective === tab.id;
                               return (
                                 <button
                                   key={tab.id}
@@ -1985,7 +1988,7 @@ export default function WishlistPage() {
                   onPointerDown={stickerTabStripScroll.onPointerDown}
                 >
                   {stickerModalTabs.map((tab) => {
-                    const active = stickerModalTab === tab.id;
+                    const active = stickerModalTabEffective === tab.id;
                     return (
                       <button
                         key={tab.id}
