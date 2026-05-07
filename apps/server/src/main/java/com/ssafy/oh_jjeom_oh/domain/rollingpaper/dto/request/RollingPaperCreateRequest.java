@@ -1,0 +1,14 @@
+package com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+import java.time.LocalDate;
+
+public record RollingPaperCreateRequest(
+        @NotBlank @Size(max = 200) String title,
+        @NotBlank @Size(max = 100) String recipientName,
+        String imageKey,
+        @NotNull LocalDate targetDate
+) {}

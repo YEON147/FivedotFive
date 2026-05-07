@@ -79,6 +79,15 @@ public enum SuccessMessage {
     // 공유 링크
     SHARE_LINK_CREATED("공유 링크가 생성되었습니다."),
 
+    // 롤링페이퍼
+    ROLLING_PAPER_CREATED("롤링페이퍼가 생성되었습니다."),
+    ROLLING_PAPER_FOUND("롤링페이퍼 조회가 완료되었습니다."),
+    ROLLING_PAPER_LIST_FOUND("롤링페이퍼 목록 조회가 완료되었습니다."),
+    ROLLING_PAPER_UPDATED("롤링페이퍼가 수정되었습니다."),
+    ROLLING_PAPER_DELETED("롤링페이퍼가 삭제되었습니다."),
+    ROLLING_PAPER_SAVED("롤링페이퍼가 저장되었습니다."),
+    SAVED_ROLLING_PAPERS_FOUND("저장한 롤링페이퍼 목록 조회가 완료되었습니다."),
+
     // 에셋 동기화
     ASSET_SYNC_COMPLETED("에셋 동기화가 완료되었습니다."),
 

@@ -20,6 +20,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItem;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
 import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -42,13 +43,15 @@ public class WishBoardService {
     private final WishItemRepository wishItemRepository;
     private final BoardAssetRepository boardAssetRepository;
     private final WishCommentRepository wishCommentRepository;
+    private final RollingPaperRepository rollingPaperRepository;
     private final UserRepository userRepository;
 
-    // POST /api/boards - 위시보드 생성 (로그인 사용자, 최대 5개 합산 제한)
+    // POST /api/boards - 위시보드 생성 (위시보드+롤링페이퍼 합산 최대 5개)
     @Transactional
     public WishBoardCreateResponse createBoard(Long userId, WishBoardCreateRequest request) {
-        long count = wishBoardRepository.countByUser_Id(userId);
-        if (count >= MAX_TOTAL_BOARDS) {
+        long boardCount  = wishBoardRepository.countByUser_IdAndIsSavedCopyFalse(userId);
+        long paperCount  = rollingPaperRepository.countByUser_IdAndIsSavedCopyFalse(userId);
+        if (boardCount + paperCount >= MAX_TOTAL_BOARDS) {
             throw new CustomException(ErrorCode.BOARD_LIMIT_EXCEEDED);
         }
 

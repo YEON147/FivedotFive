@@ -59,6 +59,9 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/me").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/me/**").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*").permitAll()
+                        // 롤링페이퍼: me/** 는 인증 필요, 단건 조회는 토큰 기반이므로 permitAll
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rolling-papers/me/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rolling-papers/*").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth

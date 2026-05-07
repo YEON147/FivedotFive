@@ -19,6 +19,11 @@ public interface RollingPaperCommentRepository extends JpaRepository<RollingPape
     // 롤링페이퍼 복사 시 전체 댓글 조회
     List<RollingPaperComment> findAllByRollingPaper(RollingPaper rollingPaper);
 
+    // 롤링페이퍼 단건 삭제 시 사용
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("delete from RollingPaperComment c where c.rollingPaper = :paper")
+    void deleteByRollingPaper(@org.springframework.data.repository.query.Param("paper") RollingPaper paper);
+
     /**
      * 소프트 딜리트된 댓글 포함, (rolling_paper_id, slot_index)만으로 존재 여부 확인.
      * 향후 @Where 필터 추가 시에도 안전하게 동작하도록 네이티브 쿼리 사용.

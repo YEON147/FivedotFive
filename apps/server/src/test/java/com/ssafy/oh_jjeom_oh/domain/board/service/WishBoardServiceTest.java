@@ -46,6 +46,8 @@ class WishBoardServiceTest {
     @Mock private WishBoardRepository wishBoardRepository;
     @Mock private WishItemRepository wishItemRepository;
     @Mock private BoardAssetRepository boardAssetRepository;
+    @Mock private com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository wishCommentRepository;
+    @Mock private com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository rollingPaperRepository;
     @Mock private UserRepository userRepository;
 
     private User user;
@@ -72,9 +74,10 @@ class WishBoardServiceTest {
     // ===================== createBoard =====================
 
     @Test
-    @DisplayName("위시보드 생성 성공")
+    @DisplayName("위시보드 생성 성공 - 합산 0개")
     void createBoard_success() {
-        given(wishBoardRepository.countByUser_Id(any())).willReturn(0L);
+        given(wishBoardRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(0L);
+        given(rollingPaperRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(0L);
         given(userRepository.findById(any())).willReturn(Optional.of(user));
         given(wishBoardRepository.existsByBoardSlug(any())).willReturn(false);
         given(wishBoardRepository.save(any())).willReturn(board);
@@ -86,9 +89,10 @@ class WishBoardServiceTest {
     }
 
     @Test
-    @DisplayName("위시보드 생성 성공 - title 포함")
+    @DisplayName("위시보드 생성 성공 - title 포함, 합산 2개")
     void createBoard_withTitle_success() {
-        given(wishBoardRepository.countByUser_Id(any())).willReturn(2L);
+        given(wishBoardRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(1L);
+        given(rollingPaperRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(1L);
         given(userRepository.findById(any())).willReturn(Optional.of(user));
         given(wishBoardRepository.existsByBoardSlug(any())).willReturn(false);
         given(wishBoardRepository.save(any())).willReturn(board);
@@ -101,9 +105,10 @@ class WishBoardServiceTest {
     }
 
     @Test
-    @DisplayName("위시보드 생성 실패 - 5개 초과")
+    @DisplayName("위시보드 생성 실패 - 합산 5개 초과")
     void createBoard_limitExceeded() {
-        given(wishBoardRepository.countByUser_Id(any())).willReturn(5L);
+        given(wishBoardRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(3L);
+        given(rollingPaperRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(2L);
 
         assertThatThrownBy(() -> wishBoardService.createBoard(1L, null))
                 .isInstanceOf(CustomException.class)
