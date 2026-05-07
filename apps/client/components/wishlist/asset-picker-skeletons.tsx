@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { ModalLazyScrollRoot } from "@/components/wishlist/modal-lazy-scroll-root";
 import { STICKER_GRID_6COL_3ROW_SCROLL_HEIGHT } from "@/components/wishlist/sticker-sheet-layout";
 
 /**
@@ -40,14 +41,20 @@ export function StickerGridSkeleton({ className = "" }: { className?: string }) 
 }
 
 /** 6×3 행 분량 고정 높이 — 스티커가 적어도 모달 높이가 줄지 않음. `scrollable`이면 내부 스크롤 */
+const STICKER_SCROLL_INNER_CLASS =
+  "h-full overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y";
+
 export function StickerSheetFixedViewport({
   children,
   className = "",
   scrollable = false,
+  /** true면 스크롤 루트에 단일 IntersectionObserver — `ScrollLazyModalImage`와 함께 사용 */
+  lazyScrollImages = false,
 }: {
   children: ReactNode;
   className?: string;
   scrollable?: boolean;
+  lazyScrollImages?: boolean;
 }) {
   return (
     <div
@@ -58,9 +65,13 @@ export function StickerSheetFixedViewport({
       }}
     >
       {scrollable ? (
-        <div className="h-full overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y">
-          {children}
-        </div>
+        lazyScrollImages ? (
+          <ModalLazyScrollRoot className={STICKER_SCROLL_INNER_CLASS}>
+            {children}
+          </ModalLazyScrollRoot>
+        ) : (
+          <div className={STICKER_SCROLL_INNER_CLASS}>{children}</div>
+        )
       ) : (
         children
       )}

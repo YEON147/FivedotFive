@@ -1,7 +1,7 @@
 /**
  * S3 `icons/{카테고리}/…` 구조 — `assetKey`에서 카테고리 id 추출 (API·DB 키는 보통 `icons/…` 로 시작).
  */
-export const GIFT_ICON_CATEGORY_IDS = ["food", "kpop", "hobby", "life", "baseball"] as const;
+export const GIFT_ICON_CATEGORY_IDS = ["food", "kpop", "hobby", "life", "travel", "baseball"] as const;
 
 export type GiftIconCategoryId = (typeof GIFT_ICON_CATEGORY_IDS)[number];
 
@@ -13,6 +13,7 @@ export const GIFT_ICON_CATEGORY_LABELS: Record<GiftIconCategoryId, string> = {
   kpop: "케이팝",
   hobby: "취미",
   life: "라이프",
+  travel: "여행",
   baseball: "야구",
 };
 
