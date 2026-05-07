@@ -14,6 +14,8 @@ import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItem;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItemStatus;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
+import com.ssafy.oh_jjeom_oh.domain.me.dto.response.BoardSummaryResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
@@ -25,8 +27,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -188,6 +192,80 @@ class WishBoardServiceTest {
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                         .isEqualTo(ErrorCode.BOARD_PRIVATE));
+    }
+
+    // ===================== getLatestBoard =====================
+
+    @Test
+    @DisplayName("최근 보드 조회 - 위시보드가 더 최신 → WISHBOARD 반환")
+    void getLatestBoard_boardIsNewer() {
+        ReflectionTestUtils.setField(board, "createdAt", LocalDateTime.of(2026, 3, 1, 0, 0));
+
+        RollingPaper paper = RollingPaper.builder()
+                .user(user).slug("paper-slug").title("롤링페이퍼")
+                .recipientName("친구").targetDate(LocalDate.of(2099, 12, 31))
+                .commentToken("ct").viewToken("vt").build();
+        ReflectionTestUtils.setField(paper, "createdAt", LocalDateTime.of(2026, 1, 1, 0, 0));
+
+        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+                .willReturn(Optional.of(board));
+        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+                .willReturn(Optional.of(paper));
+
+        BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
+
+        assertThat(result.getType()).isEqualTo("WISHBOARD");
+        assertThat(result.getSlug()).isEqualTo("abc123def4");
+    }
+
+    @Test
+    @DisplayName("최근 보드 조회 - 롤링페이퍼가 더 최신 → ROLLINGPAPER 반환")
+    void getLatestBoard_paperIsNewer() {
+        ReflectionTestUtils.setField(board, "createdAt", LocalDateTime.of(2026, 1, 1, 0, 0));
+
+        RollingPaper paper = RollingPaper.builder()
+                .user(user).slug("paper-slug").title("롤링페이퍼")
+                .recipientName("친구").targetDate(LocalDate.of(2099, 12, 31))
+                .commentToken("ct").viewToken("vt").build();
+        ReflectionTestUtils.setField(paper, "createdAt", LocalDateTime.of(2026, 3, 1, 0, 0));
+
+        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+                .willReturn(Optional.of(board));
+        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+                .willReturn(Optional.of(paper));
+
+        BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
+
+        assertThat(result.getType()).isEqualTo("ROLLINGPAPER");
+        assertThat(result.getSlug()).isEqualTo("paper-slug");
+        assertThat(result.getRecipientName()).isEqualTo("친구");
+    }
+
+    @Test
+    @DisplayName("최근 보드 조회 - 위시보드만 있는 경우 → WISHBOARD 반환")
+    void getLatestBoard_onlyBoard() {
+        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+                .willReturn(Optional.of(board));
+        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+                .willReturn(Optional.empty());
+
+        BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
+
+        assertThat(result.getType()).isEqualTo("WISHBOARD");
+    }
+
+    @Test
+    @DisplayName("최근 보드 조회 - 아무것도 없으면 BOARD_NOT_FOUND")
+    void getLatestBoard_nothingFound() {
+        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+                .willReturn(Optional.empty());
+        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> wishBoardService.getLatestBoard(1L))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.BOARD_NOT_FOUND));
     }
 
     // ===== helpers =====

@@ -16,6 +16,9 @@ public interface RollingPaperRepository extends JpaRepository<RollingPaper, Long
     // 내가 만든 롤링페이퍼 목록 (원본만, 최신순)
     List<RollingPaper> findAllByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(Long userId);
 
+    // 가장 최근 원본 1개 (soft-delete 제외)
+    Optional<RollingPaper> findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId);
+
     // 내가 저장한 롤링페이퍼 복사본 목록 (최신순)
     List<RollingPaper> findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(Long userId);
 

@@ -34,6 +34,7 @@ public enum SuccessMessage {
     BOARDS_ALL_FOUND("보드 통합 목록 조회가 완료되었습니다."),
 
     // 위시보드
+    LATEST_BOARD_FOUND("최근 보드 조회가 완료되었습니다."),
     BOARD_CREATED("위시보드가 생성되었습니다."),
     BOARD_FOUND("위시보드 조회가 완료되었습니다."),
     BOARDS_FOUND("위시보드 목록 조회가 완료되었습니다."),

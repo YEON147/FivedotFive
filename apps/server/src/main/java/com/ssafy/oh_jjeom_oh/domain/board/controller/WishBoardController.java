@@ -10,6 +10,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSaveResponse;
+import com.ssafy.oh_jjeom_oh.domain.me.dto.response.BoardSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.service.WishBoardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,13 +39,13 @@ public class WishBoardController {
                 .body(ApiResponse.success(SuccessMessage.BOARD_CREATED, data));
     }
 
-    // GET /api/boards/me - 내 첫 번째 위시보드 단건 조회 (CHILD, 기존 프론트 호환)
+    // GET /api/boards/me - 위시보드+롤링페이퍼 중 가장 최근 생성된 원본 1개 조회
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<WishBoardResponse>> getMyBoard(
+    public ResponseEntity<ApiResponse<BoardSummaryResponse>> getMyLatestBoard(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        WishBoardResponse data = wishBoardService.getMyBoard(userPrincipal.getId());
-        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_FOUND, data));
+        BoardSummaryResponse data = wishBoardService.getLatestBoard(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.LATEST_BOARD_FOUND, data));
     }
 
     // GET /api/boards/me/list - 내 위시보드 목록 조회 (CHILD, 다중 보드 지원)

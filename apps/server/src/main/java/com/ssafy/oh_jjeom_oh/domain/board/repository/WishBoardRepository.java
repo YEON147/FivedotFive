@@ -41,6 +41,9 @@ public interface WishBoardRepository extends JpaRepository<WishBoard, Long> {
     // 통합 목록용: 원본만, 최신순
     List<WishBoard> findAllByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(Long userId);
 
+    // 가장 최근 원본 1개 (soft-delete 제외)
+    Optional<WishBoard> findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId);
+
     // 스케줄러용: targetDate 경과 + 원본 + 미삭제
     List<WishBoard> findAllByTargetDateBeforeAndIsSavedCopyFalseAndDeletedAtIsNull(LocalDate date);
 

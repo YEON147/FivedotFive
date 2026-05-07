@@ -14,6 +14,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSaveResponse;
+import com.ssafy.oh_jjeom_oh.domain.me.dto.response.BoardSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishItemResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItem;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -81,11 +83,27 @@ public class WishBoardService {
         return WishBoardExistsResponse.of(wishBoardRepository.existsByUser_Id(userId));
     }
 
-    // GET /api/boards/me - 내 첫 번째 위시보드 단건 조회 (기존 프론트 호환)
-    public WishBoardResponse getMyBoard(Long userId) {
-        WishBoard board = wishBoardRepository.findFirstByUser_Id(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
-        return buildWishBoardResponse(board);
+    // GET /api/boards/me - 위시보드+롤링페이퍼 중 가장 최근 생성된 원본 1개 반환
+    public BoardSummaryResponse getLatestBoard(Long userId) {
+        Optional<WishBoard> latestBoard =
+                wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+        Optional<com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper> latestPaper =
+                rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+
+        if (latestBoard.isEmpty() && latestPaper.isEmpty()) {
+            throw new CustomException(ErrorCode.BOARD_NOT_FOUND);
+        }
+
+        if (latestBoard.isPresent() && latestPaper.isPresent()) {
+            boolean boardIsNewer = latestBoard.get().getCreatedAt()
+                    .isAfter(latestPaper.get().getCreatedAt());
+            return boardIsNewer
+                    ? BoardSummaryResponse.fromWishBoard(latestBoard.get())
+                    : BoardSummaryResponse.fromRollingPaper(latestPaper.get());
+        }
+
+        return latestBoard.map(BoardSummaryResponse::fromWishBoard)
+                .orElseGet(() -> BoardSummaryResponse.fromRollingPaper(latestPaper.get()));
     }
 
     // GET /api/boards/me/list - 내 위시보드 목록 조회 (다중 보드)
