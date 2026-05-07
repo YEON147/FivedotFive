@@ -76,6 +76,11 @@ public enum ErrorCode {
     ROLLING_PAPER_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "롤링페이퍼는 최대 5개까지 생성할 수 있습니다."),
     ROLLING_PAPER_CANNOT_SAVE_OWN(HttpStatus.BAD_REQUEST, "본인의 롤링페이퍼는 저장할 수 없습니다."),
 
+    // 롤링페이퍼 댓글
+    RP_COMMENT_SENDER_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "비회원 댓글에는 닉네임이 필요합니다."),
+    RP_COMMENT_PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "비회원 댓글에는 비밀번호가 필요합니다."),
+    RP_COMMENT_WRONG_PASSWORD(HttpStatus.FORBIDDEN, "댓글 비밀번호가 올바르지 않습니다."),
+
     // 공지사항
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다.");
 

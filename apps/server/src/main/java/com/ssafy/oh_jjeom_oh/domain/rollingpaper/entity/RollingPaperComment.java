@@ -67,6 +67,7 @@ public class RollingPaperComment {
         this.content = CommentConstants.DELETED_CONTENT;
         this.user = null;
         this.isUser = false;
+        this.guestPassword = null;
     }
 
     public void updateContent(String content) {

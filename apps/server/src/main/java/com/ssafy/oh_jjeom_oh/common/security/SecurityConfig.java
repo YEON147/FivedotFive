@@ -62,6 +62,11 @@ public class SecurityConfig {
                         // 롤링페이퍼: me/** 는 인증 필요, 단건 조회는 토큰 기반이므로 permitAll
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rolling-papers/me/**").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rolling-papers/*").permitAll()
+                        // 롤링페이퍼 댓글: 비회원 댓글 작성·수정·삭제 가능 → permitAll (토큰·비밀번호 검증은 서비스에서 처리)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rolling-papers/*/comments").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/rolling-papers/*/comments").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/rolling-papers/*/comments/*").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/rolling-papers/*/comments/*").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
