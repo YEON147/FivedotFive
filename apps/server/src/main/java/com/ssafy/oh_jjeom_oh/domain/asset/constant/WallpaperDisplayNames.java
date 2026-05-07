@@ -49,7 +49,15 @@ public final class WallpaperDisplayNames {
             Map.entry("wallpaper-39.png", "밥상"),
             Map.entry("wallpaper-40.png", "제주도바다"),
             Map.entry("wallpaper-41.png", "부산밤바다"),
-            Map.entry("wallpaper-42.png", "마이룸")
+            Map.entry("wallpaper-42.png", "마이룸"),
+            Map.entry("wallpaper-43.png", "강문해변"),
+            Map.entry("wallpaper-44.png", "양떼목장"),
+            Map.entry("wallpaper-45.png", "양양서핑"),
+            Map.entry("wallpaper-46.png", "여수밤포차"),
+            Map.entry("wallpaper-47.png", "감천문화마을"),
+            Map.entry("wallpaper-48.png", "흰여울마을"),
+            Map.entry("wallpaper-49.png", "부산송정"),
+            Map.entry("wallpaper-50.png", "광안리")
     );
 
     // assetKey에서 파일명 추출 후 표시명 반환 (없으면 파일명 그대로)
