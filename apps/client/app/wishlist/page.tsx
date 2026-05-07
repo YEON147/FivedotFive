@@ -68,7 +68,6 @@ import {
   fetchBackgroundAssets,
   resolveBackgroundDisplayLabel,
   fetchGiftIcons,
-  fetchStickerAssets,
   fetchStickerFolders,
   fetchStickersByFolder,
   postAdminAssetsResetSync,
@@ -117,11 +116,10 @@ const FALLBACK_STICKER_FOLDER_IDS: readonly string[] = [
   "toy",
 ];
 
-type StickerModalTabId = "all" | string;
+type StickerModalTabId = string;
 
 /** 선물 아이콘 S3 카테고리(`icons/{id}/…`) — 스티커 탭과 동일한 pill UI */
 const GIFT_ICON_MODAL_TABS = [
-  { id: "all", label: "전체" },
   { id: "food", label: GIFT_ICON_CATEGORY_LABELS.food },
   { id: "kpop", label: GIFT_ICON_CATEGORY_LABELS.kpop },
   { id: "hobby", label: GIFT_ICON_CATEGORY_LABELS.hobby },
@@ -130,7 +128,7 @@ const GIFT_ICON_MODAL_TABS = [
   { id: "baseball", label: GIFT_ICON_CATEGORY_LABELS.baseball },
 ] as const;
 
-type GiftIconModalTabId = "all" | GiftIconCategoryId;
+type GiftIconModalTabId = GiftIconCategoryId;
 
 /** 빈 안내·로딩용 — 둥근 흰 카드 셸 */
 const WISHLIST_APP_SHELL =
@@ -233,7 +231,7 @@ export default function WishlistPage() {
   const [giftIconsLoading, setGiftIconsLoading] = useState(false);
   const [giftIconsError, setGiftIconsError] = useState<string | null>(null);
   const [giftIconModalTab, setGiftIconModalTab] =
-    useState<GiftIconModalTabId>("all");
+    useState<GiftIconModalTabId>("food");
   const [giftModalSaving, setGiftModalSaving] = useState(false);
   const [giftModalDeleting, setGiftModalDeleting] = useState(false);
   const [giftModalSaveError, setGiftModalSaveError] = useState<string | null>(null);
@@ -278,7 +276,9 @@ export default function WishlistPage() {
   const [backgroundsError, setBackgroundsError] = useState<string | null>(null);
   const [backgroundSaving, setBackgroundSaving] = useState(false);
   const [backgroundSaveError, setBackgroundSaveError] = useState<string | null>(null);
-  const [stickerModalTab, setStickerModalTab] = useState<StickerModalTabId>("all");
+  const [stickerModalTab, setStickerModalTab] = useState<StickerModalTabId>(
+    () => FALLBACK_STICKER_FOLDER_IDS[0] ?? "balloon",
+  );
   const [stickerSheetList, setStickerSheetList] = useState<StickerAssetDto[]>([]);
   const [stickerSheetLoading, setStickerSheetLoading] = useState(false);
   const [stickerSheetError, setStickerSheetError] = useState<string | null>(null);
@@ -332,19 +332,16 @@ export default function WishlistPage() {
   const stickerModalTabs = useMemo(() => {
     const ids =
       stickerFolderIds.length > 0 ? stickerFolderIds : [...FALLBACK_STICKER_FOLDER_IDS];
-    return [
-      { id: "all" as const, label: "전체" },
-      ...ids.map((id) => ({
-        id,
-        label: getStickerFolderLabel(id),
-      })),
-    ];
+    return ids.map((id) => ({
+      id,
+      label: getStickerFolderLabel(id),
+    }));
   }, [stickerFolderIds]);
 
   useEffect(() => {
     const allowed = new Set(stickerModalTabs.map((t) => t.id));
     if (!allowed.has(stickerModalTab)) {
-      setStickerModalTab("all");
+      setStickerModalTab(stickerModalTabs[0]?.id ?? FALLBACK_STICKER_FOLDER_IDS[0] ?? "balloon");
     }
   }, [stickerModalTabs, stickerModalTab]);
 
@@ -601,7 +598,7 @@ export default function WishlistPage() {
     if (!isGiftModalOpen) {
       return;
     }
-    setGiftIconModalTab("all");
+    setGiftIconModalTab("food");
   }, [isGiftModalOpen]);
 
   useEffect(() => {
@@ -609,16 +606,6 @@ export default function WishlistPage() {
       giftIconTabStripScroll.detach();
     }
   }, [isGiftModalOpen, giftIconTabStripScroll]);
-
-  /** 모달: 1번 칸은 고정 기본 선물, 그 다음 칸부터 API `giftIcons` 전체(순서 유지) */
-  const filteredCatalogGiftIcons = useMemo(() => {
-    if (giftIconModalTab === "all") {
-      return giftIcons;
-    }
-    return giftIcons.filter(
-      (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === giftIconModalTab,
-    );
-  }, [giftIcons, giftIconModalTab]);
 
   /** 야구 아이콘이 없으면(비구단 등) 「야구」 탭 숨김 */
   const giftIconModalTabsForUi = useMemo(() => {
@@ -630,15 +617,44 @@ export default function WishlistPage() {
     );
   }, [giftIcons]);
 
+  /** 모달: 1번 칸은 고정 기본 선물, 그 다음 칸부터 API 목록 — 카테고리 미분류는 첫 탭에만 합침 */
+  const filteredCatalogGiftIcons = useMemo(() => {
+    const firstTabId = giftIconModalTabsForUi[0]?.id;
+    const uncategorized = giftIcons.filter(
+      (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === null,
+    );
+    const inCategory = giftIcons.filter(
+      (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === giftIconModalTab,
+    );
+    if (
+      firstTabId !== undefined &&
+      giftIconModalTab === firstTabId &&
+      uncategorized.length > 0
+    ) {
+      const seen = new Set(inCategory.map((i) => i.id));
+      return [...uncategorized.filter((u) => !seen.has(u.id)), ...inCategory];
+    }
+    return inCategory;
+  }, [giftIcons, giftIconModalTab, giftIconModalTabsForUi]);
+
+  useEffect(() => {
+    const allowed = new Set(giftIconModalTabsForUi.map((t) => t.id));
+    if (allowed.has(giftIconModalTab)) {
+      return;
+    }
+    const fallback = giftIconModalTabsForUi[0]?.id ?? "food";
+    setGiftIconModalTab(fallback);
+  }, [giftIconModalTabsForUi, giftIconModalTab]);
+
   useEffect(() => {
     if (giftIconModalTab !== "baseball") return;
     const hasBaseball = giftIcons.some(
       (g) => giftIconCategoryFromAssetKey(g.assetKey) === "baseball",
     );
     if (!hasBaseball) {
-      setGiftIconModalTab("all");
+      setGiftIconModalTab(giftIconModalTabsForUi[0]?.id ?? "food");
     }
-  }, [giftIcons, giftIconModalTab]);
+  }, [giftIcons, giftIconModalTab, giftIconModalTabsForUi]);
 
   /** 목록 최초 로드 후 — 저장된 키가 카탈로그 첫 항목과 같으면 「기본 선물」로 표시 */
   useEffect(() => {
@@ -716,16 +732,9 @@ export default function WishlistPage() {
       setStickerSheetLoading(true);
       setStickerSheetError(null);
       try {
-        if (stickerModalTab === "all") {
-          const list = await fetchStickerAssets(boardSlug);
-          if (!cancelled) {
-            setStickerSheetList(list);
-          }
-        } else {
-          const list = await fetchStickersByFolder(stickerModalTab, boardSlug);
-          if (!cancelled) {
-            setStickerSheetList(list);
-          }
+        const list = await fetchStickersByFolder(stickerModalTab, boardSlug);
+        if (!cancelled) {
+          setStickerSheetList(list);
         }
       } catch (error) {
         if (!cancelled) {
@@ -1281,7 +1290,9 @@ export default function WishlistPage() {
 
   const openStickerPickerForSlot = (slotId: number) => {
     setStickerTargetSlotId(slotId);
-    setStickerModalTab("all");
+    setStickerModalTab(
+      stickerModalTabs[0]?.id ?? FALLBACK_STICKER_FOLDER_IDS[0] ?? "balloon",
+    );
     setStickerSlotSaveError(null);
     setIsBottomSheetOpen(true);
   };
@@ -1916,11 +1927,10 @@ export default function WishlistPage() {
                             <p className="mt-2 text-center text-body-sm text-slate-500">
                               추가 아이콘 목록이 없습니다. 위 칸에서 기본 선물을 선택할 수 있어요.
                             </p>
-                          ) : giftIconModalTab !== "all" &&
-                            filteredCatalogGiftIcons.length === 0 &&
+                          ) : filteredCatalogGiftIcons.length === 0 &&
                             giftIcons.length > 0 ? (
                             <p className="mt-2 text-center text-body-sm text-slate-500">
-                              이 카테고리에 표시할 아이콘이 없습니다. 「전체」에서 선택해 보세요.
+                              이 카테고리에 표시할 아이콘이 없습니다. 다른 카테고리를 선택해 보세요.
                             </p>
                           ) : null}
                         </div>
