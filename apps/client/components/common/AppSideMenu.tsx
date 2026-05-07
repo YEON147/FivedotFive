@@ -5,7 +5,6 @@ import {
   ChatCircleDots,
   Gift,
   ListBullets,
-  PlusCircle,
   SignOut,
   Trophy,
   User,
@@ -14,7 +13,6 @@ import {
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
-import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
 import { MyBoardsListModal } from "@/components/common/MyBoardsListModal";
 import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
 import {
@@ -56,7 +54,6 @@ export function AppSideMenu({
   isOnMyWishlistEditorPage = false,
 }: AppSideMenuProps) {
   const mounted = useClientMounted();
-  const [createOpen, setCreateOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
 
   useEffect(() => {
@@ -123,15 +120,6 @@ export function AppSideMenu({
         <nav className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-2 pt-0">
           <SideMenuSection title="나의 활동">
             <SideMenuButtonRow
-              icon={<PlusCircle {...ICON_20} />}
-              onClick={() => {
-                onClose();
-                setCreateOpen(true);
-              }}
-            >
-              생성하기
-            </SideMenuButtonRow>
-            <SideMenuButtonRow
               icon={<ListBullets {...ICON_20} />}
               onClick={() => {
                 onClose();
@@ -164,7 +152,6 @@ export function AppSideMenu({
         </nav>
       </aside>
 
-      <CreateBoardOrRollingPaperModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <MyBoardsListModal open={listOpen} onClose={() => setListOpen(false)} />
     </>,
     document.body,
