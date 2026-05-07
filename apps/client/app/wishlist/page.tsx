@@ -28,6 +28,12 @@ import {
   StickerGridSkeleton,
   StickerSheetFixedViewport,
 } from "@/components/wishlist/asset-picker-skeletons";
+import { ModalLazyScrollRoot } from "@/components/wishlist/modal-lazy-scroll-root";
+import { ScrollLazyModalImage } from "@/components/wishlist/ScrollLazyModalImage";
+import {
+  GIFT_ICON_GRID_FIRST_SCREEN_CATALOG_COUNT,
+  STICKER_GRID_FIRST_SCREEN_STICKER_COUNT,
+} from "@/components/wishlist/sticker-sheet-layout";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
@@ -1864,7 +1870,10 @@ export default function WishlistPage() {
                             })}
                           </div>
                         ) : null}
-                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]">
+                        <ModalLazyScrollRoot
+                          key={giftIconModalTabEffective}
+                          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]"
+                        >
                           <div className="grid grid-cols-3 gap-2 content-start">
                             <button
                               type="button"
@@ -1890,9 +1899,11 @@ export default function WishlistPage() {
                                 draggable={false}
                               />
                             </button>
-                            {filteredCatalogGiftIcons.map((icon) => {
+                            {filteredCatalogGiftIcons.map((icon, catalogIdx) => {
                               const src = getAssetImageUrl(icon.assetKey);
                               const selected = giftModalResolvedIconId === icon.id;
+                              const eagerThumb =
+                                catalogIdx < GIFT_ICON_GRID_FIRST_SCREEN_CATALOG_COUNT;
 
                               return (
                                 <button
@@ -1910,22 +1921,13 @@ export default function WishlistPage() {
                                   aria-label={`선물 아이콘 ${icon.id}`}
                                   aria-pressed={selected}
                                 >
-                                  {shouldUseNativeImg(src) ? (
-                                    <img
-                                      src={src}
-                                      alt=""
-                                      className="absolute inset-0 h-full w-full object-contain p-1"
-                                      loading="lazy"
-                                    />
-                                  ) : (
-                                    <Image
-                                      src={src}
-                                      alt=""
-                                      fill
-                                      sizes={GIFT_ICON_GRID_SIZES}
-                                      className="object-contain p-1"
-                                    />
-                                  )}
+                                  <ScrollLazyModalImage
+                                    src={src}
+                                    eager={eagerThumb}
+                                    useNativeImg={shouldUseNativeImg(src)}
+                                    sizes={GIFT_ICON_GRID_SIZES}
+                                    imgClassName="absolute inset-0 h-full w-full object-contain p-1"
+                                  />
                                 </button>
                               );
                             })}
@@ -1941,7 +1943,7 @@ export default function WishlistPage() {
                               이 카테고리에 표시할 아이콘이 없습니다. 다른 카테고리를 선택해 보세요.
                             </p>
                           ) : null}
-                        </div>
+                        </ModalLazyScrollRoot>
                       </>
                     )}
                   </div>
@@ -2034,7 +2036,11 @@ export default function WishlistPage() {
                       </p>
                     </StickerSheetFixedViewport>
                   ) : (
-                    <StickerSheetFixedViewport scrollable>
+                    <StickerSheetFixedViewport
+                      key={stickerModalTabEffective}
+                      scrollable
+                      lazyScrollImages
+                    >
                       {stickerSheetLoading ? (
                         <StickerGridSkeleton />
                       ) : (
@@ -2051,37 +2057,34 @@ export default function WishlistPage() {
                             >
                               ×
                             </button>
-                            {stickerSheetList.map((sticker) => (
-                              <button
-                                key={sticker.id}
-                                type="button"
-                                disabled={
-                                  stickerSlotSaving ||
-                                  stickerTargetSlotId == null ||
-                                  !sticker.assetKey.trim()
-                                }
-                                onClick={() => void applyStickerSelection(sticker.assetKey)}
-                                className="relative aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition enabled:hover:border-[#7B61FF]/50 enabled:active:scale-[0.98] disabled:opacity-50"
-                                aria-label={`스티커 ${sticker.id}`}
-                              >
-                                {shouldUseNativeImg(getAssetImageUrl(sticker.assetKey)) ? (
-                                  <img
-                                    src={getAssetImageUrl(sticker.assetKey)}
-                                    alt=""
-                                    className="absolute inset-0 h-full w-full object-contain p-0.5"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <Image
-                                    src={getAssetImageUrl(sticker.assetKey)}
-                                    alt=""
-                                    fill
+                            {stickerSheetList.map((sticker, stickerIdx) => {
+                              const stickerSrc = getAssetImageUrl(sticker.assetKey);
+                              const eagerThumb =
+                                stickerIdx < STICKER_GRID_FIRST_SCREEN_STICKER_COUNT;
+
+                              return (
+                                <button
+                                  key={sticker.id}
+                                  type="button"
+                                  disabled={
+                                    stickerSlotSaving ||
+                                    stickerTargetSlotId == null ||
+                                    !sticker.assetKey.trim()
+                                  }
+                                  onClick={() => void applyStickerSelection(sticker.assetKey)}
+                                  className="relative aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition enabled:hover:border-[#7B61FF]/50 enabled:active:scale-[0.98] disabled:opacity-50"
+                                  aria-label={`스티커 ${sticker.id}`}
+                                >
+                                  <ScrollLazyModalImage
+                                    src={stickerSrc}
+                                    eager={eagerThumb}
+                                    useNativeImg={shouldUseNativeImg(stickerSrc)}
                                     sizes={STICKER_SHEET_CELL_SIZES}
-                                    className="object-contain p-0.5"
+                                    imgClassName="absolute inset-0 h-full w-full object-contain p-0.5"
                                   />
-                                )}
-                              </button>
-                            ))}
+                                </button>
+                              );
+                            })}
                           </div>
                           {stickerSheetList.length === 0 ? (
                             <p className="mt-2 px-1 text-center text-body-sm text-slate-500">
