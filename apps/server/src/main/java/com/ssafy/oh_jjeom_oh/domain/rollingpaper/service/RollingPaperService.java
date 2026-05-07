@@ -8,8 +8,10 @@ import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCreateR
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperDetailResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSaveResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaperComment;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
@@ -132,6 +134,75 @@ public class RollingPaperService {
     public List<RollingPaperSummaryResponse> getMyRollingPapers(Long userId) {
         return rollingPaperRepository
                 .findAllByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(RollingPaperSummaryResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // POST /api/rolling-papers/{slug}/save - 롤링페이퍼 독립 복사본 저장 (commentToken 또는 viewToken 소지자)
+    @Transactional
+    public RollingPaperSaveResponse saveRollingPaper(Long userId, String slug, String token) {
+        RollingPaper original = rollingPaperRepository.findBySlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
+
+        if (original.isDeleted() || original.getIsSavedCopy()) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+        }
+
+        if (original.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_CANNOT_SAVE_OWN);
+        }
+
+        // commentToken 또는 viewToken 검증
+        boolean hasToken = token != null
+                && (token.equals(original.getCommentToken()) || token.equals(original.getViewToken()));
+        if (!hasToken) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_FORBIDDEN);
+        }
+
+        User saver = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        String newSlug;
+        do { newSlug = SlugGenerator.generate(); }
+        while (rollingPaperRepository.existsBySlug(newSlug));
+
+        RollingPaper copy = RollingPaper.builder()
+                .user(original.getUser())
+                .slug(newSlug)
+                .title(original.getTitle())
+                .recipientName(original.getRecipientName())
+                .imageKey(original.getImageKey())
+                .targetDate(original.getTargetDate())
+                .commentToken(null)
+                .viewToken(null)
+                .isSavedCopy(true)
+                .savedByUser(saver)
+                .saveSource("RECEIVED")
+                .build();
+        rollingPaperRepository.save(copy);
+
+        // 댓글 복사 (비밀번호 제외 — 저장본에서는 수정/삭제 불필요)
+        for (RollingPaperComment c : rollingPaperCommentRepository.findAllByRollingPaper(original)) {
+            rollingPaperCommentRepository.save(RollingPaperComment.builder()
+                    .rollingPaper(copy)
+                    .user(c.getUser())
+                    .isUser(c.getIsUser())
+                    .senderName(c.getSenderName())
+                    .content(c.getContent())
+                    .stickerKey(c.getStickerKey())
+                    .slotIndex(c.getSlotIndex())
+                    .guestPassword(null)
+                    .build());
+        }
+
+        return RollingPaperSaveResponse.of(newSlug);
+    }
+
+    // GET /api/rolling-papers/me/saved - 내가 저장한 롤링페이퍼 복사본 목록
+    public List<RollingPaperSummaryResponse> getMySavedRollingPapers(Long userId) {
+        return rollingPaperRepository
+                .findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(RollingPaperSummaryResponse::from)
                 .collect(Collectors.toList());

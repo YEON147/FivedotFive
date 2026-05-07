@@ -6,6 +6,7 @@ import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCreateR
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperDetailResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSaveResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
@@ -265,6 +266,118 @@ class RollingPaperServiceTest {
                     .willReturn(List.of());
 
             assertThat(rollingPaperService.getMyRollingPapers(1L)).isEmpty();
+        }
+    }
+
+    // ===================== saveRollingPaper =====================
+
+    @Nested
+    @DisplayName("saveRollingPaper()")
+    class Save {
+
+        private User other;
+
+        @BeforeEach
+        void setUpOther() {
+            other = User.builder()
+                    .username("other").nickname("타인").passwordHash("h")
+                    .role(Role.CHILD).status(Status.ACTIVE).build();
+            ReflectionTestUtils.setField(other, "id", 2L);
+        }
+
+        @Test
+        @DisplayName("viewToken 으로 저장 성공 - 새 slug 반환")
+        void success_viewToken() {
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
+            given(userRepository.findById(2L)).willReturn(Optional.of(other));
+            given(rollingPaperRepository.existsBySlug(any())).willReturn(false);
+            given(rollingPaperCommentRepository.findAllByRollingPaper(paper)).willReturn(List.of());
+            given(rollingPaperRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            RollingPaperSaveResponse result = rollingPaperService.saveRollingPaper(2L, SLUG, VIEW_TOKEN);
+
+            assertThat(result.getPaperSlug()).isNotBlank();
+            verify(rollingPaperRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("commentToken 으로 저장 성공")
+        void success_commentToken() {
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
+            given(userRepository.findById(2L)).willReturn(Optional.of(other));
+            given(rollingPaperRepository.existsBySlug(any())).willReturn(false);
+            given(rollingPaperCommentRepository.findAllByRollingPaper(paper)).willReturn(List.of());
+            given(rollingPaperRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            RollingPaperSaveResponse result = rollingPaperService.saveRollingPaper(2L, SLUG, COMMENT_TOKEN);
+
+            assertThat(result.getPaperSlug()).isNotBlank();
+        }
+
+        @Test
+        @DisplayName("소유자가 본인 롤링페이퍼 저장 시도 → 400")
+        void cannotSaveOwn() {
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
+
+            assertThatThrownBy(() -> rollingPaperService.saveRollingPaper(1L, SLUG, VIEW_TOKEN))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.ROLLING_PAPER_CANNOT_SAVE_OWN));
+        }
+
+        @Test
+        @DisplayName("토큰 없이 저장 시도 → 403")
+        void noToken_forbidden() {
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
+
+            assertThatThrownBy(() -> rollingPaperService.saveRollingPaper(2L, SLUG, null))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.ROLLING_PAPER_FORBIDDEN));
+        }
+
+        @Test
+        @DisplayName("잘못된 토큰으로 저장 시도 → 403")
+        void wrongToken_forbidden() {
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
+
+            assertThatThrownBy(() -> rollingPaperService.saveRollingPaper(2L, SLUG, "invalidtoken"))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.ROLLING_PAPER_FORBIDDEN));
+        }
+    }
+
+    // ===================== getMySavedRollingPapers =====================
+
+    @Nested
+    @DisplayName("getMySavedRollingPapers()")
+    class GetMySaved {
+
+        @Test
+        @DisplayName("저장한 목록 반환 성공")
+        void success() {
+            RollingPaper copy = RollingPaper.builder()
+                    .user(owner).slug("copy-slug-01").title("생일 롤링페이퍼")
+                    .recipientName("홍길동").targetDate(LocalDate.of(2026, 12, 25))
+                    .isSavedCopy(true).build();
+
+            given(rollingPaperRepository.findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(2L))
+                    .willReturn(List.of(copy));
+
+            List<RollingPaperSummaryResponse> result = rollingPaperService.getMySavedRollingPapers(2L);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getSlug()).isEqualTo("copy-slug-01");
+        }
+
+        @Test
+        @DisplayName("저장한 목록 없으면 빈 리스트")
+        void empty() {
+            given(rollingPaperRepository.findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(2L))
+                    .willReturn(List.of());
+
+            assertThat(rollingPaperService.getMySavedRollingPapers(2L)).isEmpty();
         }
     }
 }
