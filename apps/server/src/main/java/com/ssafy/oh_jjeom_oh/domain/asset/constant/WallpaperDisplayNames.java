@@ -4,7 +4,8 @@ import java.util.Map;
 
 public final class WallpaperDisplayNames {
 
-    private WallpaperDisplayNames() {}
+    private WallpaperDisplayNames() {
+    }
 
     // 파일명 → 화면 표시명 고정 매핑 (디자이너 확정본)
     public static final Map<String, String> MAP = Map.ofEntries(
@@ -58,11 +59,13 @@ public final class WallpaperDisplayNames {
             Map.entry("wallpaper-48.png", "흰여울마을"),
             Map.entry("wallpaper-49.png", "부산송정"),
             Map.entry("wallpaper-50.png", "광안리")
+
     );
 
     // assetKey에서 파일명 추출 후 표시명 반환 (없으면 파일명 그대로)
     public static String resolve(String assetKey) {
-        if (assetKey == null) return null;
+        if (assetKey == null)
+            return null;
         String fileName = assetKey.substring(assetKey.lastIndexOf('/') + 1);
         return MAP.getOrDefault(fileName, fileName);
     }
