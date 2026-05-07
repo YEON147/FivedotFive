@@ -8,6 +8,7 @@ import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperUpdateR
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperDetailResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSaveResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperShareLinkResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.service.RollingPaperService;
 import jakarta.validation.Valid;
@@ -46,27 +47,27 @@ public class RollingPaperController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.ROLLING_PAPER_LIST_FOUND, data));
     }
 
-    // GET /api/rolling-papers/{slug}?token={token} - 단건 조회 (토큰 또는 소유자)
+    // GET /api/rolling-papers/{slug} - 단건 조회 (X-Rolling-Token 헤더 또는 소유자)
     @GetMapping("/{slug}")
     public ResponseEntity<ApiResponse<RollingPaperDetailResponse>> getRollingPaper(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable String slug,
-            @RequestParam(required = false) String token) {
+            @RequestHeader(value = "X-Rolling-Token", required = false) String token) {
 
         Long userId = userPrincipal != null ? userPrincipal.getId() : null;
         RollingPaperDetailResponse data = rollingPaperService.getRollingPaper(userId, slug, token);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.ROLLING_PAPER_FOUND, data));
     }
 
-    // PATCH /api/rolling-papers/{slug} - 롤링페이퍼 수정 (소유자)
+    // PATCH /api/rolling-papers/{slug} - 롤링페이퍼 수정 (소유자) → data 없이 success/message만 반환
     @PatchMapping("/{slug}")
-    public ResponseEntity<ApiResponse<RollingPaperDetailResponse>> updateRollingPaper(
+    public ResponseEntity<ApiResponse<Void>> updateRollingPaper(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable String slug,
             @Valid @RequestBody RollingPaperUpdateRequest request) {
 
-        RollingPaperDetailResponse data = rollingPaperService.updateRollingPaper(userPrincipal.getId(), slug, request);
-        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.ROLLING_PAPER_UPDATED, data));
+        rollingPaperService.updateRollingPaper(userPrincipal.getId(), slug, request);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.ROLLING_PAPER_UPDATED));
     }
 
     // DELETE /api/rolling-papers/{slug} - 롤링페이퍼 삭제 (소유자)
@@ -79,16 +80,36 @@ public class RollingPaperController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.ROLLING_PAPER_DELETED));
     }
 
-    // POST /api/rolling-papers/{slug}/save - 롤링페이퍼 독립 복사본 저장 (commentToken 또는 viewToken)
+    // POST /api/rolling-papers/{slug}/save - 소유자(CREATED) 또는 viewToken 소지자(RECEIVED)만 저장 가능
     @PostMapping("/{slug}/save")
     public ResponseEntity<ApiResponse<RollingPaperSaveResponse>> saveRollingPaper(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable String slug,
-            @RequestParam(required = false) String token) {
+            @RequestHeader(value = "X-Rolling-Token", required = false) String token) {
 
         RollingPaperSaveResponse data = rollingPaperService.saveRollingPaper(userPrincipal.getId(), slug, token);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(SuccessMessage.ROLLING_PAPER_SAVED, data));
+    }
+
+    // POST /api/rolling-papers/{slug}/share/comment - 댓글 작성용 단축 링크 재생성 (소유자)
+    @PostMapping("/{slug}/share/comment")
+    public ResponseEntity<ApiResponse<RollingPaperShareLinkResponse>> generateCommentShareLink(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String slug) {
+
+        RollingPaperShareLinkResponse data = rollingPaperService.generateCommentShareLink(userPrincipal.getId(), slug);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.RP_SHARE_COMMENT_CREATED, data));
+    }
+
+    // POST /api/rolling-papers/{slug}/share/view - 저장 전용 단축 링크 재생성 (소유자)
+    @PostMapping("/{slug}/share/view")
+    public ResponseEntity<ApiResponse<RollingPaperShareLinkResponse>> generateViewShareLink(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String slug) {
+
+        RollingPaperShareLinkResponse data = rollingPaperService.generateViewShareLink(userPrincipal.getId(), slug);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.RP_SHARE_VIEW_CREATED, data));
     }
 
     // GET /api/rolling-papers/me/saved - 내가 저장한 롤링페이퍼 복사본 목록

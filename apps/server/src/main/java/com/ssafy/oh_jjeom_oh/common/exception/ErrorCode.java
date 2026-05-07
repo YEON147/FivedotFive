@@ -72,7 +72,9 @@ public enum ErrorCode {
 
     // 롤링페이퍼
     ROLLING_PAPER_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼를 찾을 수 없습니다."),
+    ROLLING_PAPER_EXPIRED(HttpStatus.GONE, "공개일이 지나 삭제된 롤링페이퍼입니다."),
     ROLLING_PAPER_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 롤링페이퍼에 대한 권한이 없습니다."),
+    ROLLING_PAPER_SAVE_FORBIDDEN(HttpStatus.FORBIDDEN, "저장 권한이 없습니다."),
     ROLLING_PAPER_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다."),
     ROLLING_PAPER_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "롤링페이퍼는 최대 5개까지 생성할 수 있습니다."),
     ROLLING_PAPER_CANNOT_SAVE_OWN(HttpStatus.BAD_REQUEST, "본인의 롤링페이퍼는 저장할 수 없습니다."),

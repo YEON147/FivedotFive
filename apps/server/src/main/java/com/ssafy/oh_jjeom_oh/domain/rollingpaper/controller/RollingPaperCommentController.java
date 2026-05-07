@@ -23,13 +23,13 @@ public class RollingPaperCommentController {
 
     private final RollingPaperCommentService rollingPaperCommentService;
 
-    // GET /api/rolling-papers/{slug}/comments?page=0&size=6&token=...
+    // GET /api/rolling-papers/{slug}/comments?page=0&size=6  (X-Rolling-Token 헤더)
     @GetMapping
     public ResponseEntity<ApiResponse<RollingPaperCommentListResponse>> getComments(
             @PathVariable String slug,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "6") int size,
-            @RequestParam(required = false) String token,
+            @RequestHeader(value = "X-Rolling-Token", required = false) String token,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
         Long userId = userPrincipal != null ? userPrincipal.getId() : null;
@@ -38,11 +38,11 @@ public class RollingPaperCommentController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.RP_COMMENT_LIST_FOUND, data));
     }
 
-    // POST /api/rolling-papers/{slug}/comments?token=...
+    // POST /api/rolling-papers/{slug}/comments  (X-Rolling-Token 헤더)
     @PostMapping
     public ResponseEntity<ApiResponse<RollingPaperCommentCreateResponse>> createComment(
             @PathVariable String slug,
-            @RequestParam(required = false) String token,
+            @RequestHeader(value = "X-Rolling-Token", required = false) String token,
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody RollingPaperCommentCreateRequest request) {
 

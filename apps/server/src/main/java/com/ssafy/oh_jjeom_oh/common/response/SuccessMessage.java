@@ -31,7 +31,7 @@ public enum SuccessMessage {
     REFRESH_SUCCESS("토큰이 재발급되었습니다."),
 
     // 통합 목록
-    BOARDS_ALL_FOUND("보드 통합 목록 조회가 완료되었습니다."),
+    BOARDS_ALL_FOUND("전체 목록 조회가 완료되었습니다."),
 
     // 위시보드
     LATEST_BOARD_FOUND("최근 보드 조회가 완료되었습니다."),
@@ -97,6 +97,8 @@ public enum SuccessMessage {
     ROLLING_PAPER_DELETED("롤링페이퍼가 삭제되었습니다."),
     ROLLING_PAPER_SAVED("롤링페이퍼가 저장되었습니다."),
     SAVED_ROLLING_PAPERS_FOUND("저장한 롤링페이퍼 목록 조회가 완료되었습니다."),
+    RP_SHARE_COMMENT_CREATED("댓글 작성용 링크가 생성되었습니다."),
+    RP_SHARE_VIEW_CREATED("저장 전용 링크가 생성되었습니다."),
 
     // 에셋 동기화
     ASSET_SYNC_COMPLETED("에셋 동기화가 완료되었습니다."),

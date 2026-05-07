@@ -214,7 +214,7 @@ class WishBoardServiceTest {
 
         BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
 
-        assertThat(result.getType()).isEqualTo("WISHBOARD");
+        assertThat(result.getType()).isEqualTo("WISH_BOARD");
         assertThat(result.getSlug()).isEqualTo("abc123def4");
     }
 
@@ -236,7 +236,7 @@ class WishBoardServiceTest {
 
         BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
 
-        assertThat(result.getType()).isEqualTo("ROLLINGPAPER");
+        assertThat(result.getType()).isEqualTo("ROLLING_PAPER");
         assertThat(result.getSlug()).isEqualTo("paper-slug");
         assertThat(result.getRecipientName()).isEqualTo("친구");
     }
@@ -251,7 +251,7 @@ class WishBoardServiceTest {
 
         BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
 
-        assertThat(result.getType()).isEqualTo("WISHBOARD");
+        assertThat(result.getType()).isEqualTo("WISH_BOARD");
     }
 
     @Test

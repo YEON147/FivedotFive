@@ -41,7 +41,7 @@ public class BoardSummaryResponse {
 
     public static BoardSummaryResponse fromWishBoard(WishBoard board) {
         return new BoardSummaryResponse(
-                "WISHBOARD",
+                "WISH_BOARD",
                 board.getBoardSlug(),
                 board.getTitle(),
                 board.getTargetDate(),
@@ -53,7 +53,7 @@ public class BoardSummaryResponse {
 
     public static BoardSummaryResponse fromRollingPaper(RollingPaper paper) {
         return new BoardSummaryResponse(
-                "ROLLINGPAPER",
+                "ROLLING_PAPER",
                 paper.getSlug(),
                 paper.getTitle(),
                 paper.getTargetDate(),

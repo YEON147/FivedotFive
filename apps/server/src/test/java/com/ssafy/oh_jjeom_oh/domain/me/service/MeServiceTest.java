@@ -67,10 +67,10 @@ class MeServiceTest {
 
         assertThat(result).hasSize(2);
         // 롤링페이퍼가 더 최신(3월) → 앞에 위치
-        assertThat(result.get(0).getType()).isEqualTo("ROLLINGPAPER");
+        assertThat(result.get(0).getType()).isEqualTo("ROLLING_PAPER");
         assertThat(result.get(0).getSlug()).isEqualTo("paper-slug");
         assertThat(result.get(0).getRecipientName()).isEqualTo("친구");
-        assertThat(result.get(1).getType()).isEqualTo("WISHBOARD");
+        assertThat(result.get(1).getType()).isEqualTo("WISH_BOARD");
         assertThat(result.get(1).getSlug()).isEqualTo("board-slug");
         assertThat(result.get(1).getIsPublic()).isTrue();
     }
@@ -97,7 +97,7 @@ class MeServiceTest {
         List<BoardSummaryResponse> result = meService.getBoardsAll(1L);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getType()).isEqualTo("WISHBOARD");
+        assertThat(result.get(0).getType()).isEqualTo("WISH_BOARD");
         assertThat(result.get(0).getRecipientName()).isNull();
     }
 }

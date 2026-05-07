@@ -11,6 +11,7 @@ import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSummar
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
+import com.ssafy.oh_jjeom_oh.domain.share.service.ShareService;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
@@ -44,6 +45,7 @@ class RollingPaperServiceTest {
     @Mock RollingPaperCommentRepository rollingPaperCommentRepository;
     @Mock com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository wishBoardRepository;
     @Mock UserRepository userRepository;
+    @Mock ShareService shareService;
 
     private User owner;
     private RollingPaper paper;
@@ -75,7 +77,7 @@ class RollingPaperServiceTest {
     class Create {
 
         @Test
-        @DisplayName("생성 성공 - slug/commentToken/viewToken 반환")
+        @DisplayName("생성 성공 - slug/commentShareUrl/viewShareUrl 반환")
         void success() {
             given(wishBoardRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(0L);
             given(rollingPaperRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(0L);
@@ -84,15 +86,16 @@ class RollingPaperServiceTest {
             given(rollingPaperRepository.existsByCommentToken(any())).willReturn(false);
             given(rollingPaperRepository.existsByViewToken(any())).willReturn(false);
             given(rollingPaperRepository.save(any())).willReturn(paper);
+            given(shareService.generateRollingPaperShareLink(any(), any(), any()))
+                    .willReturn("https://test.com/share/abc123");
 
             RollingPaperCreateRequest req = new RollingPaperCreateRequest(
                     "생일 롤링페이퍼", "홍길동", null, LocalDate.of(2026, 12, 25));
             RollingPaperCreateResponse res = rollingPaperService.createRollingPaper(1L, req);
 
-            // 서비스가 로컬 빌더 변수 기준으로 응답을 만들므로 랜덤 생성된 값인지만 검증
             assertThat(res.getSlug()).isNotBlank();
-            assertThat(res.getCommentToken()).isNotBlank();
-            assertThat(res.getViewToken()).isNotBlank();
+            assertThat(res.getCommentShareUrl()).isNotBlank();
+            assertThat(res.getViewShareUrl()).isNotBlank();
             verify(rollingPaperRepository).save(any());
         }
 
@@ -186,14 +189,14 @@ class RollingPaperServiceTest {
     class Update {
 
         @Test
-        @DisplayName("수정 성공 - title 변경")
+        @DisplayName("수정 성공 - title 변경 (응답 없음)")
         void success() {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
 
-            RollingPaperDetailResponse res = rollingPaperService.updateRollingPaper(
+            rollingPaperService.updateRollingPaper(
                     1L, SLUG, new RollingPaperUpdateRequest("새 제목", null, null, null));
 
-            assertThat(res.getTitle()).isEqualTo("새 제목");
+            assertThat(paper.getTitle()).isEqualTo("새 제목");
         }
 
         @Test
@@ -286,7 +289,7 @@ class RollingPaperServiceTest {
         }
 
         @Test
-        @DisplayName("viewToken 으로 저장 성공 - 새 slug 반환")
+        @DisplayName("viewToken 으로 저장 성공 - source=RECEIVED")
         void success_viewToken() {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
             given(userRepository.findById(2L)).willReturn(Optional.of(other));
@@ -296,44 +299,46 @@ class RollingPaperServiceTest {
 
             RollingPaperSaveResponse result = rollingPaperService.saveRollingPaper(2L, SLUG, VIEW_TOKEN);
 
-            assertThat(result.getPaperSlug()).isNotBlank();
+            assertThat(result.getSlug()).isNotBlank();
+            assertThat(result.getSource()).isEqualTo("RECEIVED");
             verify(rollingPaperRepository).save(any());
         }
 
         @Test
-        @DisplayName("commentToken 으로 저장 성공")
-        void success_commentToken() {
+        @DisplayName("소유자가 저장 성공 - source=CREATED")
+        void success_owner() {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
-            given(userRepository.findById(2L)).willReturn(Optional.of(other));
+            given(userRepository.findById(1L)).willReturn(Optional.of(owner));
             given(rollingPaperRepository.existsBySlug(any())).willReturn(false);
             given(rollingPaperCommentRepository.findAllByRollingPaper(paper)).willReturn(List.of());
             given(rollingPaperRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
-            RollingPaperSaveResponse result = rollingPaperService.saveRollingPaper(2L, SLUG, COMMENT_TOKEN);
+            RollingPaperSaveResponse result = rollingPaperService.saveRollingPaper(1L, SLUG, null);
 
-            assertThat(result.getPaperSlug()).isNotBlank();
+            assertThat(result.getSlug()).isNotBlank();
+            assertThat(result.getSource()).isEqualTo("CREATED");
         }
 
         @Test
-        @DisplayName("소유자가 본인 롤링페이퍼 저장 시도 → 400")
-        void cannotSaveOwn() {
+        @DisplayName("commentToken 으로 저장 시도 → 403")
+        void fail_commentToken() {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
 
-            assertThatThrownBy(() -> rollingPaperService.saveRollingPaper(1L, SLUG, VIEW_TOKEN))
+            assertThatThrownBy(() -> rollingPaperService.saveRollingPaper(2L, SLUG, COMMENT_TOKEN))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                            .isEqualTo(ErrorCode.ROLLING_PAPER_CANNOT_SAVE_OWN));
+                            .isEqualTo(ErrorCode.ROLLING_PAPER_SAVE_FORBIDDEN));
         }
 
         @Test
-        @DisplayName("토큰 없이 저장 시도 → 403")
+        @DisplayName("토큰 없이 비소유자 저장 시도 → 403")
         void noToken_forbidden() {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
 
             assertThatThrownBy(() -> rollingPaperService.saveRollingPaper(2L, SLUG, null))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                            .isEqualTo(ErrorCode.ROLLING_PAPER_FORBIDDEN));
+                            .isEqualTo(ErrorCode.ROLLING_PAPER_SAVE_FORBIDDEN));
         }
 
         @Test
@@ -344,7 +349,7 @@ class RollingPaperServiceTest {
             assertThatThrownBy(() -> rollingPaperService.saveRollingPaper(2L, SLUG, "invalidtoken"))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                            .isEqualTo(ErrorCode.ROLLING_PAPER_FORBIDDEN));
+                            .isEqualTo(ErrorCode.ROLLING_PAPER_SAVE_FORBIDDEN));
         }
     }
 

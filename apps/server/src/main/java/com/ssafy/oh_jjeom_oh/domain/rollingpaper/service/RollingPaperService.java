@@ -9,18 +9,21 @@ import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperUpdateR
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperDetailResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSaveResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperShareLinkResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaperComment;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
+import com.ssafy.oh_jjeom_oh.domain.share.service.ShareService;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -35,6 +38,7 @@ public class RollingPaperService {
     private final RollingPaperCommentRepository rollingPaperCommentRepository;
     private final WishBoardRepository wishBoardRepository;
     private final UserRepository userRepository;
+    private final ShareService shareService;
 
     // POST /api/rolling-papers - 롤링페이퍼 생성 (위시보드+롤링페이퍼 합산 최대 5개)
     @Transactional
@@ -72,7 +76,39 @@ public class RollingPaperService {
                 .build();
         rollingPaperRepository.save(paper);
 
-        return RollingPaperCreateResponse.from(paper);
+        String commentShareUrl = shareService.generateRollingPaperShareLink(slug, commentToken, request.targetDate());
+        String viewShareUrl    = shareService.generateRollingPaperShareLink(slug, viewToken,    request.targetDate());
+        return RollingPaperCreateResponse.of(slug, commentShareUrl, viewShareUrl);
+    }
+
+    // POST /api/rolling-papers/{slug}/share/comment - 댓글 작성용 단축 링크 재생성 (소유자)
+    public RollingPaperShareLinkResponse generateCommentShareLink(Long userId, String slug) {
+        RollingPaper paper = findOriginal(slug);
+        requireOwner(userId, paper);
+        String shortUrl = shareService.generateRollingPaperShareLink(slug, paper.getCommentToken(), paper.getTargetDate());
+        return RollingPaperShareLinkResponse.of(shortUrl, shareService.rollingPaperExpiresAt(paper.getTargetDate()));
+    }
+
+    // POST /api/rolling-papers/{slug}/share/view - 저장 전용 단축 링크 재생성 (소유자)
+    public RollingPaperShareLinkResponse generateViewShareLink(Long userId, String slug) {
+        RollingPaper paper = findOriginal(slug);
+        requireOwner(userId, paper);
+        String shortUrl = shareService.generateRollingPaperShareLink(slug, paper.getViewToken(), paper.getTargetDate());
+        return RollingPaperShareLinkResponse.of(shortUrl, shareService.rollingPaperExpiresAt(paper.getTargetDate()));
+    }
+
+    private RollingPaper findOriginal(String slug) {
+        RollingPaper paper = rollingPaperRepository.findBySlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
+        if (paper.isDeleted()) throw new CustomException(ErrorCode.ROLLING_PAPER_EXPIRED);
+        if (paper.getIsSavedCopy()) throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+        return paper;
+    }
+
+    private void requireOwner(Long userId, RollingPaper paper) {
+        if (!paper.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_FORBIDDEN);
+        }
     }
 
     // GET /api/rolling-papers/{slug} - 롤링페이퍼 단건 조회 (토큰 또는 소유자)
@@ -100,7 +136,7 @@ public class RollingPaperService {
 
     // PATCH /api/rolling-papers/{slug} - 롤링페이퍼 수정 (소유자)
     @Transactional
-    public RollingPaperDetailResponse updateRollingPaper(Long userId, String slug, RollingPaperUpdateRequest request) {
+    public void updateRollingPaper(Long userId, String slug, RollingPaperUpdateRequest request) {
         RollingPaper paper = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
@@ -112,8 +148,6 @@ public class RollingPaperService {
         if (request.recipientName() != null) paper.updateRecipientName(request.recipientName());
         if (request.targetDate() != null)    paper.updateTargetDate(request.targetDate());
         if (request.imageKey() != null)      paper.updateImageKey(request.imageKey());
-
-        return RollingPaperDetailResponse.of(paper, true, true, true);
     }
 
     // DELETE /api/rolling-papers/{slug} - 롤링페이퍼 삭제 (소유자, Hard Delete)
@@ -139,25 +173,35 @@ public class RollingPaperService {
                 .collect(Collectors.toList());
     }
 
-    // POST /api/rolling-papers/{slug}/save - 롤링페이퍼 독립 복사본 저장 (commentToken 또는 viewToken 소지자)
+    // POST /api/rolling-papers/{slug}/save - 롤링페이퍼 독립 복사본 저장
+    // 소유자(CREATED) 또는 viewToken 소지자(RECEIVED)만 가능. commentToken 소지자는 403.
     @Transactional
     public RollingPaperSaveResponse saveRollingPaper(Long userId, String slug, String token) {
         RollingPaper original = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
-        if (original.isDeleted() || original.getIsSavedCopy()) {
+        if (original.isDeleted()) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_EXPIRED);
+        }
+        if (original.getIsSavedCopy()) {
             throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
         }
 
-        if (original.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.ROLLING_PAPER_CANNOT_SAVE_OWN);
-        }
+        boolean isOwner = original.getUser().getId().equals(userId);
+        String saveSource;
 
-        // commentToken 또는 viewToken 검증
-        boolean hasToken = token != null
-                && (token.equals(original.getCommentToken()) || token.equals(original.getViewToken()));
-        if (!hasToken) {
-            throw new CustomException(ErrorCode.ROLLING_PAPER_FORBIDDEN);
+        if (isOwner) {
+            saveSource = "CREATED";
+        } else {
+            boolean hasViewToken = token != null && token.equals(original.getViewToken());
+            boolean hasCommentToken = token != null && token.equals(original.getCommentToken());
+            if (hasCommentToken) {
+                throw new CustomException(ErrorCode.ROLLING_PAPER_SAVE_FORBIDDEN);
+            }
+            if (!hasViewToken) {
+                throw new CustomException(ErrorCode.ROLLING_PAPER_SAVE_FORBIDDEN);
+            }
+            saveSource = "RECEIVED";
         }
 
         User saver = userRepository.findById(userId)
@@ -178,14 +222,14 @@ public class RollingPaperService {
                 .viewToken(null)
                 .isSavedCopy(true)
                 .savedByUser(saver)
-                .saveSource("RECEIVED")
+                .saveSource(saveSource)
                 .build();
-        rollingPaperRepository.save(copy);
+        RollingPaper savedCopy = rollingPaperRepository.save(copy);
 
         // 댓글 복사 (비밀번호 제외 — 저장본에서는 수정/삭제 불필요)
         for (RollingPaperComment c : rollingPaperCommentRepository.findAllByRollingPaper(original)) {
             rollingPaperCommentRepository.save(RollingPaperComment.builder()
-                    .rollingPaper(copy)
+                    .rollingPaper(savedCopy)
                     .user(c.getUser())
                     .isUser(c.getIsUser())
                     .senderName(c.getSenderName())
@@ -196,7 +240,9 @@ public class RollingPaperService {
                     .build());
         }
 
-        return RollingPaperSaveResponse.of(newSlug);
+        LocalDateTime savedAt = savedCopy.getCreatedAt() != null
+                ? savedCopy.getCreatedAt() : java.time.LocalDateTime.now();
+        return RollingPaperSaveResponse.of(savedCopy.getSlug(), saveSource, savedAt);
     }
 
     // GET /api/rolling-papers/me/saved - 내가 저장한 롤링페이퍼 복사본 목록
