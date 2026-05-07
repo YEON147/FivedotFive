@@ -92,3 +92,19 @@ export type StickerOption = {
   label: string;
   assetKey: string;
 };
+
+/** GET /api/me/boards-all — `data[]` 항목 */
+export type MyBoardListEntryType = "WISH_BOARD" | "ROLLING_PAPER";
+
+export type MyBoardListEntry = {
+  type: MyBoardListEntryType;
+  slug: string;
+  title: string | null;
+  createdAt: string;
+};
+
+export type MyBoardsAllApiResponse = {
+  success?: boolean;
+  message?: string;
+  data: MyBoardListEntry[];
+};
