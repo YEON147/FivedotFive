@@ -68,6 +68,7 @@ public enum ErrorCode {
 
     // 공유 링크
     SHARE_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, "유효하지 않거나 만료된 공유 링크입니다."),
+    BOARD_SHARE_FORBIDDEN(HttpStatus.FORBIDDEN, "본인의 보드만 공유할 수 있습니다."),
 
     // 롤링페이퍼
     ROLLING_PAPER_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼를 찾을 수 없습니다."),

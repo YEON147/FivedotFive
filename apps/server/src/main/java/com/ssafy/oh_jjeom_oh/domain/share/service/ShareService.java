@@ -27,10 +27,13 @@ public class ShareService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    public String generateShareLink(Long userId) {
-        String slug = wishBoardRepository.findFirstByUser_Id(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND))
-                .getBoardSlug();
+    public String generateShareLink(Long userId, String slug) {
+        var board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
+
+        if (!board.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.BOARD_SHARE_FORBIDDEN);
+        }
 
         String originalUrl = frontendUrl + "/wishlist/" + slug + UTM_PARAMS;
 
