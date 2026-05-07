@@ -67,9 +67,7 @@ import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-
 import {
   fetchBackgroundAssets,
   resolveBackgroundDisplayLabel,
-  fetchGiftIcons,
   fetchStickerFolders,
-  fetchStickersByFolder,
   postAdminAssetsResetSync,
   postAdminAssetsSync,
   type BackgroundAssetDto,
@@ -84,6 +82,10 @@ import {
 } from "@/lib/constants/page-header";
 import { shouldUseNativeImg } from "@/lib/native-img";
 import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
+import {
+  loadGiftIconsWithSessionCache,
+  loadStickerFolderWithSessionCache,
+} from "@/lib/wishlist-asset-session-cache";
 import {
   GIFT_ICON_CATEGORY_LABELS,
   giftIconCategoryFromAssetKey,
@@ -569,7 +571,7 @@ export default function WishlistPage() {
       setGiftIconsLoading(true);
       setGiftIconsError(null);
       try {
-        const list = await fetchGiftIcons(boardSlug);
+        const list = await loadGiftIconsWithSessionCache(boardSlug);
         if (!cancelled) {
           setGiftIcons(list);
         }
@@ -723,7 +725,7 @@ export default function WishlistPage() {
     };
   }, [isCompactBackgroundOpen, boardSlug]);
 
-  /** 스티커 바텀시트: 탭(전체 / 폴더)에 맞게 API 조회 */
+  /** 스티커 바텀시트: 폴더별 API 조회(세션 캐시 1회) */
   useEffect(() => {
     if (!isBottomSheetOpen) {
       return;
@@ -735,7 +737,10 @@ export default function WishlistPage() {
       setStickerSheetLoading(true);
       setStickerSheetError(null);
       try {
-        const list = await fetchStickersByFolder(stickerModalTabEffective, boardSlug);
+        const list = await loadStickerFolderWithSessionCache(
+          stickerModalTabEffective,
+          boardSlug,
+        );
         if (!cancelled) {
           setStickerSheetList(list);
         }
