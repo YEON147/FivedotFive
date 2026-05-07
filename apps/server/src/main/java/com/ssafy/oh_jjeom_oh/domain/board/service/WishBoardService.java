@@ -28,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -67,12 +69,18 @@ public class WishBoardService {
 
         String title = (request != null && request.title() != null && !request.title().isBlank())
                 ? request.title() : null;
+        LocalDate targetDate = (request != null && request.targetDate() != null)
+                ? request.targetDate() : null;
+        Boolean isPublic = (request != null && request.isPublic() != null)
+                ? request.isPublic() : true;
 
-        WishBoard board = WishBoard.builder()
+        WishBoard.WishBoardBuilder builder = WishBoard.builder()
                 .user(user)
                 .boardSlug(slug)
                 .title(title)
-                .build();
+                .isPublic(isPublic);
+        if (targetDate != null) builder.targetDate(targetDate);
+        WishBoard board = builder.build();
         wishBoardRepository.save(board);
 
         return WishBoardCreateResponse.of(slug);
@@ -171,7 +179,10 @@ public class WishBoardService {
         WishBoard original = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
 
-        if (original.isDeleted() || original.getIsSavedCopy()) {
+        if (original.isDeleted()) {
+            throw new CustomException(ErrorCode.BOARD_EXPIRED);
+        }
+        if (original.getIsSavedCopy()) {
             throw new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND);
         }
         if (!original.getIsPublic()) {
@@ -198,7 +209,7 @@ public class WishBoardService {
                 .isSavedCopy(true)
                 .savedByUser(saver)
                 .build();
-        wishBoardRepository.save(copy);
+        WishBoard savedCopy = wishBoardRepository.save(copy);
 
         for (WishItem item : wishItemRepository.findByBoardOrderBySlotIndex(original)) {
             wishItemRepository.save(WishItem.builder()
@@ -219,7 +230,9 @@ public class WishBoardService {
                     .build());
         }
 
-        return WishBoardSaveResponse.of(newSlug);
+        LocalDateTime savedAt = savedCopy.getCreatedAt() != null
+                ? savedCopy.getCreatedAt() : LocalDateTime.now();
+        return WishBoardSaveResponse.of(savedCopy.getBoardSlug(), savedAt);
     }
 
     // GET /api/boards/me/saved - 내가 저장한 위시보드 복사본 목록 조회

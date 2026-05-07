@@ -101,7 +101,7 @@ class WishBoardServiceTest {
         given(wishBoardRepository.existsByBoardSlug(any())).willReturn(false);
         given(wishBoardRepository.save(any())).willReturn(board);
 
-        WishBoardCreateRequest request = new WishBoardCreateRequest("내 생일 위시리스트");
+        WishBoardCreateRequest request = new WishBoardCreateRequest("내 생일 위시리스트", null, null);
         WishBoardCreateResponse response = wishBoardService.createBoard(1L, request);
 
         assertThat(response.getBoardSlug()).isNotBlank();

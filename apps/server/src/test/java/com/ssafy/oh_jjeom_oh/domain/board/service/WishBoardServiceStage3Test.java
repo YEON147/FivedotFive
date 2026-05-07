@@ -210,7 +210,7 @@ class WishBoardServiceStage3Test {
 
             WishBoardSaveResponse res = wishBoardService.saveBoard(2L, "slug0000ab");
 
-            assertThat(res.getBoardSlug()).isNotBlank();
+            assertThat(res.getSlug()).isNotBlank();
             verify(wishBoardRepository).save(any(WishBoard.class));
             verify(wishItemRepository).save(any(WishItem.class));
         }

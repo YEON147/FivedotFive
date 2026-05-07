@@ -45,6 +45,7 @@ public enum ErrorCode {
     BOARD_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다."),
     BOARD_CANNOT_SAVE_OWN(HttpStatus.BAD_REQUEST, "본인의 위시보드는 저장할 수 없습니다."),
     BOARD_ALREADY_SAVED(HttpStatus.CONFLICT, "이미 저장한 위시보드입니다."),
+    BOARD_EXPIRED(HttpStatus.GONE, "공개일이 지나 삭제된 위시보드입니다."),
 
     // 위시 아이템
     INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "슬롯 번호는 1~3 사이여야 합니다."),
