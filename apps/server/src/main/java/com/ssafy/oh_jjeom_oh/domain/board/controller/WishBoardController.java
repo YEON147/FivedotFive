@@ -36,8 +36,17 @@ public class WishBoardController {
                 .body(ApiResponse.success(SuccessMessage.BOARD_CREATED, data));
     }
 
-    // GET /api/boards/me - 내 위시보드 목록 조회 (CHILD)
+    // GET /api/boards/me - 내 첫 번째 위시보드 단건 조회 (CHILD, 기존 프론트 호환)
     @GetMapping("/me")
+    public ResponseEntity<ApiResponse<WishBoardResponse>> getMyBoard(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        WishBoardResponse data = wishBoardService.getMyBoard(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_FOUND, data));
+    }
+
+    // GET /api/boards/me/list - 내 위시보드 목록 조회 (CHILD, 다중 보드 지원)
+    @GetMapping("/me/list")
     public ResponseEntity<ApiResponse<List<WishBoardResponse>>> getMyBoards(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
