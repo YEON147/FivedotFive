@@ -28,8 +28,14 @@ public interface WishBoardRepository extends JpaRepository<WishBoard, Long> {
 
     boolean existsByBoardSlug(String boardSlug);
 
-    // 사용자의 전체 위시보드 + 롤링페이퍼 합산 개수 (Stage 2에서 롤링페이퍼 포함)
+    // 사용자의 전체 위시보드 개수 (원본 + 복사본 합산)
     long countByUser_Id(Long userId);
+
+    // 사용자의 원본 위시보드 개수 (생성 개수 제한 체크용)
+    long countByUser_IdAndIsSavedCopyFalse(Long userId);
+
+    // 내가 저장한 복사본 목록 (최신순)
+    List<WishBoard> findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(Long savedByUserId);
 
     @Modifying
     @Query("delete from WishBoard b where b.user.id = :userId")

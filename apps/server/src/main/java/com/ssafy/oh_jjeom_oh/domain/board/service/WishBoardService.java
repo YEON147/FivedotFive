@@ -7,16 +7,19 @@ import com.ssafy.oh_jjeom_oh.domain.asset.entity.AssetType;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.BoardAsset;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.WishBoardCreateRequest;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.WishBoardUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.BoardAssetResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSaveResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishItemResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItem;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
+import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +41,7 @@ public class WishBoardService {
     private final WishBoardRepository wishBoardRepository;
     private final WishItemRepository wishItemRepository;
     private final BoardAssetRepository boardAssetRepository;
+    private final WishCommentRepository wishCommentRepository;
     private final UserRepository userRepository;
 
     // POST /api/boards - 위시보드 생성 (로그인 사용자, 최대 5개 합산 제한)
@@ -99,6 +103,111 @@ public class WishBoardService {
         }
 
         return buildWishBoardPublicResponse(board);
+    }
+
+    // PATCH /api/boards/{slug} - 위시보드 수정 (소유자만)
+    @Transactional
+    public WishBoardResponse updateBoard(Long userId, String slug, WishBoardUpdateRequest request) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+
+        if (!board.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.BOARD_FORBIDDEN);
+        }
+
+        if (request.title() != null) {
+            board.updateTitle(request.title().isBlank() ? null : request.title());
+        }
+        if (request.isPublic() != null) {
+            board.updateIsPublic(request.isPublic());
+        }
+        if (request.targetDate() != null) {
+            board.updateTargetDate(request.targetDate());
+        }
+
+        return buildWishBoardResponse(board);
+    }
+
+    // DELETE /api/boards/{slug} - 위시보드 삭제 (소유자만, Hard Delete)
+    @Transactional
+    public void deleteBoard(Long userId, String slug) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+
+        if (!board.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.BOARD_DELETE_FORBIDDEN);
+        }
+
+        wishCommentRepository.deleteByWishBoard(board);
+        wishItemRepository.deleteByBoard(board);
+        boardAssetRepository.deleteByBoard(board);
+        wishBoardRepository.delete(board);
+    }
+
+    // POST /api/boards/{slug}/save - 위시보드 독립 복사본 저장 (타인 보드만)
+    @Transactional
+    public WishBoardSaveResponse saveBoard(Long userId, String slug) {
+        WishBoard original = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+
+        if (original.isDeleted() || original.getIsSavedCopy()) {
+            throw new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND);
+        }
+        if (!original.getIsPublic()) {
+            throw new CustomException(ErrorCode.BOARD_PRIVATE);
+        }
+        if (original.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.BOARD_CANNOT_SAVE_OWN);
+        }
+
+        User saver = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        String newSlug;
+        do {
+            newSlug = SlugGenerator.generate();
+        } while (wishBoardRepository.existsByBoardSlug(newSlug));
+
+        WishBoard copy = WishBoard.builder()
+                .user(original.getUser())
+                .boardSlug(newSlug)
+                .title(original.getTitle())
+                .isPublic(false)
+                .targetDate(original.getTargetDate())
+                .isSavedCopy(true)
+                .savedByUser(saver)
+                .build();
+        wishBoardRepository.save(copy);
+
+        for (WishItem item : wishItemRepository.findByBoardOrderBySlotIndex(original)) {
+            wishItemRepository.save(WishItem.builder()
+                    .board(copy)
+                    .slotIndex(item.getSlotIndex())
+                    .itemName(item.getItemName())
+                    .likeCount(item.getLikeCount())
+                    .status(item.getStatus())
+                    .build());
+        }
+
+        for (BoardAsset asset : boardAssetRepository.findByBoard(original)) {
+            boardAssetRepository.save(BoardAsset.builder()
+                    .board(copy)
+                    .assetType(asset.getAssetType())
+                    .assetKey(asset.getAssetKey())
+                    .slotIndex(asset.getSlotIndex())
+                    .build());
+        }
+
+        return WishBoardSaveResponse.of(newSlug);
+    }
+
+    // GET /api/boards/me/saved - 내가 저장한 위시보드 복사본 목록 조회
+    public List<WishBoardResponse> getMySavedBoards(Long userId) {
+        List<WishBoard> boards = wishBoardRepository
+                .findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(userId);
+        return boards.stream()
+                .map(this::buildWishBoardResponse)
+                .collect(Collectors.toList());
     }
 
     // PUT /api/admin/boards/{slug}/visibility - 관리자 보드 공개 여부 강제 변경
