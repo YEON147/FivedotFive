@@ -39,8 +39,16 @@ public class WishBoard {
     @Builder.Default
     private LocalDate targetDate = LocalDate.of(2026, 5, 5);
 
-    @Column(name = "reveal_at")
-    private LocalDateTime revealAt;
+    @Column(name = "is_saved_copy", nullable = false)
+    @Builder.Default
+    private Boolean isSavedCopy = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "saved_by_user_id")
+    private User savedByUser;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -62,7 +70,15 @@ public class WishBoard {
         this.title = title;
     }
 
-    public void updateRevealAt(LocalDateTime revealAt) {
-        this.revealAt = revealAt;
+    public void updateTargetDate(LocalDate targetDate) {
+        this.targetDate = targetDate;
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isDeleted() {
+        return this.deletedAt != null;
     }
 }

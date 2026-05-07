@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// GET /api/boards/me 목록 중 단건 항목 (내 위시보드 조회)
+// GET /api/boards/me 및 GET /api/boards/me/list 응답 (내 위시보드 조회)
 @Getter
 public class WishBoardResponse {
 
@@ -15,17 +15,17 @@ public class WishBoardResponse {
     private final String title;
     private final Boolean isPublic;
     private final LocalDate targetDate;
-    private final LocalDateTime revealAt;
+    private final LocalDateTime createdAt;
     private final List<WishItemResponse> items;
     private final List<BoardAssetResponse> assets;
 
     private WishBoardResponse(String boardSlug, String title, Boolean isPublic, LocalDate targetDate,
-                               LocalDateTime revealAt, List<WishItemResponse> items, List<BoardAssetResponse> assets) {
+                               LocalDateTime createdAt, List<WishItemResponse> items, List<BoardAssetResponse> assets) {
         this.boardSlug = boardSlug;
         this.title = title;
         this.isPublic = isPublic;
         this.targetDate = targetDate;
-        this.revealAt = revealAt;
+        this.createdAt = createdAt;
         this.items = items;
         this.assets = assets;
     }
@@ -38,7 +38,7 @@ public class WishBoardResponse {
                 board.getTitle(),
                 board.getIsPublic(),
                 board.getTargetDate(),
-                board.getRevealAt(),
+                board.getCreatedAt(),
                 items,
                 assets
         );

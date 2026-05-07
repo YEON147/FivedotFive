@@ -74,7 +74,14 @@ public class WishBoardService {
         return WishBoardExistsResponse.of(wishBoardRepository.existsByUser_Id(userId));
     }
 
-    // GET /api/boards/me - 내 위시보드 목록 조회
+    // GET /api/boards/me - 내 첫 번째 위시보드 단건 조회 (기존 프론트 호환)
+    public WishBoardResponse getMyBoard(Long userId) {
+        WishBoard board = wishBoardRepository.findFirstByUser_Id(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
+        return buildWishBoardResponse(board);
+    }
+
+    // GET /api/boards/me/list - 내 위시보드 목록 조회 (다중 보드)
     public List<WishBoardResponse> getMyBoards(Long userId) {
         List<WishBoard> boards = wishBoardRepository.findAllByUser_IdOrderByCreatedAtDesc(userId);
         return boards.stream()
@@ -120,7 +127,7 @@ public class WishBoardService {
                 board.getUser().getNickname(),
                 board.getUser().getTeamTag(),
                 board.getTargetDate(),
-                board.getRevealAt(),
+                board.getCreatedAt(),
                 itemResponses,
                 assetResponses
         );
