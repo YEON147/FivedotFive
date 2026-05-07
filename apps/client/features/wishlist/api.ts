@@ -3,12 +3,23 @@ import type {
   CommentCreateData,
   CommentListData,
   MyBoardData,
+  MyBoardsAllApiResponse,
   MyWishItemsData,
   PublicBoardData,
 } from "./types";
 
 export async function getMyBoard(): Promise<MyBoardData> {
   return apiClient<MyBoardData>("/api/boards/me");
+}
+
+/** GET /api/me/boards-all — 위시보드·롤링페이퍼 합산 최대 5건, 생성일 내림차순 */
+export async function getMyBoardsAll(): Promise<MyBoardsAllApiResponse> {
+  return apiClient<MyBoardsAllApiResponse>("/api/me/boards-all", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 }
 
 /** POST /api/boards 응답 — 슬롯·에셋은 GET /api/boards/me 로 조회 */
@@ -20,11 +31,76 @@ export type CreateBoardApiResponse = {
   };
 };
 
-/** POST /api/boards — 내 위시보드 생성 */
-export async function createMyBoard(): Promise<CreateBoardApiResponse> {
+/** POST /api/boards 요청 본문 — 필드는 서버 스펙에 맞게 선택 전송 */
+export type CreateWishBoardBody = {
+  /** 미입력 시 null */
+  title?: string | null;
+  targetDate?: string | null;
+  isPublic?: boolean | null;
+};
+
+/** POST /api/boards — 위시보드 생성 */
+export async function createWishBoard(
+  body: CreateWishBoardBody = {},
+): Promise<CreateBoardApiResponse> {
+  const payload: Record<string, unknown> = {};
+  if ("title" in body) {
+    const raw = body.title;
+    const t = raw == null || raw === "" ? "" : String(raw).trim();
+    payload.title = t ? t : null;
+  }
+  if (body.targetDate != null && String(body.targetDate).trim() !== "") {
+    payload.targetDate = String(body.targetDate).trim();
+  }
+  if (body.isPublic !== undefined && body.isPublic !== null) {
+    payload.isPublic = body.isPublic;
+  }
+
   return apiClient<CreateBoardApiResponse>("/api/boards", {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify(payload),
+  });
+}
+
+/** POST /api/boards — 본문 없이 생성(호환) */
+export async function createMyBoard(): Promise<CreateBoardApiResponse> {
+  return createWishBoard({});
+}
+
+/** POST /api/rolling-papers */
+export type CreateRollingPaperBody = {
+  title: string;
+  recipientName: string;
+  targetDate: string;
+  imageKey?: string | null;
+};
+
+export type CreateRollingPaperApiResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    slug: string;
+    commentShareUrl: string;
+    viewShareUrl: string;
+  };
+};
+
+export async function createRollingPaper(
+  body: CreateRollingPaperBody,
+): Promise<CreateRollingPaperApiResponse> {
+  const payload: Record<string, unknown> = {
+    title: body.title.trim(),
+    recipientName: body.recipientName.trim(),
+    targetDate: body.targetDate.trim(),
+  };
+  const ik = body.imageKey?.trim();
+  if (ik) {
+    payload.imageKey = ik;
+  }
+
+  return apiClient<CreateRollingPaperApiResponse>("/api/rolling-papers", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

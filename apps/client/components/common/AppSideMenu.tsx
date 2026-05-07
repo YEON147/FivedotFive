@@ -4,16 +4,21 @@ import {
   Bell,
   ChatCircleDots,
   Gift,
+  ListBullets,
+  PlusCircle,
   SignOut,
   Trophy,
   User,
   X,
 } from "@phosphor-icons/react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
+import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
+import { MyBoardsListModal } from "@/components/common/MyBoardsListModal";
 import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
 import {
+  SideMenuButtonRow,
   SideMenuLinkRow,
   SideMenuLogoutRow,
   SideMenuSection,
@@ -51,6 +56,8 @@ export function AppSideMenu({
   isOnMyWishlistEditorPage = false,
 }: AppSideMenuProps) {
   const mounted = useClientMounted();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -115,6 +122,24 @@ export function AppSideMenu({
 
         <nav className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-2 pt-0">
           <SideMenuSection title="나의 활동">
+            <SideMenuButtonRow
+              icon={<PlusCircle {...ICON_20} />}
+              onClick={() => {
+                onClose();
+                setCreateOpen(true);
+              }}
+            >
+              생성하기
+            </SideMenuButtonRow>
+            <SideMenuButtonRow
+              icon={<ListBullets {...ICON_20} />}
+              onClick={() => {
+                onClose();
+                setListOpen(true);
+              }}
+            >
+              목록 조회
+            </SideMenuButtonRow>
             {firstPrimaryRow}
             <SideMenuLinkRow href="/ranking" onNavigate={onClose} icon={<Trophy {...ICON_20} />}>
               오쩜오 랭킹
@@ -138,6 +163,9 @@ export function AppSideMenu({
           </SideMenuSection>
         </nav>
       </aside>
+
+      <CreateBoardOrRollingPaperModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <MyBoardsListModal open={listOpen} onClose={() => setListOpen(false)} />
     </>,
     document.body,
   );
