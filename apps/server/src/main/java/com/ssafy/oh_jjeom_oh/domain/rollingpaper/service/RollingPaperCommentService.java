@@ -52,7 +52,8 @@ public class RollingPaperCommentService {
         validateReadAccess(paper, requestUserId, token);
 
         LocalDate today = clock.instant().atZone(KST).toLocalDate();
-        boolean revealed = paper.getTargetDate() != null && !today.isBefore(paper.getTargetDate());
+        boolean passedTargetDate = paper.getTargetDate() != null && !today.isBefore(paper.getTargetDate());
+        boolean revealed = paper.getIsCommentPublic() || passedTargetDate;
 
         Page<RollingPaperComment> commentPage =
                 rollingPaperCommentRepository.findByRollingPaperOrderBySlotIndexAsc(

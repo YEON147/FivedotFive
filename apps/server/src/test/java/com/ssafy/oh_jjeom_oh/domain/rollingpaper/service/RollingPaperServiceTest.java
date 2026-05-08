@@ -91,7 +91,7 @@ class RollingPaperServiceTest {
                     .willReturn("https://test.com/share/abc123");
 
             RollingPaperCreateRequest req = new RollingPaperCreateRequest(
-                    "생일 롤링페이퍼", "홍길동", null, LocalDate.of(2026, 12, 25));
+                    "생일롤링", "홍길동", null, LocalDate.of(2026, 12, 25), null);
             RollingPaperCreateResponse res = rollingPaperService.createRollingPaper(1L, req);
 
             assertThat(res.getSlug()).isNotBlank();
@@ -107,7 +107,7 @@ class RollingPaperServiceTest {
             given(rollingPaperRepository.countByUser_IdAndIsSavedCopyFalse(any())).willReturn(2L);
 
             assertThatThrownBy(() -> rollingPaperService.createRollingPaper(1L,
-                    new RollingPaperCreateRequest("t", "r", null, LocalDate.now())))
+                    new RollingPaperCreateRequest("t", "r", null, LocalDate.now(), null)))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                             .isEqualTo(ErrorCode.ROLLING_PAPER_LIMIT_EXCEEDED));
@@ -195,9 +195,9 @@ class RollingPaperServiceTest {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
 
             rollingPaperService.updateRollingPaper(
-                    1L, SLUG, new RollingPaperUpdateRequest("새 제목", null, null, null));
+                    1L, SLUG, new RollingPaperUpdateRequest("새제목", null, null, null, null));
 
-            assertThat(paper.getTitle()).isEqualTo("새 제목");
+            assertThat(paper.getTitle()).isEqualTo("새제목");
         }
 
         @Test
@@ -206,7 +206,7 @@ class RollingPaperServiceTest {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
 
             assertThatThrownBy(() -> rollingPaperService.updateRollingPaper(
-                    99L, SLUG, new RollingPaperUpdateRequest("x", null, null, null)))
+                    99L, SLUG, new RollingPaperUpdateRequest("x", null, null, null, null)))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                             .isEqualTo(ErrorCode.ROLLING_PAPER_FORBIDDEN));

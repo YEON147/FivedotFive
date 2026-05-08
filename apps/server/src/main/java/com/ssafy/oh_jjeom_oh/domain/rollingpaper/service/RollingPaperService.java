@@ -66,6 +66,8 @@ public class RollingPaperService {
         do { viewToken = TokenGenerator.generate(); }
         while (rollingPaperRepository.existsByViewToken(viewToken));
 
+        boolean isCommentPublic = request.isCommentPublic() != null && request.isCommentPublic();
+
         RollingPaper paper = RollingPaper.builder()
                 .user(user)
                 .slug(slug)
@@ -73,6 +75,7 @@ public class RollingPaperService {
                 .recipientName(request.recipientName())
                 .imageKey(request.imageKey())
                 .targetDate(request.targetDate())
+                .isCommentPublic(isCommentPublic)
                 .commentToken(commentToken)
                 .viewToken(viewToken)
                 .build();
@@ -145,10 +148,11 @@ public class RollingPaperService {
             throw new CustomException(ErrorCode.ROLLING_PAPER_FORBIDDEN);
         }
 
-        if (request.title() != null)         paper.updateTitle(request.title());
-        if (request.recipientName() != null) paper.updateRecipientName(request.recipientName());
-        if (request.targetDate() != null)    paper.updateTargetDate(request.targetDate());
-        if (request.imageKey() != null)      paper.updateImageKey(request.imageKey());
+        if (request.title() != null)            paper.updateTitle(request.title());
+        if (request.recipientName() != null)    paper.updateRecipientName(request.recipientName());
+        if (request.targetDate() != null)       paper.updateTargetDate(request.targetDate());
+        if (request.imageKey() != null)         paper.updateImageKey(request.imageKey());
+        if (request.isCommentPublic() != null)  paper.updateIsCommentPublic(request.isCommentPublic());
     }
 
     // DELETE /api/rolling-papers/{slug} - 롤링페이퍼 삭제 (소유자, Hard Delete)
@@ -216,6 +220,7 @@ public class RollingPaperService {
                 .recipientName(original.getRecipientName())
                 .imageKey(original.getImageKey())
                 .targetDate(original.getTargetDate())
+                .isCommentPublic(original.getIsCommentPublic())
                 .commentToken(null)
                 .viewToken(null)
                 .isSavedCopy(true)
