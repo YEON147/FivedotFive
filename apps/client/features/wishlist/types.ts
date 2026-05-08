@@ -65,7 +65,7 @@ export type MyBoardData = {
   };
 };
 
-/** GET /api/boards/me/items — `ApiResponse.data`(내부 `WishItemListResponse`) */
+/** GET /api/boards/{slug}/items — `ApiResponse.data`(내부 `WishItemListResponse`) */
 export type MyWishItemsData = {
   success?: boolean;
   message?: string;
@@ -91,4 +91,40 @@ export type StickerOption = {
   id: string;
   label: string;
   assetKey: string;
+};
+
+/** GET /api/me/boards-all — `data[]` 항목 (`type` 표기는 백엔드 스펙에 따라 다를 수 있음) */
+export type MyBoardListEntry = {
+  /** 예: WISH_BOARD | WISHBOARD | ROLLING_PAPER | ROLLINGPAPER */
+  type: string;
+  slug: string;
+  title: string | null;
+  createdAt: string;
+  /** yyyy-MM-dd 또는 미포함 */
+  targetDate?: string | null;
+  /** 위시보드 전용 */
+  isPublic?: boolean | null;
+  /** 롤링페이퍼 전용 */
+  recipientName?: string | null;
+  imageKey?: string | null;
+};
+
+export type MyBoardsAllApiResponse = {
+  success?: boolean;
+  message?: string;
+  data: MyBoardListEntry[];
+};
+
+/** `GET /api/boards/me` — 최신 1건 메타(신규 스펙) */
+export type MyLatestBoardSummaryPayload = {
+  type: string;
+  slug: string;
+  title?: string | null;
+  targetDate?: string | null;
+  createdAt: string;
+  /** WISHBOARD만 */
+  isPublic?: boolean;
+  /** ROLLINGPAPER만 */
+  recipientName?: string;
+  imageKey?: string | null;
 };

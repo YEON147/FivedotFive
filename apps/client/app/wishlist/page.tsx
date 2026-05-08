@@ -1,16 +1,18 @@
 "use client";
 
+import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
 import { loginUrlWithCurrentPageAsNext } from "@/features/login/post-login-destination";
-import { getMyBoard } from "@/features/wishlist/api";
-import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
+import { resolveLoggedInHomeHref } from "@/features/wishlist/resolve-logged-in-home";
+import { getAccessToken } from "@/lib/api/token-store";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 /**
- * 로그인 + 보드 있음 → `/wishlist/[slug]` 로 이동 (편집·댓글 통합 화면).
- * 보드 없음 → 온보딩은 메인(`/`)과 통합되어 있음 — 메인으로 보냄.
+ * 로그인 후 `/wishlist` 진입:
+ * `resolveLoggedInHomeHref` — boards-all → 없으면 `GET /api/boards/me` 최신 메타(또는 구 풀 응답 합성)
+ * 없으면 생성 모달
  */
-export default function WishlistEntryRedirectPage() {
+export default function WishlistEntryPage() {
   const router = useRouter();
   const [hint, setHint] = useState("위시리스트로 이동 중…");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -51,6 +53,22 @@ export default function WishlistEntryRedirectPage() {
       cancelled = true;
     };
   }, [router, retryTick]);
+
+  if (phase === "loading") {
+    return (
+      <main className="wishlist-page-root app-shell-viewport-floor flex min-h-[min(680px,85dvh)] flex-col items-center justify-center px-6 pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
+        <p className="text-body-sm text-[var(--color-text-secondary)]">불러오는 중…</p>
+      </main>
+    );
+  }
+
+  if (phase === "done") {
+    return (
+      <main className="wishlist-page-root app-shell-viewport-floor flex min-h-[min(680px,85dvh)] flex-col items-center justify-center px-6 pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
+        <p className="text-body-sm text-[var(--color-text-secondary)]">이동 중…</p>
+      </main>
+    );
+  }
 
   return (
     <main className="wishlist-page-root app-shell-viewport-floor flex min-h-[min(680px,85dvh)] flex-col items-center justify-center gap-4 px-6 pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">

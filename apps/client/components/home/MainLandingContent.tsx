@@ -3,19 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useState } from "react";
 
-import "@/components/home/main-landing-hero.css";
-import "@/components/home/main-landing-service-steps.css";
 import "@/components/home/main-landing-wordmark-float.css";
-import {
-  easeTowardCap,
-  nextFrame,
-  runDecorateFillRamp,
-  WISH_CTA_DECORATE_RAMP,
-  WISH_CTA_FILL,
-  WISH_CTA_PROGRESS_TICK_MS,
-} from "@/components/home/landing-wish-cta-helpers";
+import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { createMyBoard } from "@/features/wishlist/api";
@@ -25,29 +16,20 @@ import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 
 const landingPrimaryBtn =
-  "relative inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center overflow-hidden rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color,opacity] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-[0.72] disabled:hover:bg-[var(--color-primary-main)]";
-
-const landingPrimaryBtnLoadingExtra =
-  "cursor-wait opacity-[0.92] hover:bg-[var(--color-primary-main)] active:scale-100";
+  "inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)] disabled:pointer-events-none disabled:opacity-60";
 
 const landingMutedLink =
   "text-body-sm font-medium text-[#6e6e6e] underline-offset-4 transition-opacity hover:underline";
 
-const BOARD_EXISTS_MSG = "이미 위시보드가 존재합니다";
-
 type MainLandingContentProps = {
   loggedIn: boolean;
-  loggedInCtaReady: boolean;
-  adminPublicBoardSlug: string;
-  hasWishBoard: boolean;
 };
 
-export function MainLandingContent({
-  loggedIn,
-  loggedInCtaReady,
-  adminPublicBoardSlug,
-  hasWishBoard,
-}: MainLandingContentProps) {
+/**
+ * 비로그인·로그인 동일 랜딩(워드마크~3단계~CTA).
+ * 로그인 시 「내 위시리스트 보러가기」에서만 boards 목록 확인 후 이동 또는 생성 모달.
+ */
+export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
   const router = useRouter();
   /** iOS WebKit: 히어로 로고에 filter drop-shadow 시 사각 clipping → 레이어 그림자 사용 */
   const [iosStyleHeroShadow, setIosStyleHeroShadow] = useState(false);
@@ -91,18 +73,13 @@ export function MainLandingContent({
 
     let progressId: number | null = null;
 
+  const handleGoToMyBoards = async () => {
+    setEntryNavPending(true);
     try {
-      await nextFrame();
-      setWishlistPrimaryFill(WISH_CTA_FILL.afterFirstFrame);
-
-      progressId = window.setInterval(() => {
-        setWishlistPrimaryFill((p) => easeTowardCap(p, WISH_CTA_FILL.capWhileApi));
-      }, WISH_CTA_PROGRESS_TICK_MS);
-
-      try {
-        await createMyBoard();
-      } catch (e) {
-        if (!(e instanceof Error) || !e.message.includes(BOARD_EXISTS_MSG)) throw e;
+      const href = await resolveLoggedInHomeHref();
+      if (href && href !== "/wishlist") {
+        router.push(href);
+        return;
       }
 
       if (progressId !== null) {
@@ -130,11 +107,6 @@ export function MainLandingContent({
     }
   };
 
-  const goBrowseLoggedIn = () => {
-    trackWishlistCtaClick({ cta_id: "landing_logged_public_browse" });
-    router.push(`/wishlist/${encodeURIComponent(adminPublicBoardSlug)}`);
-  };
-
   return (
     <main className="wishlist-page-root relative flex min-h-[100dvh] flex-col overflow-y-auto">
       <IntroDesignSparkles />
@@ -152,45 +124,25 @@ export function MainLandingContent({
           />
         </div>
 
-        <p className="mb-3 max-w-[min(22rem,92vw)] text-center text-[16px] font-light leading-relaxed tracking-tight text-[var(--color-text-secondary)] drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
+        <p className="mb-3 max-w-[min(22rem,92vw)] text-center text-[16px] font-light leading-relaxed tracking-tight text-[var(--color-text-primary)] drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
           취향과 설렘이 담긴 작은 이야기
         </p>
 
         <div
-          className={`relative z-0 inline-block max-w-full ${iosStyleHeroShadow ? "main-landing-hero-stack--paint" : ""}`}
-          style={
-            iosStyleHeroShadow
-              ? undefined
-              : {
-                  filter:
-                    "drop-shadow(0 20px 36px rgba(255, 255, 255, 0.55)) drop-shadow(0 8px 22px rgba(255, 255, 255, 0.85))",
-                }
-          }
+          className="inline-block max-w-full"
+          style={{
+            filter:
+              "drop-shadow(0 22px 40px rgba(123, 97, 255, 0.22)) drop-shadow(0 10px 24px rgba(60, 45, 110, 0.1))",
+          }}
         >
-          {iosStyleHeroShadow ? (
-            <>
-              <span
-                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--diffuse"
-                aria-hidden
-              />
-              <span
-                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--mid"
-                aria-hidden
-              />
-              <span
-                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--core"
-                aria-hidden
-              />
-            </>
-          ) : null}
           <Image
             src="/main/main2.png"
             alt="오쩜오"
             width={900}
             height={900}
             priority
-            sizes="(max-width: 768px) 92vw, 62vw"
-            className="main-landing-hero-img"
+            sizes="(max-width: 768px) 92vw, 720px"
+            className="h-auto max-h-[min(58dvh,92vw)] w-full max-w-[min(92vw,720px)] object-contain"
           />
         </div>
 
@@ -240,75 +192,45 @@ export function MainLandingContent({
         </section>
 
         <div className="main-landing-cta relative z-10 mt-[clamp(1rem,4vmin,2rem)] flex w-full max-w-sm flex-col gap-3">
-          {loggedIn && !loggedInCtaReady ? (
-            <div
-              className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-[18px] bg-slate-100 px-7 text-[15px] font-medium text-[#8b8b8b]"
-              aria-busy
-            >
-              불러오는 중…
-            </div>
-          ) : loggedIn ? (
+          {loggedIn ? (
             <>
-              {wishlistPrimaryError ? (
-                <p className="text-center text-xs text-rose-600">{wishlistPrimaryError}</p>
-              ) : null}
               <button
                 type="button"
-                className={`${landingPrimaryBtn} ${wishlistPrimaryLoading ? landingPrimaryBtnLoadingExtra : ""}`}
-                disabled={wishlistPrimaryLoading}
-                aria-busy={wishlistPrimaryLoading}
-                onClick={() => void handleLoggedInWishlistPrimary()}
+                className={landingPrimaryBtn}
+                disabled={entryNavPending}
+                onClick={() => void handleGoToMyBoards()}
               >
-                {wishlistPrimaryLoading ? (
-                  <span
-                    className="main-landing-wish-cta-fill"
-                    style={{ transform: `scaleX(${wishlistPrimaryFill})` }}
-                    aria-hidden
-                  />
-                ) : null}
-                <span className="relative z-[1] flex items-center justify-center">
-                  {wishlistPrimaryLoading
-                    ? hasWishBoard
-                      ? "이동 중…"
-                      : "보드 생성 중…"
-                    : hasWishBoard
-                      ? "내 위시리스트 꾸미러 가기"
-                      : "위시리스트 만들러 가기"}
-                </span>
+                {entryNavPending ? "불러오는 중…" : "내 위시리스트 보러가기"}
               </button>
               <button
                 type="button"
-                onClick={goBrowseLoggedIn}
-                disabled={wishlistPrimaryLoading}
-                className="text-center text-body-sm font-medium text-[#8b8b8b] underline-offset-4 transition-colors hover:text-[#6e6e6e] hover:underline disabled:pointer-events-none disabled:opacity-45"
+                onClick={() => router.push(adminPublicWishlistHref())}
+                className="text-center text-body-sm font-medium text-[#8b8b8b] underline-offset-4 transition-colors hover:text-[#6e6e6e] hover:underline"
               >
                 구경가기
               </button>
+              <CreateBoardOrRollingPaperModal
+                open={createOpen}
+                onClose={() => setCreateOpen(false)}
+              />
             </>
           ) : (
             <>
               <button
                 type="button"
                 className={landingPrimaryBtn}
-                onClick={() => {
-                  trackWishlistCtaClick({ cta_id: "landing_guest_public_browse" });
-                  router.push(`/wishlist/${encodeURIComponent(adminPublicBoardSlug)}`);
-                }}
+                onClick={() => router.push(adminPublicWishlistHref())}
               >
-                오쩜오 둘러보기
+                위시리스트 구경가기
               </button>
               <div className="text-center">
-                <Link href={loginUrlForPath("/")} className={landingMutedLink}>
+                <Link href="/login" className={landingMutedLink}>
                   로그인
                 </Link>
                 <span className="mx-2 text-body-sm text-[#c4c4c4]" aria-hidden>
                   ·
                 </span>
-                <Link
-                  href="/signup"
-                  className={landingMutedLink}
-                  onClick={() => trackSignupButtonClick({ signup_entry: "landing" })}
-                >
+                <Link href="/signup" className={landingMutedLink}>
                   회원가입
                 </Link>
               </div>

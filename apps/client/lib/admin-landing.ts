@@ -14,6 +14,13 @@ export const ADMIN_PUBLIC_BOARD_SLUG: string =
     process.env.NEXT_PUBLIC_ADMIN_PUBLIC_BOARD_SLUG?.trim()) ||
   LANDING_ADMIN_USERNAME;
 
+/** 메인 랜딩「구경가기」등 → 공개 위시리스트 `/wishlist/[slug]` (슬러그 없으면 랭킹 폴백) */
+export function adminPublicWishlistHref(): string {
+  const slug = ADMIN_PUBLIC_BOARD_SLUG.trim();
+  if (!slug) return "/ranking";
+  return `/wishlist/${encodeURIComponent(slug)}`;
+}
+
 export function isLandingAdminUser(profile: Pick<MyProfile, "username" | "role">): boolean {
   if (profile.role === "ADMIN") return true;
   return profile.username.trim().toLowerCase() === LANDING_ADMIN_USERNAME.toLowerCase();

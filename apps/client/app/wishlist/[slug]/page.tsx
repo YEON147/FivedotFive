@@ -38,7 +38,6 @@ import {
   createComment,
   deleteComment,
   getComments,
-  getMyBoard,
   getPublicBoard,
   updateComment,
 } from "@/features/wishlist/api";
@@ -542,21 +541,20 @@ export default function PublicWishlistPage({
       return;
     }
     let cancelled = false;
-    void getMyBoard()
-      .then((board) => {
+    void (async () => {
+      try {
+        const isOwner = await isLoggedInOwnerOfBoardSlug(slug);
         if (!cancelled) {
-          setMyBoardSlug(board.data.boardSlug?.trim() || null);
+          setMyBoardSlug(isOwner ? slug.trim() : null);
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMyBoardSlug(null);
-        }
-      });
+      } catch {
+        if (!cancelled) setMyBoardSlug(null);
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [visitorMenuLoggedIn]);
+  }, [visitorMenuLoggedIn, slug]);
 
   const isViewingOwnBoard = useMemo(() => {
     if (!visitorMenuLoggedIn || myBoardSlug === undefined || myBoardSlug === null) {
@@ -573,7 +571,7 @@ export default function PublicWishlistPage({
 
   /**
    * 타인 보드에서만 빈 댓글 칸 표시.
-   * 내 보드 여부는 `getMyBoard` 후에만 확정되므로, 슬러그 로딩 중(`undefined`)에는
+   * 내 보드 여부는 `boards-all`/소유 확인 후에만 확정되므로, 슬러그 로딩 중(`undefined`)에는
    * 예전처럼 빈 칸을 숨기면 타인 보드에서도 댓글 작성 UI가 안 뜸 → 숨김은
    * 「로그인 + 슬러그 확정 + 내 보드」일 때만.
    */
@@ -886,20 +884,21 @@ export default function PublicWishlistPage({
         return;
       }
 
-      let boardSlug = myBoardSlug;
-      if (boardSlug === undefined) {
+      let boardSlugResolved = myBoardSlug;
+      if (boardSlugResolved === undefined) {
         try {
-          const board = await getMyBoard();
-          boardSlug = board.data.boardSlug?.trim() ?? null;
-          setMyBoardSlug(boardSlug);
+          const ok = await isLoggedInOwnerOfBoardSlug(slug);
+          const resolved = ok ? slug.trim() : null;
+          boardSlugResolved = resolved;
+          setMyBoardSlug(resolved);
         } catch {
-          boardSlug = null;
+          boardSlugResolved = null;
           setMyBoardSlug(null);
         }
       }
 
       const viewingOwnBoardResolved =
-        boardSlug != null && boardSlug === slug.trim();
+        boardSlugResolved != null && boardSlugResolved === slug.trim();
       if (viewingOwnBoardResolved) {
         setOwnBoardWriteNoticeOpen(true);
         return;
@@ -1060,6 +1059,7 @@ export default function PublicWishlistPage({
                     <div className="relative flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center overflow-x-clip overflow-y-visible p-0">
                       {isViewingOwnBoard ? (
                         <WishlistMyBoardScreen
+                          routeBoardSlug={slug}
                           embeddedInSlugCarousel
                           omitInnerTitleHeader
                           onCarouselInteractionLockChange={setEditorCarouselLocked}

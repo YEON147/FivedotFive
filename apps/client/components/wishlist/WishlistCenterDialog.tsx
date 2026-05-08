@@ -28,6 +28,12 @@ type WishlistCenterDialogProps = {
   variant: "animated" | "static";
   /** `aurora` — 흰 패널 대신 서비스 페이지와 같은 연보라 오로라 배경 */
   panelTone?: "default" | "aurora";
+  /**
+   * `static` 전용 — 햄버거 메뉴(z-101)보다 위에 띄울 때.
+   * 기본은 딤 z-40 · 패널 z-41.
+   * `aboveDialogs` — 다른 중앙 모달(예: 목록) 위에 편집 모달을 겹칠 때.
+   */
+  staticStack?: "default" | "aboveMenu" | "aboveDialogs";
 };
 
 function DialogChrome({
@@ -89,9 +95,14 @@ export function WishlistCenterDialog({
   closeLabel = "닫기",
   variant,
   panelTone = "default",
+  staticStack = "default",
 }: WishlistCenterDialogProps) {
   const panelBg = panelTone === "aurora" ? PANEL_BG_AURORA : PANEL_BG_DEFAULT;
   const panelClassName = `${PANEL_SHELL} ${panelBg}`;
+  const staticBackdropZ =
+    staticStack === "aboveDialogs" ? "z-[120]" : staticStack === "aboveMenu" ? "z-[110]" : "z-[40]";
+  const staticPanelZ =
+    staticStack === "aboveDialogs" ? "z-[121]" : staticStack === "aboveMenu" ? "z-[111]" : "z-[41]";
 
   if (variant === "static") {
     if (!open) {
@@ -101,12 +112,12 @@ export function WishlistCenterDialog({
       <>
         <button
           type="button"
-          className="fixed inset-0 z-[40] cursor-default bg-black/45"
+          className={`fixed inset-0 ${staticBackdropZ} cursor-default bg-black/45`}
           aria-label="닫기"
           onClick={onClose}
         />
         <div
-          className={`fixed left-1/2 top-1/2 z-[41] -translate-x-1/2 -translate-y-1/2 ${panelClassName}`}
+          className={`fixed left-1/2 top-1/2 ${staticPanelZ} -translate-x-1/2 -translate-y-1/2 ${panelClassName}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
