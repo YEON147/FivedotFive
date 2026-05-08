@@ -34,18 +34,18 @@ public class WishItemService {
     private final WishItemRepository wishItemRepository;
     private final BoardAssetRepository boardAssetRepository;
 
-    // GET /api/boards/me/items - 슬롯 전체 조회
-    public WishItemListResponse getItems(Long userId) {
-        WishBoard board = getBoard(userId);
+    // GET /api/boards/{slug}/items - 슬롯 전체 조회
+    public WishItemListResponse getItems(String slug, Long userId) {
+        WishBoard board = getBoard(slug, userId);
         return WishItemListResponse.of(buildItemResponses(board));
     }
 
-    // PATCH /api/boards/me/items/{slotIndex} - 슬롯 수정 (upsert)
+    // PATCH /api/boards/{slug}/items/{slotIndex} - 슬롯 수정 (upsert)
     @Transactional
-    public void updateItem(Long userId, int slotIndex, WishItemUpdateRequest request) {
+    public void updateItem(String slug, Long userId, int slotIndex, WishItemUpdateRequest request) {
         validateSlotIndex(slotIndex);
 
-        WishBoard board = getBoard(userId);
+        WishBoard board = getBoard(slug, userId);
 
         // WishItem upsert
         Optional<WishItem> existing = wishItemRepository.findByBoardAndSlotIndex(board, slotIndex);
@@ -69,12 +69,12 @@ public class WishItemService {
         }
     }
 
-    // DELETE /api/boards/me/items/{slotIndex} - 슬롯 비우기
+    // DELETE /api/boards/{slug}/items/{slotIndex} - 슬롯 비우기
     @Transactional
-    public void clearItem(Long userId, int slotIndex) {
+    public void clearItem(String slug, Long userId, int slotIndex) {
         validateSlotIndex(slotIndex);
 
-        WishBoard board = getBoard(userId);
+        WishBoard board = getBoard(slug, userId);
 
         WishItem item = wishItemRepository.findByBoardAndSlotIndex(board, slotIndex)
                 .orElseThrow(() -> new CustomException(ErrorCode.SLOT_NOT_FOUND));
@@ -103,9 +103,13 @@ public class WishItemService {
 
     // ===== private helpers =====
 
-    private WishBoard getBoard(Long userId) {
-        return wishBoardRepository.findFirstByUser_Id(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
+    private WishBoard getBoard(String slug, Long userId) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+        if (!board.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.BOARD_FORBIDDEN);
+        }
+        return board;
     }
 
     private void validateSlotIndex(int slotIndex) {

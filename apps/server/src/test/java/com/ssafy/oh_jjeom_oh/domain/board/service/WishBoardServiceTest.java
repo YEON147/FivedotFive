@@ -207,9 +207,9 @@ class WishBoardServiceTest {
                 .commentToken("ct").viewToken("vt").build();
         ReflectionTestUtils.setField(paper, "createdAt", LocalDateTime.of(2026, 1, 1, 0, 0));
 
-        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(1L))
                 .willReturn(Optional.of(board));
-        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(1L))
                 .willReturn(Optional.of(paper));
 
         BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
@@ -229,9 +229,9 @@ class WishBoardServiceTest {
                 .commentToken("ct").viewToken("vt").build();
         ReflectionTestUtils.setField(paper, "createdAt", LocalDateTime.of(2026, 3, 1, 0, 0));
 
-        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(1L))
                 .willReturn(Optional.of(board));
-        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(1L))
                 .willReturn(Optional.of(paper));
 
         BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
@@ -244,9 +244,9 @@ class WishBoardServiceTest {
     @Test
     @DisplayName("최근 보드 조회 - 위시보드만 있는 경우 → WISHBOARD 반환")
     void getLatestBoard_onlyBoard() {
-        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(1L))
                 .willReturn(Optional.of(board));
-        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(1L))
                 .willReturn(Optional.empty());
 
         BoardSummaryResponse result = wishBoardService.getLatestBoard(1L);
@@ -257,9 +257,9 @@ class WishBoardServiceTest {
     @Test
     @DisplayName("최근 보드 조회 - 아무것도 없으면 BOARD_NOT_FOUND")
     void getLatestBoard_nothingFound() {
-        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+        given(wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(1L))
                 .willReturn(Optional.empty());
-        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(1L))
+        given(rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(1L))
                 .willReturn(Optional.empty());
 
         assertThatThrownBy(() -> wishBoardService.getLatestBoard(1L))

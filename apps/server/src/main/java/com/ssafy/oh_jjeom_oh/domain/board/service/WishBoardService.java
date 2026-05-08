@@ -96,9 +96,9 @@ public class WishBoardService {
     // GET /api/boards/me - 위시보드+롤링페이퍼 중 가장 최근 생성된 원본 1개 반환
     public BoardSummaryResponse getLatestBoard(Long userId) {
         Optional<WishBoard> latestBoard =
-                wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+                wishBoardRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(userId);
         Optional<com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper> latestPaper =
-                rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+                rollingPaperRepository.findFirstByUser_IdAndIsSavedCopyFalseOrderByCreatedAtDesc(userId);
 
         if (latestBoard.isEmpty() && latestPaper.isEmpty()) {
             throw new CustomException(ErrorCode.BOARD_NOT_FOUND);
@@ -179,9 +179,6 @@ public class WishBoardService {
         WishBoard original = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
 
-        if (original.isDeleted()) {
-            throw new CustomException(ErrorCode.BOARD_EXPIRED);
-        }
         if (original.getIsSavedCopy()) {
             throw new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND);
         }

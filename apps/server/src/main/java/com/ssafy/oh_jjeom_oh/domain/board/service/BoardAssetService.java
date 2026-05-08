@@ -33,8 +33,8 @@ public class BoardAssetService {
 
     // ===================== 배경 =====================
 
-    public BackgroundResponse getBackground(Long userId) {
-        WishBoard board = getBoard(userId);
+    public BackgroundResponse getBackground(String slug, Long userId) {
+        WishBoard board = getBoard(slug, userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.BACKGROUND);
         if (assets.isEmpty()) return BackgroundResponse.empty();
         BoardAsset asset = assets.get(0);
@@ -42,8 +42,8 @@ public class BoardAssetService {
     }
 
     @Transactional
-    public void updateBackground(Long userId, String assetKey) {
-        WishBoard board = getBoard(userId);
+    public void updateBackground(String slug, Long userId, String assetKey) {
+        WishBoard board = getBoard(slug, userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.BACKGROUND);
 
         if (assets.isEmpty()) {
@@ -58,8 +58,8 @@ public class BoardAssetService {
     }
 
     @Transactional
-    public void deleteBackground(Long userId) {
-        WishBoard board = getBoard(userId);
+    public void deleteBackground(String slug, Long userId) {
+        WishBoard board = getBoard(slug, userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.BACKGROUND);
         if (assets.isEmpty()) {
             throw new CustomException(ErrorCode.ASSET_NOT_FOUND);
@@ -69,8 +69,8 @@ public class BoardAssetService {
 
     // ===================== 스티커 =====================
 
-    public StickerListResponse getStickers(Long userId) {
-        WishBoard board = getBoard(userId);
+    public StickerListResponse getStickers(String slug, Long userId) {
+        WishBoard board = getBoard(slug, userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.STICKER);
 
         Map<Integer, String> stickerMap = assets.stream()
@@ -79,18 +79,18 @@ public class BoardAssetService {
         return StickerListResponse.of(buildStickerSlots(stickerMap));
     }
 
-    public StickerResponse getSticker(Long userId, int slotIndex) {
+    public StickerResponse getSticker(String slug, Long userId, int slotIndex) {
         validateStickerSlot(slotIndex);
-        WishBoard board = getBoard(userId);
+        WishBoard board = getBoard(slug, userId);
         Optional<BoardAsset> asset = boardAssetRepository
                 .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.STICKER, slotIndex);
         return asset.map(StickerResponse::of).orElse(StickerResponse.empty(slotIndex));
     }
 
     @Transactional
-    public void updateSticker(Long userId, int slotIndex, String assetKey) {
+    public void updateSticker(String slug, Long userId, int slotIndex, String assetKey) {
         validateStickerSlot(slotIndex);
-        WishBoard board = getBoard(userId);
+        WishBoard board = getBoard(slug, userId);
         Optional<BoardAsset> existing = boardAssetRepository
                 .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.STICKER, slotIndex);
 
@@ -107,9 +107,9 @@ public class BoardAssetService {
     }
 
     @Transactional
-    public void deleteSticker(Long userId, int slotIndex) {
+    public void deleteSticker(String slug, Long userId, int slotIndex) {
         validateStickerSlot(slotIndex);
-        WishBoard board = getBoard(userId);
+        WishBoard board = getBoard(slug, userId);
         BoardAsset asset = boardAssetRepository
                 .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.STICKER, slotIndex)
                 .orElseThrow(() -> new CustomException(ErrorCode.ASSET_NOT_FOUND));
@@ -118,9 +118,13 @@ public class BoardAssetService {
 
     // ===================== private helpers =====================
 
-    private WishBoard getBoard(Long userId) {
-        return wishBoardRepository.findFirstByUser_Id(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
+    private WishBoard getBoard(String slug, Long userId) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+        if (!board.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.BOARD_FORBIDDEN);
+        }
+        return board;
     }
 
     private void validateStickerSlot(int slotIndex) {

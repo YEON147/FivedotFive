@@ -41,12 +41,22 @@ public class ShareService {
 
         String originalUrl = frontendUrl + "/wishlist/" + slug + UTM_PARAMS;
 
+        ZoneId kst = ZoneId.of("Asia/Seoul");
+        long ttlSeconds;
+        if (board.getTargetDate() != null) {
+            LocalDateTime expiresAt = board.getTargetDate().atStartOfDay(kst).toLocalDateTime();
+            ttlSeconds = ChronoUnit.SECONDS.between(LocalDateTime.now(kst), expiresAt);
+            if (ttlSeconds <= 0) ttlSeconds = 60;
+        } else {
+            ttlSeconds = TTL_DAYS * 24 * 60 * 60;
+        }
+
         String shortCode;
         do {
             shortCode = SlugGenerator.generate();
         } while (Boolean.TRUE.equals(redisTemplate.hasKey(KEY_PREFIX + shortCode)));
 
-        redisTemplate.opsForValue().set(KEY_PREFIX + shortCode, originalUrl, TTL_DAYS, TimeUnit.DAYS);
+        redisTemplate.opsForValue().set(KEY_PREFIX + shortCode, originalUrl, ttlSeconds, TimeUnit.SECONDS);
 
         return frontendUrl + "/share/" + shortCode;
     }

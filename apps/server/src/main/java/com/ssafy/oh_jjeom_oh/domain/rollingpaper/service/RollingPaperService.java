@@ -102,7 +102,6 @@ public class RollingPaperService {
     private RollingPaper findOriginal(String slug) {
         RollingPaper paper = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
-        if (paper.isDeleted()) throw new CustomException(ErrorCode.ROLLING_PAPER_EXPIRED);
         if (paper.getIsSavedCopy()) throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
         return paper;
     }
@@ -118,7 +117,7 @@ public class RollingPaperService {
         RollingPaper paper = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
-        if (paper.isDeleted() || paper.getIsSavedCopy()) {
+        if (paper.getIsSavedCopy()) {
             throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
         }
 
@@ -182,9 +181,6 @@ public class RollingPaperService {
         RollingPaper original = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
-        if (original.isDeleted()) {
-            throw new CustomException(ErrorCode.ROLLING_PAPER_EXPIRED);
-        }
         if (original.getIsSavedCopy()) {
             throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
         }

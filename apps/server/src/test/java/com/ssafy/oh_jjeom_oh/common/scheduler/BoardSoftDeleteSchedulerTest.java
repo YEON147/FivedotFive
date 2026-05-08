@@ -1,8 +1,12 @@
 package com.ssafy.oh_jjeom_oh.common.scheduler;
 
+import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
+import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
+import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
@@ -20,9 +24,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("BoardSoftDeleteScheduler 단위 테스트")
@@ -30,7 +34,11 @@ class BoardSoftDeleteSchedulerTest {
 
     @InjectMocks BoardSoftDeleteScheduler scheduler;
     @Mock WishBoardRepository wishBoardRepository;
+    @Mock WishItemRepository wishItemRepository;
+    @Mock BoardAssetRepository boardAssetRepository;
+    @Mock WishCommentRepository wishCommentRepository;
     @Mock RollingPaperRepository rollingPaperRepository;
+    @Mock RollingPaperCommentRepository rollingPaperCommentRepository;
     @Mock Clock clock;
 
     private User buildUser() {
@@ -41,8 +49,8 @@ class BoardSoftDeleteSchedulerTest {
     }
 
     @Test
-    @DisplayName("만료된 위시보드·롤링페이퍼 soft-delete 처리")
-    void softDeleteExpiredBoards() {
+    @DisplayName("만료된 위시보드·롤링페이퍼 hard-delete 처리")
+    void hardDeleteExpiredBoards() {
         User user = buildUser();
 
         WishBoard expiredBoard = WishBoard.builder()
@@ -55,24 +63,28 @@ class BoardSoftDeleteSchedulerTest {
                 .commentToken("ct").viewToken("vt").build();
 
         given(clock.instant()).willReturn(Instant.parse("2026-01-01T00:00:00Z"));
-        given(wishBoardRepository.findAllByTargetDateBeforeAndIsSavedCopyFalseAndDeletedAtIsNull(any()))
+        given(wishBoardRepository.findAllByTargetDateBeforeAndIsSavedCopyFalse(any()))
                 .willReturn(List.of(expiredBoard));
-        given(rollingPaperRepository.findAllByTargetDateBeforeAndIsSavedCopyFalseAndDeletedAtIsNull(any()))
+        given(rollingPaperRepository.findAllByTargetDateBeforeAndIsSavedCopyFalse(any()))
                 .willReturn(List.of(expiredPaper));
 
         scheduler.softDeleteExpiredBoards();
 
-        assertThat(expiredBoard.isDeleted()).isTrue();
-        assertThat(expiredPaper.isDeleted()).isTrue();
+        verify(wishCommentRepository).deleteByWishBoard(expiredBoard);
+        verify(wishItemRepository).deleteByBoard(expiredBoard);
+        verify(boardAssetRepository).deleteByBoard(expiredBoard);
+        verify(wishBoardRepository).delete(expiredBoard);
+        verify(rollingPaperCommentRepository).deleteByRollingPaper(expiredPaper);
+        verify(rollingPaperRepository).delete(expiredPaper);
     }
 
     @Test
     @DisplayName("만료된 항목이 없으면 아무것도 처리하지 않음")
     void noExpiredItems() {
         given(clock.instant()).willReturn(Instant.parse("2026-01-01T00:00:00Z"));
-        given(wishBoardRepository.findAllByTargetDateBeforeAndIsSavedCopyFalseAndDeletedAtIsNull(any()))
+        given(wishBoardRepository.findAllByTargetDateBeforeAndIsSavedCopyFalse(any()))
                 .willReturn(List.of());
-        given(rollingPaperRepository.findAllByTargetDateBeforeAndIsSavedCopyFalseAndDeletedAtIsNull(any()))
+        given(rollingPaperRepository.findAllByTargetDateBeforeAndIsSavedCopyFalse(any()))
                 .willReturn(List.of());
 
         scheduler.softDeleteExpiredBoards();
