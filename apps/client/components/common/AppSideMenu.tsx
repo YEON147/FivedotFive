@@ -1,9 +1,10 @@
 "use client";
 
-import { Bell, Gift, SignOut, Trophy, User, X } from "@phosphor-icons/react";
-import { useEffect, useSyncExternalStore } from "react";
+import { Bell, Gift, ListBullets, PlusCircle, SignOut, Trophy, User, X } from "@phosphor-icons/react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
+import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
 import { MyBoardsListModal } from "@/components/common/MyBoardsListModal";
 import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
 import {
@@ -33,7 +34,7 @@ function useClientMounted() {
 
 /**
  * 위시리스트·랭킹·마이페이지 등 로그인 사용자 햄버거 메뉴.
- * 순서: (1)「내 위시리스트 보러가기」(해당 없으면 생략)→ (2) 랭킹 → …
+ * 순서: (1)「내 위시리스트 보러가기」(해당 없으면 생략) → (2) 내 페이지 목록·만들기 → (3) 랭킹 → …
  */
 export function AppSideMenu({
   open,
@@ -43,6 +44,7 @@ export function AppSideMenu({
 }: AppSideMenuProps) {
   const mounted = useClientMounted();
   const [listOpen, setListOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -96,6 +98,24 @@ export function AppSideMenu({
                 내 위시리스트 보러가기
               </SideMenuLinkRow>
             ) : null}
+            <SideMenuButtonRow
+              onClick={() => {
+                setListOpen(true);
+                onClose();
+              }}
+              icon={<ListBullets {...ICON_20} />}
+            >
+              위시리스트 목록
+            </SideMenuButtonRow>
+            <SideMenuButtonRow
+              onClick={() => {
+                setCreateOpen(true);
+                onClose();
+              }}
+              icon={<PlusCircle {...ICON_20} />}
+            >
+              생성하기
+            </SideMenuButtonRow>
             <SideMenuLinkRow href="/ranking" onNavigate={onClose} icon={<Trophy {...ICON_20} />}>
               오쩜오 랭킹
             </SideMenuLinkRow>
@@ -120,6 +140,7 @@ export function AppSideMenu({
       </aside>
 
       <MyBoardsListModal open={listOpen} onClose={() => setListOpen(false)} />
+      <CreateBoardOrRollingPaperModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </>,
     document.body,
   );

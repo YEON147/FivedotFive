@@ -104,7 +104,7 @@ import {
 } from "@/lib/gift-icon-category";
 
 export type WishlistMyBoardScreenProps = {
-  /** `[slug]` 경로의 보드 — `GET .../detail?slug=` 등 편집용 조회에 사용 */
+  /** `[slug]` 경로의 보드 — `/api/boards/{slug}/…` 편집용 호출에 사용 */
   routeBoardSlug: string;
   /** `/wishlist/[slug]` 캐러셀 첫 슬라이드에 넣을 때 — 중첩 `<main>` 방지 등 */
   embeddedInSlugCarousel?: boolean;
@@ -1029,14 +1029,15 @@ export function WishlistMyBoardScreen({
     async (assetKey: string) => {
       const keyTrim = assetKey.trim();
       const slotId = stickerTargetSlotId;
-      if (slotId == null || !keyTrim) {
+      const apiSlug = routeBoardSlug.trim();
+      if (slotId == null || !keyTrim || !apiSlug) {
         return;
       }
 
       setStickerSlotSaving(true);
       setStickerSlotSaveError(null);
       try {
-        await putMyBoardStickerSlot(slotId, keyTrim);
+        await putMyBoardStickerSlot(apiSlug, slotId, keyTrim);
         await reloadMyBoardFromApi();
         setIsBottomSheetOpen(false);
         setStickerTargetSlotId(null);
@@ -1049,19 +1050,20 @@ export function WishlistMyBoardScreen({
         setStickerSlotSaving(false);
       }
     },
-    [stickerTargetSlotId, applyLoadedBoard, reloadMyBoardFromApi],
+    [stickerTargetSlotId, applyLoadedBoard, reloadMyBoardFromApi, routeBoardSlug],
   );
 
   const removeStickerFromSlot = useCallback(async () => {
     const slotId = stickerTargetSlotId;
-    if (slotId == null) {
+    const apiSlug = routeBoardSlug.trim();
+    if (slotId == null || !apiSlug) {
       return;
     }
 
     setStickerSlotSaving(true);
     setStickerSlotSaveError(null);
     try {
-      await deleteMyBoardStickerSlot(slotId);
+      await deleteMyBoardStickerSlot(apiSlug, slotId);
       await reloadMyBoardFromApi();
       setIsBottomSheetOpen(false);
       setStickerTargetSlotId(null);
@@ -1073,7 +1075,7 @@ export function WishlistMyBoardScreen({
     } finally {
       setStickerSlotSaving(false);
     }
-  }, [stickerTargetSlotId, applyLoadedBoard, reloadMyBoardFromApi]);
+  }, [stickerTargetSlotId, applyLoadedBoard, reloadMyBoardFromApi, routeBoardSlug]);
 
   /**
    * 배경 시트를 내릴 때만 서버에 반영합니다.
@@ -1097,12 +1099,17 @@ export function WishlistMyBoardScreen({
       return true;
     }
 
+    const apiSlug = routeBoardSlug.trim();
+    if (!apiSlug) {
+      return false;
+    }
+
     setBackgroundSaving(true);
     try {
       if (draft === "") {
-        await deleteMyBoardBackground();
+        await deleteMyBoardBackground(apiSlug);
       } else {
-        await putMyBoardBackground(draft);
+        await putMyBoardBackground(apiSlug, draft);
       }
       await reloadMyBoardFromApi();
       setDraftBackgroundAssetKey(null);
@@ -1122,6 +1129,7 @@ export function WishlistMyBoardScreen({
     draftBackgroundAssetKey,
     isCompactBackgroundOpen,
     reloadMyBoardFromApi,
+    routeBoardSlug,
   ]);
 
   const toggleSidebar = () => {
@@ -1191,8 +1199,12 @@ export function WishlistMyBoardScreen({
     }
 
     const slotIndexApi = idx0 + 1;
+    const apiSlug = routeBoardSlug.trim();
+    if (!apiSlug) {
+      return;
+    }
 
-    let patchBody: Parameters<typeof patchMyWishItem>[1];
+    let patchBody: Parameters<typeof patchMyWishItem>[2];
     let nextIconKeyForLocal: string;
 
     if (giftModalSpecial === "present") {
@@ -1220,7 +1232,7 @@ export function WishlistMyBoardScreen({
     setGiftModalSaveError(null);
 
     try {
-      await patchMyWishItem(slotIndexApi, patchBody);
+      await patchMyWishItem(apiSlug, slotIndexApi, patchBody);
 
       try {
         await reloadMyBoardFromApi();
@@ -1273,8 +1285,14 @@ export function WishlistMyBoardScreen({
     setGiftModalDeleting(true);
     setGiftModalSaveError(null);
 
+    const apiSlugReset = routeBoardSlug.trim();
+    if (!apiSlugReset) {
+      setGiftModalDeleting(false);
+      return;
+    }
+
     try {
-      await deleteMyWishItem(giftModalSlotIndex + 1);
+      await deleteMyWishItem(apiSlugReset, giftModalSlotIndex + 1);
       const board = await reloadMyBoardFromApi();
       const derived = deriveWishSlotState(board.data.items);
       if (derived.allWishSlotsEmpty) {

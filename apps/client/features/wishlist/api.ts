@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api/client";
 import type {
+  BoardAssetData,
   CommentCreateData,
   CommentListData,
   MyBoardData,
@@ -7,7 +8,17 @@ import type {
   MyLatestBoardSummaryPayload,
   MyWishItemsData,
   PublicBoardData,
+  WishItemData,
 } from "./types";
+
+function encodeBoardSlug(slug: string): string {
+  return encodeURIComponent(slug.trim());
+}
+
+/** `/api/boards/{slug}/…` 경로 접두사 */
+function boardsApi(slug: string, path: string): string {
+  return `/api/boards/${encodeBoardSlug(slug)}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 function isWishBoardFullPayload(d: unknown): d is MyBoardData["data"] {
   if (!d || typeof d !== "object") return false;
@@ -71,13 +82,39 @@ function parseBoardsMeEnvelope(raw: unknown): {
   return { summary: null, fullWishBoard: null };
 }
 
+function wishBoardListRowToMyData(row: unknown): MyBoardData["data"] | null {
+  if (!row || typeof row !== "object") return null;
+  const o = row as Record<string, unknown>;
+  const boardSlug = typeof o.boardSlug === "string" ? o.boardSlug.trim() : "";
+  if (!boardSlug || !Array.isArray(o.items) || !Array.isArray(o.assets)) {
+    return null;
+  }
+  const targetRaw = o.targetDate;
+  const targetDate =
+    targetRaw == null || targetRaw === ""
+      ? ""
+      : typeof targetRaw === "string"
+        ? targetRaw
+        : String(targetRaw);
+  return {
+    boardSlug,
+    isPublic: Boolean(o.isPublic),
+    targetDate,
+    items: o.items as WishItemData[],
+    assets: o.assets as BoardAssetData[],
+  };
+}
+
 /**
  * `GET /api/boards/me` — 최신 1건 메타.
  * 구 서버(풀 위시보드만)면 요약을 합성해 반환. 없거나 형식 불명이면 null.
  */
 export async function getMyLatestBoardSummary(): Promise<MyLatestBoardSummaryPayload | null> {
   try {
-    const raw = await apiClient<unknown>("/api/boards/me");
+    /** 보드 없음 404 등은 호출부에서 null 처리 — 콘솔 API 요청 실패 로그 생략 */
+    const raw = await apiClient<unknown>("/api/boards/me", undefined, {
+      silentFailure: true,
+    });
     const { summary } = parseBoardsMeEnvelope(raw);
     return summary?.slug ? summary : null;
   } catch {
@@ -86,8 +123,9 @@ export async function getMyLatestBoardSummary(): Promise<MyLatestBoardSummaryPay
 }
 
 /**
- * 편집용 풀 위시보드. `GET /api/boards/me/detail?slug=` 우선, 없으면 구 `GET /api/boards/me`가
- * 동일 슬러그의 풀 응답일 때만 사용.
+ * 편집용 풀 위시보드.
+ * - 소유 보드: `GET /api/boards/me/list`에서 해당 `boardSlug` 행 사용.
+ * - 보조: 공개 보드만 `GET /api/boards/{slug}`(비공개 소유 보드는 목록으로만 로드).
  */
 export async function getMyWishBoardDetail(boardSlug: string): Promise<MyBoardData> {
   const slug = boardSlug.trim();
@@ -95,22 +133,38 @@ export async function getMyWishBoardDetail(boardSlug: string): Promise<MyBoardDa
     throw new Error("boardSlug가 비어 있습니다.");
   }
 
-  const detailPath = `/api/boards/me/detail?slug=${encodeURIComponent(slug)}`;
-
   try {
-    const raw = await apiClient<unknown>(detailPath);
-    const { fullWishBoard } = parseBoardsMeEnvelope(raw);
-    if (fullWishBoard) {
-      return fullWishBoard;
+    const raw = await apiClient<unknown>("/api/boards/me/list", undefined, {
+      silentFailure: true,
+    });
+    const data = (raw as { data?: unknown }).data;
+    if (Array.isArray(data)) {
+      for (const row of data) {
+        const parsed = wishBoardListRowToMyData(row);
+        if (parsed && parsed.boardSlug === slug) {
+          return { data: parsed };
+        }
+      }
     }
   } catch {
-    /* detail 미구축·404 */
+    /* ignore */
   }
 
   try {
-    const raw = await apiClient<unknown>("/api/boards/me");
+    const raw = await apiClient<unknown>(`/api/boards/${encodeBoardSlug(slug)}`, undefined, {
+      silentFailure: true,
+    });
     const { fullWishBoard } = parseBoardsMeEnvelope(raw);
-    if (fullWishBoard && fullWishBoard.data.boardSlug.trim() === slug) {
+    if (fullWishBoard) {
+      const d = fullWishBoard.data;
+      if (d.isPublic === undefined) {
+        return {
+          data: {
+            ...d,
+            isPublic: true,
+          },
+        };
+      }
       return fullWishBoard;
     }
   } catch {
@@ -124,6 +178,84 @@ export async function getMyWishBoardDetail(boardSlug: string): Promise<MyBoardDa
 export async function getMyBoardsAll(): Promise<MyBoardsAllApiResponse> {
   return apiClient<MyBoardsAllApiResponse>("/api/me/boards-all", {
     method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+/** PATCH /api/boards/{slug} — 보낸 필드만 갱신 */
+export async function patchWishBoard(
+  slug: string,
+  patch: Partial<{ title: string | null; isPublic: boolean; targetDate: string | null }>,
+): Promise<void> {
+  const payload: Record<string, unknown> = {};
+  if ("title" in patch) payload.title = patch.title;
+  if ("isPublic" in patch) payload.isPublic = patch.isPublic;
+  if ("targetDate" in patch) {
+    const td = patch.targetDate;
+    payload.targetDate =
+      td === null || td === undefined || String(td).trim() === ""
+        ? null
+        : String(td).trim().slice(0, 10);
+  }
+  if (Object.keys(payload).length === 0) return;
+
+  await apiClient(`/api/boards/${encodeBoardSlug(slug)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** PATCH /api/rolling-papers/{slug} — 보낸 필드만 갱신 */
+export async function patchRollingPaper(
+  slug: string,
+  patch: Partial<{
+    title: string;
+    recipientName: string;
+    targetDate: string | null;
+    imageKey: string | null;
+  }>,
+): Promise<void> {
+  const payload: Record<string, unknown> = {};
+  if ("title" in patch) payload.title = patch.title;
+  if ("recipientName" in patch) payload.recipientName = patch.recipientName;
+  if ("targetDate" in patch) {
+    const td = patch.targetDate;
+    payload.targetDate =
+      td === null || td === undefined || String(td).trim() === ""
+        ? null
+        : String(td).trim().slice(0, 10);
+  }
+  if ("imageKey" in patch) payload.imageKey = patch.imageKey;
+  if (Object.keys(payload).length === 0) return;
+
+  await apiClient(`/api/rolling-papers/${encodeBoardSlug(slug)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** DELETE /api/boards/{slug} — 소유자만 */
+export async function deleteWishBoard(slug: string): Promise<void> {
+  await apiClient(`/api/boards/${encodeBoardSlug(slug)}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+/** DELETE /api/rolling-papers/{slug} — 소유자만 */
+export async function deleteRollingPaper(slug: string): Promise<void> {
+  await apiClient(`/api/rolling-papers/${encodeBoardSlug(slug)}`, {
+    method: "DELETE",
     headers: {
       "Content-Type": "application/json",
     },
@@ -227,9 +359,9 @@ export async function createRollingPaper(
   });
 }
 
-/** GET /api/boards/me/items — CHILD, 슬롯 3개 고정 */
-export async function getMyWishItems(): Promise<MyWishItemsData> {
-  return apiClient<MyWishItemsData>("/api/boards/me/items", {
+/** GET /api/boards/{slug}/items — 소유자, 슬롯 3개 고정 */
+export async function getMyWishItems(boardSlug: string): Promise<MyWishItemsData> {
+  return apiClient<MyWishItemsData>(boardsApi(boardSlug, "/items"), {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -254,13 +386,14 @@ export type PutMyBoardStickerSlotResponse = {
   message: string;
 };
 
-/** PUT /api/boards/me/assets/stickers/:slotIndex — 스티커 슬롯 1~6 */
+/** PUT /api/boards/{slug}/assets/stickers/:slotIndex — 스티커 슬롯 1~6 */
 export async function putMyBoardStickerSlot(
+  boardSlug: string,
   slotIndex: number,
   assetKey: string,
 ): Promise<PutMyBoardStickerSlotResponse> {
   return apiClient<PutMyBoardStickerSlotResponse>(
-    `/api/boards/me/assets/stickers/${slotIndex}`,
+    boardsApi(boardSlug, `/assets/stickers/${slotIndex}`),
     {
       method: "PUT",
       body: JSON.stringify({ assetKey: assetKey.trim() }),
@@ -273,12 +406,13 @@ export type DeleteMyBoardStickerSlotResponse = {
   message: string;
 };
 
-/** DELETE /api/boards/me/assets/stickers/:slotIndex — 해당 슬롯 스티커 제거 */
+/** DELETE /api/boards/{slug}/assets/stickers/:slotIndex — 해당 슬롯 스티커 제거 */
 export async function deleteMyBoardStickerSlot(
+  boardSlug: string,
   slotIndex: number,
 ): Promise<DeleteMyBoardStickerSlotResponse> {
   return apiClient<DeleteMyBoardStickerSlotResponse>(
-    `/api/boards/me/assets/stickers/${slotIndex}`,
+    boardsApi(boardSlug, `/assets/stickers/${slotIndex}`),
     {
       method: "DELETE",
       headers: {
@@ -293,11 +427,12 @@ export type PutMyBoardBackgroundResponse = {
   message: string;
 };
 
-/** PUT /api/boards/me/assets/background — 보드 배경 설정 */
+/** PUT /api/boards/{slug}/assets/background — 보드 배경 설정 */
 export async function putMyBoardBackground(
+  boardSlug: string,
   assetKey: string,
 ): Promise<PutMyBoardBackgroundResponse> {
-  return apiClient<PutMyBoardBackgroundResponse>("/api/boards/me/assets/background", {
+  return apiClient<PutMyBoardBackgroundResponse>(boardsApi(boardSlug, "/assets/background"), {
     method: "PUT",
     body: JSON.stringify({ assetKey: assetKey.trim() }),
   });
@@ -308,9 +443,11 @@ export type DeleteMyBoardBackgroundResponse = {
   message: string;
 };
 
-/** DELETE /api/boards/me/assets/background — 보드 배경 제거 */
-export async function deleteMyBoardBackground(): Promise<DeleteMyBoardBackgroundResponse> {
-  return apiClient<DeleteMyBoardBackgroundResponse>("/api/boards/me/assets/background", {
+/** DELETE /api/boards/{slug}/assets/background — 보드 배경 제거 */
+export async function deleteMyBoardBackground(
+  boardSlug: string,
+): Promise<DeleteMyBoardBackgroundResponse> {
+  return apiClient<DeleteMyBoardBackgroundResponse>(boardsApi(boardSlug, "/assets/background"), {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
@@ -318,8 +455,9 @@ export async function deleteMyBoardBackground(): Promise<DeleteMyBoardBackground
   });
 }
 
-/** PATCH /api/boards/me/items/:slotIndex — CHILD, slotIndex 1~3 */
+/** PATCH /api/boards/{slug}/items/:slotIndex — 소유자, slotIndex 1~3 */
 export async function patchMyWishItem(
+  boardSlug: string,
   slotIndex: number,
   body: PatchMyWishItemBody,
 ): Promise<PatchMyWishItemResponse> {
@@ -332,7 +470,7 @@ export async function patchMyWishItem(
     payload.iconKey = body.iconKey.trim();
   }
 
-  return apiClient<PatchMyWishItemResponse>(`/api/boards/me/items/${slotIndex}`, {
+  return apiClient<PatchMyWishItemResponse>(boardsApi(boardSlug, `/items/${slotIndex}`), {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
@@ -343,9 +481,12 @@ export type DeleteMyWishItemResponse = {
   message: string;
 };
 
-/** DELETE /api/boards/me/items/:slotIndex — CHILD, 슬롯 비우기 (slotIndex 1~3) */
-export async function deleteMyWishItem(slotIndex: number): Promise<DeleteMyWishItemResponse> {
-  return apiClient<DeleteMyWishItemResponse>(`/api/boards/me/items/${slotIndex}`, {
+/** DELETE /api/boards/{slug}/items/:slotIndex — 소유자, 슬롯 비우기 (slotIndex 1~3) */
+export async function deleteMyWishItem(
+  boardSlug: string,
+  slotIndex: number,
+): Promise<DeleteMyWishItemResponse> {
+  return apiClient<DeleteMyWishItemResponse>(boardsApi(boardSlug, `/items/${slotIndex}`), {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",

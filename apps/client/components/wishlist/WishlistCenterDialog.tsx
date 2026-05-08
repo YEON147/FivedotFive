@@ -31,8 +31,9 @@ type WishlistCenterDialogProps = {
   /**
    * `static` 전용 — 햄버거 메뉴(z-101)보다 위에 띄울 때.
    * 기본은 딤 z-40 · 패널 z-41.
+   * `aboveDialogs` — 다른 중앙 모달(예: 목록) 위에 편집 모달을 겹칠 때.
    */
-  staticStack?: "default" | "aboveMenu";
+  staticStack?: "default" | "aboveMenu" | "aboveDialogs";
 };
 
 function DialogChrome({
@@ -98,8 +99,10 @@ export function WishlistCenterDialog({
 }: WishlistCenterDialogProps) {
   const panelBg = panelTone === "aurora" ? PANEL_BG_AURORA : PANEL_BG_DEFAULT;
   const panelClassName = `${PANEL_SHELL} ${panelBg}`;
-  const staticBackdropZ = staticStack === "aboveMenu" ? "z-[110]" : "z-[40]";
-  const staticPanelZ = staticStack === "aboveMenu" ? "z-[111]" : "z-[41]";
+  const staticBackdropZ =
+    staticStack === "aboveDialogs" ? "z-[120]" : staticStack === "aboveMenu" ? "z-[110]" : "z-[40]";
+  const staticPanelZ =
+    staticStack === "aboveDialogs" ? "z-[121]" : staticStack === "aboveMenu" ? "z-[111]" : "z-[41]";
 
   if (variant === "static") {
     if (!open) {

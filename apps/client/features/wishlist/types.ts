@@ -65,7 +65,7 @@ export type MyBoardData = {
   };
 };
 
-/** GET /api/boards/me/items — `ApiResponse.data`(내부 `WishItemListResponse`) */
+/** GET /api/boards/{slug}/items — `ApiResponse.data`(내부 `WishItemListResponse`) */
 export type MyWishItemsData = {
   success?: boolean;
   message?: string;
@@ -100,6 +100,13 @@ export type MyBoardListEntry = {
   slug: string;
   title: string | null;
   createdAt: string;
+  /** yyyy-MM-dd 또는 미포함 */
+  targetDate?: string | null;
+  /** 위시보드 전용 */
+  isPublic?: boolean | null;
+  /** 롤링페이퍼 전용 */
+  recipientName?: string | null;
+  imageKey?: string | null;
 };
 
 export type MyBoardsAllApiResponse = {

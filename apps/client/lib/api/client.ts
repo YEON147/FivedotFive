@@ -246,9 +246,15 @@ async function requestWithAuth(
   return response;
 }
 
+/** `silentFailure`: 응답 실패 시 devError 생략 — 404 등 ‘없음’이 정상인 호출용 */
+export type ApiClientOptions = {
+  silentFailure?: boolean;
+};
+
 export async function apiClient<T>(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: RequestInit,
+  options?: ApiClientOptions,
 ): Promise<T> {
   const response = await requestWithAuth(input, init);
 
@@ -262,14 +268,16 @@ export async function apiClient<T>(
   }
 
   if (!response.ok) {
-    devError("API 요청 실패", {
-      url: typeof input === "string" ? input : input.toString(),
-      method: init?.method ?? "GET",
-      status: response.status,
-      statusText: response.statusText,
-      requestBody: describeRequestBodyForLog(init?.body),
-      responseBody: summarizeResponseBodyForLog(rawText),
-    });
+    if (!options?.silentFailure) {
+      devError("API 요청 실패", {
+        url: typeof input === "string" ? input : input.toString(),
+        method: init?.method ?? "GET",
+        status: response.status,
+        statusText: response.statusText,
+        requestBody: describeRequestBodyForLog(init?.body),
+        responseBody: summarizeResponseBodyForLog(rawText),
+      });
+    }
 
     const message =
       (data as ApiMessage | null)?.message ??
