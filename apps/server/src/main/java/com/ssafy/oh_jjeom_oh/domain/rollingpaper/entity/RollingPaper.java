@@ -35,7 +35,7 @@ public class RollingPaper {
     @Column(nullable = false, length = 100)
     private String slug;                                    // 공개 URL 슬러그
 
-    @Column(nullable = false, length = 200)
+    @Column(nullable = false, length = 8)
     private String title;                                   // 롤링페이퍼 제목
 
     @Column(name = "recipient_name", nullable = false, length = 100)
@@ -46,6 +46,10 @@ public class RollingPaper {
 
     @Column(name = "target_date", nullable = false)
     private LocalDate targetDate;                           // 댓글 공개 기준일
+
+    @Column(name = "is_comment_public", nullable = false)
+    @Builder.Default
+    private Boolean isCommentPublic = false;                // true = targetDate 이전에도 댓글 즉시 공개
 
     @Column(name = "comment_token", length = 100)
     private String commentToken;                            // 댓글 작성용 공유 링크 토큰 (복사본은 NULL)
@@ -89,6 +93,10 @@ public class RollingPaper {
 
     public void updateImageKey(String imageKey) {
         this.imageKey = imageKey;
+    }
+
+    public void updateIsCommentPublic(boolean isCommentPublic) {
+        this.isCommentPublic = isCommentPublic;
     }
 
     public void softDelete() {

@@ -1,6 +1,7 @@
 package com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import lombok.Getter;
 
@@ -24,9 +25,12 @@ public class RollingPaperDetailResponse {
     private final LocalDate targetDate;
     private final LocalDateTime createdAt;
 
+    @JsonProperty("isOwner")
     private final boolean isOwner;
     private final boolean canComment;
     private final boolean canSave;
+    @JsonProperty("isCommentPublic")
+    private final boolean isCommentPublic;
 
     private final String commentToken;  // null if not owner
     private final String viewToken;     // null if not owner
@@ -34,6 +38,7 @@ public class RollingPaperDetailResponse {
     private RollingPaperDetailResponse(String slug, String title, String recipientName,
                                         String imageKey, LocalDate targetDate, LocalDateTime createdAt,
                                         boolean isOwner, boolean canComment, boolean canSave,
+                                        boolean isCommentPublic,
                                         String commentToken, String viewToken) {
         this.slug = slug;
         this.title = title;
@@ -44,6 +49,7 @@ public class RollingPaperDetailResponse {
         this.isOwner = isOwner;
         this.canComment = canComment;
         this.canSave = canSave;
+        this.isCommentPublic = isCommentPublic;
         this.commentToken = commentToken;
         this.viewToken = viewToken;
     }
@@ -62,6 +68,7 @@ public class RollingPaperDetailResponse {
                 isOwner,
                 canComment,
                 canSave,
+                paper.getIsCommentPublic(),
                 isOwner ? paper.getCommentToken() : null,
                 isOwner ? paper.getViewToken() : null
         );
