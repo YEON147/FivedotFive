@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 public record RollingPaperCreateRequest(
         @NotBlank @Size(max = 8, message = "롤링페이퍼 제목은 최대 8자까지 입력 가능합니다.") String title,
-        @NotBlank @Size(max = 100) String recipientName,
+        @Size(max = 100) String recipientName,
         String imageKey,
         @NotNull LocalDate targetDate,
         Boolean isCommentPublic

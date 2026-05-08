@@ -84,7 +84,7 @@ class WishBoardServiceStage3Test {
         void updateTitle_success() {
             given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
 
-            WishBoardUpdateRequest req = new WishBoardUpdateRequest("새 제목", null, null);
+            WishBoardUpdateRequest req = new WishBoardUpdateRequest("새 제목", null, null, null);
             wishBoardService.updateBoard(1L, "slug0000ab", req);
 
             assertThat(board.getTitle()).isEqualTo("새 제목");
@@ -95,7 +95,7 @@ class WishBoardServiceStage3Test {
         void updateIsPublic_success() {
             given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
 
-            WishBoardUpdateRequest req = new WishBoardUpdateRequest(null, false, null);
+            WishBoardUpdateRequest req = new WishBoardUpdateRequest(null, false, null, null);
             wishBoardService.updateBoard(1L, "slug0000ab", req);
 
             assertThat(board.getIsPublic()).isFalse();
@@ -107,7 +107,7 @@ class WishBoardServiceStage3Test {
             given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
 
             LocalDate newDate = LocalDate.of(2027, 1, 1);
-            WishBoardUpdateRequest req = new WishBoardUpdateRequest(null, null, newDate);
+            WishBoardUpdateRequest req = new WishBoardUpdateRequest(null, null, newDate, null);
             wishBoardService.updateBoard(1L, "slug0000ab", req);
 
             assertThat(board.getTargetDate()).isEqualTo(newDate);
@@ -118,7 +118,7 @@ class WishBoardServiceStage3Test {
         void updateBoard_notFound() {
             given(wishBoardRepository.findByBoardSlug(any())).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> wishBoardService.updateBoard(1L, "noexist", new WishBoardUpdateRequest(null, null, null)))
+            assertThatThrownBy(() -> wishBoardService.updateBoard(1L, "noexist", new WishBoardUpdateRequest(null, null, null, null)))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                             .isEqualTo(ErrorCode.BOARD_SLUG_NOT_FOUND));
@@ -129,7 +129,7 @@ class WishBoardServiceStage3Test {
         void updateBoard_forbidden() {
             given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
 
-            assertThatThrownBy(() -> wishBoardService.updateBoard(2L, "slug0000ab", new WishBoardUpdateRequest("x", null, null)))
+            assertThatThrownBy(() -> wishBoardService.updateBoard(2L, "slug0000ab", new WishBoardUpdateRequest("x", null, null, null)))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                             .isEqualTo(ErrorCode.BOARD_FORBIDDEN));

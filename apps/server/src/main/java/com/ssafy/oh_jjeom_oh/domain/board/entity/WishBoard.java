@@ -39,6 +39,10 @@ public class WishBoard {
     @Builder.Default
     private LocalDate targetDate = LocalDate.of(2026, 5, 5);
 
+    @Column(name = "is_comment_public", nullable = false)
+    @Builder.Default
+    private Boolean isCommentPublic = false;                // true = targetDate 이전에도 댓글 즉시 공개
+
     @Column(name = "is_saved_copy", nullable = false)
     @Builder.Default
     private Boolean isSavedCopy = false;
@@ -72,6 +76,10 @@ public class WishBoard {
 
     public void updateTargetDate(LocalDate targetDate) {
         this.targetDate = targetDate;
+    }
+
+    public void updateIsCommentPublic(boolean isCommentPublic) {
+        this.isCommentPublic = isCommentPublic;
     }
 
     public void softDelete() {
