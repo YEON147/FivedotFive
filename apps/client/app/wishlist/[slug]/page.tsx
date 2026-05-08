@@ -42,7 +42,11 @@ import {
   getPublicBoard,
   updateComment,
 } from "@/features/wishlist/api";
-import { resolveBoardBackgroundImageUrl } from "@/features/wishlist/board-background";
+import {
+  resolveBoardBackgroundAssetKey,
+  resolveBoardBackgroundImageUrl,
+} from "@/features/wishlist/board-background";
+import { getAssetImageUrl } from "@/lib/asset-url";
 import {
   computeCommentSheetCount,
   normalizeCommentsToSlotGrid,
@@ -72,7 +76,6 @@ import {
   clearAccessToken,
   getAccessToken,
 } from "@/lib/api/token-store";
-import { getAssetImageUrl } from "@/lib/asset-url";
 import {
   PAGE_HEADER_BACK_BUTTON,
   PAGE_HEADER_LEADING_CLUSTER,
@@ -438,6 +441,8 @@ export default function PublicWishlistPage({
 
   const [boardItems, setBoardItems] = useState<WishItemData[]>([]);
   const [boardAssets, setBoardAssets] = useState<BoardAssetData[]>([]);
+  /** 내 보드 + 배경 시트 열림 — 저장 전 미리보기 키(`null`이면 `boardAssets`만 사용) */
+  const [embeddedBgDraftKey, setEmbeddedBgDraftKey] = useState<string | null>(null);
   const [ownerName, setOwnerName] = useState("");
 
   const [commentCache, setCommentCache] = useState<Record<number, (CommentData | null)[]>>({});
@@ -560,6 +565,12 @@ export default function PublicWishlistPage({
     return myBoardSlug === slug.trim();
   }, [visitorMenuLoggedIn, myBoardSlug, slug]);
 
+  useEffect(() => {
+    if (!isViewingOwnBoard) {
+      setEmbeddedBgDraftKey(null);
+    }
+  }, [isViewingOwnBoard]);
+
   /**
    * 타인 보드에서만 빈 댓글 칸 표시.
    * 내 보드 여부는 `getMyBoard` 후에만 확정되므로, 슬러그 로딩 중(`undefined`)에는
@@ -585,6 +596,19 @@ export default function PublicWishlistPage({
       })
       .catch(() => {});
   }, [slug]);
+
+  /** 내 보드 에디터가 GET /boards/me 반영 시 — 카드 배경 레이어는 부모 상태라 동기화 필요 */
+  const handleEmbeddedBoardSynced = useCallback(
+    (payload: { assets: BoardAssetData[]; items: WishItemData[] }) => {
+      setBoardAssets(payload.assets);
+      setBoardItems(payload.items);
+    },
+    [],
+  );
+
+  const handleEmbeddedBackgroundDraftKeyChange = useCallback((key: string | null) => {
+    setEmbeddedBgDraftKey(key);
+  }, []);
 
   const handleVisitorMenuClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -959,10 +983,22 @@ export default function PublicWishlistPage({
     handleClosePopup();
   };
 
-  const boardBackgroundUrl = useMemo(
-    () => resolveBoardBackgroundImageUrl(boardAssets),
-    [boardAssets],
-  );
+  const boardBackgroundUrl = useMemo(() => {
+    if (embeddedBgDraftKey !== null) {
+      if (embeddedBgDraftKey === "") {
+        return null;
+      }
+      return getAssetImageUrl(embeddedBgDraftKey);
+    }
+    return resolveBoardBackgroundImageUrl(boardAssets);
+  }, [embeddedBgDraftKey, boardAssets]);
+
+  const boardBackgroundAssetKey = useMemo(() => {
+    if (embeddedBgDraftKey !== null) {
+      return embeddedBgDraftKey === "" ? "default" : embeddedBgDraftKey;
+    }
+    return resolveBoardBackgroundAssetKey(boardAssets);
+  }, [embeddedBgDraftKey, boardAssets]);
 
   return (
     <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col overflow-visible px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
@@ -986,6 +1022,7 @@ export default function PublicWishlistPage({
                   <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
                     {shouldUseNativeImg(boardBackgroundUrl) ? (
                       <img
+                        key={boardBackgroundAssetKey || "default"}
                         src={boardBackgroundUrl}
                         alt=""
                         className="h-full w-full object-cover"
@@ -993,6 +1030,7 @@ export default function PublicWishlistPage({
                       />
                     ) : (
                       <Image
+                        key={boardBackgroundAssetKey || "default"}
                         src={boardBackgroundUrl}
                         alt=""
                         fill
@@ -1026,6 +1064,10 @@ export default function PublicWishlistPage({
                           omitInnerTitleHeader
                           onCarouselInteractionLockChange={setEditorCarouselLocked}
                           embeddedCarouselVisualPage={currentVisualPage}
+                          onEmbeddedBoardSynced={handleEmbeddedBoardSynced}
+                          onEmbeddedBackgroundDraftKeyChange={
+                            handleEmbeddedBackgroundDraftKeyChange
+                          }
                         />
                       ) : (
                         <MainBoardPage
@@ -1169,12 +1211,7 @@ export default function PublicWishlistPage({
           open={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           onLogout={handleVisitorLogout}
-          isOnMyWishlistEditorPage={isViewingOwnBoard}
-          publicWishlistHref={
-            isViewingOwnBoard && slug.trim()
-              ? `/wishlist/${encodeURIComponent(slug.trim())}`
-              : null
-          }
+          hideMyWishlistShortcut={isViewingOwnBoard}
         />
       ) : (
         <PublicWishlistVisitorMenu

@@ -34,6 +34,10 @@ import {
   GIFT_ICON_GRID_FIRST_SCREEN_CATALOG_COUNT,
   STICKER_GRID_FIRST_SCREEN_STICKER_COUNT,
 } from "@/components/wishlist/sticker-sheet-layout";
+import {
+  UI_FOCUS_OUTLINE_VISIBLE,
+  UI_FOCUS_RING_INSET_VISIBLE,
+} from "@/components/ui/focus-ring";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
@@ -94,8 +98,13 @@ import {
 } from "@/lib/wishlist-asset-session-cache";
 import {
   GIFT_ICON_CATEGORY_LABELS,
+  GIFT_ICON_TRAVEL_LEGACY_TAB_ID,
+  GIFT_ICON_TRAVEL_REGION_IDS,
+  GIFT_ICON_TRAVEL_REGION_LABELS,
   giftIconCategoryFromAssetKey,
+  giftIconTravelRegionFromAssetKey,
   type GiftIconCategoryId,
+  type GiftIconTravelSubTabId,
 } from "@/lib/gift-icon-category";
 
 export type WishlistMyBoardScreenProps = {
@@ -107,6 +116,19 @@ export type WishlistMyBoardScreenProps = {
   onCarouselInteractionLockChange?: (locked: boolean) => void;
   /** 부모 캐러셀에서 현재 보이는 페이지(0=위시). 댓글 면으로 넘어가면 플로팅 버튼 흐림 */
   embeddedCarouselVisualPage?: number;
+  /**
+   * 슬러그 공개 페이지에서 임베드할 때 — 카드 배경·댓글 면은 부모가 `boardAssets`/`items`를 들고 있음.
+   * 자식에서 GET /boards/me 반영 시 부모 상태도 같이 맞춰야 배경이 즉시 바뀜.
+   */
+  onEmbeddedBoardSynced?: (payload: {
+    assets: BoardAssetData[];
+    items: WishItemData[];
+  }) => void;
+  /**
+   * 슬러그 임베드 시 카드 배경은 부모가 그림 — 배경 시트가 열린 동안 선택값을 같은 규칙으로 미리보기.
+   * `null`이면 시트 닫힘·저장 상태만 반영, 문자열은 시트 중 선택(빈 문자열=기본 배경).
+   */
+  onEmbeddedBackgroundDraftKeyChange?: (assetKey: string | null) => void;
 };
 
 type GiftModalSpecial = "present" | null;
@@ -135,15 +157,26 @@ const FALLBACK_STICKER_FOLDER_IDS: readonly string[] = [
   "toy",
 ];
 
+/** PUT/DELETE 직후 화면에 바로 반영 — 재조회 타이밍·`<Image>` 캐시로 배경이 늦게 바뀌는 현상 완화 */
+function boardAssetsWithBackgroundKey(
+  assets: BoardAssetData[],
+  backgroundKey: string,
+): BoardAssetData[] {
+  const rest = assets.filter((a) => a.assetType !== "BACKGROUND");
+  const trimmed = backgroundKey.trim();
+  if (!trimmed) return rest;
+  return [...rest, { assetType: "BACKGROUND", assetKey: trimmed, slotIndex: null }];
+}
+
 type StickerModalTabId = string;
 
 /** 선물 아이콘 S3 카테고리(`icons/{id}/…`) — 스티커 탭과 동일한 pill UI */
 const GIFT_ICON_MODAL_TABS = [
+  { id: "travel", label: GIFT_ICON_CATEGORY_LABELS.travel },
   { id: "food", label: GIFT_ICON_CATEGORY_LABELS.food },
   { id: "kpop", label: GIFT_ICON_CATEGORY_LABELS.kpop },
   { id: "hobby", label: GIFT_ICON_CATEGORY_LABELS.hobby },
   { id: "life", label: GIFT_ICON_CATEGORY_LABELS.life },
-  { id: "travel", label: GIFT_ICON_CATEGORY_LABELS.travel },
   { id: "baseball", label: GIFT_ICON_CATEGORY_LABELS.baseball },
 ] as const;
 
@@ -222,7 +255,7 @@ function DefaultOptionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex items-center justify-center overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-500 transition hover:border-slate-400 disabled:opacity-50 ${className}`}
+      className={`flex items-center justify-center overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-500 transition hover:border-slate-400 disabled:opacity-50 ${UI_FOCUS_RING_INSET_VISIBLE} ${className}`}
       aria-label={`${label} option`}
     >
       <span className="text-xl font-semibold leading-none">×</span>
@@ -315,6 +348,8 @@ export function WishlistMyBoardScreen({
   omitInnerTitleHeader = false,
   onCarouselInteractionLockChange,
   embeddedCarouselVisualPage,
+  onEmbeddedBoardSynced,
+  onEmbeddedBackgroundDraftKeyChange,
 }: WishlistMyBoardScreenProps = {}) {
   const router = useRouter();
   const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(
@@ -335,7 +370,10 @@ export function WishlistMyBoardScreen({
   const [giftIconsLoading, setGiftIconsLoading] = useState(false);
   const [giftIconsError, setGiftIconsError] = useState<string | null>(null);
   const [giftIconModalTab, setGiftIconModalTab] =
-    useState<GiftIconModalTabId>("food");
+    useState<GiftIconModalTabId>("travel");
+  /** 여행 카테고리 선택 시 — 도시별 서브탭 */
+  const [giftIconTravelSubTab, setGiftIconTravelSubTab] =
+    useState<GiftIconTravelSubTabId>("busan");
   const [giftModalSaving, setGiftModalSaving] = useState(false);
   const [giftModalDeleting, setGiftModalDeleting] = useState(false);
   const [giftModalSaveError, setGiftModalSaveError] = useState<string | null>(null);
@@ -394,23 +432,34 @@ export function WishlistMyBoardScreen({
   const stickerTabStripScroll = useMouseDragHorizontalScroll();
   const backgroundPickerStripScroll = useMouseDragHorizontalScroll();
   const giftIconTabStripScroll = useMouseDragHorizontalScroll();
+  const giftTravelTabStripScroll = useMouseDragHorizontalScroll();
   /** 선물 수정 모달: 목록 최초 로드 시에만 프리셋 여부 동기화(재선택 덮어쓰기 방지) */
   const giftEditPresetSyncRef = useRef<{ slot: number; done: boolean }>({
     slot: -1,
     done: false,
   });
+  /** 슬러그 임베드 + 배경 낙관적 반영 시 부모에 넘길 `items`(직전 GET 기준) */
+  const lastLoadedWishItemsRef = useRef<WishItemData[]>([]);
 
-  const applyLoadedBoard = useCallback((board: MyBoardData) => {
-    const { items, assets, boardSlug } = board.data;
-    setBoardSlug(boardSlug);
-    setBoardAssets(assets);
+  const applyLoadedBoard = useCallback(
+    (board: MyBoardData) => {
+      const { items, assets, boardSlug } = board.data;
+      lastLoadedWishItemsRef.current = items;
+      setBoardSlug(boardSlug);
+      setBoardAssets(assets);
 
-    const derived = deriveWishSlotState(items);
-    setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
-    setWishTexts(derived.wishTexts);
-    setWishGiftIconKeys(derived.wishGiftIconKeys);
-    setBigCircleCount(derived.bigCircleCount);
-  }, []);
+      const derived = deriveWishSlotState(items);
+      setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
+      setWishTexts(derived.wishTexts);
+      setWishGiftIconKeys(derived.wishGiftIconKeys);
+      setBigCircleCount(derived.bigCircleCount);
+
+      if (embeddedInSlugCarousel && onEmbeddedBoardSynced) {
+        onEmbeddedBoardSynced({ assets, items });
+      }
+    },
+    [embeddedInSlugCarousel, onEmbeddedBoardSynced],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -683,7 +732,7 @@ export function WishlistMyBoardScreen({
           setGiftIconsError(
             error instanceof Error
               ? error.message
-              : "선물 아이콘을 불러오지 못했습니다.",
+              : "위시 아이콘을 불러오지 못했습니다.",
           );
         }
       } finally {
@@ -704,7 +753,8 @@ export function WishlistMyBoardScreen({
     if (!isGiftModalOpen) {
       return;
     }
-    setGiftIconModalTab("food");
+    setGiftIconModalTab("travel");
+    setGiftIconTravelSubTab("busan");
   }, [isGiftModalOpen]);
 
   useEffect(() => {
@@ -729,18 +779,81 @@ export function WishlistMyBoardScreen({
     const allowed = new Set(tabs.map((tab) => tab.id));
     const selected = giftIconModalTab;
     if (!allowed.has(selected)) {
-      return tabs[0]?.id ?? "food";
+      return tabs[0]?.id ?? "travel";
     }
     if (selected === "baseball") {
       const hasBaseball = giftIcons.some(
         (g) => giftIconCategoryFromAssetKey(g.assetKey) === "baseball",
       );
       if (!hasBaseball) {
-        return tabs[0]?.id ?? "food";
+        return tabs[0]?.id ?? "travel";
       }
     }
     return selected;
   }, [giftIconModalTab, giftIconModalTabsForUi, giftIcons]);
+
+  useEffect(() => {
+    if (giftIconModalTabEffective !== "travel") {
+      setGiftIconTravelSubTab("busan");
+    }
+  }, [giftIconModalTabEffective]);
+
+  useEffect(() => {
+    if (!isGiftModalOpen || giftIconModalTabEffective !== "travel") {
+      giftTravelTabStripScroll.detach();
+    }
+  }, [isGiftModalOpen, giftIconModalTabEffective, giftTravelTabStripScroll]);
+
+  /** 여행: 도시 서브탭 — 부산→여수 고정 순서, 루트 `icons/travel/*.png` 등만 있으면 「기타」추가 */
+  const giftIconTravelSubTabsForUi = useMemo(() => {
+    const base = GIFT_ICON_TRAVEL_REGION_IDS.map((id) => ({
+      id,
+      label: GIFT_ICON_TRAVEL_REGION_LABELS[id],
+    }));
+    const hasLegacyTravel = giftIcons.some(
+      (g) =>
+        giftIconCategoryFromAssetKey(g.assetKey) === "travel" &&
+        giftIconTravelRegionFromAssetKey(g.assetKey) === null,
+    );
+    return hasLegacyTravel
+      ? [
+          ...base,
+          {
+            id: GIFT_ICON_TRAVEL_LEGACY_TAB_ID,
+            label: "기타",
+          },
+        ]
+      : base;
+  }, [giftIcons]);
+
+  const giftIconTravelSubTabEffective = useMemo(() => {
+    if (giftIconModalTabEffective !== "travel") {
+      return giftIconTravelSubTab;
+    }
+    const allowed = new Set(
+      giftIconTravelSubTabsForUi.map((t) => t.id as GiftIconTravelSubTabId),
+    );
+    let effective = giftIconTravelSubTab;
+    if (!allowed.has(effective)) {
+      effective = "busan";
+    }
+    if (effective === GIFT_ICON_TRAVEL_LEGACY_TAB_ID) {
+      const hasLegacy = giftIcons.some(
+        (g) =>
+          giftIconCategoryFromAssetKey(g.assetKey) === "travel" &&
+          giftIconTravelRegionFromAssetKey(g.assetKey) === null,
+      );
+      if (!hasLegacy) {
+        effective = "busan";
+      }
+    }
+    return effective;
+  }, [
+    giftIconModalTabEffective,
+    giftIconTravelSubTab,
+    giftIconTravelSubTabsForUi,
+    giftIcons,
+  ]);
 
   /** 모달: 1번 칸은 고정 기본 선물, 그 다음 칸부터 API 목록 — 카테고리 미분류는 첫 탭에만 합침 */
   const filteredCatalogGiftIcons = useMemo(() => {
@@ -749,9 +862,21 @@ export function WishlistMyBoardScreen({
     const uncategorized = giftIcons.filter(
       (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === null,
     );
-    const inCategory = giftIcons.filter(
+    let inCategory = giftIcons.filter(
       (icon) => giftIconCategoryFromAssetKey(icon.assetKey) === tab,
     );
+
+    if (tab === "travel") {
+      const sub = giftIconTravelSubTabEffective;
+      inCategory = inCategory.filter((icon) => {
+        const region = giftIconTravelRegionFromAssetKey(icon.assetKey);
+        if (sub === GIFT_ICON_TRAVEL_LEGACY_TAB_ID) {
+          return region === null;
+        }
+        return region === sub;
+      });
+    }
+
     if (
       firstTabId !== undefined &&
       tab === firstTabId &&
@@ -761,7 +886,12 @@ export function WishlistMyBoardScreen({
       return [...uncategorized.filter((u) => !seen.has(u.id)), ...inCategory];
     }
     return inCategory;
-  }, [giftIcons, giftIconModalTabEffective, giftIconModalTabsForUi]);
+  }, [
+    giftIcons,
+    giftIconModalTabEffective,
+    giftIconModalTabsForUi,
+    giftIconTravelSubTabEffective,
+  ]);
 
   /** 목록 최초 로드 후 — 저장된 키가 카탈로그 첫 항목과 같으면 「기본 선물」로 표시 */
   useEffect(() => {
@@ -1007,6 +1137,16 @@ export function WishlistMyBoardScreen({
       } else {
         await putMyBoardBackground(draft);
       }
+      setBoardAssets((prev) => {
+        const next = boardAssetsWithBackgroundKey(prev, draft);
+        if (embeddedInSlugCarousel && onEmbeddedBoardSynced) {
+          onEmbeddedBoardSynced({
+            assets: next,
+            items: lastLoadedWishItemsRef.current,
+          });
+        }
+        return next;
+      });
       const board = await getMyBoard();
       applyLoadedBoard(board);
       setDraftBackgroundAssetKey(null);
@@ -1020,7 +1160,14 @@ export function WishlistMyBoardScreen({
     } finally {
       setBackgroundSaving(false);
     }
-  }, [applyLoadedBoard, boardAssets, draftBackgroundAssetKey, isCompactBackgroundOpen]);
+  }, [
+    applyLoadedBoard,
+    boardAssets,
+    draftBackgroundAssetKey,
+    embeddedInSlugCarousel,
+    isCompactBackgroundOpen,
+    onEmbeddedBoardSynced,
+  ]);
 
   const toggleSidebar = () => {
     void (async () => {
@@ -1332,6 +1479,27 @@ export function WishlistMyBoardScreen({
     return serverBackgroundAssetKey;
   }, [draftBackgroundAssetKey, serverBackgroundAssetKey]);
 
+  useEffect(() => {
+    if (!embeddedInSlugCarousel || !onEmbeddedBackgroundDraftKeyChange) {
+      return;
+    }
+    if (!isCompactBackgroundOpen) {
+      onEmbeddedBackgroundDraftKeyChange(null);
+      return;
+    }
+    const eff =
+      draftBackgroundAssetKey !== null
+        ? draftBackgroundAssetKey
+        : serverBackgroundAssetKey;
+    onEmbeddedBackgroundDraftKeyChange(eff);
+  }, [
+    embeddedInSlugCarousel,
+    onEmbeddedBackgroundDraftKeyChange,
+    isCompactBackgroundOpen,
+    draftBackgroundAssetKey,
+    serverBackgroundAssetKey,
+  ]);
+
   const boardBackgroundDisplayUrl = useMemo(() => {
     if (draftBackgroundAssetKey === null) {
       return serverBackgroundUrl;
@@ -1554,6 +1722,7 @@ export function WishlistMyBoardScreen({
                 <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
                   {shouldUseNativeImg(boardBackgroundDisplayUrl) ? (
                     <img
+                      key={effectiveBackgroundSelectionKey || "default"}
                       src={boardBackgroundDisplayUrl}
                       alt=""
                       className="h-full w-full object-cover"
@@ -1561,6 +1730,7 @@ export function WishlistMyBoardScreen({
                     />
                   ) : (
                     <Image
+                      key={effectiveBackgroundSelectionKey || "default"}
                       src={boardBackgroundDisplayUrl}
                       alt=""
                       fill
@@ -1656,7 +1826,7 @@ export function WishlistMyBoardScreen({
                         onClick={() => openGiftModalAdd()}
                         className="pointer-events-auto rounded-full border border-dashed border-[#7B61FF]/60 bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-[#7B61FF] shadow-sm backdrop-blur-sm transition hover:bg-white"
                       >
-                        + 선물 추가 ({bigCircleCount}/3)
+                        + 위시 추가 ({bigCircleCount}/3)
                       </button>
                     ) : null}
                   </div>
@@ -1729,12 +1899,12 @@ export function WishlistMyBoardScreen({
       <section
         className={`${
           embeddedInSlugCarousel ? "absolute" : "fixed"
-        } inset-x-0 bottom-0 z-[31] max-h-[min(48dvh,440px)] overflow-y-auto overscroll-y-contain rounded-t-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 pb-[max(0.5rem,var(--safe-area-bottom))] pt-3 shadow-[0_-8px_28px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-out ${
+        } inset-x-0 bottom-0 z-[31] flex max-h-[min(48dvh,440px)] flex-col overflow-hidden rounded-t-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_-8px_28px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-out ${
           isCompactBackgroundOpen ? "translate-y-0" : "translate-y-full"
         } ${!isCompactBackgroundOpen ? "pointer-events-none" : "pointer-events-auto"}`}
         aria-hidden={!isCompactBackgroundOpen}
       >
-        <div className="mx-auto w-full max-w-[372px]">
+        <div className="mx-auto min-h-0 w-full max-w-[372px] flex-1 overflow-y-auto overscroll-y-contain px-5 pb-[max(0.75rem,var(--safe-area-bottom))] pt-4">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="bg-gradient-to-r from-[#5346C9] via-[#7B61FF] to-[#5B8DEF] bg-clip-text text-[1.0625rem] font-extrabold leading-snug tracking-tight text-transparent">
@@ -1749,7 +1919,7 @@ export function WishlistMyBoardScreen({
               onClick={() => {
                 void dismissCompactBackgroundSheet();
               }}
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60"
+              className={`inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60 ${UI_FOCUS_OUTLINE_VISIBLE}`}
               aria-label="배경 선택 닫기"
             >
               <X size={20} weight="bold" aria-hidden />
@@ -1773,7 +1943,7 @@ export function WishlistMyBoardScreen({
           <div
             ref={backgroundPickerStripScroll.stripRef}
             aria-label="배경 썸네일 목록"
-            className="wishlist-background-picker-scroll mt-1 flex cursor-grab items-start gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain pb-2 select-none active:cursor-grabbing touch-pan-x"
+            className="wishlist-background-picker-scroll mt-1 flex cursor-grab items-start gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-3 pt-1 select-none active:cursor-grabbing touch-pan-x"
             onPointerDown={backgroundPickerStripScroll.onPointerDown}
           >
             <div className="flex w-24 shrink-0 flex-col gap-1.5 text-center">
@@ -1783,7 +1953,7 @@ export function WishlistMyBoardScreen({
               <DefaultOptionButton
                 className={`aspect-[3/4] w-full rounded-xl ${
                   effectiveBackgroundSelectionKey === ""
-                    ? "ring-2 ring-[#7B61FF] ring-offset-2 ring-offset-[var(--color-surface)]"
+                    ? "ring-6 ring-inset ring-[#7B61FF]"
                     : ""
                 }`}
                 label="기본 배경"
@@ -1806,16 +1976,16 @@ export function WishlistMyBoardScreen({
                   onClick={() => {
                     setDraftBackgroundAssetKey(bg.assetKey.trim());
                   }}
-                  className="group flex w-24 shrink-0 cursor-pointer flex-col gap-1.5 text-center transition hover:opacity-95 disabled:opacity-50"
+                  className="group flex w-24 shrink-0 cursor-pointer flex-col gap-1.5 text-center transition hover:opacity-95 disabled:opacity-50 rounded-xl outline-none"
                 >
-                  <p className="break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
+                  <p className="pointer-events-none break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
                     {label}
                   </p>
                   <div
-                    className={`relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-100 ring-1 transition group-hover:ring-[#7B61FF]/35 ${
+                    className={`relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-100 ring-1 ring-inset transition group-hover:ring-[#7B61FF]/35 ${
                       effectiveBackgroundSelectionKey === bg.assetKey.trim()
-                        ? "ring-2 ring-[#7B61FF] ring-offset-2 ring-offset-[var(--color-surface)]"
-                        : "ring-slate-200/80"
+                        ? "ring-2 ring-inset ring-[#7B61FF]"
+                        : "ring-slate-200/80 group-focus-visible:ring-2 group-focus-visible:ring-inset group-focus-visible:ring-[#7B61FF]"
                     }`}
                   >
                     {shouldUseNativeImg(src) ? (
@@ -1897,7 +2067,7 @@ export function WishlistMyBoardScreen({
               >
                 <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
                   <h2 id="gift-modal-title" className="text-h3 text-slate-900">
-                    {giftModalMode === "add" ? "받고싶은 선물 추가" : "선물 수정"}
+                    {giftModalMode === "add" ? "위시 수정" : "위시 수정"}
                   </h2>
                   <button
                     type="button"
@@ -1942,7 +2112,7 @@ export function WishlistMyBoardScreen({
 
                   <label className="block shrink-0">
                     <span className="flex items-baseline justify-between gap-2">
-                      <span className="text-sm font-medium text-slate-800">선물 이름</span>
+                      <span className="text-sm font-medium text-slate-800">위시 이름</span>
                       <span className="text-xs tabular-nums text-slate-400">
                         {modalGiftName.length}/{WISH_ITEM_NAME_MAX_LENGTH}
                       </span>
@@ -1961,7 +2131,7 @@ export function WishlistMyBoardScreen({
                     />
                   </label>
 
-                  <p className="mt-5 shrink-0 text-sm font-medium text-slate-800">선물 아이콘</p>
+                  <p className="mt-5 shrink-0 text-sm font-medium text-slate-800">위시 아이콘</p>
 
                   <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-inner">
                     {giftIconsLoading ? (
@@ -2004,8 +2174,51 @@ export function WishlistMyBoardScreen({
                             })}
                           </div>
                         ) : null}
+                        {giftIcons.length > 0 &&
+                        giftIconModalTabEffective === "travel" ? (
+                          <div
+                            ref={giftTravelTabStripScroll.stripRef}
+                            role="tablist"
+                            aria-label="여행 지역"
+                            className="scrollbar-x-none flex shrink-0 cursor-grab gap-1.5 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 bg-gradient-to-b from-slate-50/95 to-white px-2 pb-2 pt-2 select-none active:cursor-grabbing touch-pan-x"
+                            onPointerDown={giftTravelTabStripScroll.onPointerDown}
+                          >
+                            {giftIconTravelSubTabsForUi.map((sub) => {
+                              const active =
+                                giftIconTravelSubTabEffective === sub.id;
+                              return (
+                                <button
+                                  key={sub.id}
+                                  type="button"
+                                  role="tab"
+                                  aria-selected={active}
+                                  onClick={(clickEvent) => {
+                                    if (
+                                      giftTravelTabStripScroll.mouseDragRef
+                                        .current.dragged
+                                    ) {
+                                      clickEvent.preventDefault();
+                                      clickEvent.stopPropagation();
+                                      return;
+                                    }
+                                    setGiftIconTravelSubTab(
+                                      sub.id as GiftIconTravelSubTabId,
+                                    );
+                                  }}
+                                  className={`shrink-0 cursor-pointer rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
+                                    active
+                                      ? "border-[#7B61FF] bg-violet-50/90 text-[#5B4ADB] shadow-[0_1px_2px_rgba(91,74,219,0.12)]"
+                                      : "border-slate-200/90 bg-slate-50/80 text-slate-600 hover:border-slate-300 hover:bg-white"
+                                  }`}
+                                >
+                                  {sub.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                         <ModalLazyScrollRoot
-                          key={giftIconModalTabEffective}
+                          key={`${giftIconModalTabEffective}${giftIconModalTabEffective === "travel" ? `-${giftIconTravelSubTabEffective}` : ""}`}
                           className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]"
                         >
                           <div className="grid grid-cols-3 gap-2 content-start">
@@ -2242,12 +2455,7 @@ export function WishlistMyBoardScreen({
           open={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           onLogout={handleLogout}
-          isOnMyWishlistEditorPage
-          publicWishlistHref={
-            boardSlug
-              ? `/wishlist/${encodeURIComponent(boardSlug)}`
-              : null
-          }
+          hideMyWishlistShortcut
         />
       ) : null}
     </RootTag>
