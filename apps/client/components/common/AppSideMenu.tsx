@@ -1,15 +1,19 @@
 "use client";
 
 import { Bell, Gift, SignOut, Trophy, User, X } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
 import {
+  SIDE_MENU_ICON_WRAP_PRIMARY,
+  SIDE_MENU_ROW_CLASS,
   SideMenuLinkRow,
   SideMenuLogoutRow,
   SideMenuSection,
 } from "@/components/common/SideMenuPrimitives";
+import { navigateToMyWishBoard } from "@/features/wishlist/navigate-to-my-board";
 
 type AppSideMenuProps = {
   open: boolean;
@@ -39,6 +43,7 @@ export function AppSideMenu({
   onLogout,
   hideMyWishlistShortcut = false,
 }: AppSideMenuProps) {
+  const router = useRouter();
   const mounted = useClientMounted();
 
   useEffect(() => {
@@ -89,9 +94,21 @@ export function AppSideMenu({
         <nav className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-2 pt-0">
           <SideMenuSection title="나의 활동">
             {!hideMyWishlistShortcut ? (
-              <SideMenuLinkRow href="/wishlist" onNavigate={onClose} icon={<Gift {...ICON_20} />}>
+              <button
+                type="button"
+                className={`${SIDE_MENU_ROW_CLASS} w-full text-left`}
+                onClick={() => {
+                  onClose();
+                  void navigateToMyWishBoard(router).then((nav) => {
+                    if (!nav.ok) router.push("/wishlist");
+                  });
+                }}
+              >
+                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+                  <Gift {...ICON_20} />
+                </span>
                 내 위시리스트 보러가기
-              </SideMenuLinkRow>
+              </button>
             ) : null}
             <SideMenuLinkRow href="/ranking" onNavigate={onClose} icon={<Trophy {...ICON_20} />}>
               오쩜오 랭킹
