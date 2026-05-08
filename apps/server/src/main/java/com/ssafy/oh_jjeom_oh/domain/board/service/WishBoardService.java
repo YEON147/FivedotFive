@@ -70,7 +70,7 @@ public class WishBoardService {
         } while (wishBoardRepository.existsByBoardSlug(slug));
 
         String title = (request != null && request.title() != null && !request.title().isBlank())
-                ? request.title() : null;
+                ? request.title() : "내 위시리스트";
         LocalDate targetDate = (request != null && request.targetDate() != null)
                 ? request.targetDate() : null;
         Boolean isPublic = (request != null && request.isPublic() != null)
