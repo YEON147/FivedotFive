@@ -103,7 +103,7 @@ public class RollingPaperCommentService {
                     .slotIndex(request.getSlotIndex())
                     .build();
         } else {
-            if (request.getSenderName() == null || request.getSenderName().isBlank()) {
+            if (request.getGuestNickname() == null || request.getGuestNickname().isBlank()) {
                 throw new CustomException(ErrorCode.RP_COMMENT_SENDER_NAME_REQUIRED);
             }
             if (request.getGuestPassword() == null || request.getGuestPassword().isBlank()) {
@@ -113,7 +113,7 @@ public class RollingPaperCommentService {
                     .rollingPaper(paper)
                     .user(null)
                     .isUser(false)
-                    .senderName(request.getSenderName())
+                    .senderName(request.getGuestNickname())
                     .content(request.getContent())
                     .stickerKey(request.getStickerKey())
                     .slotIndex(request.getSlotIndex())

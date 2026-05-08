@@ -20,7 +20,7 @@ public class RollingPaperCommentCreateRequest {
     private Integer slotIndex;
 
     @Size(max = 8, message = "닉네임은 8자 이내여야 합니다.")
-    private String senderName;   // 비회원 필수, 회원은 nickname 자동 사용
+    private String guestNickname;   // 비회원 필수, 회원은 nickname 자동 사용
 
     private String guestPassword; // 비회원 필수 (회원은 무시)
 }
