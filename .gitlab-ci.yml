@@ -15,6 +15,8 @@ build_backend:
     - |
       if [ "$CI_COMMIT_BRANCH" == "master" ]; then
         IMAGE_TAG="prod"
+      elif [ "$CI_COMMIT_BRANCH" == "master-hotfix" ]; then
+        IMAGE_TAG="hotfix"
       else
         IMAGE_TAG="dev"
       fi
@@ -23,6 +25,7 @@ build_backend:
   only:
     - develop 
     - master
+    - master-hotfix
 
 build_frontend:
   stage: build
@@ -38,6 +41,8 @@ build_frontend:
     - |
       if [ "$CI_COMMIT_BRANCH" == "master" ]; then
         export IMAGE_TAG="prod"
+      elif [ "$CI_COMMIT_BRANCH" == "master-hotfix" ]; then
+        export IMAGE_TAG="hotfix"
       else
         export IMAGE_TAG="dev"
       fi
@@ -56,6 +61,7 @@ build_frontend:
   only:
     - develop
     - master
+    - master-hotfix
 
 deploy_staging:
   stage: deploy
@@ -80,10 +86,19 @@ deploy_staging:
     - docker compose up -d postgres redis
     - export SERVER_IMAGE_TAG=dev
     - export CLIENT_IMAGE_TAG=dev
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "master-hotfix" ]; then
+        export SERVER_IMAGE_TAG=hotfix
+        export CLIENT_IMAGE_TAG=hotfix
+      else
+        export SERVER_IMAGE_TAG=dev
+        export CLIENT_IMAGE_TAG=dev
+      fi
     - docker compose pull client backend-blue
     - docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --force-recreate client backend-blue caddy
   only:
     - develop
+    - master-hotfix
 
 deploy_production:
   stage: deploy
