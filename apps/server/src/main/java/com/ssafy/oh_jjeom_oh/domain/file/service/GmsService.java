@@ -25,6 +25,11 @@ public class GmsService {
 
     public byte[] generateCharacterImage(MultipartFile sourceImage) {
         try {
+            // 이미지 크기 체크 (예: 5MB 초과 시 경고 또는 제한 가능)
+            if (sourceImage.getSize() > 5 * 1024 * 1024) {
+                log.warn("업로드된 이미지 크기가 큽니다: {} bytes", sourceImage.getSize());
+            }
+
             String base64Image = Base64.getEncoder().encodeToString(sourceImage.getBytes());
             String mimeType = sourceImage.getContentType();
 
@@ -36,12 +41,12 @@ public class GmsService {
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            log.info("GPT-4o API 호출 시도... URL: {}", gmsUrl);
+            log.info("GMS GPT-4o 호출 시작... (URL: {})", gmsUrl);
             ResponseEntity<Map> response = restTemplate.postForEntity(gmsUrl, entity, Map.class);
 
-            // 상세 로그 추가: 실제 응답 값을 확인하기 위함
-            log.info("GMS 응답 상태 코드: {}", response.getStatusCode());
-            log.info("GMS 응답 바디: {}", response.getBody());
+            // [중요] 피드백 반영: 응답 구조를 반드시 로그로 확인해야 함
+            log.info("GMS Response Status: {}", response.getStatusCode());
+            log.info("GMS Response Body: {}", response.getBody());
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 return extractImageBytesFromGpt4o(response.getBody());
@@ -50,15 +55,27 @@ public class GmsService {
             throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
 
         } catch (Exception e) {
-            log.error("GMS 호출 중 예외 발생: ", e);
+            log.error("AI 캐릭터 생성 과정 중 오류 발생: ", e);
             throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
         }
     }
 
     private Map<String, Object> createGpt4oRequestBody(String base64Image, String mimeType) {
+        // [피드백 반영] 프롬프트 품질 대폭 강화
+        String prompt = "업로드된 인물 사진을 기반으로 캐리커처 스타일 캐릭터로 변환해주세요.\n\n" +
+                "조건:\n" +
+                "- 사람 느낌보다 캐릭터 느낌 강조\n" +
+                "- 간결한 선 표현\n" +
+                "- 색감은 최소화\n" +
+                "- 눈/표정은 귀엽게 단순화\n" +
+                "- 스티커 느낌\n" +
+                "- 배경 제거\n" +
+                "- 얼굴 특징은 유지\n" +
+                "- 실사처럼 만들지 말 것";
+
         Map<String, Object> textContent = new HashMap<>();
         textContent.put("type", "text");
-        textContent.put("text", "캐릭터 느낌은 간결한 표현을 주로한 캐리커처 느낌으로 색감은 조금만 사용해주세요.");
+        textContent.put("text", prompt);
 
         Map<String, Object> imageContent = new HashMap<>();
         imageContent.put("type", "image_url");
@@ -73,6 +90,8 @@ public class GmsService {
         Map<String, Object> body = new HashMap<>();
         body.put("model", "gpt-4o");
         body.put("messages", Arrays.asList(message));
+        // 피드백 반영: 스타일 일관성을 위해 temperature 설정 (필요 시)
+        body.put("temperature", 0.7);
 
         return body;
     }
@@ -82,29 +101,34 @@ public class GmsService {
         try {
             List<Map> choices = (List<Map>) responseBody.get("choices");
             if (choices == null || choices.isEmpty()) {
-                log.error("응답에 'choices' 필드가 없습니다.");
+                log.error("응답에 choices 데이터가 없습니다.");
                 throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
             }
 
             Map message = (Map) choices.get(0).get("message");
             Object contentObj = message.get("content");
-            
-            log.info("추출된 content 타입: {}", contentObj != null ? contentObj.getClass().getSimpleName() : "null");
 
+            // 리스트 형태의 멀티모달 응답인 경우
             if (contentObj instanceof List) {
                 List<Map> contents = (List<Map>) contentObj;
                 for (Map part : contents) {
-                    if ("image".equals(part.get("type")) || part.containsKey("image_url") || part.containsKey("image")) {
+                    String type = (String) part.get("type");
+                    if ("image".equals(type) || part.containsKey("image_url")) {
                         return extractBytes(part);
                     }
                 }
-            } else if (contentObj instanceof String) {
-                // 일반적인 gpt-4o chat/completions는 텍스트만 반환할 확률이 높습니다.
-                // 만약 텍스트 안에 이미지 URL이나 Base64가 포함되어 있다면 별도 처리가 필요할 수 있습니다.
-                log.warn("GPT-4o가 텍스트 응답을 반환했습니다: {}", contentObj);
+            } 
+            // 텍스트로만 온 경우 (보통 gpt-4o는 이리로 들어옵니다)
+            else if (contentObj instanceof String) {
+                log.warn("AI가 이미지 대신 텍스트로 응답했습니다. (내용: {})", contentObj);
+                // 만약 텍스트 안에 base64 데이터가 포함되어 있는지 마지막으로 확인
+                String text = (String) contentObj;
+                if (text.contains("data:image")) {
+                    return extractBytesFromText(text);
+                }
             }
         } catch (Exception e) {
-            log.error("GPT-4o 응답 파싱 오류: ", e);
+            log.error("응답 데이터 파싱 중 오류: ", e);
         }
         throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
     }
@@ -114,17 +138,27 @@ public class GmsService {
             return Base64.getDecoder().decode((String) part.get("image"));
         }
         if (part.containsKey("image_url")) {
-            Object urlObj = part.get("image_url");
-            String url = "";
-            if (urlObj instanceof Map) {
-                url = (String) ((Map) urlObj).get("url");
-            } else if (urlObj instanceof String) {
-                url = (String) urlObj;
-            }
-            
-            if (url.startsWith("data:")) {
+            Map imageUrl = (Map) part.get("image_url");
+            String url = (String) imageUrl.get("url");
+            if (url != null && url.startsWith("data:")) {
                 return Base64.getDecoder().decode(url.substring(url.indexOf(",") + 1));
             }
+        }
+        throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
+    }
+
+    private byte[] extractBytesFromText(String text) {
+        try {
+            int start = text.indexOf("data:image");
+            if (start != -1) {
+                int comma = text.indexOf(",", start);
+                // 대략적인 끝 지점 찾기 (공백이나 따옴표 등)
+                int end = text.indexOf(" ", comma);
+                if (end == -1) end = text.length();
+                return Base64.getDecoder().decode(text.substring(comma + 1, end).trim());
+            }
+        } catch (Exception e) {
+            log.error("텍스트 내 이미지 데이터 추출 실패", e);
         }
         throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
     }
