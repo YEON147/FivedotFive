@@ -19,7 +19,6 @@ import {
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { createMyBoard } from "@/features/wishlist/api";
-import { navigateToMyWishBoard } from "@/features/wishlist/navigate-to-my-board";
 import { SESSION_OPEN_DECORATE_AFTER_CREATE_KEY } from "@/features/wishlist/wishlist-session-cache";
 import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
@@ -78,10 +77,7 @@ export function MainLandingContent({
     if (hasWishBoard) {
       setWishlistPrimaryLoading(true);
       await runDecorateFillRamp(setWishlistPrimaryFill, WISH_CTA_DECORATE_RAMP);
-      const nav = await navigateToMyWishBoard(router);
-      setWishlistPrimaryLoading(false);
-      setWishlistPrimaryFill(0);
-      if (!nav.ok) router.push("/wishlist");
+      router.push("/wishlist");
       return;
     }
 
@@ -116,10 +112,7 @@ export function MainLandingContent({
       await nextFrame();
 
       sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
-      const nav = await navigateToMyWishBoard(router);
-      setWishlistPrimaryLoading(false);
-      setWishlistPrimaryFill(0);
-      if (!nav.ok) router.push("/wishlist");
+      router.push("/wishlist");
     } catch (e) {
       if (progressId !== null) window.clearInterval(progressId);
       setWishlistPrimaryError(
