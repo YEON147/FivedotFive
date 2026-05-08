@@ -8,5 +8,6 @@ public record WishBoardCreateRequest(
         @Size(max = 8, message = "위시보드 제목은 최대 8자까지 입력 가능합니다.")
         String title,
         LocalDate targetDate,
-        Boolean isPublic
+        Boolean isPublic,
+        Boolean isCommentPublic
 ) {}

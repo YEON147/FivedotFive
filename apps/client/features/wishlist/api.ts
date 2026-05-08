@@ -4,8 +4,10 @@ import type {
   CommentCreateData,
   CommentListData,
   MyBoardData,
+  MyBoardMeApiResponse,
   MyBoardsAllApiResponse,
   MyLatestBoardSummaryPayload,
+  MyWishBoardListApiResponse,
   MyWishItemsData,
   PublicBoardData,
   WishItemData,
@@ -18,6 +20,94 @@ function encodeBoardSlug(slug: string): string {
 /** `/api/boards/{slug}/…` 경로 접두사 */
 function boardsApi(slug: string, path: string): string {
   return `/api/boards/${encodeBoardSlug(slug)}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/** GET /api/boards/me — 위시·롤링 중 최근 생성 1건 (items/assets 없음) */
+export async function getMyBoard(): Promise<MyBoardMeApiResponse> {
+  return apiClient<MyBoardMeApiResponse>("/api/boards/me");
+}
+
+/** GET /api/boards/me/list — 내 위시보드 목록 (슬러그만 필요할 때) */
+export async function getMyWishBoardList(): Promise<MyWishBoardListApiResponse> {
+  return apiClient<MyWishBoardListApiResponse>("/api/boards/me/list");
+}
+
+/**
+ * 소유 위시보드 에디터용 스냅샷 — GET /me 요약에 없는 items·assets 병합.
+ */
+export async function fetchMyWishBoardEditorSnapshot(
+  slug: string,
+  meta?: { isPublic?: boolean; targetDate?: string },
+): Promise<MyBoardData> {
+  const enc = encodeBoardSlug(slug);
+  const [itemsRes, bgRes, stickerRes] = await Promise.all([
+    apiClient<MyWishItemsData>(`/api/boards/${enc}/items`),
+    apiClient<{ data: { assetKey: string | null } }>(`/api/boards/${enc}/assets/background`),
+    apiClient<{
+      data: { stickers: { slotIndex: number; assetKey: string | null }[] };
+    }>(`/api/boards/${enc}/assets/stickers`),
+  ]);
+
+  const items = itemsRes.data.items;
+  const assets = buildBoardAssetsFromStickerApis(bgRes, stickerRes);
+
+  return {
+    data: {
+      boardSlug: slug,
+      isPublic: meta?.isPublic ?? false,
+      targetDate: meta?.targetDate ?? "",
+      items,
+      assets,
+    },
+  };
+}
+
+function buildBoardAssetsFromStickerApis(
+  bgRes: { data: { assetKey: string | null } },
+  stickerRes: {
+    data: { stickers: { slotIndex: number; assetKey: string | null }[] };
+  },
+): BoardAssetData[] {
+  const assets: BoardAssetData[] = [];
+  const bgKey = bgRes.data?.assetKey?.trim();
+  if (bgKey) {
+    assets.push({ assetType: "BACKGROUND", assetKey: bgKey, slotIndex: null });
+  }
+  for (const s of stickerRes.data?.stickers ?? []) {
+    const ak = s.assetKey?.trim();
+    if (ak) {
+      assets.push({ assetType: "STICKER", assetKey: ak, slotIndex: s.slotIndex });
+    }
+  }
+  return assets;
+}
+
+/** 최근 원본이 롤링이어도, 목록에서 첫 위시보드 슬러그를 고름 */
+export async function resolveWishBoardSlugForEditor(): Promise<{
+  slug: string | null;
+  meta?: { isPublic: boolean; targetDate: string };
+}> {
+  const me = await getMyBoard();
+  const row = me.data;
+  if (row.type === "WISH_BOARD") {
+    const slug = row.slug?.trim();
+    if (!slug) return { slug: null };
+    return {
+      slug,
+      meta: { isPublic: row.isPublic, targetDate: row.targetDate },
+    };
+  }
+  const list = await getMyWishBoardList();
+  const first = list.data?.[0];
+  const slug = first?.boardSlug?.trim();
+  if (!slug) return { slug: null };
+  return {
+    slug,
+    meta: {
+      isPublic: first.isPublic,
+      targetDate: first.targetDate,
+    },
+  };
 }
 
 function isWishBoardFullPayload(d: unknown): d is MyBoardData["data"] {
@@ -122,27 +212,14 @@ export async function getMyLatestBoardSummary(): Promise<MyLatestBoardSummaryPay
   }
 }
 
-/** 네비게이션용 — 최신 1건 메타에서 슬러그만 필요할 때 (`navigateToMyWishBoard` 등) */
-export async function getMyBoard(): Promise<{ data: { boardSlug: string } }> {
-  const summary = await getMyLatestBoardSummary();
-  const slug = summary?.slug?.trim();
-  if (!slug) {
-    throw new Error("위시보드를 찾을 수 없습니다.");
-  }
-  return { data: { boardSlug: slug } };
-}
-
 /**
  * 편집용 풀 위시보드.
  * - 소유 보드: `GET /api/boards/me/list`에서 해당 `boardSlug` 행 사용.
  * - 보조: 공개 보드만 `GET /api/boards/{slug}`(비공개 소유 보드는 목록으로만 로드).
  */
-export async function getMyWishBoardDetail(boardSlug: string): Promise<MyBoardData> {
-  const slug = boardSlug.trim();
-  if (!slug) {
-    throw new Error("boardSlug가 비어 있습니다.");
-  }
+const inflightWishBoardDetail = new Map<string, Promise<MyBoardData>>();
 
+async function loadMyWishBoardDetailOnce(slug: string): Promise<MyBoardData> {
   try {
     const raw = await apiClient<unknown>("/api/boards/me/list", undefined, {
       silentFailure: true,
@@ -182,6 +259,22 @@ export async function getMyWishBoardDetail(boardSlug: string): Promise<MyBoardDa
   }
 
   throw new Error("위시보드를 불러오지 못했습니다.");
+}
+
+export async function getMyWishBoardDetail(boardSlug: string): Promise<MyBoardData> {
+  const slug = boardSlug.trim();
+  if (!slug) {
+    throw new Error("boardSlug가 비어 있습니다.");
+  }
+
+  let inflight = inflightWishBoardDetail.get(slug);
+  if (!inflight) {
+    inflight = loadMyWishBoardDetailOnce(slug).finally(() => {
+      inflightWishBoardDetail.delete(slug);
+    });
+    inflightWishBoardDetail.set(slug, inflight);
+  }
+  return inflight;
 }
 
 /** GET /api/me/boards-all — 위시보드·롤링페이퍼 합산 최대 5건, 생성일 내림차순 */
@@ -533,13 +626,33 @@ export async function deleteMyWishItem(
   });
 }
 
+const inflightPublicBoard = new Map<string, Promise<PublicBoardData>>();
+
 export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
-  return apiClient<PublicBoardData>(`/api/boards/${slug}`);
+  const key = slug.trim();
+  let p = inflightPublicBoard.get(key);
+  if (p) return p;
+  p = apiClient<PublicBoardData>(`/api/boards/${encodeBoardSlug(key)}`).finally(() => {
+    inflightPublicBoard.delete(key);
+  });
+  inflightPublicBoard.set(key, p);
+  return p;
 }
 
 /** Spring `page`는 0부터 — `commentPageIdx`와 동일 */
+const inflightCommentsBySlugPage = new Map<string, Promise<CommentListData>>();
+
 export async function getComments(slug: string, page: number): Promise<CommentListData> {
-  return apiClient<CommentListData>(`/api/boards/${slug}/comments?page=${page}&size=6`);
+  const key = `${encodeBoardSlug(slug)}|${page}`;
+  let p = inflightCommentsBySlugPage.get(key);
+  if (p) return p;
+  p = apiClient<CommentListData>(
+    `/api/boards/${encodeBoardSlug(slug)}/comments?page=${page}&size=6`,
+  ).finally(() => {
+    inflightCommentsBySlugPage.delete(key);
+  });
+  inflightCommentsBySlugPage.set(key, p);
+  return p;
 }
 
 /**

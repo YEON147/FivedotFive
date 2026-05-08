@@ -7,5 +7,6 @@ import java.time.LocalDate;
 public record WishBoardUpdateRequest(
         @Size(max = 8, message = "위시보드 제목은 최대 8자까지 입력 가능합니다.") String title,
         Boolean isPublic,
-        LocalDate targetDate
+        LocalDate targetDate,
+        Boolean isCommentPublic
 ) {}

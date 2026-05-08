@@ -50,11 +50,12 @@ public class WishCommentService {
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
         WishBoard board = getBoardBySlug(slug);
 
-        // 어드민/구단 보드이거나 targetDate(기념일)가 지난 경우 댓글 마스킹 해제
+        // 어드민/구단 보드이거나 isCommentPublic=true이거나 targetDate(기념일)가 지난 경우 댓글 마스킹 해제
         Role boardOwnerRole = board.getUser().getRole();
         boolean isAlwaysRevealed = boardOwnerRole == Role.ADMIN || boardOwnerRole == Role.TEAM;
         LocalDate today = clock.instant().atZone(KST).toLocalDate();
-        boolean revealed = isAlwaysRevealed || (board.getTargetDate() != null && !today.isBefore(board.getTargetDate()));
+        boolean passedTargetDate = board.getTargetDate() != null && !today.isBefore(board.getTargetDate());
+        boolean revealed = isAlwaysRevealed || board.getIsCommentPublic() || passedTargetDate;
 
         Page<WishComment> commentPage =
                 wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(board, PageRequest.of(page, size));
