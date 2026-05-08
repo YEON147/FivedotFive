@@ -8,10 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -21,12 +18,17 @@ public class FileController {
 
     private final FileService fileService;
 
+    /**
+     * AI 캐릭터 생성 및 업로드 API
+     * 유저가 올린 이미지를 기반으로 AI 캐릭터를 생성하여 S3에 저장하고 경로를 반환합니다.
+     */
     @PostMapping(value = "/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ImageUploadResponse>> uploadImage(
             @RequestPart("image") MultipartFile image
     ) {
         ImageUploadResponse data = fileService.uploadImage(image);
+        
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(SuccessMessage.IMAGE_UPLOADED, data));
+                .body(ApiResponse.success(SuccessMessage.CHARACTER_GENERATED, data));
     }
 }

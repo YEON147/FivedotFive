@@ -88,7 +88,9 @@ public enum ErrorCode {
 
     // 파일 업로드
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 파일 형식입니다."),
-    FILE_REQUIRED(HttpStatus.BAD_REQUEST, "업로드할 이미지 파일이 필요합니다.");
+    FILE_REQUIRED(HttpStatus.BAD_REQUEST, "업로드할 이미지 파일이 필요합니다."),
+    S3_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S3 파일 업로드에 실패했습니다."),
+    AI_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI 캐릭터 생성에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;

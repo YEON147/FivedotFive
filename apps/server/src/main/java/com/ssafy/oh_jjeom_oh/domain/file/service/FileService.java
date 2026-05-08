@@ -15,24 +15,22 @@ import java.util.UUID;
 public class FileService {
 
     private final S3Service s3Service;
+    private final GmsService gmsService;
 
-    public ImageUploadResponse uploadImage(MultipartFile file) {
-        validateImageFile(file);
+    /**
+     * 이미지를 받아 AI 캐릭터를 생성하고 S3에 저장한 뒤 경로를 반환합니다.
+     */
+    public ImageUploadResponse uploadImage(MultipartFile sourceImage) {
+        validateImageFile(sourceImage);
 
-        String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "image.jpg";
-        String extension = getExtension(originalFilename);
-        
-        // DDL 명세에 따른 경로: images/recipient/{uuid}.{ext}
-        String s3Key = "images/recipient/" + UUID.randomUUID() + "." + extension;
-        
-        s3Service.uploadFile(file, s3Key);
-        
-        // 명세에 따라 CDN 키(imageKey)만 반환
+        byte[] aiImageBytes = gmsService.generateCharacterImage(sourceImage);
+        String s3Key = "images/characters/" + UUID.randomUUID() + ".png";
+        s3Service.uploadFile(aiImageBytes, s3Key, "image/png");
         return ImageUploadResponse.of(s3Key);
     }
 
     private void validateImageFile(MultipartFile file) {
-        if (file.isEmpty()) {
+        if (file == null || file.isEmpty()) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
@@ -40,11 +38,5 @@ public class FileService {
         if (contentType == null || !contentType.startsWith("image/")) {
             throw new CustomException(ErrorCode.UNSUPPORTED_FILE_TYPE);
         }
-    }
-
-    private String getExtension(String filename) {
-        int lastIdx = filename.lastIndexOf(".");
-        if (lastIdx == -1) return "jpg";
-        return filename.substring(lastIdx + 1);
     }
 }
