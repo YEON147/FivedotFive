@@ -84,7 +84,11 @@ public enum ErrorCode {
     RP_COMMENT_WRONG_PASSWORD(HttpStatus.FORBIDDEN, "댓글 비밀번호가 올바르지 않습니다."),
 
     // 공지사항
-    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다.");
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다."),
+
+    // 파일 업로드
+    UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 파일 형식입니다."),
+    FILE_REQUIRED(HttpStatus.BAD_REQUEST, "업로드할 이미지 파일이 필요합니다.");
 
     private final HttpStatus status;
     private final String message;

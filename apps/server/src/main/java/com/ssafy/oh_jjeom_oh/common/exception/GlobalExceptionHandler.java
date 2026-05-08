@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 @Slf4j
@@ -43,5 +44,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.fail(e.getMessage()));
+    }
+
+    // 4. 파일 업로드 파라미터 누락 (400)
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleMissingServletRequestPartException(MissingServletRequestPartException e) {
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.fail("업로드할 이미지 파일(image)이 필요합니다."));
     }
 }
