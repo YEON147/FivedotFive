@@ -17,7 +17,6 @@ import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,7 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -44,10 +43,6 @@ public class WishCommentService {
     private final UserRepository userRepository;
     private final Clock clock;
 
-    /** 댓글 내용 전체 공개 시각 (KST 기준, 서버가 KST로 실행됨을 전제) */
-    @Value("${comment.reveal-at}")
-    private LocalDateTime revealAt;
-
     // userId -> 마지막 댓글 작성 시각 (ms)
     private final Map<Long, Long> lastCommentTimeMap = new ConcurrentHashMap<>();
 
@@ -55,10 +50,11 @@ public class WishCommentService {
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
         WishBoard board = getBoardBySlug(slug);
 
-        // 어드민/구단 보드이거나 공개 시각이 지난 경우 마스킹 해제
+        // 어드민/구단 보드이거나 targetDate(기념일)가 지난 경우 댓글 마스킹 해제
         Role boardOwnerRole = board.getUser().getRole();
         boolean isAlwaysRevealed = boardOwnerRole == Role.ADMIN || boardOwnerRole == Role.TEAM;
-        boolean revealed = isAlwaysRevealed || !clock.instant().isBefore(revealAt.atZone(KST).toInstant());
+        LocalDate today = clock.instant().atZone(KST).toLocalDate();
+        boolean revealed = isAlwaysRevealed || (board.getTargetDate() != null && !today.isBefore(board.getTargetDate()));
 
         Page<WishComment> commentPage =
                 wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(board, PageRequest.of(page, size));

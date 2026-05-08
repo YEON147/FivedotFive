@@ -85,8 +85,11 @@ public class AuthService {
         if (isUsernameDuplicate(request.username())) {
             throw new CustomException(ErrorCode.DUPLICATE_ID);
         }
-        if (isEmailDuplicate(request.email())) {
+        if (request.email() != null && !request.email().isBlank() && isEmailDuplicate(request.email())) {
             throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        if (request.nickname() != null && !request.nickname().isBlank() && isNicknameDuplicate(request.nickname())) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
         }
         Gender gender = (request.gender() != null && !request.gender().isBlank())
                 ? Gender.valueOf(request.gender().toUpperCase())
@@ -95,10 +98,13 @@ public class AuthService {
         String schoolcode = (request.schoolcode() != null && !request.schoolcode().isBlank()) ? request.schoolcode() : null;
         String grade = (request.grade() != null && !request.grade().isBlank()) ? request.grade() : null;
 
+        String nicknameValue = (request.nickname() != null && !request.nickname().isBlank())
+                ? request.nickname() : null;
+
         User user = User.builder()
                 .username(request.username())
                 .passwordHash(passwordEncoder.encode(request.password()))
-                .nickname(request.nickname())
+                .nickname(nicknameValue)
                 .email(request.email())
                 .school(school)
                 .schoolcode(schoolcode)

@@ -19,37 +19,40 @@ public class WishItemController {
 
     private final WishItemService wishItemService;
 
-    // GET /api/boards/me/items - 위시 아이템 슬롯 전체 조회 (CHILD)
-    @GetMapping("/api/boards/me/items")
+    // GET /api/boards/{slug}/items - 위시 아이템 슬롯 전체 조회
+    @GetMapping("/api/boards/{slug}/items")
     public ResponseEntity<ApiResponse<WishItemListResponse>> getItems(
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String slug) {
 
-        WishItemListResponse data = wishItemService.getItems(userPrincipal.getId());
+        WishItemListResponse data = wishItemService.getItems(slug, userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.WISH_ITEM_FOUND, data));
     }
 
-    // PATCH /api/boards/me/items/{slotIndex} - 위시 아이템 슬롯 수정 (CHILD)
-    @PatchMapping("/api/boards/me/items/{slotIndex}")
+    // PATCH /api/boards/{slug}/items/{slotIndex} - 위시 아이템 슬롯 수정
+    @PatchMapping("/api/boards/{slug}/items/{slotIndex}")
     public ResponseEntity<ApiResponse<Void>> updateItem(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String slug,
             @PathVariable int slotIndex,
             @Valid @RequestBody WishItemUpdateRequest request) {
 
-        wishItemService.updateItem(userPrincipal.getId(), slotIndex, request);
+        wishItemService.updateItem(slug, userPrincipal.getId(), slotIndex, request);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.WISH_ITEM_UPDATED));
     }
 
-    // DELETE /api/boards/me/items/{slotIndex} - 위시 아이템 슬롯 비우기 (CHILD)
-    @DeleteMapping("/api/boards/me/items/{slotIndex}")
+    // DELETE /api/boards/{slug}/items/{slotIndex} - 위시 아이템 슬롯 비우기
+    @DeleteMapping("/api/boards/{slug}/items/{slotIndex}")
     public ResponseEntity<ApiResponse<Void>> clearItem(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String slug,
             @PathVariable int slotIndex) {
 
-        wishItemService.clearItem(userPrincipal.getId(), slotIndex);
+        wishItemService.clearItem(slug, userPrincipal.getId(), slotIndex);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.WISH_ITEM_DELETED));
     }
 
-    // POST /api/boards/{slug}/items/{slotIndex}/like - 위시 아이템 공감 (CHILD)
+    // POST /api/boards/{slug}/items/{slotIndex}/like - 위시 아이템 공감
     @PostMapping("/api/boards/{slug}/items/{slotIndex}/like")
     public ResponseEntity<ApiResponse<WishItemLikeResponse>> likeItem(
             @AuthenticationPrincipal UserPrincipal userPrincipal,

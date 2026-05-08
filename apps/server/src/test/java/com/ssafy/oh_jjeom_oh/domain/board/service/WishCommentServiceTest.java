@@ -86,7 +86,6 @@ class WishCommentServiceTest {
 
         // 기존 테스트가 content 마스킹 영향을 받지 않도록 기본값은 "공개 후"로 설정
         ReflectionTestUtils.setField(wishCommentService, "clock", CLOCK_AFTER_REVEAL);
-        ReflectionTestUtils.setField(wishCommentService, "revealAt", REVEAL_AT);
     }
 
     // ===================== createComment =====================

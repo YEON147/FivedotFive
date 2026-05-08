@@ -1,16 +1,7 @@
 "use client";
 
-import {
-  Bell,
-  ChatCircleDots,
-  Gift,
-  ListBullets,
-  SignOut,
-  Trophy,
-  User,
-  X,
-} from "@phosphor-icons/react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { Bell, Gift, SignOut, Trophy, User, X } from "@phosphor-icons/react";
+import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { MyBoardsListModal } from "@/components/common/MyBoardsListModal";
@@ -26,10 +17,8 @@ type AppSideMenuProps = {
   open: boolean;
   onClose: () => void;
   onLogout: () => void;
-  /** 내 보드 공개 댓글 페이지 URL (`/wishlist/{slug}`) — 꾸미기 화면에서만 1번「댓글 보러 가기」에 사용 */
-  publicWishlistHref?: string | null;
-  /** 내 위시 꾸미기(`/wishlist`) 라우트면 true. 이때만 1번이「댓글 보러 가기」로 바뀜(그 외 화면은「내 위시리스트 보러가기」) */
-  isOnMyWishlistEditorPage?: boolean;
+  /** 내 위시 꾸미기(`/wishlist`) 또는 내 공개 보드(`/wishlist/{내슬러그}`)처럼 단축 링크가 중복일 때 */
+  hideMyWishlistShortcut?: boolean;
 };
 
 const ICON_20 = { size: 20 as const, weight: "bold" as const };
@@ -44,14 +33,13 @@ function useClientMounted() {
 
 /**
  * 위시리스트·랭킹·마이페이지 등 로그인 사용자 햄버거 메뉴.
- * 순서: (1) 내 위시 꾸미기 중이면「댓글 보러 가기」, 아니면「내 위시리스트 보러가기」→ (2) 랭킹 → …
+ * 순서: (1)「내 위시리스트 보러가기」(해당 없으면 생략)→ (2) 랭킹 → …
  */
 export function AppSideMenu({
   open,
   onClose,
   onLogout,
-  publicWishlistHref,
-  isOnMyWishlistEditorPage = false,
+  hideMyWishlistShortcut = false,
 }: AppSideMenuProps) {
   const mounted = useClientMounted();
   const [listOpen, setListOpen] = useState(false);
@@ -72,22 +60,6 @@ export function AppSideMenu({
   if (!mounted || typeof document === "undefined") {
     return null;
   }
-
-  const publicHref = publicWishlistHref?.trim() ?? "";
-  const firstPrimaryRow =
-    isOnMyWishlistEditorPage && publicHref !== "" ? (
-      <SideMenuLinkRow
-        href={publicHref}
-        onNavigate={onClose}
-        icon={<ChatCircleDots {...ICON_20} />}
-      >
-        댓글 보러 가기
-      </SideMenuLinkRow>
-    ) : !isOnMyWishlistEditorPage ? (
-      <SideMenuLinkRow href="/wishlist" onNavigate={onClose} icon={<Gift {...ICON_20} />}>
-        내 위시리스트 보러가기
-      </SideMenuLinkRow>
-    ) : null;
 
   return createPortal(
     <>
@@ -119,16 +91,11 @@ export function AppSideMenu({
 
         <nav className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-2 pt-0">
           <SideMenuSection title="나의 활동">
-            <SideMenuButtonRow
-              icon={<ListBullets {...ICON_20} />}
-              onClick={() => {
-                onClose();
-                setListOpen(true);
-              }}
-            >
-              목록 조회
-            </SideMenuButtonRow>
-            {firstPrimaryRow}
+            {!hideMyWishlistShortcut ? (
+              <SideMenuLinkRow href="/wishlist" onNavigate={onClose} icon={<Gift {...ICON_20} />}>
+                내 위시리스트 보러가기
+              </SideMenuLinkRow>
+            ) : null}
             <SideMenuLinkRow href="/ranking" onNavigate={onClose} icon={<Trophy {...ICON_20} />}>
               오쩜오 랭킹
             </SideMenuLinkRow>

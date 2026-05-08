@@ -16,7 +16,6 @@ public record SignupRequest(
                 message = "비밀번호는 8~12자, 영문과 숫자를 모두 포함해야 합니다.")
         String password,
 
-        @NotBlank(message = "필수 항목이 누락되었습니다.")
         @Size(max = 8, message = "닉네임은 최대 8자까지 입력 가능합니다.")
         @Pattern(regexp = "^[a-zA-Z0-9가-힣]+$", message = "닉네임은 한글, 영문, 숫자만 가능합니다.")
         String nickname,

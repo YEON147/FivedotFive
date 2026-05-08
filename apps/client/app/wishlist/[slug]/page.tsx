@@ -1170,12 +1170,7 @@ export default function PublicWishlistPage({
           open={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           onLogout={handleVisitorLogout}
-          isOnMyWishlistEditorPage={isViewingOwnBoard}
-          publicWishlistHref={
-            isViewingOwnBoard && slug.trim()
-              ? `/wishlist/${encodeURIComponent(slug.trim())}`
-              : null
-          }
+          hideMyWishlistShortcut={isViewingOwnBoard}
         />
       ) : (
         <PublicWishlistVisitorMenu
