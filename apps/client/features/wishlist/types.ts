@@ -55,6 +55,37 @@ export type WishItemData = {
   status: string | null;
 };
 
+/** GET /api/boards/me — 위시·롤링 중 최근 생성 1건 요약 */
+export type MyBoardMeSummaryWishBoard = {
+  type: "WISH_BOARD";
+  slug: string;
+  title: string | null;
+  targetDate: string;
+  createdAt: string;
+  isPublic: boolean;
+};
+
+export type MyBoardMeSummaryRollingPaper = {
+  type: "ROLLING_PAPER";
+  slug: string;
+  title: string | null;
+  targetDate: string;
+  createdAt: string;
+  recipientName: string | null;
+  imageKey: string | null;
+};
+
+export type MyBoardMeSummary =
+  | MyBoardMeSummaryWishBoard
+  | MyBoardMeSummaryRollingPaper;
+
+export type MyBoardMeApiResponse = {
+  success?: boolean;
+  message?: string;
+  data: MyBoardMeSummary;
+};
+
+/** 에디터·세션 캐시용 — items/assets 포함 스냅샷 */
 export type MyBoardData = {
   data: {
     boardSlug: string;
@@ -63,6 +94,21 @@ export type MyBoardData = {
     items: WishItemData[];
     assets: BoardAssetData[];
   };
+};
+
+/** GET /api/boards/me/list 아이템 */
+export type MyWishBoardListItem = {
+  boardSlug: string;
+  title: string | null;
+  isPublic: boolean;
+  targetDate: string;
+  createdAt: string;
+};
+
+export type MyWishBoardListApiResponse = {
+  success?: boolean;
+  message?: string;
+  data: MyWishBoardListItem[];
 };
 
 /** GET /api/boards/{slug}/items — `ApiResponse.data`(내부 `WishItemListResponse`) */

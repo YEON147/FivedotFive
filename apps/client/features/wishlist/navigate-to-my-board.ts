@@ -1,4 +1,4 @@
-import { getMyBoard } from "./api";
+import { resolveWishBoardSlugForEditor } from "./api";
 
 export type NavigateToMyWishBoardResult =
   | { ok: true; slug: string }
@@ -10,16 +10,16 @@ type RouterLike = {
 };
 
 /**
- * `/wishlist` 중간 페이지 없이 내 보드 슬러그로 이동한다.
- * 실패 시 호출부에서 `/wishlist`(리다이렉트 페이지) 등으로 폴백하면 된다.
+ * `/wishlist` 중간 페이지 없이 내 위시보드 슬러그로 이동한다.
+ * 최근 원본이 롤링페이퍼여도 목록에서 첫 위시보드를 고른다.
  */
 export async function navigateToMyWishBoard(
   router: RouterLike,
   options?: { replace?: boolean },
 ): Promise<NavigateToMyWishBoardResult> {
   try {
-    const board = await getMyBoard();
-    const slug = board.data.boardSlug?.trim();
+    const resolved = await resolveWishBoardSlugForEditor();
+    const slug = resolved.slug?.trim();
     if (!slug) return { ok: false, reason: "no_slug" };
     const path = `/wishlist/${encodeURIComponent(slug)}`;
     if (options?.replace) router.replace(path);
