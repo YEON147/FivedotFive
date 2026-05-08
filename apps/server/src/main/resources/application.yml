@@ -72,5 +72,7 @@ cloud:
       secret-key: ${AWS_SECRET_KEY}
 
 gms:
-  url: "https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions"
+  url: "https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent"
   key: ""
+  ai-enabled: "${GMS_AI_ENABLED:true}"
+  fallback-on-ai-failure: "${GMS_FALLBACK_ON_AI_FAILURE:false}"
