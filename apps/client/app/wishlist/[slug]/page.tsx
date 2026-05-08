@@ -41,6 +41,7 @@ import {
   getPublicBoard,
   updateComment,
 } from "@/features/wishlist/api";
+import { isLoggedInOwnerOfBoardSlug } from "@/features/wishlist/resolve-logged-in-home";
 import {
   resolveBoardBackgroundAssetKey,
   resolveBoardBackgroundImageUrl,

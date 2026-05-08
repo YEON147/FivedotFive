@@ -39,9 +39,11 @@ export async function resolveLoggedInHomeHref(): Promise<string | null> {
   }
 
   const summary = await getMyLatestBoardSummary();
-  const slug = summary?.slug?.trim();
-  if (slug) {
-    return listEntryHref(summary.type, slug);
+  if (summary) {
+    const slug = summary.slug?.trim();
+    if (slug) {
+      return listEntryHref(summary.type, slug);
+    }
   }
 
   return null;
