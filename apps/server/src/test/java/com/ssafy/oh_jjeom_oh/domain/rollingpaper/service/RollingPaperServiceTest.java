@@ -6,6 +6,7 @@ import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCreateR
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperDetailResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSavedListResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSaveResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
@@ -365,15 +366,16 @@ class RollingPaperServiceTest {
             RollingPaper copy = RollingPaper.builder()
                     .user(owner).slug("copy-slug-01").title("생일 롤링페이퍼")
                     .recipientName("홍길동").targetDate(LocalDate.of(2026, 12, 25))
-                    .isSavedCopy(true).build();
+                    .isSavedCopy(true).saveSource("RECEIVED").build();
 
             given(rollingPaperRepository.findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(2L))
                     .willReturn(List.of(copy));
 
-            List<RollingPaperSummaryResponse> result = rollingPaperService.getMySavedRollingPapers(2L);
+            RollingPaperSavedListResponse result = rollingPaperService.getMySavedRollingPapers(2L);
 
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).getSlug()).isEqualTo("copy-slug-01");
+            assertThat(result.getSaved()).hasSize(1);
+            assertThat(result.getSaved().get(0).getSlug()).isEqualTo("copy-slug-01");
+            assertThat(result.getSaved().get(0).getSource()).isEqualTo("RECEIVED");
         }
 
         @Test
@@ -382,7 +384,8 @@ class RollingPaperServiceTest {
             given(rollingPaperRepository.findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(2L))
                     .willReturn(List.of());
 
-            assertThat(rollingPaperService.getMySavedRollingPapers(2L)).isEmpty();
+            RollingPaperSavedListResponse result = rollingPaperService.getMySavedRollingPapers(2L);
+            assertThat(result.getSaved()).isEmpty();
         }
     }
 }

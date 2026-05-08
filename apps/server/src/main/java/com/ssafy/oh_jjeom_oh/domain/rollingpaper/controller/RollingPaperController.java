@@ -7,6 +7,7 @@ import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCreateR
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperDetailResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSavedListResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSaveResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperShareLinkResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperSummaryResponse;
@@ -114,10 +115,10 @@ public class RollingPaperController {
 
     // GET /api/rolling-papers/me/saved - 내가 저장한 롤링페이퍼 복사본 목록
     @GetMapping("/me/saved")
-    public ResponseEntity<ApiResponse<List<RollingPaperSummaryResponse>>> getMySavedRollingPapers(
+    public ResponseEntity<ApiResponse<RollingPaperSavedListResponse>> getMySavedRollingPapers(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        List<RollingPaperSummaryResponse> data = rollingPaperService.getMySavedRollingPapers(userPrincipal.getId());
+        RollingPaperSavedListResponse data = rollingPaperService.getMySavedRollingPapers(userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.SAVED_ROLLING_PAPERS_FOUND, data));
     }
 }

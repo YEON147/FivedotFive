@@ -13,6 +13,8 @@ import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSavedItemResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSavedListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSaveResponse;
 import com.ssafy.oh_jjeom_oh.domain.me.dto.response.BoardSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishItemResponse;
@@ -136,7 +138,7 @@ public class WishBoardService {
 
     // PATCH /api/boards/{slug} - 위시보드 수정 (소유자만)
     @Transactional
-    public WishBoardResponse updateBoard(Long userId, String slug, WishBoardUpdateRequest request) {
+    public void updateBoard(Long userId, String slug, WishBoardUpdateRequest request) {
         WishBoard board = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
 
@@ -153,8 +155,6 @@ public class WishBoardService {
         if (request.targetDate() != null) {
             board.updateTargetDate(request.targetDate());
         }
-
-        return buildWishBoardResponse(board);
     }
 
     // DELETE /api/boards/{slug} - 위시보드 삭제 (소유자만, Hard Delete)
@@ -236,12 +236,13 @@ public class WishBoardService {
     }
 
     // GET /api/boards/me/saved - 내가 저장한 위시보드 복사본 목록 조회
-    public List<WishBoardResponse> getMySavedBoards(Long userId) {
-        List<WishBoard> boards = wishBoardRepository
-                .findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(userId);
-        return boards.stream()
-                .map(this::buildWishBoardResponse)
+    public WishBoardSavedListResponse getMySavedBoards(Long userId) {
+        List<WishBoardSavedItemResponse> items = wishBoardRepository
+                .findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(WishBoardSavedItemResponse::from)
                 .collect(Collectors.toList());
+        return WishBoardSavedListResponse.of(items);
     }
 
     // PUT /api/admin/boards/{slug}/visibility - 관리자 보드 공개 여부 강제 변경

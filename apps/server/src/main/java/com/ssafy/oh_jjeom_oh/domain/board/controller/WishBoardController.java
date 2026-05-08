@@ -9,6 +9,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardExistsResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardPublicResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSavedListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSaveResponse;
 import com.ssafy.oh_jjeom_oh.domain.me.dto.response.BoardSummaryResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.service.WishBoardService;
@@ -66,15 +67,15 @@ public class WishBoardController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_EXISTS_CHECKED, data));
     }
 
-    // PATCH /api/boards/{slug} - 위시보드 수정 (소유자)
+    // PATCH /api/boards/{slug} - 위시보드 수정 (소유자) → success/message만 반환
     @PatchMapping("/{slug}")
-    public ResponseEntity<ApiResponse<WishBoardResponse>> updateBoard(
+    public ResponseEntity<ApiResponse<Void>> updateBoard(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable String slug,
             @Valid @RequestBody WishBoardUpdateRequest request) {
 
-        WishBoardResponse data = wishBoardService.updateBoard(userPrincipal.getId(), slug, request);
-        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_UPDATED, data));
+        wishBoardService.updateBoard(userPrincipal.getId(), slug, request);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_UPDATED));
     }
 
     // DELETE /api/boards/{slug} - 위시보드 삭제 (소유자)
@@ -100,10 +101,10 @@ public class WishBoardController {
 
     // GET /api/boards/me/saved - 내가 저장한 위시보드 복사본 목록 조회
     @GetMapping("/me/saved")
-    public ResponseEntity<ApiResponse<List<WishBoardResponse>>> getMySavedBoards(
+    public ResponseEntity<ApiResponse<WishBoardSavedListResponse>> getMySavedBoards(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        List<WishBoardResponse> data = wishBoardService.getMySavedBoards(userPrincipal.getId());
+        WishBoardSavedListResponse data = wishBoardService.getMySavedBoards(userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.SAVED_BOARDS_FOUND, data));
     }
 

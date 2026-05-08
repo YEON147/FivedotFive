@@ -5,7 +5,7 @@ import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.asset.entity.BoardAsset;
 import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.WishBoardUpdateRequest;
-import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSavedListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.WishBoardSaveResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItem;
@@ -83,40 +83,34 @@ class WishBoardServiceStage3Test {
         @DisplayName("title 단독 수정 성공")
         void updateTitle_success() {
             given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
-            given(wishItemRepository.findByBoardOrderBySlotIndex(board)).willReturn(List.of());
-            given(boardAssetRepository.findByBoard(board)).willReturn(List.of());
 
             WishBoardUpdateRequest req = new WishBoardUpdateRequest("새 제목", null, null);
-            WishBoardResponse res = wishBoardService.updateBoard(1L, "slug0000ab", req);
+            wishBoardService.updateBoard(1L, "slug0000ab", req);
 
-            assertThat(res.getTitle()).isEqualTo("새 제목");
+            assertThat(board.getTitle()).isEqualTo("새 제목");
         }
 
         @Test
         @DisplayName("isPublic 단독 수정 성공")
         void updateIsPublic_success() {
             given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
-            given(wishItemRepository.findByBoardOrderBySlotIndex(board)).willReturn(List.of());
-            given(boardAssetRepository.findByBoard(board)).willReturn(List.of());
 
             WishBoardUpdateRequest req = new WishBoardUpdateRequest(null, false, null);
-            WishBoardResponse res = wishBoardService.updateBoard(1L, "slug0000ab", req);
+            wishBoardService.updateBoard(1L, "slug0000ab", req);
 
-            assertThat(res.getIsPublic()).isFalse();
+            assertThat(board.getIsPublic()).isFalse();
         }
 
         @Test
         @DisplayName("targetDate 단독 수정 성공")
         void updateTargetDate_success() {
             given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
-            given(wishItemRepository.findByBoardOrderBySlotIndex(board)).willReturn(List.of());
-            given(boardAssetRepository.findByBoard(board)).willReturn(List.of());
 
             LocalDate newDate = LocalDate.of(2027, 1, 1);
             WishBoardUpdateRequest req = new WishBoardUpdateRequest(null, null, newDate);
-            WishBoardResponse res = wishBoardService.updateBoard(1L, "slug0000ab", req);
+            wishBoardService.updateBoard(1L, "slug0000ab", req);
 
-            assertThat(res.getTargetDate()).isEqualTo(newDate);
+            assertThat(board.getTargetDate()).isEqualTo(newDate);
         }
 
         @Test
@@ -267,13 +261,11 @@ class WishBoardServiceStage3Test {
                     .isSavedCopy(true).savedByUser(other).build();
             given(wishBoardRepository.findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(2L))
                     .willReturn(List.of(savedCopy));
-            given(wishItemRepository.findByBoardOrderBySlotIndex(savedCopy)).willReturn(List.of());
-            given(boardAssetRepository.findByBoard(savedCopy)).willReturn(List.of());
 
-            List<WishBoardResponse> result = wishBoardService.getMySavedBoards(2L);
+            WishBoardSavedListResponse result = wishBoardService.getMySavedBoards(2L);
 
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).getBoardSlug()).isEqualTo("copy000001");
+            assertThat(result.getSaved()).hasSize(1);
+            assertThat(result.getSaved().get(0).getSlug()).isEqualTo("copy000001");
         }
 
         @Test
@@ -282,9 +274,9 @@ class WishBoardServiceStage3Test {
             given(wishBoardRepository.findAllBySavedByUser_IdAndIsSavedCopyTrueOrderByCreatedAtDesc(2L))
                     .willReturn(List.of());
 
-            List<WishBoardResponse> result = wishBoardService.getMySavedBoards(2L);
+            WishBoardSavedListResponse result = wishBoardService.getMySavedBoards(2L);
 
-            assertThat(result).isEmpty();
+            assertThat(result.getSaved()).isEmpty();
         }
     }
 }
