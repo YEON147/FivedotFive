@@ -11,6 +11,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -21,6 +22,7 @@ import {
   SIDE_MENU_LOGOUT_ROW_CLASS,
   SIDE_MENU_ROW_CLASS,
 } from "@/components/common/SideMenuPrimitives";
+import { navigateToMyWishBoard } from "@/features/wishlist/navigate-to-my-board";
 
 type PublicWishlistVisitorMenuProps = {
   open: boolean;
@@ -44,6 +46,7 @@ export function PublicWishlistVisitorMenu({
   onLogout,
   loginHref = "/login",
 }: PublicWishlistVisitorMenuProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -94,12 +97,21 @@ export function PublicWishlistVisitorMenu({
         <nav className="flex flex-1 flex-col gap-1 p-3">
           {loggedIn ? (
             <>
-              <Link href="/wishlist" onClick={onClose} className={SIDE_MENU_ROW_CLASS}>
+              <button
+                type="button"
+                className={`${SIDE_MENU_ROW_CLASS} w-full text-left`}
+                onClick={() => {
+                  onClose();
+                  void navigateToMyWishBoard(router).then((nav) => {
+                    if (!nav.ok) router.push("/wishlist");
+                  });
+                }}
+              >
                 <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
                   <Gift {...ICON_20} />
                 </span>
                 내 위시리스트 보러가기
-              </Link>
+              </button>
 
               <Link href="/ranking" onClick={onClose} className={SIDE_MENU_ROW_CLASS}>
                 <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
