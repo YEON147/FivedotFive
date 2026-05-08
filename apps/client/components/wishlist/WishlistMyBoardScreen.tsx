@@ -34,6 +34,10 @@ import {
   GIFT_ICON_GRID_FIRST_SCREEN_CATALOG_COUNT,
   STICKER_GRID_FIRST_SCREEN_STICKER_COUNT,
 } from "@/components/wishlist/sticker-sheet-layout";
+import {
+  UI_FOCUS_OUTLINE_VISIBLE,
+  UI_FOCUS_RING_INSET_VISIBLE,
+} from "@/components/ui/focus-ring";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
@@ -114,6 +118,19 @@ export type WishlistMyBoardScreenProps = {
   onCarouselInteractionLockChange?: (locked: boolean) => void;
   /** 부모 캐러셀에서 현재 보이는 페이지(0=위시). 댓글 면으로 넘어가면 플로팅 버튼 흐림 */
   embeddedCarouselVisualPage?: number;
+  /**
+   * 슬러그 공개 페이지에서 임베드할 때 — 카드 배경·댓글 면은 부모가 `boardAssets`/`items`를 들고 있음.
+   * 자식에서 GET /boards/me 반영 시 부모 상태도 같이 맞춰야 배경이 즉시 바뀜.
+   */
+  onEmbeddedBoardSynced?: (payload: {
+    assets: BoardAssetData[];
+    items: WishItemData[];
+  }) => void;
+  /**
+   * 슬러그 임베드 시 카드 배경은 부모가 그림 — 배경 시트가 열린 동안 선택값을 같은 규칙으로 미리보기.
+   * `null`이면 시트 닫힘·저장 상태만 반영, 문자열은 시트 중 선택(빈 문자열=기본 배경).
+   */
+  onEmbeddedBackgroundDraftKeyChange?: (assetKey: string | null) => void;
 };
 
 type GiftModalSpecial = "present" | null;
@@ -141,6 +158,17 @@ const FALLBACK_STICKER_FOLDER_IDS: readonly string[] = [
   "dessert",
   "toy",
 ];
+
+/** PUT/DELETE 직후 화면에 바로 반영 — 재조회 타이밍·`<Image>` 캐시로 배경이 늦게 바뀌는 현상 완화 */
+function boardAssetsWithBackgroundKey(
+  assets: BoardAssetData[],
+  backgroundKey: string,
+): BoardAssetData[] {
+  const rest = assets.filter((a) => a.assetType !== "BACKGROUND");
+  const trimmed = backgroundKey.trim();
+  if (!trimmed) return rest;
+  return [...rest, { assetType: "BACKGROUND", assetKey: trimmed, slotIndex: null }];
+}
 
 type StickerModalTabId = string;
 
@@ -229,7 +257,7 @@ function DefaultOptionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex items-center justify-center overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-500 transition hover:border-slate-400 disabled:opacity-50 ${className}`}
+      className={`flex items-center justify-center overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-500 transition hover:border-slate-400 disabled:opacity-50 ${UI_FOCUS_RING_INSET_VISIBLE} ${className}`}
       aria-label={`${label} option`}
     >
       <span className="text-xl font-semibold leading-none">×</span>
@@ -323,7 +351,13 @@ export function WishlistMyBoardScreen({
   omitInnerTitleHeader = false,
   onCarouselInteractionLockChange,
   embeddedCarouselVisualPage,
+<<<<<<< HEAD
 }: WishlistMyBoardScreenProps) {
+=======
+  onEmbeddedBoardSynced,
+  onEmbeddedBackgroundDraftKeyChange,
+}: WishlistMyBoardScreenProps = {}) {
+>>>>>>> 9f518a340c67f0c889b151c778d325061805c1e1
   const router = useRouter();
   const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(
     () => getWishlistPageSessionCache()?.bigCircleCount ?? 1,
@@ -411,18 +445,28 @@ export function WishlistMyBoardScreen({
     slot: -1,
     done: false,
   });
+  /** 슬러그 임베드 + 배경 낙관적 반영 시 부모에 넘길 `items`(직전 GET 기준) */
+  const lastLoadedWishItemsRef = useRef<WishItemData[]>([]);
 
-  const applyLoadedBoard = useCallback((board: MyBoardData) => {
-    const { items, assets, boardSlug } = board.data;
-    setBoardSlug(boardSlug);
-    setBoardAssets(assets);
+  const applyLoadedBoard = useCallback(
+    (board: MyBoardData) => {
+      const { items, assets, boardSlug } = board.data;
+      lastLoadedWishItemsRef.current = items;
+      setBoardSlug(boardSlug);
+      setBoardAssets(assets);
 
-    const derived = deriveWishSlotState(items);
-    setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
-    setWishTexts(derived.wishTexts);
-    setWishGiftIconKeys(derived.wishGiftIconKeys);
-    setBigCircleCount(derived.bigCircleCount);
-  }, []);
+      const derived = deriveWishSlotState(items);
+      setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
+      setWishTexts(derived.wishTexts);
+      setWishGiftIconKeys(derived.wishGiftIconKeys);
+      setBigCircleCount(derived.bigCircleCount);
+
+      if (embeddedInSlugCarousel && onEmbeddedBoardSynced) {
+        onEmbeddedBoardSynced({ assets, items });
+      }
+    },
+    [embeddedInSlugCarousel, onEmbeddedBoardSynced],
+  );
 
   const reloadMyBoardFromApi = useCallback(async (): Promise<MyBoardData> => {
     const s = routeBoardSlug.trim();
@@ -1111,7 +1155,18 @@ export function WishlistMyBoardScreen({
       } else {
         await putMyBoardBackground(apiSlug, draft);
       }
-      await reloadMyBoardFromApi();
+      setBoardAssets((prev) => {
+        const next = boardAssetsWithBackgroundKey(prev, draft);
+        if (embeddedInSlugCarousel && onEmbeddedBoardSynced) {
+          onEmbeddedBoardSynced({
+            assets: next,
+            items: lastLoadedWishItemsRef.current,
+          });
+        }
+        return next;
+      });
+      const board = await getMyBoard();
+      applyLoadedBoard(board);
       setDraftBackgroundAssetKey(null);
       setIsCompactBackgroundOpen(false);
       return true;
@@ -1127,9 +1182,9 @@ export function WishlistMyBoardScreen({
     applyLoadedBoard,
     boardAssets,
     draftBackgroundAssetKey,
+    embeddedInSlugCarousel,
     isCompactBackgroundOpen,
-    reloadMyBoardFromApi,
-    routeBoardSlug,
+    onEmbeddedBoardSynced,
   ]);
 
   const toggleSidebar = () => {
@@ -1444,6 +1499,27 @@ export function WishlistMyBoardScreen({
     return serverBackgroundAssetKey;
   }, [draftBackgroundAssetKey, serverBackgroundAssetKey]);
 
+  useEffect(() => {
+    if (!embeddedInSlugCarousel || !onEmbeddedBackgroundDraftKeyChange) {
+      return;
+    }
+    if (!isCompactBackgroundOpen) {
+      onEmbeddedBackgroundDraftKeyChange(null);
+      return;
+    }
+    const eff =
+      draftBackgroundAssetKey !== null
+        ? draftBackgroundAssetKey
+        : serverBackgroundAssetKey;
+    onEmbeddedBackgroundDraftKeyChange(eff);
+  }, [
+    embeddedInSlugCarousel,
+    onEmbeddedBackgroundDraftKeyChange,
+    isCompactBackgroundOpen,
+    draftBackgroundAssetKey,
+    serverBackgroundAssetKey,
+  ]);
+
   const boardBackgroundDisplayUrl = useMemo(() => {
     if (draftBackgroundAssetKey === null) {
       return serverBackgroundUrl;
@@ -1666,6 +1742,7 @@ export function WishlistMyBoardScreen({
                 <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
                   {shouldUseNativeImg(boardBackgroundDisplayUrl) ? (
                     <img
+                      key={effectiveBackgroundSelectionKey || "default"}
                       src={boardBackgroundDisplayUrl}
                       alt=""
                       className="h-full w-full object-cover"
@@ -1673,6 +1750,7 @@ export function WishlistMyBoardScreen({
                     />
                   ) : (
                     <Image
+                      key={effectiveBackgroundSelectionKey || "default"}
                       src={boardBackgroundDisplayUrl}
                       alt=""
                       fill
@@ -1841,12 +1919,12 @@ export function WishlistMyBoardScreen({
       <section
         className={`${
           embeddedInSlugCarousel ? "absolute" : "fixed"
-        } inset-x-0 bottom-0 z-[31] max-h-[min(48dvh,440px)] overflow-y-auto overscroll-y-contain rounded-t-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 pb-[max(0.5rem,var(--safe-area-bottom))] pt-3 shadow-[0_-8px_28px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-out ${
+        } inset-x-0 bottom-0 z-[31] flex max-h-[min(48dvh,440px)] flex-col overflow-hidden rounded-t-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_-8px_28px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-out ${
           isCompactBackgroundOpen ? "translate-y-0" : "translate-y-full"
         } ${!isCompactBackgroundOpen ? "pointer-events-none" : "pointer-events-auto"}`}
         aria-hidden={!isCompactBackgroundOpen}
       >
-        <div className="mx-auto w-full max-w-[372px]">
+        <div className="mx-auto min-h-0 w-full max-w-[372px] flex-1 overflow-y-auto overscroll-y-contain px-5 pb-[max(0.75rem,var(--safe-area-bottom))] pt-4">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="bg-gradient-to-r from-[#5346C9] via-[#7B61FF] to-[#5B8DEF] bg-clip-text text-[1.0625rem] font-extrabold leading-snug tracking-tight text-transparent">
@@ -1861,7 +1939,7 @@ export function WishlistMyBoardScreen({
               onClick={() => {
                 void dismissCompactBackgroundSheet();
               }}
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60"
+              className={`inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 active:opacity-60 ${UI_FOCUS_OUTLINE_VISIBLE}`}
               aria-label="배경 선택 닫기"
             >
               <X size={20} weight="bold" aria-hidden />
@@ -1885,7 +1963,7 @@ export function WishlistMyBoardScreen({
           <div
             ref={backgroundPickerStripScroll.stripRef}
             aria-label="배경 썸네일 목록"
-            className="wishlist-background-picker-scroll mt-1 flex cursor-grab items-start gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain pb-2 select-none active:cursor-grabbing touch-pan-x"
+            className="wishlist-background-picker-scroll mt-1 flex cursor-grab items-start gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-3 pt-1 select-none active:cursor-grabbing touch-pan-x"
             onPointerDown={backgroundPickerStripScroll.onPointerDown}
           >
             <div className="flex w-24 shrink-0 flex-col gap-1.5 text-center">
@@ -1895,7 +1973,7 @@ export function WishlistMyBoardScreen({
               <DefaultOptionButton
                 className={`aspect-[3/4] w-full rounded-xl ${
                   effectiveBackgroundSelectionKey === ""
-                    ? "ring-2 ring-[#7B61FF] ring-offset-2 ring-offset-[var(--color-surface)]"
+                    ? "ring-6 ring-inset ring-[#7B61FF]"
                     : ""
                 }`}
                 label="기본 배경"
@@ -1918,16 +1996,16 @@ export function WishlistMyBoardScreen({
                   onClick={() => {
                     setDraftBackgroundAssetKey(bg.assetKey.trim());
                   }}
-                  className="group flex w-24 shrink-0 cursor-pointer flex-col gap-1.5 text-center transition hover:opacity-95 disabled:opacity-50"
+                  className="group flex w-24 shrink-0 cursor-pointer flex-col gap-1.5 text-center transition hover:opacity-95 disabled:opacity-50 rounded-xl outline-none"
                 >
-                  <p className="break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
+                  <p className="pointer-events-none break-words text-center text-[10px] font-semibold leading-snug tracking-tight text-black">
                     {label}
                   </p>
                   <div
-                    className={`relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-100 ring-1 transition group-hover:ring-[#7B61FF]/35 ${
+                    className={`relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-100 ring-1 ring-inset transition group-hover:ring-[#7B61FF]/35 ${
                       effectiveBackgroundSelectionKey === bg.assetKey.trim()
-                        ? "ring-2 ring-[#7B61FF] ring-offset-2 ring-offset-[var(--color-surface)]"
-                        : "ring-slate-200/80"
+                        ? "ring-2 ring-inset ring-[#7B61FF]"
+                        : "ring-slate-200/80 group-focus-visible:ring-2 group-focus-visible:ring-inset group-focus-visible:ring-[#7B61FF]"
                     }`}
                   >
                     {shouldUseNativeImg(src) ? (

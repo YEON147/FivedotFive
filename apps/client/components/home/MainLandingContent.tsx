@@ -8,8 +8,12 @@ import { useState } from "react";
 import "@/components/home/main-landing-wordmark-float.css";
 import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
-import { resolveLoggedInHomeHref } from "@/features/wishlist/resolve-logged-in-home";
-import { adminPublicWishlistHref } from "@/lib/admin-landing";
+import { loginUrlForPath } from "@/features/login/post-login-destination";
+import { createMyBoard } from "@/features/wishlist/api";
+import { navigateToMyWishBoard } from "@/features/wishlist/navigate-to-my-board";
+import { SESSION_OPEN_DECORATE_AFTER_CREATE_KEY } from "@/features/wishlist/wishlist-session-cache";
+import { trackSignupButtonClick } from "@/lib/analytics/conversion";
+import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 
 const landingPrimaryBtn =
   "inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)] disabled:pointer-events-none disabled:opacity-60";
@@ -27,8 +31,47 @@ type MainLandingContentProps = {
  */
 export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
   const router = useRouter();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [entryNavPending, setEntryNavPending] = useState(false);
+  /** iOS WebKit: 히어로 로고에 filter drop-shadow 시 사각 clipping → 레이어 그림자 사용 */
+  const [iosStyleHeroShadow, setIosStyleHeroShadow] = useState(false);
+  const [wishlistPrimaryLoading, setWishlistPrimaryLoading] = useState(false);
+  const [wishlistPrimaryFill, setWishlistPrimaryFill] = useState(0);
+  const [wishlistPrimaryError, setWishlistPrimaryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    touchTrafficAttribution();
+  }, []);
+
+  useLayoutEffect(() => {
+    const ua = navigator.userAgent;
+    const appleTouch =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    setIosStyleHeroShadow(appleTouch);
+  }, []);
+
+  const handleLoggedInWishlistPrimary = async () => {
+    if (wishlistPrimaryLoading) return;
+
+    trackWishlistCtaClick({
+      cta_id: "landing_logged_wishlist_hub",
+      wishlist_entry: hasWishBoard ? "decorate" : "create",
+    });
+
+    if (hasWishBoard) {
+      setWishlistPrimaryLoading(true);
+      await runDecorateFillRamp(setWishlistPrimaryFill, WISH_CTA_DECORATE_RAMP);
+      const nav = await navigateToMyWishBoard(router);
+      setWishlistPrimaryLoading(false);
+      setWishlistPrimaryFill(0);
+      if (!nav.ok) router.push("/wishlist");
+      return;
+    }
+
+    setWishlistPrimaryError(null);
+    setWishlistPrimaryLoading(true);
+    setWishlistPrimaryFill(WISH_CTA_FILL.start);
+
+    let progressId: number | null = null;
 
   const handleGoToMyBoards = async () => {
     setEntryNavPending(true);
@@ -38,11 +81,29 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
         router.push(href);
         return;
       }
-      setCreateOpen(true);
-    } catch {
-      setCreateOpen(true);
-    } finally {
-      setEntryNavPending(false);
+
+      if (progressId !== null) {
+        window.clearInterval(progressId);
+        progressId = null;
+      }
+
+      setWishlistPrimaryFill(WISH_CTA_FILL.beforeNavigate);
+      await nextFrame();
+      setWishlistPrimaryFill(WISH_CTA_FILL.full);
+      await nextFrame();
+
+      sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
+      const nav = await navigateToMyWishBoard(router);
+      setWishlistPrimaryLoading(false);
+      setWishlistPrimaryFill(0);
+      if (!nav.ok) router.push("/wishlist");
+    } catch (e) {
+      if (progressId !== null) window.clearInterval(progressId);
+      setWishlistPrimaryError(
+        e instanceof Error ? e.message : "위시보드를 만들지 못했습니다.",
+      );
+      setWishlistPrimaryLoading(false);
+      setWishlistPrimaryFill(0);
     }
   };
 
