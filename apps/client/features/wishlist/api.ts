@@ -130,7 +130,7 @@ export async function getMyBoardsAll(): Promise<MyBoardsAllApiResponse> {
   });
 }
 
-/** POST /api/boards 응답 — 슬롯·에셋은 GET /api/boards/me 로 조회 */
+/** POST /api/boards — 201 CREATED, 한도 초과 시 409(CONFLICT) 등 */
 export type CreateBoardApiResponse = {
   success: boolean;
   message: string;
@@ -139,15 +139,14 @@ export type CreateBoardApiResponse = {
   };
 };
 
-/** POST /api/boards 요청 본문 — 필드는 서버 스펙에 맞게 선택 전송 */
+/** POST /api/boards 요청 — title 선택(null 가능), targetDate·isPublic 선택 */
 export type CreateWishBoardBody = {
-  /** 미입력 시 null */
   title?: string | null;
   targetDate?: string | null;
   isPublic?: boolean | null;
 };
 
-/** POST /api/boards — 위시보드 생성 */
+/** POST /api/boards — 위시보드 생성 (서버: WishBoardCreateRequest, 제목 최대 100자) */
 export async function createWishBoard(
   body: CreateWishBoardBody = {},
 ): Promise<CreateBoardApiResponse> {
@@ -175,7 +174,22 @@ export async function createMyBoard(): Promise<CreateBoardApiResponse> {
   return createWishBoard({});
 }
 
-/** POST /api/rolling-papers */
+/** 한도 초과 등 서버 메시지와 스펙 문구 정렬 */
+export const COMBINED_BOARD_CREATE_LIMIT_MESSAGE =
+  "위시보드와 롤링페이퍼 합산 최대 5개까지 생성할 수 있습니다.";
+
+export function formatCreateBoardLimitError(message: string): string {
+  if (
+    message.includes("위시보드와 롤링페이퍼 합산") ||
+    message.includes("위시보드는 최대 5개") ||
+    message.includes("롤링페이퍼는 최대 5개")
+  ) {
+    return COMBINED_BOARD_CREATE_LIMIT_MESSAGE;
+  }
+  return message;
+}
+
+/** POST /api/rolling-papers — 본문 RollingPaperCreateRequest (제목·수신자명·targetDate 필수, imageKey 선택) */
 export type CreateRollingPaperBody = {
   title: string;
   recipientName: string;
@@ -183,6 +197,7 @@ export type CreateRollingPaperBody = {
   imageKey?: string | null;
 };
 
+/** POST /api/rolling-papers — 201 CREATED, data에 댓글용·저장용 공유 URL 포함 */
 export type CreateRollingPaperApiResponse = {
   success: boolean;
   message: string;

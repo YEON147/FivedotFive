@@ -9,12 +9,16 @@ import { TextField } from "@/components/ui/TextField";
 import {
   createRollingPaper,
   createWishBoard,
+  formatCreateBoardLimitError,
   type CreateRollingPaperApiResponse,
 } from "@/features/wishlist/api";
 
+/** 서버 WishBoardCreateRequest @Size(max = 100) */
 const WISH_TITLE_MAX = 100;
-const ROLLING_TITLE_MAX = 100;
-const RECIPIENT_NAME_MAX = 40;
+/** 서버 RollingPaperCreateRequest title @Size(max = 200) */
+const ROLLING_TITLE_MAX = 200;
+/** 서버 RollingPaperCreateRequest recipientName @Size(max = 100) */
+const RECIPIENT_NAME_MAX = 100;
 
 type CreateKind = "wish" | "rolling";
 
@@ -100,7 +104,8 @@ export function CreateBoardOrRollingPaperModal({
         onClose();
         router.push(`/wishlist/${encodeURIComponent(res.data.boardSlug)}`);
       } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : "생성에 실패했습니다.");
+        const raw = err instanceof Error ? err.message : "생성에 실패했습니다.";
+        setErrorMessage(formatCreateBoardLimitError(raw));
       } finally {
         setSubmitting(false);
       }
@@ -141,7 +146,8 @@ export function CreateBoardOrRollingPaperModal({
       });
       setRollingSuccess(res.data);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "생성에 실패했습니다.");
+      const raw = err instanceof Error ? err.message : "생성에 실패했습니다.";
+      setErrorMessage(formatCreateBoardLimitError(raw));
     } finally {
       setSubmitting(false);
     }

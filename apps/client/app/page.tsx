@@ -46,7 +46,7 @@ export default function Home() {
     return () => window.clearTimeout(id);
   }, []);
 
-  /** 페인트 전에 토큰 반영 — `useEffect`만 쓰면 첫 화면이 비로그인 CTA로 잠깐 그려질 수 있음 */
+  /** 페인트 전에 토큰 반영 — `useEffect`만 쓰면 첫 화면이 비로그인 CTA로 잠깐 그려져 `/ranking`으로 잘못 안내 */
   useLayoutEffect(() => {
     if (!guestShellMounted) return;
     setLoggedIn(!!getAccessToken());
