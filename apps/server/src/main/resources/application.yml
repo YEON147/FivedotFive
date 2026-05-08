@@ -70,3 +70,7 @@ cloud:
     credentials:
       access-key: ${AWS_ACCESS_KEY}
       secret-key: ${AWS_SECRET_KEY}
+
+gms:
+  url: "https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions"
+  key: ""

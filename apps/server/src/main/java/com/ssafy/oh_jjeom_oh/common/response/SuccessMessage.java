@@ -112,7 +112,8 @@ public enum SuccessMessage {
     BANNER_LIST_FOUND("배너 목록 조회가 완료되었습니다."),
 
     // 파일 업로드
-    IMAGE_UPLOADED("이미지가 업로드되었습니다.");
+    IMAGE_UPLOADED("이미지가 업로드되었습니다."),
+    CHARACTER_GENERATED("AI 캐릭터가 생성되었습니다.");
 
     private final String message;
 }

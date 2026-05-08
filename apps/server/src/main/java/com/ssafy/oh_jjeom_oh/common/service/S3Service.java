@@ -31,18 +31,25 @@ public class S3Service {
      */
     public String uploadFile(MultipartFile file, String s3Key) {
         try {
-            PutObjectRequest putRequest = PutObjectRequest.builder()
-                    .bucket(bucket)
-                    .key(s3Key)
-                    .contentType(file.getContentType())
-                    .contentLength(file.getSize())
-                    .build();
-
-            s3Client.putObject(putRequest, RequestBody.fromBytes(file.getBytes()));
-            return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + s3Key;
+            return uploadFile(file.getBytes(), s3Key, file.getContentType());
         } catch (IOException e) {
             throw new RuntimeException("S3 파일 업로드에 실패했습니다.", e);
         }
+    }
+
+    /**
+     * 바이트 데이터를 S3에 업로드하고 전체 URL을 반환합니다.
+     */
+    public String uploadFile(byte[] bytes, String s3Key, String contentType) {
+        PutObjectRequest putRequest = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(s3Key)
+                .contentType(contentType)
+                .contentLength((long) bytes.length)
+                .build();
+
+        s3Client.putObject(putRequest, RequestBody.fromBytes(bytes));
+        return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + s3Key;
     }
 
     /**

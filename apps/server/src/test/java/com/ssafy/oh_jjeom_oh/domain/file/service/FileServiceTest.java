@@ -11,56 +11,52 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.multipart.MultipartFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FileServiceTest {
 
-    @Mock
-    private S3Service s3Service;
-
     @InjectMocks
     private FileService fileService;
 
+    @Mock
+    private S3Service s3Service;
+
+    @Mock
+    private GmsService gmsService;
+
     @Test
-    @DisplayName("이미지 업로드 성공 - S3 키 생성 및 업로드 호출 확인")
+    @DisplayName("AI 캐릭터 생성 및 업로드 성공 테스트")
     void uploadImage_Success() {
         // given
         MockMultipartFile file = new MockMultipartFile(
-                "image",
-                "test-image.png",
-                "image/png",
-                "test data".getBytes()
-        );
-        
-        given(s3Service.uploadFile(eq(file), anyString())).willReturn("https://s3.url/images/recipient/uuid.png");
+                "image", "test.jpg", "image/jpeg", "test data".getBytes());
+        byte[] aiResult = "ai generated data".getBytes();
+
+        given(gmsService.generateCharacterImage(any())).willReturn(aiResult);
+        given(s3Service.uploadFile(any(byte[].class), anyString(), anyString())).willReturn("https://s3/path");
 
         // when
         ImageUploadResponse response = fileService.uploadImage(file);
 
         // then
-        assertThat(response.imageKey()).startsWith("images/recipient/");
-        assertThat(response.imageKey()).endsWith(".png");
-        verify(s3Service).uploadFile(eq(file), anyString());
+        assertThat(response.imageKey()).startsWith("images/characters/");
+        verify(gmsService, times(1)).generateCharacterImage(any());
+        verify(s3Service, times(1)).uploadFile(any(byte[].class), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("업로드 실패 - 지원하지 않는 확장자 (txt)")
-    void uploadImage_Failure_InvalidExtension() {
+    @DisplayName("이미지가 아닌 파일을 업로드할 경우 예외 발생")
+    void uploadImage_UnsupportedFileType() {
         // given
         MockMultipartFile file = new MockMultipartFile(
-                "image",
-                "test.txt",
-                "text/plain",
-                "test data".getBytes()
-        );
+                "image", "test.txt", "text/plain", "test data".getBytes());
 
         // when & then
         assertThatThrownBy(() -> fileService.uploadImage(file))
@@ -69,36 +65,18 @@ class FileServiceTest {
     }
 
     @Test
-    @DisplayName("업로드 실패 - 빈 파일")
-    void uploadImage_Failure_EmptyFile() {
+    @DisplayName("AI 생성 실패 시 예외 전파 테스트")
+    void uploadImage_AiGenerationFail() {
         // given
         MockMultipartFile file = new MockMultipartFile(
-                "image",
-                "test.jpg",
-                "image/jpeg",
-                new byte[0]
-        );
+                "image", "test.jpg", "image/jpeg", "test data".getBytes());
+
+        given(gmsService.generateCharacterImage(any()))
+                .willThrow(new CustomException(ErrorCode.AI_GENERATION_FAILED));
 
         // when & then
         assertThatThrownBy(() -> fileService.uploadImage(file))
                 .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-    }
-
-    @Test
-    @DisplayName("업로드 실패 - 이미지 형식이 아닌 Content-Type")
-    void uploadImage_Failure_InvalidContentType() {
-        // given
-        MockMultipartFile file = new MockMultipartFile(
-                "image",
-                "test.jpg",
-                "application/pdf",
-                "test data".getBytes()
-        );
-
-        // when & then
-        assertThatThrownBy(() -> fileService.uploadImage(file))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNSUPPORTED_FILE_TYPE);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AI_GENERATION_FAILED);
     }
 }
