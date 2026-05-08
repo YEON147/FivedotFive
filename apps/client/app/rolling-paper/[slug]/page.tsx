@@ -1,6 +1,7 @@
 "use client";
 
-import { TextAlignJustify } from "@phosphor-icons/react";
+import { CaretLeftIcon, CaretRightIcon, NotePencil, Plus, TextAlignJustify } from "@phosphor-icons/react";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { use, useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 
@@ -21,10 +22,6 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 
-/**
- * `app/wishlist/[slug]/page.tsx` 공개 보드 카드와 동일 셸 — max 372×680 비율 프레임.
- * 배경·상단 이미지는 추후 연결; 영역만 잡아 둠.
- */
 const ROLLING_PAPER_BOARD_WRAP =
   "relative flex h-full min-h-0 max-h-full w-full max-w-[min(420px,calc(100vw-1.5rem))] flex-1 flex-col overflow-visible bg-transparent";
 
@@ -33,6 +30,54 @@ const ROLLING_PAPER_BOARD_FRAME =
 
 const ROLLING_PAPER_BOARD_INNER =
   "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
+
+const COLLAGE_BG = "bg-[#f4f2ec]";
+
+/**
+ * `public/rollingpaper` 콜라주 에셋 매칭
+ * - `rollingpaper-01.png` — 폴라로이드(기존)
+ * - `postit_01.png` … `postit_04.png` — 예전 `rollingpaper-02`~`05` 자리·동일 해상도
+ */
+const COLLAGE_PIECES: {
+  src: string;
+  className: string;
+  /** 원본 PNG 비율 */
+  aspect: [number, number];
+  alt: string;
+}[] = [
+  {
+    src: "/rollingpaper/rollingpaper-01.png",
+    className: "left-[5%] top-[1%] z-10 w-[46%] -rotate-[7deg]",
+    aspect: [376, 489],
+    alt: "폴라로이드 포토 프레임",
+  },
+  {
+    src: "/rollingpaper/postit_01.png",
+    className: "right-2 top-[16%] z-[30] w-[42%] rotate-[4deg]",
+    aspect: [435, 466],
+    alt: "포스트잇1",
+  },
+  {
+    src: "/rollingpaper/postit_02.png",
+    className: "left-[6%] top-[38%] z-[14] w-[56%] -rotate-[6deg]",
+    aspect: [642, 571],
+    alt: "포스트잇2",
+  },
+  {
+    src: "/rollingpaper/postit_03.png",
+    className: "right-[4%] bottom-[18%] z-[18] w-[44%] rotate-[5deg]",
+    aspect: [458, 542],
+    alt: "포스트잇3",
+  },
+  {
+    src: "/rollingpaper/postit_04.png",
+    className: "left-[7%] bottom-[4%] z-[22] w-[42%] -rotate-[10deg]",
+    aspect: [399, 436],
+    alt: "포스트잇4",
+  },
+];
+
+const ROLLING_PAPER_PAGE_COUNT = 5;
 
 export default function RollingPaperSlugPage({
   params,
@@ -44,6 +89,16 @@ export default function RollingPaperSlugPage({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const displayName = useMemo(() => {
+    const raw = slug?.trim() || "";
+    if (!raw) return "회원";
+    try {
+      return decodeURIComponent(raw).replace(/-/g, " ");
+    } catch {
+      return raw.replace(/-/g, " ");
+    }
+  }, [slug]);
+
   const loginHrefWithReturn = useMemo(() => {
     const qs = searchParams.toString();
     return loginUrlForPath(`${pathname}${qs ? `?${qs}` : ""}`);
@@ -51,6 +106,7 @@ export default function RollingPaperSlugPage({
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
+  const [sheetPage, setSheetPage] = useState(0);
 
   const syncVisitorSession = useCallback(async () => {
     const token = getAccessToken()?.trim();
@@ -67,7 +123,13 @@ export default function RollingPaperSlugPage({
   }, []);
 
   useEffect(() => {
-    void syncVisitorSession();
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void syncVisitorSession();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [syncVisitorSession]);
 
   useEffect(() => {
@@ -118,9 +180,8 @@ export default function RollingPaperSlugPage({
                   aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
                 }}
               >
-                {/* 배경 이미지 — 추후 absolute inset-0 레이어로 교체 */}
                 <div
-                  className="pointer-events-none absolute inset-0 z-0 rounded-[18px]"
+                  className={`pointer-events-none absolute inset-0 z-0 rounded-[18px] ${COLLAGE_BG}`}
                   aria-hidden
                 />
 
@@ -129,10 +190,10 @@ export default function RollingPaperSlugPage({
                 >
                   <header className={PAGE_HEADER_ROW_COMPACT}>
                     <div className={`${PAGE_HEADER_LEADING_CLUSTER} items-start`}>
-                      <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
-                        <span className="block font-bold leading-[0.8] text-[#7B61FF]">롤링페이퍼</span>
-                        <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">
-                          준비 중
+                      <h1 className="min-w-0 flex-1 text-left leading-snug text-slate-900">
+                        <span className="block text-[clamp(15px,4.2vw,18px)]">
+                          <span className="font-bold text-[#7B61FF]">{displayName}</span>
+                          <span className="font-light text-slate-900">님을 위한 롤링페이퍼</span>
                         </span>
                       </h1>
                     </div>
@@ -147,18 +208,77 @@ export default function RollingPaperSlugPage({
                     </button>
                   </header>
 
-                  {/* 상단 이미지 — 추후 교체 */}
                   <div
-                    className="mx-auto mt-1 w-[88%] shrink-0 rounded-xl border-2 border-dashed border-violet-200/70 bg-white/20"
-                    style={{ aspectRatio: "320 / 140" }}
-                    aria-label="롤링페이퍼 상단 이미지 영역"
-                  />
+                    className={`relative mx-2 mb-1 mt-0 min-h-0 flex-1 overflow-visible rounded-[14px] ${COLLAGE_BG} shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]`}
+                  >
+                    {COLLAGE_PIECES.map((piece) => {
+                      const [aw, ah] = piece.aspect;
+                      return (
+                        <div
+                          key={piece.src}
+                          className={`pointer-events-none absolute ${piece.className}`}
+                          style={{ aspectRatio: `${aw} / ${ah}` }}
+                        >
+                          <div className="relative h-full w-full">
+                            <Image
+                              src={piece.src}
+                              alt={piece.alt}
+                              fill
+                              className="object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
+                              sizes="(max-width: 420px) 50vw, 220px"
+                              priority={piece.src.endsWith("01.png")}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
 
-                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 pb-6 pt-4 text-center">
-                    <p className="font-mono text-[13px] text-slate-500">{slug}</p>
-                    <p className="max-w-[240px] text-body-sm text-[var(--color-text-secondary)]">
-                      본문·스티커 등은 이후 연결 예정입니다.
-                    </p>
+                    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-40 flex justify-center px-2">
+                      <div className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-white/90 px-1 py-1 shadow-md backdrop-blur-[2px]">
+                        <button
+                          type="button"
+                          className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-sm transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                          aria-label="이전 페이지"
+                          disabled={sheetPage <= 0}
+                          onClick={() => setSheetPage((p) => Math.max(0, p - 1))}
+                        >
+                          <CaretLeftIcon size={23} weight="bold" />
+                        </button>
+                        <span className="min-w-[52px] text-center text-[12px] font-bold tabular-nums text-[#7B61FF]">
+                          {sheetPage + 1} / {ROLLING_PAPER_PAGE_COUNT}
+                        </span>
+                        <button
+                          type="button"
+                          className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-sm transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                          aria-label="다음 페이지"
+                          disabled={sheetPage >= ROLLING_PAPER_PAGE_COUNT - 1}
+                          onClick={() =>
+                            setSheetPage((p) =>
+                              Math.min(ROLLING_PAPER_PAGE_COUNT - 1, p + 1),
+                            )
+                          }
+                        >
+                          <CaretRightIcon size={23} weight="bold" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pointer-events-auto absolute bottom-16 right-3 z-40 flex flex-col gap-2.5">
+                      <button
+                        type="button"
+                        className="flex size-[46px] items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 active:scale-[0.98]"
+                        aria-label="메모"
+                      >
+                        <NotePencil size={24} weight="bold" />
+                      </button>
+                      <button
+                        type="button"
+                        className="flex size-[46px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg transition hover:bg-[#6b52e0] active:scale-[0.98]"
+                        aria-label="추가"
+                      >
+                        <Plus size={24} weight="bold" className="opacity-95" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
