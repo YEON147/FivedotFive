@@ -184,7 +184,7 @@ class RollingPaperCommentServiceTest {
             RollingPaperCommentCreateRequest req = new RollingPaperCommentCreateRequest();
             ReflectionTestUtils.setField(req, "content", "비회원 댓글");
             ReflectionTestUtils.setField(req, "slotIndex", 1);
-            ReflectionTestUtils.setField(req, "senderName", "게스트");
+            ReflectionTestUtils.setField(req, "guestNickname", "게스트");
             ReflectionTestUtils.setField(req, "guestPassword", "1234");
 
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
@@ -250,8 +250,8 @@ class RollingPaperCommentServiceTest {
         }
 
         @Test
-        @DisplayName("비회원 senderName 누락 → 400")
-        void guest_missingSenderName() {
+        @DisplayName("비회원 guestNickname 누락 → 400")
+        void guest_missingGuestNickname() {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
             given(commentRepository.existsByPaperIdAndSlotIndexNative(10L, 0)).willReturn(false);
 
@@ -259,7 +259,7 @@ class RollingPaperCommentServiceTest {
             ReflectionTestUtils.setField(req, "content", "댓글");
             ReflectionTestUtils.setField(req, "slotIndex", 0);
             ReflectionTestUtils.setField(req, "guestPassword", "1234");
-            // senderName is null
+            // guestNickname is null
 
             assertThatThrownBy(() -> service.createComment(null, SLUG, COMMENT_TOKEN, req))
                     .isInstanceOf(CustomException.class)
@@ -276,7 +276,7 @@ class RollingPaperCommentServiceTest {
             RollingPaperCommentCreateRequest req = new RollingPaperCommentCreateRequest();
             ReflectionTestUtils.setField(req, "content", "댓글");
             ReflectionTestUtils.setField(req, "slotIndex", 0);
-            ReflectionTestUtils.setField(req, "senderName", "게스트");
+            ReflectionTestUtils.setField(req, "guestNickname", "게스트");
             // guestPassword is null
 
             assertThatThrownBy(() -> service.createComment(null, SLUG, COMMENT_TOKEN, req))
