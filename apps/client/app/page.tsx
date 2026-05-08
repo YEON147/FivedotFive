@@ -9,9 +9,7 @@ import {
   INTRO_GIFT_SHAKE_MS,
   MainIntroExperience,
 } from "@/components/main-intro/MainIntroExperience";
-import { getMyProfile } from "@/features/user/api";
 import { getAccessToken } from "@/lib/api/token-store";
-import { ADMIN_PUBLIC_BOARD_SLUG } from "@/lib/admin-landing";
 
 const MAIN_INTRO_DURATION_MS = INTRO_GIFT_SHAKE_MS + INTRO_GIFT_BURST_MS + 180;
 
@@ -19,43 +17,17 @@ const MAIN_INTRO_DURATION_REDUCED_MS = 480;
 
 const GUEST_REVEAL_CLIP_MS = 880;
 
-/** 탭 세션당 1회 — 메인 랜딩 인트로·원형 공개 애니메이션 재생 여부 */
-const SESSION_MAIN_INTRO_DONE_KEY = "oh_jjeom_oh_main_landing_intro_done";
-
 export default function Home() {
   const [guestShellMounted, setGuestShellMounted] = useState(false);
   const [guestClipExpanded, setGuestClipExpanded] = useState(false);
   const [introMounted, setIntroMounted] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
-  const [loggedInCtaReady, setLoggedInCtaReady] = useState(false);
-  const [isLandingAdmin, setIsLandingAdmin] = useState(false);
-  const [hasWishBoard, setHasWishBoard] = useState(false);
 
   const revealSkipIntro = useRef(false);
 
-  /** 이미 이 탭에서 인트로를 본 경우 — 첫 페인트 전에 건너뜀(로그인 후 메인 재진입 등) */
-  useLayoutEffect(() => {
-    try {
-      if (sessionStorage.getItem(SESSION_MAIN_INTRO_DONE_KEY) !== "1") return;
-    } catch {
-      return;
-    }
-    revealSkipIntro.current = true;
-    setIntroMounted(false);
-    setGuestShellMounted(true);
-    setGuestClipExpanded(true);
-  }, []);
-
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (sessionStorage.getItem(SESSION_MAIN_INTRO_DONE_KEY) === "1") return;
-    } catch {
-      /* ignore */
-    }
-
     const reduced =
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const wait = reduced ? MAIN_INTRO_DURATION_REDUCED_MS : MAIN_INTRO_DURATION_MS;
 
@@ -65,11 +37,6 @@ export default function Home() {
         setIntroMounted(false);
         setGuestShellMounted(true);
         setGuestClipExpanded(true);
-        try {
-          sessionStorage.setItem(SESSION_MAIN_INTRO_DONE_KEY, "1");
-        } catch {
-          /* ignore */
-        }
         return;
       }
 
@@ -79,37 +46,22 @@ export default function Home() {
     return () => window.clearTimeout(id);
   }, []);
 
-  /** `guestShellMounted`가 바뀔 때마다 토큰 동기화 — 페인트 전에 반영해 로그인 직후 CTA가 한 박자 비로그인으로 보이지 않게 */
+  /** 페인트 전에 토큰 반영 — `useEffect`만 쓰면 첫 화면이 비로그인 CTA로 잠깐 그려질 수 있음 */
   useLayoutEffect(() => {
+    if (!guestShellMounted) return;
     setLoggedIn(!!getAccessToken());
   }, [guestShellMounted]);
 
   useEffect(() => {
-    if (!guestShellMounted || !loggedIn) {
-      setLoggedInCtaReady(false);
-      setHasWishBoard(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoggedInCtaReady(false);
-
-    void getMyProfile()
-      .then((profile) => {
-        if (cancelled) return;
-        setHasWishBoard(profile.hasWishBoard);
-        setLoggedInCtaReady(true);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setHasWishBoard(false);
-        setLoggedInCtaReady(true);
-      });
-
+    if (!guestShellMounted) return;
+    const sync = () => setLoggedIn(!!getAccessToken());
+    window.addEventListener("focus", sync);
+    window.addEventListener("storage", sync);
     return () => {
-      cancelled = true;
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("storage", sync);
     };
-  }, [guestShellMounted, loggedIn]);
+  }, [guestShellMounted]);
 
   useEffect(() => {
     if (!guestShellMounted || revealSkipIntro.current) return;
@@ -125,11 +77,6 @@ export default function Home() {
     if (e.propertyName !== "clip-path") return;
 
     setIntroMounted(false);
-    try {
-      sessionStorage.setItem(SESSION_MAIN_INTRO_DONE_KEY, "1");
-    } catch {
-      /* ignore */
-    }
   };
 
   return (
@@ -146,12 +93,7 @@ export default function Home() {
           }}
           onTransitionEnd={onGuestRevealEnd}
         >
-          <MainLandingContent
-            loggedIn={loggedIn}
-            loggedInCtaReady={!loggedIn || loggedInCtaReady}
-            adminPublicBoardSlug={ADMIN_PUBLIC_BOARD_SLUG}
-            hasWishBoard={hasWishBoard}
-          />
+          <MainLandingContent loggedIn={loggedIn} />
         </div>
       ) : null}
     </>

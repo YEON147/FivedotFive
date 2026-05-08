@@ -4,12 +4,120 @@ import type {
   CommentListData,
   MyBoardData,
   MyBoardsAllApiResponse,
+  MyLatestBoardSummaryPayload,
   MyWishItemsData,
   PublicBoardData,
 } from "./types";
 
-export async function getMyBoard(): Promise<MyBoardData> {
-  return apiClient<MyBoardData>("/api/boards/me");
+function isWishBoardFullPayload(d: unknown): d is MyBoardData["data"] {
+  if (!d || typeof d !== "object") return false;
+  const o = d as Record<string, unknown>;
+  return (
+    typeof o.boardSlug === "string" &&
+    Array.isArray(o.items) &&
+    Array.isArray(o.assets)
+  );
+}
+
+function isLatestSummaryPayload(d: unknown): d is MyLatestBoardSummaryPayload {
+  if (!d || typeof d !== "object") return false;
+  const o = d as Record<string, unknown>;
+  /** 구 풀 위시보드는 `boardSlug`·`items`가 있고 신규 요약은 `type`·`slug` 중심 */
+  if ("items" in o && Array.isArray((o as { items?: unknown }).items)) {
+    return false;
+  }
+  return typeof o.type === "string" && typeof o.slug === "string";
+}
+
+/** 원본 JSON에서 `data`만 해석 — 신규 요약 / 구 풀 위시보드 */
+function parseBoardsMeEnvelope(raw: unknown): {
+  summary: MyLatestBoardSummaryPayload | null;
+  fullWishBoard: MyBoardData | null;
+} {
+  if (!raw || typeof raw !== "object") {
+    return { summary: null, fullWishBoard: null };
+  }
+  const envelope = raw as { data?: unknown };
+  const d = envelope.data;
+  if (isLatestSummaryPayload(d)) {
+    return {
+      summary: {
+        type: d.type,
+        slug: d.slug.trim(),
+        title: d.title ?? null,
+        targetDate: d.targetDate ?? null,
+        createdAt: String(d.createdAt ?? ""),
+        isPublic: d.isPublic,
+        recipientName: d.recipientName,
+        imageKey: d.imageKey ?? null,
+      },
+      fullWishBoard: null,
+    };
+  }
+  if (isWishBoardFullPayload(d)) {
+    const slug = d.boardSlug.trim();
+    return {
+      summary: {
+        type: "WISHBOARD",
+        slug,
+        title: null,
+        targetDate: d.targetDate != null ? String(d.targetDate) : null,
+        createdAt: "",
+        isPublic: Boolean(d.isPublic),
+      },
+      fullWishBoard: { data: d },
+    };
+  }
+  return { summary: null, fullWishBoard: null };
+}
+
+/**
+ * `GET /api/boards/me` — 최신 1건 메타.
+ * 구 서버(풀 위시보드만)면 요약을 합성해 반환. 없거나 형식 불명이면 null.
+ */
+export async function getMyLatestBoardSummary(): Promise<MyLatestBoardSummaryPayload | null> {
+  try {
+    const raw = await apiClient<unknown>("/api/boards/me");
+    const { summary } = parseBoardsMeEnvelope(raw);
+    return summary?.slug ? summary : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 편집용 풀 위시보드. `GET /api/boards/me/detail?slug=` 우선, 없으면 구 `GET /api/boards/me`가
+ * 동일 슬러그의 풀 응답일 때만 사용.
+ */
+export async function getMyWishBoardDetail(boardSlug: string): Promise<MyBoardData> {
+  const slug = boardSlug.trim();
+  if (!slug) {
+    throw new Error("boardSlug가 비어 있습니다.");
+  }
+
+  const detailPath = `/api/boards/me/detail?slug=${encodeURIComponent(slug)}`;
+
+  try {
+    const raw = await apiClient<unknown>(detailPath);
+    const { fullWishBoard } = parseBoardsMeEnvelope(raw);
+    if (fullWishBoard) {
+      return fullWishBoard;
+    }
+  } catch {
+    /* detail 미구축·404 */
+  }
+
+  try {
+    const raw = await apiClient<unknown>("/api/boards/me");
+    const { fullWishBoard } = parseBoardsMeEnvelope(raw);
+    if (fullWishBoard && fullWishBoard.data.boardSlug.trim() === slug) {
+      return fullWishBoard;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  throw new Error("위시보드를 불러오지 못했습니다.");
 }
 
 /** GET /api/me/boards-all — 위시보드·롤링페이퍼 합산 최대 5건, 생성일 내림차순 */

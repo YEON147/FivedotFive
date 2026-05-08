@@ -7,17 +7,14 @@ import { useEffect, useId, useState } from "react";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import { getMyBoardsAll } from "@/features/wishlist/api";
 import type { MyBoardListEntry } from "@/features/wishlist/types";
+import { isRollingPaperListType, listEntryHref } from "@/lib/board-entry-path";
 
 function entryHref(entry: MyBoardListEntry): string {
-  if (entry.type === "WISH_BOARD") {
-    return `/wishlist/${encodeURIComponent(entry.slug)}`;
-  }
-  /** 롤링페이퍼 상세 라우트 — 백엔드·라우트 스펙에 맞게 조정 가능 */
-  return `/rolling-paper/${encodeURIComponent(entry.slug)}`;
+  return listEntryHref(entry.type, entry.slug);
 }
 
-function typeLabel(type: MyBoardListEntry["type"]): string {
-  return type === "WISH_BOARD" ? "위시보드" : "롤링페이퍼";
+function typeLabel(type: string): string {
+  return isRollingPaperListType(type) ? "롤링페이퍼" : "위시보드";
 }
 
 function formatCreatedAt(iso: string): string {

@@ -70,3 +70,21 @@ export function SideMenuLogoutRow({ onLogout, icon, children }: SideMenuLogoutRo
     </button>
   );
 }
+
+type SideMenuButtonRowProps = {
+  onClick: () => void;
+  icon: ReactNode;
+  children: ReactNode;
+};
+
+/** 링크 행과 동일 스타일의 일반 버튼(모달 열기 등) */
+export function SideMenuButtonRow({ onClick, icon, children }: SideMenuButtonRowProps) {
+  return (
+    <button type="button" onClick={onClick} className={`${SIDE_MENU_ROW_CLASS} w-full text-left`}>
+      <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+        {icon}
+      </span>
+      {children}
+    </button>
+  );
+}
