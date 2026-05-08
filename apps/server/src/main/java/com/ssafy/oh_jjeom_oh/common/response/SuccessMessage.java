@@ -109,7 +109,10 @@ public enum SuccessMessage {
     NOTICE_CREATED("공지사항이 등록되었습니다."),
     NOTICE_UPDATED("공지사항이 수정되었습니다."),
     NOTICE_DELETED("공지사항이 삭제되었습니다."),
-    BANNER_LIST_FOUND("배너 목록 조회가 완료되었습니다.");
+    BANNER_LIST_FOUND("배너 목록 조회가 완료되었습니다."),
+
+    // 파일 업로드
+    IMAGE_UPLOADED("이미지가 업로드되었습니다.");
 
     private final String message;
 }
