@@ -52,6 +52,9 @@ public class WishComment {
     @Column(name = "slot_index")
     private Integer slotIndex; // 보드 댓글 슬롯 위치 (0~5), null 허용 (기존 데이터 호환)
 
+    @Column(name = "guest_password", length = 255)
+    private String guestPassword; // 비로그인 댓글 수정/삭제용 비밀번호 (null = 로그인 댓글)
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

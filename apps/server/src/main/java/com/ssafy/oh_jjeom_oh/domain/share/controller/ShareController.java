@@ -18,12 +18,13 @@ public class ShareController {
 
     private final ShareService shareService;
 
-    // POST /api/boards/me/share - 공유 단축 링크 생성 (인증 필요)
-    @PostMapping("/api/boards/me/share")
+    // POST /api/boards/{slug}/share - 공유 단축 링크 생성 (인증 필요, 본인 보드만)
+    @PostMapping("/api/boards/{slug}/share")
     public ResponseEntity<ApiResponse<ShareLinkResponse>> createShareLink(
+            @PathVariable String slug,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        String shortUrl = shareService.generateShareLink(userPrincipal.getId());
+        String shortUrl = shareService.generateShareLink(userPrincipal.getId(), slug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.SHARE_LINK_CREATED, ShareLinkResponse.of(shortUrl)));
     }
 

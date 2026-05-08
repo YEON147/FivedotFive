@@ -37,6 +37,8 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class WishItemServiceTest {
 
+    private static final String SLUG = "abc123def4";
+
     @InjectMocks
     private WishItemService wishItemService;
 
@@ -62,7 +64,7 @@ class WishItemServiceTest {
         ReflectionTestUtils.setField(other, "id", 2L);
 
         board = WishBoard.builder()
-                .user(owner).boardSlug("abc123def4").isPublic(true).build();
+                .user(owner).boardSlug(SLUG).isPublic(true).build();
 
         item = WishItem.builder()
                 .board(board).slotIndex(1).itemName("레고")
@@ -74,7 +76,7 @@ class WishItemServiceTest {
     @Test
     @DisplayName("위시 아이템 슬롯 전체 조회 성공")
     void getItems_success() {
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardOrderBySlotIndex(board)).willReturn(List.of(item));
         given(boardAssetRepository.findByBoardAndAssetType(board, AssetType.GIFT_STICKER))
                 .willReturn(List.of(
@@ -82,12 +84,23 @@ class WishItemServiceTest {
                                 .assetKey("icon/toy.png").slotIndex(1).build()
                 ));
 
-        WishItemListResponse response = wishItemService.getItems(1L);
+        WishItemListResponse response = wishItemService.getItems(SLUG, 1L);
 
         assertThat(response.getItems()).hasSize(3);
         assertThat(response.getItems().get(0).getItemName()).isEqualTo("레고");
         assertThat(response.getItems().get(0).getIconKey()).isEqualTo("icon/toy.png");
         assertThat(response.getItems().get(1).getItemName()).isNull(); // 빈 슬롯
+    }
+
+    @Test
+    @DisplayName("위시 아이템 슬롯 전체 조회 실패 - 다른 사용자 보드")
+    void getItems_forbidden() {
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> wishItemService.getItems(SLUG, 2L))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.BOARD_FORBIDDEN));
     }
 
     // ===================== updateItem =====================
@@ -99,13 +112,13 @@ class WishItemServiceTest {
         ReflectionTestUtils.setField(request, "itemName", "닌텐도");
         ReflectionTestUtils.setField(request, "iconKey", "icon/game.png");
 
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
         given(boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, 1))
                 .willReturn(Optional.of(BoardAsset.builder().board(board).assetType(AssetType.GIFT_STICKER)
                         .assetKey("old_key").slotIndex(1).build()));
 
-        wishItemService.updateItem(1L, 1, request);
+        wishItemService.updateItem(SLUG, 1L, 1, request);
 
         assertThat(item.getItemName()).isEqualTo("닌텐도");
         assertThat(item.getLikeCount()).isEqualTo(0); // likeCount 초기화 확인
@@ -117,10 +130,10 @@ class WishItemServiceTest {
         WishItemUpdateRequest request = new WishItemUpdateRequest();
         ReflectionTestUtils.setField(request, "itemName", "레고");
 
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 2)).willReturn(Optional.empty());
 
-        wishItemService.updateItem(1L, 2, request);
+        wishItemService.updateItem(SLUG, 1L, 2, request);
 
         verify(wishItemRepository).save(any(WishItem.class));
     }
@@ -131,7 +144,7 @@ class WishItemServiceTest {
         WishItemUpdateRequest request = new WishItemUpdateRequest();
         ReflectionTestUtils.setField(request, "itemName", "레고");
 
-        assertThatThrownBy(() -> wishItemService.updateItem(1L, 4, request))
+        assertThatThrownBy(() -> wishItemService.updateItem(SLUG, 1L, 4, request))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                         .isEqualTo(ErrorCode.INVALID_SLOT_INDEX));
@@ -146,12 +159,12 @@ class WishItemServiceTest {
                 .board(board).assetType(AssetType.GIFT_STICKER)
                 .assetKey("icon/toy.png").slotIndex(1).build();
 
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
         given(boardAssetRepository.findByBoardAndAssetTypeAndSlotIndex(board, AssetType.GIFT_STICKER, 1))
                 .willReturn(Optional.of(giftIcon));
 
-        wishItemService.clearItem(1L, 1);
+        wishItemService.clearItem(SLUG, 1L, 1);
 
         verify(wishItemRepository).delete(item);
         assertThat(giftIcon.getAssetKey()).isEqualTo("default/gift_icon.png"); // 기본값으로 초기화
@@ -160,10 +173,10 @@ class WishItemServiceTest {
     @Test
     @DisplayName("위시 아이템 슬롯 비우기 실패 - 이미 빈 슬롯")
     void clearItem_slotNotFound() {
-        given(wishBoardRepository.findByUser_Id(1L)).willReturn(Optional.of(board));
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 2)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> wishItemService.clearItem(1L, 2))
+        assertThatThrownBy(() -> wishItemService.clearItem(SLUG, 1L, 2))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                         .isEqualTo(ErrorCode.SLOT_NOT_FOUND));
@@ -174,10 +187,10 @@ class WishItemServiceTest {
     @Test
     @DisplayName("위시 아이템 공감 성공")
     void likeItem_success() {
-        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
 
-        WishItemLikeResponse response = wishItemService.likeItem(2L, "abc123def4", 1);
+        WishItemLikeResponse response = wishItemService.likeItem(2L, SLUG, 1);
 
         assertThat(response.getLikeCount()).isEqualTo(6); // 5 + 1
     }
@@ -185,10 +198,10 @@ class WishItemServiceTest {
     @Test
     @DisplayName("위시 아이템 공감 성공 - 본인 보드도 공감 가능")
     void likeItem_ownBoard_allowed() {
-        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 1)).willReturn(Optional.of(item));
 
-        WishItemLikeResponse response = wishItemService.likeItem(1L, "abc123def4", 1);
+        WishItemLikeResponse response = wishItemService.likeItem(1L, SLUG, 1);
 
         assertThat(response.getLikeCount()).isEqualTo(6); // 5 + 1
     }
@@ -196,10 +209,10 @@ class WishItemServiceTest {
     @Test
     @DisplayName("위시 아이템 공감 실패 - 빈 슬롯")
     void likeItem_slotEmpty() {
-        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
         given(wishItemRepository.findByBoardAndSlotIndex(board, 2)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> wishItemService.likeItem(2L, "abc123def4", 2))
+        assertThatThrownBy(() -> wishItemService.likeItem(2L, SLUG, 2))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                         .isEqualTo(ErrorCode.SLOT_EMPTY));

@@ -30,11 +30,19 @@ public enum SuccessMessage {
     LOGOUT_SUCCESS("로그아웃 되었습니다."),
     REFRESH_SUCCESS("토큰이 재발급되었습니다."),
 
+    // 통합 목록
+    BOARDS_ALL_FOUND("전체 목록 조회가 완료되었습니다."),
+
     // 위시보드
+    LATEST_BOARD_FOUND("최근 보드 조회가 완료되었습니다."),
     BOARD_CREATED("위시보드가 생성되었습니다."),
     BOARD_FOUND("위시보드 조회가 완료되었습니다."),
+    BOARDS_FOUND("위시보드 목록 조회가 완료되었습니다."),
     BOARD_EXISTS_CHECKED("위시보드 존재 여부 조회가 완료되었습니다."),
     BOARD_UPDATED("위시보드가 수정되었습니다."),
+    BOARD_DELETED("위시보드가 삭제되었습니다."),
+    BOARD_SAVED("위시보드가 저장되었습니다."),
+    SAVED_BOARDS_FOUND("저장한 위시보드 목록 조회가 완료되었습니다."),
     BOARD_VISIBILITY_UPDATED("보드 공개 여부가 변경되었습니다."),
 
     // 위시 아이템
@@ -74,6 +82,23 @@ public enum SuccessMessage {
 
     // 공유 링크
     SHARE_LINK_CREATED("공유 링크가 생성되었습니다."),
+
+    // 롤링페이퍼 댓글
+    RP_COMMENT_LIST_FOUND("롤링페이퍼 댓글 목록 조회가 완료되었습니다."),
+    RP_COMMENT_CREATED("댓글이 작성되었습니다."),
+    RP_COMMENT_UPDATED("댓글이 수정되었습니다."),
+    RP_COMMENT_DELETED("댓글이 삭제되었습니다."),
+
+    // 롤링페이퍼
+    ROLLING_PAPER_CREATED("롤링페이퍼가 생성되었습니다."),
+    ROLLING_PAPER_FOUND("롤링페이퍼 조회가 완료되었습니다."),
+    ROLLING_PAPER_LIST_FOUND("롤링페이퍼 목록 조회가 완료되었습니다."),
+    ROLLING_PAPER_UPDATED("롤링페이퍼가 수정되었습니다."),
+    ROLLING_PAPER_DELETED("롤링페이퍼가 삭제되었습니다."),
+    ROLLING_PAPER_SAVED("롤링페이퍼가 저장되었습니다."),
+    SAVED_ROLLING_PAPERS_FOUND("저장한 롤링페이퍼 목록 조회가 완료되었습니다."),
+    RP_SHARE_COMMENT_CREATED("댓글 작성용 링크가 생성되었습니다."),
+    RP_SHARE_VIEW_CREATED("저장 전용 링크가 생성되었습니다."),
 
     // 에셋 동기화
     ASSET_SYNC_COMPLETED("에셋 동기화가 완료되었습니다."),
