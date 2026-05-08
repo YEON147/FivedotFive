@@ -75,12 +75,14 @@ public class WishBoardService {
                 ? request.targetDate() : null;
         Boolean isPublic = (request != null && request.isPublic() != null)
                 ? request.isPublic() : true;
+        boolean isCommentPublic = request != null && request.isCommentPublic() != null && request.isCommentPublic();
 
         WishBoard.WishBoardBuilder builder = WishBoard.builder()
                 .user(user)
                 .boardSlug(slug)
                 .title(title)
-                .isPublic(isPublic);
+                .isPublic(isPublic)
+                .isCommentPublic(isCommentPublic);
         if (targetDate != null) builder.targetDate(targetDate);
         WishBoard board = builder.build();
         wishBoardRepository.save(board);
@@ -154,6 +156,9 @@ public class WishBoardService {
         }
         if (request.targetDate() != null) {
             board.updateTargetDate(request.targetDate());
+        }
+        if (request.isCommentPublic() != null) {
+            board.updateIsCommentPublic(request.isCommentPublic());
         }
     }
 

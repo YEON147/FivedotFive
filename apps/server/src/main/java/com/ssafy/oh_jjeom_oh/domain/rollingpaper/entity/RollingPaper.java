@@ -38,8 +38,8 @@ public class RollingPaper {
     @Column(nullable = false, length = 8)
     private String title;                                   // 롤링페이퍼 제목
 
-    @Column(name = "recipient_name", nullable = false, length = 100)
-    private String recipientName;                           // 받는 사람 이름
+    @Column(name = "recipient_name", length = 100)
+    private String recipientName;                           // 받는 사람 이름 (선택)
 
     @Column(name = "image_key", columnDefinition = "TEXT")
     private String imageKey;                                // 받는 사람 이미지 CDN 키 (선택)
