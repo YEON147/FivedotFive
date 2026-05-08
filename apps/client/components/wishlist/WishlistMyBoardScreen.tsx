@@ -48,9 +48,9 @@ import {
 } from "@/components/wishlist/WishlistSlots";
 import {
   deleteMyBoardBackground,
+  deleteMyBoardStickerSlot,
   deleteMyWishItem,
   getMyWishBoardDetail,
-  deleteMyBoardStickerSlot,
   patchMyWishItem,
   putMyBoardBackground,
   putMyBoardStickerSlot,
@@ -73,6 +73,7 @@ import {
 } from "@/features/wishlist/wishlist-session-cache";
 import { loginUrlWithCurrentPageAsNext } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
+import type { MyProfile } from "@/features/user/types";
 import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
 import {
   fetchBackgroundAssets,
@@ -131,6 +132,15 @@ export type WishlistMyBoardScreenProps = {
    * `null`이면 시트 닫힘·저장 상태만 반영, 문자열은 시트 중 선택(빈 문자열=기본 배경).
    */
   onEmbeddedBackgroundDraftKeyChange?: (assetKey: string | null) => void;
+  /**
+   * `[slug]` 부모가 이미 `GET /api/users/me`로 받은 프로필 — 임베드 시 중복 `me` 호출 생략.
+   */
+  embeddedPrefetchedProfile?: MyProfile | null;
+  /**
+   * 부모가 `fetchStickerFolders(slug)` 결과를 넘김 — 임베드 시 동일 슬러그로 폴더 API 재호출 생략.
+   * `undefined`면(비임베드·레거시) 기존처럼 자식에서 조회.
+   */
+  embeddedStickerFoldersFromParent?: string[];
 };
 
 type GiftModalSpecial = "present" | null;
@@ -353,6 +363,8 @@ export function WishlistMyBoardScreen({
   embeddedCarouselVisualPage,
   onEmbeddedBoardSynced,
   onEmbeddedBackgroundDraftKeyChange,
+  embeddedPrefetchedProfile = null,
+  embeddedStickerFoldersFromParent,
 }: WishlistMyBoardScreenProps) {
   const router = useRouter();
   const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(
@@ -475,6 +487,14 @@ export function WishlistMyBoardScreen({
   }, [routeBoardSlug, applyLoadedBoard]);
 
   useEffect(() => {
+    if (embeddedInSlugCarousel && embeddedStickerFoldersFromParent !== undefined) {
+      setStickerFolderIds(
+        embeddedStickerFoldersFromParent.length > 0
+          ? embeddedStickerFoldersFromParent
+          : [...FALLBACK_STICKER_FOLDER_IDS],
+      );
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       try {
@@ -493,7 +513,7 @@ export function WishlistMyBoardScreen({
     return () => {
       cancelled = true;
     };
-  }, [boardSlug]);
+  }, [boardSlug, embeddedInSlugCarousel, embeddedStickerFoldersFromParent]);
 
   const stickerModalTabs = useMemo(() => {
     const ids =
@@ -521,6 +541,14 @@ export function WishlistMyBoardScreen({
     }
 
     let cancelled = false;
+
+    const loadBoardSnapshot = async (): Promise<MyBoardData | null> => {
+      try {
+        return await reloadMyBoardFromApi();
+      } catch {
+        return null;
+      }
+    };
 
     const persistBoardSnapshot = (
       viewerNameForCache: string,
@@ -556,16 +584,24 @@ export function WishlistMyBoardScreen({
 
     const load = async () => {
       try {
-        const profileResult = await Promise.allSettled([getMyProfile()]).then(
-          (r) => r[0],
-        );
+        let profile: MyProfile | null = null;
+        if (embeddedInSlugCarousel && embeddedPrefetchedProfile != null) {
+          profile = embeddedPrefetchedProfile;
+        } else if (!embeddedInSlugCarousel) {
+          const profileResult = await Promise.allSettled([getMyProfile()]).then(
+            (r) => r[0],
+          );
+          if (profileResult.status === "fulfilled") {
+            profile = profileResult.value;
+          }
+        }
+        /** `embeddedInSlugCarousel && !embeddedPrefetchedProfile` — 부모 `sync` 직전 마운트 등: 추가 `me` 호출 안 함 */
 
         if (cancelled) {
           return;
         }
 
-        if (profileResult.status === "fulfilled") {
-          const profile = profileResult.value;
+        if (profile) {
           const displayName =
             profile.nickname?.trim() || profile.username?.trim() || "회원";
           setViewerName(displayName);
@@ -590,8 +626,15 @@ export function WishlistMyBoardScreen({
              * 프로필과 무관하게 상세 조회로 실제 보드 존재를 한 번 확인한다.
              */
             try {
-              const board = await reloadMyBoardFromApi();
+              const board = await loadBoardSnapshot();
               if (cancelled) return;
+              if (!board) {
+                setHasMyBoard(false);
+                setAllWishSlotsEmpty(true);
+                setBoardAssets([]);
+                persistEmptySnapshot(displayName);
+                return;
+              }
               setHasMyBoard(true);
               persistBoardSnapshot(displayName, board);
             } catch {
@@ -606,8 +649,15 @@ export function WishlistMyBoardScreen({
           }
 
           try {
-            const board = await reloadMyBoardFromApi();
+            const board = await loadBoardSnapshot();
             if (cancelled) {
+              return;
+            }
+            if (!board) {
+              setHasMyBoard(false);
+              setAllWishSlotsEmpty(true);
+              setBoardAssets([]);
+              persistEmptySnapshot(displayName);
               return;
             }
             setHasMyBoard(true);
@@ -626,8 +676,17 @@ export function WishlistMyBoardScreen({
         setViewerIsAdmin(false);
 
         try {
-          const board = await reloadMyBoardFromApi();
+          const board = await loadBoardSnapshot();
           if (cancelled) {
+            return;
+          }
+          if (!board) {
+            setHasMyBoard(false);
+            setAllWishSlotsEmpty(true);
+            setBoardAssets([]);
+            persistEmptySnapshot(
+              getWishlistPageSessionCache()?.viewerName ?? "회원",
+            );
             return;
           }
           setHasMyBoard(true);
@@ -666,7 +725,13 @@ export function WishlistMyBoardScreen({
     return () => {
       cancelled = true;
     };
-  }, [router, applyLoadedBoard, reloadMyBoardFromApi]);
+  }, [
+    router,
+    applyLoadedBoard,
+    reloadMyBoardFromApi,
+    embeddedInSlugCarousel,
+    embeddedPrefetchedProfile,
+  ]);
 
   /** 보드 없음일 때 온보딩 UI는 메인(`/`)과 통합 — `/wishlist` 직진 시 메인으로 이동 */
   useEffect(() => {
@@ -1090,7 +1155,7 @@ export function WishlistMyBoardScreen({
         setStickerSlotSaving(false);
       }
     },
-    [stickerTargetSlotId, applyLoadedBoard, reloadMyBoardFromApi, routeBoardSlug],
+    [stickerTargetSlotId, reloadMyBoardFromApi, routeBoardSlug],
   );
 
   const removeStickerFromSlot = useCallback(async () => {
@@ -1115,7 +1180,7 @@ export function WishlistMyBoardScreen({
     } finally {
       setStickerSlotSaving(false);
     }
-  }, [stickerTargetSlotId, applyLoadedBoard, reloadMyBoardFromApi, routeBoardSlug]);
+  }, [stickerTargetSlotId, reloadMyBoardFromApi, routeBoardSlug]);
 
   /**
    * 배경 시트를 내릴 때만 서버에 반영합니다.
@@ -1174,7 +1239,6 @@ export function WishlistMyBoardScreen({
       setBackgroundSaving(false);
     }
   }, [
-    applyLoadedBoard,
     boardAssets,
     draftBackgroundAssetKey,
     embeddedInSlugCarousel,

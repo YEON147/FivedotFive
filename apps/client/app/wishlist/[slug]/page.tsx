@@ -34,6 +34,7 @@ import {
 } from "@/components/wishlist/WishlistSlots";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
+import type { MyProfile } from "@/features/user/types";
 import {
   createComment,
   deleteComment,
@@ -447,6 +448,12 @@ export default function PublicWishlistPage({
 
   const [commentCache, setCommentCache] = useState<Record<number, (CommentData | null)[]>>({});
   const [loadingPages, setLoadingPages] = useState<Set<number>>(new Set());
+  /** `fetchCommentPage`가 state 클로저에 묶이면 콜백 참조가 매 응답마다 바뀌고, 그걸 deps로 둔 초기화 이펙트가 캐시를 비우며 `comments?page=0` 무한 호출됨 */
+  const commentCacheRef = useRef(commentCache);
+  const loadingPagesRef = useRef(loadingPages);
+  commentCacheRef.current = commentCache;
+  loadingPagesRef.current = loadingPages;
+
   const [commentTotalPages, setCommentTotalPages] = useState(1);
 
   const [currentVisualPage, setCurrentVisualPage] = useState(0);
@@ -479,8 +486,12 @@ export default function PublicWishlistPage({
 
   /** 이전 캐러셀 페이지 — 0→댓글 이동 시 공개 보드 재조회용 */
   const prevVisualPageRef = useRef(0);
+  /** 소유 확정 등으로 이펙트만 재실행될 때 댓글 캐시를 비우지 않음 → `comments?page=0` 이중 호출 방지 */
+  const boardBootstrapSlugRef = useRef<string | null>(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  /** `syncVisitorSession`에서 한 번 받아 임베드 에디터에 넘겨 `/api/users/me` 중복 호출 방지 */
+  const [visitorProfile, setVisitorProfile] = useState<MyProfile | null>(null);
   const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
   /** 로그인 후 내 보드 slug — `undefined`: 아직 조회 전, `null`: 보드 없음·조회 실패 */
   const [myBoardSlug, setMyBoardSlug] = useState<string | null | undefined>(undefined);
@@ -488,6 +499,8 @@ export default function PublicWishlistPage({
   const [ownBoardWriteNoticeOpen, setOwnBoardWriteNoticeOpen] = useState(false);
 
   const [apiStickerFolders, setApiStickerFolders] = useState<string[]>([]);
+  /** 폴더 API 완료 전엔 댓글 스티커를 `…/stickers`로 먼저 열었다가 첫 폴더로 다시 부르는 이중 호출이 남 */
+  const [stickerFoldersFetchDone, setStickerFoldersFetchDone] = useState(false);
   /** `""`: 폴더 목록 수신 전 — `all` 탭 없음, 수신 후 첫 폴더로 맞춤 */
   const [commentStickerFolderId, setCommentStickerFolderId] = useState("");
   const [commentStickerSheet, setCommentStickerSheet] = useState<StickerAssetDto[]>([]);
@@ -499,20 +512,24 @@ export default function PublicWishlistPage({
     const token = getAccessToken()?.trim();
     if (!token) {
       setVisitorMenuLoggedIn(false);
+      setVisitorProfile(null);
       return;
     }
     try {
-      await getMyProfile();
+      const profile = await getMyProfile();
+      setVisitorProfile(profile);
       setVisitorMenuLoggedIn(true);
     } catch {
+      setVisitorProfile(null);
       // 401 등으로 토큰이 비워지면 false, 일시적 네트워크 오류는 토큰 기준 유지
       setVisitorMenuLoggedIn(!!getAccessToken()?.trim());
     }
   }, []);
 
+  /** 슬러그 바뀔 때마다 `me` 부르지 않음 — 포커스·storage·mount에서만 동기화 */
   useEffect(() => {
     void syncVisitorSession();
-  }, [slug, syncVisitorSession]);
+  }, [syncVisitorSession]);
 
   useEffect(() => {
     const onFocus = () => void syncVisitorSession();
@@ -541,6 +558,7 @@ export default function PublicWishlistPage({
       setMyBoardSlug(undefined);
       return;
     }
+    setMyBoardSlug(undefined);
     let cancelled = false;
     void (async () => {
       try {
@@ -572,7 +590,8 @@ export default function PublicWishlistPage({
 
   /**
    * 타인 보드에서만 빈 댓글 칸 표시.
-   * 내 보드 여부는 `boards-all`/소유 확인 후에만 확정되므로, 슬러그 로딩 중(`undefined`)에는
+   * 내 보드 여부는 `GET /api/me/boards-all`·`/api/boards/me` 기반 소유 확인 후에만 확정되므로,
+   * 슬러그 로딩 중(`undefined`)에는
    * 예전처럼 빈 칸을 숨기면 타인 보드에서도 댓글 작성 UI가 안 뜸 → 숨김은
    * 「로그인 + 슬러그 확정 + 내 보드」일 때만.
    */
@@ -624,9 +643,16 @@ export default function PublicWishlistPage({
   }, [router]);
 
   useEffect(() => {
+    setStickerFoldersFetchDone(false);
     void fetchStickerFolders(slug)
-      .then((folders) => setApiStickerFolders(folders))
-      .catch(() => setApiStickerFolders([]));
+      .then((folders) => {
+        setApiStickerFolders(folders);
+        setStickerFoldersFetchDone(true);
+      })
+      .catch(() => {
+        setApiStickerFolders([]);
+        setStickerFoldersFetchDone(true);
+      });
   }, [slug]);
 
   useEffect(() => {
@@ -645,6 +671,10 @@ export default function PublicWishlistPage({
   }, [apiStickerFolders]);
 
   useEffect(() => {
+    if (!stickerFoldersFetchDone) {
+      setCommentStickersLoading(true);
+      return;
+    }
     let cancelled = false;
     setCommentStickersLoading(true);
     setCommentStickersError(null);
@@ -680,7 +710,12 @@ export default function PublicWishlistPage({
     return () => {
       cancelled = true;
     };
-  }, [commentStickerFolderId, slug, apiStickerFolders]);
+  }, [
+    commentStickerFolderId,
+    slug,
+    apiStickerFolders,
+    stickerFoldersFetchDone,
+  ]);
 
   useEffect(() => {
     if (selectedSlot !== null && popupMode === "write" && apiStickerFolders.length > 0) {
@@ -712,52 +747,87 @@ export default function PublicWishlistPage({
     [commentStickerSheet],
   );
 
-  const fetchCommentPage = useCallback(
-    async (commentPageIdx: number) => {
-      if (commentCache[commentPageIdx] !== undefined || loadingPages.has(commentPageIdx)) return;
+  const fetchCommentPage = useCallback(async (commentPageIdx: number) => {
+    if (
+      commentCacheRef.current[commentPageIdx] !== undefined ||
+      loadingPagesRef.current.has(commentPageIdx)
+    ) {
+      return;
+    }
 
-      setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
-      try {
-        const data = await getComments(slug, commentPageIdx);
-        setCommentCache((prev) => ({
-          ...prev,
-          [commentPageIdx]: normalizeCommentsToSlotGrid(data.data.comments, commentPageIdx),
-        }));
-        setCommentTotalPages(safeCommentSheetCountFromPayload(data.data));
-      } finally {
-        setLoadingPages((prev) => {
-          const next = new Set(prev);
-          next.delete(commentPageIdx);
-          return next;
-        });
-      }
-    },
-    [slug, commentCache, loadingPages],
-  );
+    setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
+    try {
+      const data = await getComments(slug, commentPageIdx);
+      setCommentCache((prev) => ({
+        ...prev,
+        [commentPageIdx]: normalizeCommentsToSlotGrid(data.data.comments, commentPageIdx),
+      }));
+      setCommentTotalPages(safeCommentSheetCountFromPayload(data.data));
+    } finally {
+      setLoadingPages((prev) => {
+        const next = new Set(prev);
+        next.delete(commentPageIdx);
+        return next;
+      });
+    }
+  }, [slug]);
 
   useEffect(() => {
-    setCommentCache({});
-    setCommentTotalPages(1);
-    setCurrentVisualPage(0);
-    prevVisualPageRef.current = 0;
-    setLoadingPages(new Set());
-    setPopupCommentPage(null);
-    setSelectedSlot(null);
-    setSelectedComment(null);
+    const slugChanged = boardBootstrapSlugRef.current !== slug;
+    if (slugChanged) {
+      boardBootstrapSlugRef.current = slug;
+      setCommentCache({});
+      setCommentTotalPages(1);
+      setCurrentVisualPage(0);
+      prevVisualPageRef.current = 0;
+      setLoadingPages(new Set());
+      setPopupCommentPage(null);
+      setSelectedSlot(null);
+      setSelectedComment(null);
+    }
 
-    void loadPublicBoard();
+    const hasToken = Boolean(getAccessToken()?.trim());
+    /** 로그인 + 소유 확정 전에는 공개 보드·댓글 로드를 미룸 — 소유자에게는 에디터 `GET …/list`와 겹치는 GET `/boards/{slug}` 제거 */
+    if (hasToken && visitorMenuLoggedIn && myBoardSlug === undefined) {
+      return;
+    }
+
+    const skipPublicBoard =
+      hasToken && visitorMenuLoggedIn && isViewingOwnBoard;
+
+    if (!skipPublicBoard) {
+      void loadPublicBoard();
+    }
     void fetchCommentPage(0);
-  }, [slug, loadPublicBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    slug,
+    loadPublicBoard,
+    fetchCommentPage,
+    visitorMenuLoggedIn,
+    myBoardSlug,
+    isViewingOwnBoard,
+  ]);
+
+  /** 소유자 보드는 초기 `loadPublicBoard`를 생략하므로 헤더·댓글 면 표시용 이름을 프로필에서 채움 */
+  useEffect(() => {
+    if (!isViewingOwnBoard || !visitorProfile) return;
+    const display =
+      visitorProfile.nickname?.trim() ||
+      visitorProfile.username?.trim() ||
+      "회원";
+    setOwnerName(display);
+  }, [isViewingOwnBoard, visitorProfile]);
 
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === "visible") {
-        void loadPublicBoard();
-      }
+      if (document.visibilityState !== "visible") return;
+      const hasToken = Boolean(getAccessToken()?.trim());
+      if (hasToken && isViewingOwnBoard) return;
+      void loadPublicBoard();
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, [loadPublicBoard]);
+  }, [loadPublicBoard, isViewingOwnBoard]);
 
   useEffect(() => {
     if (currentVisualPage === 0) return;
@@ -1069,6 +1139,8 @@ export default function PublicWishlistPage({
                           onEmbeddedBackgroundDraftKeyChange={
                             handleEmbeddedBackgroundDraftKeyChange
                           }
+                          embeddedPrefetchedProfile={visitorProfile}
+                          embeddedStickerFoldersFromParent={apiStickerFolders}
                         />
                       ) : (
                         <MainBoardPage
