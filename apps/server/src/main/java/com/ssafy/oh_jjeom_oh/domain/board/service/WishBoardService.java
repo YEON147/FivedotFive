@@ -116,11 +116,11 @@ public class WishBoardService {
                 .orElseGet(() -> BoardSummaryResponse.fromRollingPaper(latestPaper.get()));
     }
 
-    // GET /api/boards/me/list - 내 위시보드 목록 조회 (다중 보드)
+    // GET /api/boards/me/list - 내 위시보드 목록 조회 (다중 보드, 간략 정보만 반환)
     public List<WishBoardResponse> getMyBoards(Long userId) {
         List<WishBoard> boards = wishBoardRepository.findAllByUser_IdOrderByCreatedAtDesc(userId);
         return boards.stream()
-                .map(this::buildWishBoardResponse)
+                .map(WishBoardResponse::of)
                 .collect(Collectors.toList());
     }
 
@@ -251,12 +251,6 @@ public class WishBoardService {
     }
 
     // ===== private helpers =====
-
-    private WishBoardResponse buildWishBoardResponse(WishBoard board) {
-        List<WishItemResponse> itemResponses = buildItemResponses(board);
-        List<BoardAssetResponse> assetResponses = buildAssetResponses(board);
-        return WishBoardResponse.of(board, itemResponses, assetResponses);
-    }
 
     private WishBoardPublicResponse buildWishBoardPublicResponse(WishBoard board) {
         List<WishItemResponse> itemResponses = buildItemResponses(board);

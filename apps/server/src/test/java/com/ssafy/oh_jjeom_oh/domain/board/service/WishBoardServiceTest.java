@@ -126,16 +126,12 @@ class WishBoardServiceTest {
     @DisplayName("내 위시보드 목록 조회 성공")
     void getMyBoards_success() {
         given(wishBoardRepository.findAllByUser_IdOrderByCreatedAtDesc(any())).willReturn(List.of(board));
-        given(wishItemRepository.findByBoardOrderBySlotIndex(any())).willReturn(List.of());
-        given(boardAssetRepository.findByBoard(any())).willReturn(buildDefaultAssets());
 
         List<WishBoardResponse> responses = wishBoardService.getMyBoards(1L);
 
         assertThat(responses).hasSize(1);
         assertThat(responses.get(0).getBoardSlug()).isEqualTo("abc123def4");
         assertThat(responses.get(0).getIsPublic()).isTrue();
-        assertThat(responses.get(0).getItems()).hasSize(3);
-        assertThat(responses.get(0).getAssets()).hasSize(7); // BACKGROUND 1 + STICKER 6
     }
 
     @Test
