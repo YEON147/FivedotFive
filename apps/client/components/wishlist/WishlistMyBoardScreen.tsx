@@ -351,13 +351,9 @@ export function WishlistMyBoardScreen({
   omitInnerTitleHeader = false,
   onCarouselInteractionLockChange,
   embeddedCarouselVisualPage,
-<<<<<<< HEAD
-}: WishlistMyBoardScreenProps) {
-=======
   onEmbeddedBoardSynced,
   onEmbeddedBackgroundDraftKeyChange,
-}: WishlistMyBoardScreenProps = {}) {
->>>>>>> 9f518a340c67f0c889b151c778d325061805c1e1
+}: WishlistMyBoardScreenProps) {
   const router = useRouter();
   const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(
     () => getWishlistPageSessionCache()?.bigCircleCount ?? 1,
@@ -1165,8 +1161,7 @@ export function WishlistMyBoardScreen({
         }
         return next;
       });
-      const board = await getMyBoard();
-      applyLoadedBoard(board);
+      await reloadMyBoardFromApi();
       setDraftBackgroundAssetKey(null);
       setIsCompactBackgroundOpen(false);
       return true;
@@ -1185,6 +1180,8 @@ export function WishlistMyBoardScreen({
     embeddedInSlugCarousel,
     isCompactBackgroundOpen,
     onEmbeddedBoardSynced,
+    reloadMyBoardFromApi,
+    routeBoardSlug,
   ]);
 
   const toggleSidebar = () => {

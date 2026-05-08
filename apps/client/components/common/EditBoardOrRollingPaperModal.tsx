@@ -4,7 +4,11 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import { TextField } from "@/components/ui/TextField";
-import { patchRollingPaper, patchWishBoard } from "@/features/wishlist/api";
+import {
+  patchRollingPaper,
+  patchWishBoard,
+  uploadRollingPaperRecipientImage,
+} from "@/features/wishlist/api";
 import type { MyBoardListEntry } from "@/features/wishlist/types";
 import { isRollingPaperListType } from "@/lib/board-entry-path";
 
@@ -13,6 +17,9 @@ const WISH_TITLE_MAX = 100;
 /** 서버 RollingPaperUpdateRequest */
 const ROLLING_TITLE_MAX = 200;
 const RECIPIENT_MAX = 100;
+
+const RECIPIENT_IMAGE_ACCEPT =
+  "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
 export type EditBoardOrRollingPaperModalProps = {
   open: boolean;
@@ -44,6 +51,10 @@ export function EditBoardOrRollingPaperModal({
   const [targetDate, setTargetDate] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [recipientName, setRecipientName] = useState("");
+  const [recipientImageFile, setRecipientImageFile] = useState<File | null>(null);
+  const [recipientImagePreviewUrl, setRecipientImagePreviewUrl] = useState<
+    string | null
+  >(null);
 
   const isRolling = entry ? isRollingPaperListType(entry.type) : false;
 
@@ -63,6 +74,11 @@ export function EditBoardOrRollingPaperModal({
     setTargetDate(td);
     setIsPublic(pub);
     setRecipientName(rn);
+    setRecipientImageFile(null);
+    setRecipientImagePreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     setErrorMessage(null);
     initialRef.current = {
       title: t,
@@ -71,6 +87,26 @@ export function EditBoardOrRollingPaperModal({
       recipientName: rn,
     };
   }, [open, entry]);
+
+  const handleRecipientImageChange = useCallback(
+    (ev: React.ChangeEvent<HTMLInputElement>) => {
+      const file = ev.target.files?.[0] ?? null;
+      setRecipientImagePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return file ? URL.createObjectURL(file) : null;
+      });
+      setRecipientImageFile(file);
+    },
+    [],
+  );
+
+  const clearRecipientImageSelection = useCallback(() => {
+    setRecipientImagePreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setRecipientImageFile(null);
+  }, []);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -106,18 +142,26 @@ export function EditBoardOrRollingPaperModal({
           return;
         }
 
-        const patch: Partial<{ title: string; recipientName: string; targetDate: string }> = {};
+        const patch: Partial<{
+          title: string;
+          recipientName: string;
+          targetDate: string;
+          imageKey: string;
+        }> = {};
         if (ti !== init.title.trim()) patch.title = ti;
         if (rn !== init.recipientName.trim()) patch.recipientName = rn;
         if (td !== init.targetDate.trim()) patch.targetDate = td;
 
-        if (Object.keys(patch).length === 0) {
+        if (Object.keys(patch).length === 0 && !recipientImageFile) {
           onClose();
           return;
         }
 
         setSubmitting(true);
         try {
+          if (recipientImageFile) {
+            patch.imageKey = await uploadRollingPaperRecipientImage(recipientImageFile);
+          }
           await patchRollingPaper(entry.slug, patch);
           onSaved?.();
           onClose();
@@ -165,7 +209,17 @@ export function EditBoardOrRollingPaperModal({
         setSubmitting(false);
       }
     },
-    [entry, isPublic, isRolling, onClose, onSaved, recipientName, targetDate, title],
+    [
+      entry,
+      isPublic,
+      isRolling,
+      onClose,
+      onSaved,
+      recipientImageFile,
+      recipientName,
+      targetDate,
+      title,
+    ],
   );
 
   if (!entry) {
@@ -181,9 +235,7 @@ export function EditBoardOrRollingPaperModal({
       variant="static"
       staticStack="aboveDialogs"
       description={
-        <span>
-          변경한 항목만 서버에 반영됩니다. 종류(위시보드 / 롤링페이퍼)는 바꿀 수 없습니다.
-        </span>
+        <span>바뀐 내용만 저장됩니다. 종류는 변경할 수 없어요.</span>
       }
       closeLabel="닫기"
     >
@@ -230,50 +282,81 @@ export function EditBoardOrRollingPaperModal({
               value={title}
               onChange={(ev) => setTitle(ev.target.value)}
               maxLength={ROLLING_TITLE_MAX}
-              hint={`최대 ${ROLLING_TITLE_MAX}자 · 변경된 항목만 저장됩니다.`}
-              hintDisplay="inline"
             />
             <TextField
-              label="받는 사람 이름"
+              label="받는 사람"
               value={recipientName}
               onChange={(ev) => setRecipientName(ev.target.value)}
               maxLength={RECIPIENT_MAX}
             />
             <TextField
-              label="설정 일자 (댓글 공개 기준일)"
+              label="댓글 공개일"
               type="date"
               value={targetDate}
               onChange={(ev) => setTargetDate(ev.target.value)}
-              hint="운영·댓글 공개 일정에 사용됩니다. yyyy-MM-dd"
-              hintDisplay="inline"
             />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                캐릭터 사진
+              </span>
+              <p className="text-[12px] text-[var(--color-text-secondary)]">
+                선택 · 새 파일을 올리면 교체 · JPG, PNG, WEBP
+              </p>
+              {entry.imageKey && !recipientImageFile ? (
+                <p className="text-[12px] text-[var(--color-text-secondary)]">
+                  등록된 사진이 있어요.
+                </p>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-[var(--color-border)] bg-white px-3 py-2 text-[13px] font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]">
+                  사진 선택
+                  <input
+                    type="file"
+                    accept={RECIPIENT_IMAGE_ACCEPT}
+                    className="sr-only"
+                    onChange={handleRecipientImageChange}
+                  />
+                </label>
+                {recipientImageFile ? (
+                  <button
+                    type="button"
+                    onClick={clearRecipientImageSelection}
+                    className="text-[13px] font-medium text-rose-600 underline-offset-2 hover:underline"
+                  >
+                    선택 취소
+                  </button>
+                ) : null}
+              </div>
+              {recipientImagePreviewUrl ? (
+                <div className="mt-1 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 로컬 blob 미리보기 */}
+                  <img
+                    src={recipientImagePreviewUrl}
+                    alt="선택한 사진 미리보기"
+                    className="mx-auto max-h-40 w-auto object-contain"
+                  />
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <TextField
               label="제목"
-              placeholder="미입력 시 기존 제목 유지"
+              placeholder="선택"
               value={title}
               onChange={(ev) => setTitle(ev.target.value)}
               maxLength={WISH_TITLE_MAX}
-              hint={`최대 ${WISH_TITLE_MAX}자`}
-              hintDisplay="inline"
             />
             <TextField
-              label="설정 일자 (운영·기념일)"
+              label="공개 기준일"
               type="date"
               value={targetDate}
               onChange={(ev) => setTargetDate(ev.target.value)}
-              hint="위시보드 운영 일자(yyyy-MM-dd). 비우면 기존 값 유지(변경 없음)."
-              hintDisplay="inline"
             />
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
               <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">
-                댓글 공개 방식
-              </p>
-              <p className="mb-3 text-[12px] leading-snug text-[var(--color-text-secondary)]">
-                댓글 공개: 생성 후 설정 일자까지 댓글이 공개됩니다. 댓글 비공개: 설정 일자까지는 비공개였다가,
-                해당 일자가 되면 댓글이 공개될 수 있습니다.
+                댓글 공개
               </p>
               <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
                 <input

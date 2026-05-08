@@ -122,6 +122,16 @@ export async function getMyLatestBoardSummary(): Promise<MyLatestBoardSummaryPay
   }
 }
 
+/** 네비게이션용 — 최신 1건 메타에서 슬러그만 필요할 때 (`navigateToMyWishBoard` 등) */
+export async function getMyBoard(): Promise<{ data: { boardSlug: string } }> {
+  const summary = await getMyLatestBoardSummary();
+  const slug = summary?.slug?.trim();
+  if (!slug) {
+    throw new Error("위시보드를 찾을 수 없습니다.");
+  }
+  return { data: { boardSlug: slug } };
+}
+
 /**
  * 편집용 풀 위시보드.
  * - 소유 보드: `GET /api/boards/me/list`에서 해당 `boardSlug` 행 사용.
@@ -357,6 +367,35 @@ export async function createRollingPaper(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+/**
+ * POST /api/upload/image — 로그인 회원만, multipart `image`(jpg/jpeg/png/webp).
+ * 201 CREATED, 본문 `data.imageKey`(S3·CDN 키).
+ */
+export type UploadRecipientImageApiResponse = {
+  success: boolean;
+  message: string;
+  data: { imageKey: string };
+};
+
+/** 업로드 후 반환된 키를 롤링페이퍼 생성·수정 요청의 `imageKey`로 넘깁니다. */
+export async function uploadRollingPaperRecipientImage(
+  file: File,
+): Promise<string> {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const res = await apiClient<UploadRecipientImageApiResponse>("/api/upload/image", {
+    method: "POST",
+    body: formData,
+  });
+
+  const key = res.data?.imageKey?.trim();
+  if (!key) {
+    throw new Error("이미지 업로드 응답에 imageKey가 없습니다.");
+  }
+  return key;
 }
 
 /** GET /api/boards/{slug}/items — 소유자, 슬롯 3개 고정 */

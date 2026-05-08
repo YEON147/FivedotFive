@@ -1,8 +1,8 @@
 "use client";
 
-import { Bell, Gift, SignOut, Trophy, User, X } from "@phosphor-icons/react";
+import { Bell, Gift, ListBullets, PlusCircle, SignOut, Trophy, User, X } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
@@ -11,6 +11,7 @@ import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNa
 import {
   SIDE_MENU_ICON_WRAP_PRIMARY,
   SIDE_MENU_ROW_CLASS,
+  SideMenuButtonRow,
   SideMenuLinkRow,
   SideMenuLogoutRow,
   SideMenuSection,

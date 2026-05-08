@@ -3,17 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import "@/components/home/main-landing-wordmark-float.css";
 import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
-import { loginUrlForPath } from "@/features/login/post-login-destination";
-import { createMyBoard } from "@/features/wishlist/api";
-import { navigateToMyWishBoard } from "@/features/wishlist/navigate-to-my-board";
-import { SESSION_OPEN_DECORATE_AFTER_CREATE_KEY } from "@/features/wishlist/wishlist-session-cache";
+import { resolveLoggedInHomeHref } from "@/features/wishlist/resolve-logged-in-home";
 import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
+import { adminPublicWishlistHref } from "@/lib/admin-landing";
 
 const landingPrimaryBtn =
   "inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)] disabled:pointer-events-none disabled:opacity-60";
@@ -27,15 +25,15 @@ type MainLandingContentProps = {
 
 /**
  * 비로그인·로그인 동일 랜딩(워드마크~3단계~CTA).
- * 로그인 시 「내 위시리스트 보러가기」에서만 boards 목록 확인 후 이동 또는 생성 모달.
+ * 로그인 시 「내 위시리스트 보러가기」에서 boards 목록 확인 후 이동하거나, 없으면 생성 모달을 띄웁니다.
  */
 export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
   const router = useRouter();
+  const [entryNavPending, setEntryNavPending] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+
   /** iOS WebKit: 히어로 로고에 filter drop-shadow 시 사각 clipping → 레이어 그림자 사용 */
   const [iosStyleHeroShadow, setIosStyleHeroShadow] = useState(false);
-  const [wishlistPrimaryLoading, setWishlistPrimaryLoading] = useState(false);
-  const [wishlistPrimaryFill, setWishlistPrimaryFill] = useState(0);
-  const [wishlistPrimaryError, setWishlistPrimaryError] = useState<string | null>(null);
 
   useEffect(() => {
     touchTrafficAttribution();
@@ -49,61 +47,24 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
     setIosStyleHeroShadow(appleTouch);
   }, []);
 
-  const handleLoggedInWishlistPrimary = async () => {
-    if (wishlistPrimaryLoading) return;
-
+  const handleGoToMyBoards = async () => {
     trackWishlistCtaClick({
       cta_id: "landing_logged_wishlist_hub",
-      wishlist_entry: hasWishBoard ? "decorate" : "create",
+      wishlist_entry: "decorate",
     });
 
-    if (hasWishBoard) {
-      setWishlistPrimaryLoading(true);
-      await runDecorateFillRamp(setWishlistPrimaryFill, WISH_CTA_DECORATE_RAMP);
-      const nav = await navigateToMyWishBoard(router);
-      setWishlistPrimaryLoading(false);
-      setWishlistPrimaryFill(0);
-      if (!nav.ok) router.push("/wishlist");
-      return;
-    }
-
-    setWishlistPrimaryError(null);
-    setWishlistPrimaryLoading(true);
-    setWishlistPrimaryFill(WISH_CTA_FILL.start);
-
-    let progressId: number | null = null;
-
-  const handleGoToMyBoards = async () => {
     setEntryNavPending(true);
     try {
       const href = await resolveLoggedInHomeHref();
-      if (href && href !== "/wishlist") {
+      if (href) {
         router.push(href);
         return;
       }
-
-      if (progressId !== null) {
-        window.clearInterval(progressId);
-        progressId = null;
-      }
-
-      setWishlistPrimaryFill(WISH_CTA_FILL.beforeNavigate);
-      await nextFrame();
-      setWishlistPrimaryFill(WISH_CTA_FILL.full);
-      await nextFrame();
-
-      sessionStorage.setItem(SESSION_OPEN_DECORATE_AFTER_CREATE_KEY, "1");
-      const nav = await navigateToMyWishBoard(router);
-      setWishlistPrimaryLoading(false);
-      setWishlistPrimaryFill(0);
-      if (!nav.ok) router.push("/wishlist");
-    } catch (e) {
-      if (progressId !== null) window.clearInterval(progressId);
-      setWishlistPrimaryError(
-        e instanceof Error ? e.message : "위시보드를 만들지 못했습니다.",
-      );
-      setWishlistPrimaryLoading(false);
-      setWishlistPrimaryFill(0);
+      setCreateOpen(true);
+    } catch {
+      setCreateOpen(true);
+    } finally {
+      setEntryNavPending(false);
     }
   };
 
@@ -120,7 +81,11 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
             height={140}
             priority
             sizes="(max-width: 768px) 72vw, 300px"
-            className="main-landing-wordmark-img h-auto w-[min(72vw,300px)] max-w-full object-contain drop-shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
+            className={`main-landing-wordmark-img h-auto w-[min(72vw,300px)] max-w-full object-contain ${
+              iosStyleHeroShadow
+                ? "shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
+                : "drop-shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
+            }`}
           />
         </div>
 
@@ -230,7 +195,11 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
                 <span className="mx-2 text-body-sm text-[#c4c4c4]" aria-hidden>
                   ·
                 </span>
-                <Link href="/signup" className={landingMutedLink}>
+                <Link
+                  href="/signup"
+                  className={landingMutedLink}
+                  onClick={() => trackSignupButtonClick({ signup_entry: "landing" })}
+                >
                   회원가입
                 </Link>
               </div>
