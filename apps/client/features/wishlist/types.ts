@@ -153,6 +153,8 @@ export type MyBoardListEntry = {
   /** 롤링페이퍼 전용 */
   recipientName?: string | null;
   imageKey?: string | null;
+  /** 롤링페이퍼 전용 — 댓글 즉시 공개 */
+  isCommentPublic?: boolean | null;
 };
 
 export type MyBoardsAllApiResponse = {
@@ -173,4 +175,6 @@ export type MyLatestBoardSummaryPayload = {
   /** ROLLINGPAPER만 */
   recipientName?: string;
   imageKey?: string | null;
+  /** ROLLINGPAPER만 */
+  isCommentPublic?: boolean;
 };

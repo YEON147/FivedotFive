@@ -12,10 +12,8 @@ import {
 import type { MyBoardListEntry } from "@/features/wishlist/types";
 import { isRollingPaperListType } from "@/lib/board-entry-path";
 
-/** 서버 WishBoardUpdateRequest */
-const WISH_TITLE_MAX = 100;
-/** 서버 RollingPaperUpdateRequest */
-const ROLLING_TITLE_MAX = 200;
+/** 서버 WishBoardUpdateRequest·RollingPaperUpdateRequest title @Size(max = 8) */
+const PAGE_TITLE_MAX = 8;
 const RECIPIENT_MAX = 100;
 
 const RECIPIENT_IMAGE_ACCEPT =
@@ -42,6 +40,7 @@ export function EditBoardOrRollingPaperModal({
     targetDate: string;
     isPublic: boolean;
     recipientName: string;
+    isCommentPublic: boolean;
   } | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +49,8 @@ export function EditBoardOrRollingPaperModal({
   const [title, setTitle] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [isPublic, setIsPublic] = useState(true);
+  /** 롤링페이퍼 전용 · 백엔드 `isCommentPublic` */
+  const [rollingCommentPublic, setRollingCommentPublic] = useState(true);
   const [recipientName, setRecipientName] = useState("");
   const [recipientImageFile, setRecipientImageFile] = useState<File | null>(null);
   const [recipientImagePreviewUrl, setRecipientImagePreviewUrl] = useState<
@@ -69,10 +70,16 @@ export function EditBoardOrRollingPaperModal({
         : "";
     const pub = entry.isPublic !== undefined && entry.isPublic !== null ? Boolean(entry.isPublic) : true;
     const rn = entry.recipientName?.trim() ?? "";
+    const rolling = isRollingPaperListType(entry.type);
+    const cpRoll = entry.isCommentPublic === true;
 
     setTitle(t);
     setTargetDate(td);
-    setIsPublic(pub);
+    if (rolling) {
+      setRollingCommentPublic(cpRoll);
+    } else {
+      setIsPublic(pub);
+    }
     setRecipientName(rn);
     setRecipientImageFile(null);
     setRecipientImagePreviewUrl((prev) => {
@@ -83,8 +90,9 @@ export function EditBoardOrRollingPaperModal({
     initialRef.current = {
       title: t,
       targetDate: td,
-      isPublic: pub,
+      isPublic: rolling ? true : pub,
       recipientName: rn,
+      isCommentPublic: rolling ? cpRoll : false,
     };
   }, [open, entry]);
 
@@ -123,8 +131,8 @@ export function EditBoardOrRollingPaperModal({
           setErrorMessage("제목을 입력해 주세요.");
           return;
         }
-        if (ti.length > ROLLING_TITLE_MAX) {
-          setErrorMessage(`제목은 ${ROLLING_TITLE_MAX}자 이하로 입력해 주세요.`);
+        if (ti.length > PAGE_TITLE_MAX) {
+          setErrorMessage(`제목은 ${PAGE_TITLE_MAX}자 이하로 입력해 주세요.`);
           return;
         }
         const rn = recipientName.trim();
@@ -147,10 +155,14 @@ export function EditBoardOrRollingPaperModal({
           recipientName: string;
           targetDate: string;
           imageKey: string;
+          isCommentPublic: boolean;
         }> = {};
         if (ti !== init.title.trim()) patch.title = ti;
         if (rn !== init.recipientName.trim()) patch.recipientName = rn;
         if (td !== init.targetDate.trim()) patch.targetDate = td;
+        if (rollingCommentPublic !== init.isCommentPublic) {
+          patch.isCommentPublic = rollingCommentPublic;
+        }
 
         if (Object.keys(patch).length === 0 && !recipientImageFile) {
           onClose();
@@ -174,8 +186,8 @@ export function EditBoardOrRollingPaperModal({
       }
 
       const ti = title.trim();
-      if (ti.length > WISH_TITLE_MAX) {
-        setErrorMessage(`제목은 ${WISH_TITLE_MAX}자 이하로 입력해 주세요.`);
+      if (ti.length > PAGE_TITLE_MAX) {
+        setErrorMessage(`제목은 ${PAGE_TITLE_MAX}자 이하로 입력해 주세요.`);
         return;
       }
 
@@ -213,6 +225,7 @@ export function EditBoardOrRollingPaperModal({
       entry,
       isPublic,
       isRolling,
+      rollingCommentPublic,
       onClose,
       onSaved,
       recipientImageFile,
@@ -281,7 +294,7 @@ export function EditBoardOrRollingPaperModal({
               label="제목"
               value={title}
               onChange={(ev) => setTitle(ev.target.value)}
-              maxLength={ROLLING_TITLE_MAX}
+              maxLength={PAGE_TITLE_MAX}
             />
             <TextField
               label="받는 사람"
@@ -290,11 +303,39 @@ export function EditBoardOrRollingPaperModal({
               maxLength={RECIPIENT_MAX}
             />
             <TextField
-              label="댓글 공개일"
+              label="공개 기준일"
               type="date"
               value={targetDate}
               onChange={(ev) => setTargetDate(ev.target.value)}
             />
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
+              <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                댓글 공개
+              </p>
+              <p className="mb-3 text-[12px] leading-snug text-[var(--color-text-secondary)]">
+                비공개면 기준일까지 댓글은 비공개로 유지됩니다.
+              </p>
+              <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                <input
+                  type="radio"
+                  name="edit-rolling-comment"
+                  checked={rollingCommentPublic}
+                  onChange={() => setRollingCommentPublic(true)}
+                  className="size-4 accent-[#7B61FF]"
+                />
+                댓글 공개
+              </label>
+              <label className="mt-2 flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                <input
+                  type="radio"
+                  name="edit-rolling-comment"
+                  checked={!rollingCommentPublic}
+                  onChange={() => setRollingCommentPublic(false)}
+                  className="size-4 accent-[#7B61FF]"
+                />
+                댓글 비공개
+              </label>
+            </div>
             <div className="flex flex-col gap-1.5">
               <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
                 캐릭터 사진
@@ -346,7 +387,7 @@ export function EditBoardOrRollingPaperModal({
               placeholder="선택"
               value={title}
               onChange={(ev) => setTitle(ev.target.value)}
-              maxLength={WISH_TITLE_MAX}
+              maxLength={PAGE_TITLE_MAX}
             />
             <TextField
               label="공개 기준일"
@@ -376,7 +417,7 @@ export function EditBoardOrRollingPaperModal({
                   onChange={() => setIsPublic(false)}
                   className="size-4 accent-[#7B61FF]"
                 />
-                댓글 비공개 (기준일 전까지 비공개)
+                댓글 비공개
               </label>
             </div>
           </div>

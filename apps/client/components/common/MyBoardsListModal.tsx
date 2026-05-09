@@ -51,6 +51,8 @@ function normalizeBoardAllList(raw: unknown): MyBoardListEntry[] {
       isPublic: typeof o.isPublic === "boolean" ? o.isPublic : undefined,
       recipientName: o.recipientName == null ? null : String(o.recipientName),
       imageKey: o.imageKey == null ? null : String(o.imageKey),
+      isCommentPublic:
+        typeof o.isCommentPublic === "boolean" ? o.isCommentPublic : undefined,
     };
   });
 }

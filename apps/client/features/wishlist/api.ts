@@ -321,6 +321,7 @@ export async function patchRollingPaper(
     recipientName: string;
     targetDate: string | null;
     imageKey: string | null;
+    isCommentPublic: boolean;
   }>,
 ): Promise<void> {
   const payload: Record<string, unknown> = {};
@@ -334,6 +335,8 @@ export async function patchRollingPaper(
         : String(td).trim().slice(0, 10);
   }
   if ("imageKey" in patch) payload.imageKey = patch.imageKey;
+  if ("isCommentPublic" in patch)
+    payload.isCommentPublic = patch.isCommentPublic;
   if (Object.keys(payload).length === 0) return;
 
   await apiClient(`/api/rolling-papers/${encodeBoardSlug(slug)}`, {
@@ -381,7 +384,7 @@ export type CreateWishBoardBody = {
   isPublic?: boolean | null;
 };
 
-/** POST /api/boards — 위시보드 생성 (서버: WishBoardCreateRequest, 제목 최대 100자) */
+/** POST /api/boards — 위시보드 생성 (서버: WishBoardCreateRequest, 제목 최대 8자) */
 export async function createWishBoard(
   body: CreateWishBoardBody = {},
 ): Promise<CreateBoardApiResponse> {
@@ -424,12 +427,13 @@ export function formatCreateBoardLimitError(message: string): string {
   return message;
 }
 
-/** POST /api/rolling-papers — 본문 RollingPaperCreateRequest (제목·수신자명·targetDate 필수, imageKey 선택) */
+/** POST /api/rolling-papers — RollingPaperCreateRequest (제목·기준일, imageKey·isCommentPublic; recipientName은 서버 선택) */
 export type CreateRollingPaperBody = {
   title: string;
-  recipientName: string;
   targetDate: string;
   imageKey?: string | null;
+  /** 댓글 즉시 공개 여부 · 서버 기본 false와 맞추려면 명시 전달 권장 */
+  isCommentPublic: boolean;
 };
 
 /** POST /api/rolling-papers — 201 CREATED, data에 댓글용·저장용 공유 URL 포함 */
@@ -448,8 +452,8 @@ export async function createRollingPaper(
 ): Promise<CreateRollingPaperApiResponse> {
   const payload: Record<string, unknown> = {
     title: body.title.trim(),
-    recipientName: body.recipientName.trim(),
     targetDate: body.targetDate.trim(),
+    isCommentPublic: body.isCommentPublic,
   };
   const ik = body.imageKey?.trim();
   if (ik) {

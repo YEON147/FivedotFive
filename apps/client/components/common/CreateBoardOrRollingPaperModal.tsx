@@ -14,12 +14,8 @@ import {
   type CreateRollingPaperApiResponse,
 } from "@/features/wishlist/api";
 
-/** 서버 WishBoardCreateRequest @Size(max = 100) */
-const WISH_TITLE_MAX = 100;
-/** 서버 RollingPaperCreateRequest title @Size(max = 200) */
-const ROLLING_TITLE_MAX = 200;
-/** 서버 RollingPaperCreateRequest recipientName @Size(max = 100) */
-const RECIPIENT_NAME_MAX = 100;
+/** 서버 WishBoardCreateRequest·RollingPaperCreateRequest title @Size(max = 8) */
+const PAGE_TITLE_MAX = 8;
 
 const RECIPIENT_IMAGE_ACCEPT =
   "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
@@ -45,11 +41,13 @@ export function CreateBoardOrRollingPaperModal({
 
   const [wishTitle, setWishTitle] = useState("");
   const [wishTargetDate, setWishTargetDate] = useState("");
-  const [wishPublic, setWishPublic] = useState(true);
+  /** 위시보드 isPublic — 댓글 즉시 공개 여부 */
+  const [wishCommentPublic, setWishCommentPublic] = useState(true);
 
   const [rpTitle, setRpTitle] = useState("");
-  const [recipientName, setRecipientName] = useState("");
   const [rpTargetDate, setRpTargetDate] = useState("");
+  /** 롤링 isCommentPublic — 백엔드 스케줄러·코멘트 페이지 로직과 동일 개념 */
+  const [rpCommentPublic, setRpCommentPublic] = useState(true);
   const [recipientImageFile, setRecipientImageFile] = useState<File | null>(null);
   /** 제출 직전 리렌더·비동기 타이밍에도 동일 파일로 업로드되도록 유지 */
   const recipientImageFileRef = useRef<File | null>(null);
@@ -72,10 +70,10 @@ export function CreateBoardOrRollingPaperModal({
     setSubmitting(false);
     setWishTitle("");
     setWishTargetDate("");
-    setWishPublic(true);
+    setWishCommentPublic(true);
     setRpTitle("");
-    setRecipientName("");
     setRpTargetDate("");
+    setRpCommentPublic(true);
     setRecipientImageFile(null);
     recipientImageFileRef.current = null;
     setRecipientImagePreviewUrl((prev) => {
@@ -153,8 +151,8 @@ export function CreateBoardOrRollingPaperModal({
 
     if (kind === "wish") {
       const titleTrim = wishTitle.trim();
-      if (titleTrim.length > WISH_TITLE_MAX) {
-        setErrorMessage(`제목은 ${WISH_TITLE_MAX}자 이하로 입력해 주세요.`);
+      if (titleTrim.length > PAGE_TITLE_MAX) {
+        setErrorMessage(`제목은 ${PAGE_TITLE_MAX}자 이하로 입력해 주세요.`);
         return;
       }
 
@@ -163,7 +161,7 @@ export function CreateBoardOrRollingPaperModal({
         const res = await createWishBoard({
           title: titleTrim || null,
           targetDate: wishTargetDate.trim() || null,
-          isPublic: wishPublic,
+          isPublic: wishCommentPublic,
         });
         onClose();
         router.push(`/wishlist/${encodeURIComponent(res.data.boardSlug)}`);
@@ -177,22 +175,13 @@ export function CreateBoardOrRollingPaperModal({
     }
 
     const rt = rpTitle.trim();
-    const rn = recipientName.trim();
     const rd = rpTargetDate.trim();
     if (!rt) {
       setErrorMessage("롤링페이퍼 제목을 입력해 주세요.");
       return;
     }
-    if (rt.length > ROLLING_TITLE_MAX) {
-      setErrorMessage(`제목은 ${ROLLING_TITLE_MAX}자 이하로 입력해 주세요.`);
-      return;
-    }
-    if (!rn) {
-      setErrorMessage("받는 사람 이름을 입력해 주세요.");
-      return;
-    }
-    if (rn.length > RECIPIENT_NAME_MAX) {
-      setErrorMessage(`받는 사람 이름은 ${RECIPIENT_NAME_MAX}자 이하로 입력해 주세요.`);
+    if (rt.length > PAGE_TITLE_MAX) {
+      setErrorMessage(`제목은 ${PAGE_TITLE_MAX}자 이하로 입력해 주세요.`);
       return;
     }
     if (!rd) {
@@ -215,6 +204,7 @@ export function CreateBoardOrRollingPaperModal({
         recipientName: rn,
         targetDate: rd,
         imageKey: ik || undefined,
+        isCommentPublic: rpCommentPublic,
       });
       setRollingSuccess(res.data);
     } catch (err) {
@@ -349,7 +339,7 @@ export function CreateBoardOrRollingPaperModal({
                 placeholder="선택"
                 value={wishTitle}
                 onChange={(ev) => setWishTitle(ev.target.value)}
-                maxLength={WISH_TITLE_MAX}
+                maxLength={PAGE_TITLE_MAX}
               />
               <TextField
                 label="공개 기준일"
@@ -357,15 +347,34 @@ export function CreateBoardOrRollingPaperModal({
                 value={wishTargetDate}
                 onChange={(ev) => setWishTargetDate(ev.target.value)}
               />
-              <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
-                <input
-                  type="checkbox"
-                  checked={wishPublic}
-                  onChange={(ev) => setWishPublic(ev.target.checked)}
-                  className="size-4 rounded border-[var(--color-border)] accent-[#7B61FF]"
-                />
-                공개
-              </label>
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
+                <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                  댓글 공개
+                </p>
+                <p className="mb-3 text-[12px] leading-snug text-[var(--color-text-secondary)]">
+                  비공개면 기준일까지 댓글은 비공개로 유지됩니다.
+                </p>
+                <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                  <input
+                    type="radio"
+                    name="create-wish-comment"
+                    checked={wishCommentPublic}
+                    onChange={() => setWishCommentPublic(true)}
+                    className="size-4 accent-[#7B61FF]"
+                  />
+                  댓글 공개
+                </label>
+                <label className="mt-2 flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                  <input
+                    type="radio"
+                    name="create-wish-comment"
+                    checked={!wishCommentPublic}
+                    onChange={() => setWishCommentPublic(false)}
+                    className="size-4 accent-[#7B61FF]"
+                  />
+                  댓글 비공개
+                </label>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -375,23 +384,43 @@ export function CreateBoardOrRollingPaperModal({
                 placeholder="롤링페이퍼 제목"
                 value={rpTitle}
                 onChange={(ev) => setRpTitle(ev.target.value)}
-                maxLength={ROLLING_TITLE_MAX}
+                maxLength={PAGE_TITLE_MAX}
               />
               <TextField
-                label="받는 사람"
-                requiredMark
-                placeholder="이름"
-                value={recipientName}
-                onChange={(ev) => setRecipientName(ev.target.value)}
-                maxLength={RECIPIENT_NAME_MAX}
-              />
-              <TextField
-                label="댓글 공개일"
+                label="공개 기준일"
                 requiredMark
                 type="date"
                 value={rpTargetDate}
                 onChange={(ev) => setRpTargetDate(ev.target.value)}
               />
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
+                <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                  댓글 공개
+                </p>
+                <p className="mb-3 text-[12px] leading-snug text-[var(--color-text-secondary)]">
+                  비공개면 기준일까지 댓글은 비공개로 유지됩니다.
+                </p>
+                <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                  <input
+                    type="radio"
+                    name="create-rolling-comment"
+                    checked={rpCommentPublic}
+                    onChange={() => setRpCommentPublic(true)}
+                    className="size-4 accent-[#7B61FF]"
+                  />
+                  댓글 공개
+                </label>
+                <label className="mt-2 flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                  <input
+                    type="radio"
+                    name="create-rolling-comment"
+                    checked={!rpCommentPublic}
+                    onChange={() => setRpCommentPublic(false)}
+                    className="size-4 accent-[#7B61FF]"
+                  />
+                  댓글 비공개
+                </label>
+              </div>
               <div className="flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
                   캐릭터 사진
