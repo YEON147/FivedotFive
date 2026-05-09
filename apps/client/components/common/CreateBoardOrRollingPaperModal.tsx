@@ -1,6 +1,5 @@
 "use client";
 
-import { Check, Copy } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
@@ -11,7 +10,6 @@ import {
   createWishBoard,
   formatCreateBoardLimitError,
   uploadRollingPaperRecipientImage,
-  type CreateRollingPaperApiResponse,
 } from "@/features/wishlist/api";
 
 /** 서버 WishBoardCreateRequest·RollingPaperCreateRequest title @Size(max = 8) */
@@ -41,7 +39,9 @@ export function CreateBoardOrRollingPaperModal({
 
   const [wishTitle, setWishTitle] = useState("");
   const [wishTargetDate, setWishTargetDate] = useState("");
-  /** 위시보드 isPublic — 댓글 즉시 공개 여부 */
+  /** 위시보드 `isPublic` — 다른 사람이 링크로 보드를 열 수 있는지 (본인은 항상 가능) */
+  const [wishBoardPublic, setWishBoardPublic] = useState(true);
+  /** 위시보드 `isCommentPublic` — 공개 기준일 전 타인 댓글 노출 여부 */
   const [wishCommentPublic, setWishCommentPublic] = useState(true);
 
   const [rpTitle, setRpTitle] = useState("");
@@ -60,16 +60,13 @@ export function CreateBoardOrRollingPaperModal({
   const [convertedImageKey, setConvertedImageKey] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
 
-  const [rollingSuccess, setRollingSuccess] =
-    useState<CreateRollingPaperApiResponse["data"] | null>(null);
-  const [copyTip, setCopyTip] = useState<string | null>(null);
-
   const resetForm = useCallback(() => {
     setKind("wish");
     setErrorMessage(null);
     setSubmitting(false);
     setWishTitle("");
     setWishTargetDate("");
+    setWishBoardPublic(true);
     setWishCommentPublic(true);
     setRpTitle("");
     setRpTargetDate("");
@@ -83,8 +80,6 @@ export function CreateBoardOrRollingPaperModal({
     setRecipientFileInputKey((k) => k + 1);
     setConvertedImageKey(null);
     setConverting(false);
-    setRollingSuccess(null);
-    setCopyTip(null);
   }, []);
 
   useEffect(() => {
@@ -135,16 +130,6 @@ export function CreateBoardOrRollingPaperModal({
     }
   }, [recipientImageFile]);
 
-  const handleCopy = useCallback(async (label: string, text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyTip(label);
-      window.setTimeout(() => setCopyTip(null), 2000);
-    } catch {
-      setCopyTip(null);
-    }
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -161,7 +146,8 @@ export function CreateBoardOrRollingPaperModal({
         const res = await createWishBoard({
           title: titleTrim || null,
           targetDate: wishTargetDate.trim() || null,
-          isPublic: wishCommentPublic,
+          isPublic: wishBoardPublic,
+          isCommentPublic: wishCommentPublic,
         });
         onClose();
         router.push(`/wishlist/${encodeURIComponent(res.data.boardSlug)}`);
@@ -201,12 +187,12 @@ export function CreateBoardOrRollingPaperModal({
       const ik = convertedImageKey?.trim();
       const res = await createRollingPaper({
         title: rt,
-        recipientName: rn,
         targetDate: rd,
         imageKey: ik || undefined,
         isCommentPublic: rpCommentPublic,
       });
-      setRollingSuccess(res.data);
+      onClose();
+      router.push(`/rolling-paper/${encodeURIComponent(res.data.slug)}`);
     } catch (err) {
       const raw = err instanceof Error ? err.message : "생성에 실패했습니다.";
       setErrorMessage(formatCreateBoardLimitError(raw));
@@ -215,90 +201,18 @@ export function CreateBoardOrRollingPaperModal({
     }
   };
 
-  const rollingDoneView = rollingSuccess != null;
-
   return (
     <WishlistCenterDialog
       open={open}
       onClose={onClose}
-      title={rollingDoneView ? "롤링페이퍼가 생성되었어요" : "생성하기"}
+      title="생성하기"
       titleId={titleId}
       variant="static"
       staticStack="aboveMenu"
-      description={
-        rollingDoneView ? (
-          <span>링크 두 종류예요. 필요한 쪽만 복사해 공유하세요.</span>
-        ) : (
-          <span>종류를 고르고 폼을 채워 주세요.</span>
-        )
-      }
+      description={<span>종류를 고르고 폼을 채워 주세요.</span>}
       closeLabel="닫기"
     >
-      {rollingDoneView ? (
-        <div className="mt-5 flex flex-col gap-4">
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2.5 text-body-sm text-[var(--color-text-secondary)]">
-            슬러그:{" "}
-            <span className="font-medium text-[var(--color-text-primary)]">
-              {rollingSuccess.slug}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
-              댓글 작성용 링크
-            </span>
-            <div className="flex gap-2">
-              <p className="min-w-0 flex-1 break-all rounded-xl border border-[var(--color-border)] bg-white px-3 py-2 text-[13px] leading-snug text-[var(--color-text-primary)]">
-                {rollingSuccess.commentShareUrl}
-              </p>
-              <button
-                type="button"
-                onClick={() => void handleCopy("comment", rollingSuccess.commentShareUrl)}
-                className="inline-flex shrink-0 items-center justify-center gap-1 rounded-xl border border-[var(--color-border)] bg-white px-3 py-2 text-[13px] font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                {copyTip === "comment" ? (
-                  <Check size={18} weight="bold" className="text-emerald-600" />
-                ) : (
-                  <Copy size={18} weight="bold" />
-                )}
-                복사
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
-              저장 전용 링크 (수신자용)
-            </span>
-            <div className="flex gap-2">
-              <p className="min-w-0 flex-1 break-all rounded-xl border border-[var(--color-border)] bg-white px-3 py-2 text-[13px] leading-snug text-[var(--color-text-primary)]">
-                {rollingSuccess.viewShareUrl}
-              </p>
-              <button
-                type="button"
-                onClick={() => void handleCopy("view", rollingSuccess.viewShareUrl)}
-                className="inline-flex shrink-0 items-center justify-center gap-1 rounded-xl border border-[var(--color-border)] bg-white px-3 py-2 text-[13px] font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                {copyTip === "view" ? (
-                  <Check size={18} weight="bold" className="text-emerald-600" />
-                ) : (
-                  <Copy size={18} weight="bold" />
-                )}
-                복사
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-1 inline-flex min-h-[2.75rem] w-full items-center justify-center rounded-[14px] bg-[var(--color-primary-main)] text-[15px] font-semibold text-white transition hover:bg-[var(--color-primary-pressed)]"
-          >
-            확인
-          </button>
-        </div>
-      ) : (
-        <form className="mt-5 flex flex-col gap-4" onSubmit={handleSubmit}>
+      <form className="mt-5 flex flex-col gap-4" onSubmit={handleSubmit}>
           <fieldset>
             <legend className="sr-only">생성 종류</legend>
             <div
@@ -349,10 +263,38 @@ export function CreateBoardOrRollingPaperModal({
               />
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
                 <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                  보드 공개
+                </p>
+                <p className="mb-3 text-[12px] leading-snug text-[var(--color-text-secondary)]">
+                  비공개면 링크를 알아도 다른 사람은 위시보드를 열 수 없어요. 본인은 항상 볼 수 있어요.
+                </p>
+                <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                  <input
+                    type="radio"
+                    name="create-wish-board-vis"
+                    checked={wishBoardPublic}
+                    onChange={() => setWishBoardPublic(true)}
+                    className="size-4 accent-[#7B61FF]"
+                  />
+                  보드 공개
+                </label>
+                <label className="mt-2 flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                  <input
+                    type="radio"
+                    name="create-wish-board-vis"
+                    checked={!wishBoardPublic}
+                    onChange={() => setWishBoardPublic(false)}
+                    className="size-4 accent-[#7B61FF]"
+                  />
+                  보드 비공개
+                </label>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
+                <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">
                   댓글 공개
                 </p>
                 <p className="mb-3 text-[12px] leading-snug text-[var(--color-text-secondary)]">
-                  비공개면 기준일까지 댓글은 비공개로 유지됩니다.
+                  공개 기준일 전에 다른 사람이 작성한 댓글을 볼 수 있는지 정해요. 비공개면 기준일까지 타인 댓글은 숨겨져요.
                 </p>
                 <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
                   <input
@@ -509,7 +451,6 @@ export function CreateBoardOrRollingPaperModal({
                 : "만들기"}
           </button>
         </form>
-      )}
     </WishlistCenterDialog>
   );
 }

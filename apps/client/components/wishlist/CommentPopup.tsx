@@ -38,9 +38,16 @@ function setLastSubmitNow() {
   localStorage.setItem(RATE_LIMIT_KEY, String(Date.now()));
 }
 
+export type CommentCreateGuestFields = {
+  guestNickname: string;
+  guestPassword: string;
+};
+
 type CommentPopupProps = {
   mode: PopupMode;
   comment: CommentData | null;
+  /** 로그인 방문자면 게스트 필드 숨김·전송 생략 */
+  commentAsLoggedInUser?: boolean;
   stickerOptions: StickerOption[];
   /** 폴더 탭(전체 + API 폴더). 없으면 탭 UI 생략 */
   stickerTabs?: CommentStickerTab[];
@@ -51,14 +58,27 @@ type CommentPopupProps = {
   isSubmitting?: boolean;
   onClose: () => void;
   onModeChange: (mode: PopupMode) => void;
-  onCreate: (content: string, stickerKey: string) => Promise<void>;
-  onUpdate: (commentId: number, content: string) => Promise<void>;
-  onDelete: (commentId: number) => Promise<void>;
+  onCreate: (
+    content: string,
+    stickerKey: string,
+    guest?: CommentCreateGuestFields,
+  ) => Promise<void>;
+  /** 수정·삭제 가능 — 회원 본인(`isUser`) 또는 세션에 등록된 비회원 본인 댓글 */
+  canModifyComment?: boolean;
+  onUpdate: (
+    commentId: number,
+    content: string,
+    guestPassword?: string,
+  ) => Promise<void>;
+  onDelete: (commentId: number, guestPassword?: string) => Promise<void>;
 };
+
+const GUEST_NICKNAME_MAX = 8;
 
 export function CommentPopup({
   mode,
   comment,
+  commentAsLoggedInUser = false,
   stickerOptions,
   stickerTabs,
   stickerFolderId = "all",
@@ -69,14 +89,23 @@ export function CommentPopup({
   onClose,
   onModeChange,
   onCreate,
+  canModifyComment,
   onUpdate,
   onDelete,
 }: CommentPopupProps) {
   const [content, setContent] = useState(mode === "edit" ? (comment?.content ?? "") : "");
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
+  const [guestNickname, setGuestNickname] = useState("");
+  const [guestPassword, setGuestPassword] = useState("");
+  /** 비회원만: 1 = 이름·비밀번호, 2 = 스티커·댓글 */
+  const [guestWriteStep, setGuestWriteStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  /** 비회원 댓글 수정 시 API `guestPassword` */
+  const [editGuestPassword, setEditGuestPassword] = useState("");
+  /** 비회원 댓글 삭제 확인 시 API `guestPassword` */
+  const [deleteGuestPassword, setDeleteGuestPassword] = useState("");
 
   // 10초 쿨다운 카운트다운
   const [cooldown, setCooldown] = useState(0);
@@ -113,6 +142,17 @@ export function CommentPopup({
     });
   }, [mode, stickerOptions, stickerFolderId]);
 
+  const prevModeRef = useRef<PopupMode>(mode);
+  useEffect(() => {
+    const enteredWrite = prevModeRef.current !== "write" && mode === "write";
+    prevModeRef.current = mode;
+    if (enteredWrite && !commentAsLoggedInUser) {
+      setGuestNickname("");
+      setGuestPassword("");
+      setGuestWriteStep(1);
+    }
+  }, [mode, commentAsLoggedInUser]);
+
   useEffect(() => {
     if (mode !== "write") return;
 
@@ -140,7 +180,37 @@ export function CommentPopup({
     };
   }, [mode]);
 
+  const handleGuestContinueToStickerStep = () => {
+    if (cooldown > 0) {
+      setError(`댓글은 10초에 한 번만 작성할 수 있습니다. (${cooldown}초 후 가능)`);
+      return;
+    }
+    const nick = guestNickname.trim();
+    if (!nick) {
+      setError("닉네임을 입력해주세요.");
+      return;
+    }
+    if (nick.length > GUEST_NICKNAME_MAX) {
+      setError(`닉네임은 ${GUEST_NICKNAME_MAX}자 이하로 입력해주세요.`);
+      return;
+    }
+    if (!guestPassword.trim()) {
+      setError("비밀번호를 입력해주세요. (수정·삭제 시 필요합니다)");
+      return;
+    }
+    setError(null);
+    setGuestWriteStep(2);
+  };
+
+  const handleGuestBackToIdentityStep = () => {
+    setError(null);
+    setGuestWriteStep(1);
+  };
+
   const handleCreate = async () => {
+    if (!commentAsLoggedInUser && guestWriteStep !== 2) {
+      return;
+    }
     if (cooldown > 0) {
       setError(`댓글은 10초에 한 번만 작성할 수 있습니다. (${cooldown}초 후 가능)`);
       return;
@@ -153,10 +223,34 @@ export function CommentPopup({
       setError("스티커를 선택해주세요.");
       return;
     }
+    if (!commentAsLoggedInUser) {
+      const nick = guestNickname.trim();
+      if (!nick) {
+        setError("닉네임을 입력해주세요.");
+        return;
+      }
+      if (nick.length > GUEST_NICKNAME_MAX) {
+        setError(`닉네임은 ${GUEST_NICKNAME_MAX}자 이하로 입력해주세요.`);
+        return;
+      }
+      if (!guestPassword.trim()) {
+        setError("비밀번호를 입력해주세요. (수정·삭제 시 필요합니다)");
+        return;
+      }
+    }
     setError(null);
     setLoading(true);
     try {
-      await onCreate(content.trim(), selectedSticker);
+      await onCreate(
+        content.trim(),
+        selectedSticker,
+        commentAsLoggedInUser
+          ? undefined
+          : {
+              guestNickname: guestNickname.trim(),
+              guestPassword,
+            },
+      );
       setLastSubmitNow();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "댓글 작성에 실패했습니다.";
@@ -177,10 +271,20 @@ export function CommentPopup({
       setError("댓글 내용을 입력해주세요.");
       return;
     }
+    const allowModify = canModifyComment ?? !!comment.isUser;
+    const guestEdit = allowModify && !comment.isUser;
+    if (guestEdit && !editGuestPassword.trim()) {
+      setError("비밀번호를 입력해주세요.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      await onUpdate(comment.id, content.trim());
+      await onUpdate(
+        comment.id,
+        content.trim(),
+        guestEdit ? editGuestPassword : undefined,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "댓글 수정에 실패했습니다.");
     } finally {
@@ -190,11 +294,18 @@ export function CommentPopup({
 
   const handleDeleteConfirm = async () => {
     if (!comment) return;
+    const allowModify = canModifyComment ?? !!comment.isUser;
+    const guestDelete = allowModify && !comment.isUser;
+    if (guestDelete && !deleteGuestPassword.trim()) {
+      setError("비밀번호를 입력해주세요.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      await onDelete(comment.id);
+      await onDelete(comment.id, guestDelete ? deleteGuestPassword : undefined);
       setDeleteConfirmOpen(false);
+      setDeleteGuestPassword("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "댓글 삭제에 실패했습니다.");
     } finally {
@@ -204,6 +315,7 @@ export function CommentPopup({
 
   const handleEditClick = () => {
     setContent(comment?.content ?? "");
+    setEditGuestPassword("");
     setError(null);
     onModeChange("edit");
   };
@@ -211,11 +323,32 @@ export function CommentPopup({
   const isDisabled = loading || isSubmitting;
   const isWriteBlocked = mode === "write" && cooldown > 0;
 
+  const showStickerAndMessageFields =
+    mode === "write" &&
+    (commentAsLoggedInUser || (!commentAsLoggedInUser && guestWriteStep === 2));
+
+  const writeHeaderTitle =
+    mode === "write" && !commentAsLoggedInUser && guestWriteStep === 1
+      ? "작성자 정보"
+      : mode === "write"
+        ? "댓글 쓰기"
+        : null;
+
   const closeDeleteDialog = () => {
     if (loading) return;
     setError(null);
+    setDeleteGuestPassword("");
     setDeleteConfirmOpen(false);
   };
+
+  const allowModifyComment = canModifyComment ?? !!comment?.isUser;
+  const guestDeleteNeedsPassword =
+    !!comment && allowModifyComment && !comment.isUser;
+  const showGuestPasswordOnEdit =
+    mode === "edit" &&
+    comment &&
+    allowModifyComment &&
+    !comment.isUser;
 
   return (
     <>
@@ -233,7 +366,7 @@ export function CommentPopup({
             ? (comment ? getCommentDisplaySenderName(comment) : "댓글")
             : mode === "edit"
               ? "댓글 수정"
-              : "댓글 쓰기"}
+              : writeHeaderTitle ?? "댓글 쓰기"}
         </h2>
         <button
           type="button"
@@ -301,7 +434,7 @@ export function CommentPopup({
               {comment.content}
             </p>
           ) : null}
-          {comment.isUser && (
+          {allowModifyComment && (
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
@@ -315,6 +448,7 @@ export function CommentPopup({
                 type="button"
                 onClick={() => {
                   setError(null);
+                  setDeleteGuestPassword("");
                   setDeleteConfirmOpen(true);
                 }}
                 disabled={isDisabled}
@@ -345,128 +479,187 @@ export function CommentPopup({
             </div>
           )}
 
-          <div>
-            <p className="mb-2 text-xs font-semibold text-slate-500">스티커 선택 *</p>
-            {stickerTabs && stickerTabs.length > 0 && onStickerFolderChange ? (
-              <div
-                ref={commentStickerTabStripScroll.stripRef}
-                role="tablist"
-                aria-label="스티커 카테고리"
-                className="scrollbar-x-none mb-2 flex cursor-grab gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 pb-2 pt-0.5 select-none active:cursor-grabbing touch-pan-x"
-                onPointerDown={commentStickerTabStripScroll.onPointerDown}
-              >
-                {stickerTabs.map((tab) => {
-                  const active = stickerFolderId === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={(clickEvent) => {
-                        if (commentStickerTabStripScroll.mouseDragRef.current.dragged) {
-                          clickEvent.preventDefault();
-                          clickEvent.stopPropagation();
-                          return;
-                        }
-                        onStickerFolderChange(tab.id);
-                      }}
-                      disabled={isWriteBlocked || stickersLoading}
-                      className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                        active
-                          ? "bg-[#7B61FF] text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      } disabled:opacity-40`}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
+          {/* 비회원 1단계: 닉네임·비밀번호만 */}
+          {!commentAsLoggedInUser && guestWriteStep === 1 ? (
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 text-xs font-semibold text-slate-500">
+                  닉네임 *{" "}
+                  <span className="font-normal text-slate-400">(최대 {GUEST_NICKNAME_MAX}자)</span>
+                </p>
+                <input
+                  type="text"
+                  value={guestNickname}
+                  onChange={(e) => setGuestNickname(e.target.value.slice(0, GUEST_NICKNAME_MAX))}
+                  maxLength={GUEST_NICKNAME_MAX}
+                  disabled={isWriteBlocked}
+                  autoComplete="nickname"
+                  placeholder="표시될 이름"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+                />
               </div>
-            ) : null}
-            {/** 조상만 container-type — 로딩/본문 동일 `scrollable` 래퍼로 틀 고정 */}
-            <div className="min-h-0 w-full [container-type:inline-size]">
-              {stickersError ? (
-                <StickerSheetFixedViewport className="flex items-center justify-center px-1">
-                  <p className="text-center text-xs text-red-500">{stickersError}</p>
-                </StickerSheetFixedViewport>
-              ) : (
-                <StickerSheetFixedViewport scrollable className="pr-0.5">
-                  {stickersLoading ? (
-                    <StickerGridSkeleton />
-                  ) : stickerOptions.length === 0 ? (
-                    <div className="flex h-full min-h-0 flex-col items-center justify-center px-1">
-                      <p className="text-center text-xs text-slate-500">
-                        선택할 스티커가 없습니다.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-6 gap-1">
-                      {stickerOptions.map((option) => {
-                        const thumb = getAssetImageUrl(option.assetKey);
-                        const selected = selectedSticker === option.assetKey;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => setSelectedSticker(option.assetKey)}
-                            disabled={isWriteBlocked}
-                            className={`relative aspect-square overflow-hidden rounded-md border transition enabled:active:scale-[0.98] ${
-                              selected
-                                ? "border-[#7B61FF] bg-slate-50 shadow-[0_0_0_2px_rgba(123,97,255,0.2)]"
-                                : "border-slate-200 bg-slate-50 enabled:hover:border-[#7B61FF]/50"
-                            } disabled:opacity-40`}
-                            aria-label={option.label}
-                          >
-                            {shouldUseNativeImg(thumb) ? (
-                              <img
-                                src={thumb}
-                                alt={option.label}
-                                className="absolute inset-0 h-full w-full object-contain object-center p-0.5"
-                              />
-                            ) : (
-                              <Image
-                                src={thumb}
-                                alt={option.label}
-                                fill
-                                sizes="(max-width: 340px) 14vw, 48px"
-                                className="object-contain object-center p-0.5"
-                              />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </StickerSheetFixedViewport>
-              )}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
+                <input
+                  type="password"
+                  value={guestPassword}
+                  onChange={(e) => setGuestPassword(e.target.value)}
+                  disabled={isWriteBlocked}
+                  autoComplete="new-password"
+                  placeholder="수정·삭제 시 사용"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+                />
+              </div>
+              {error ? <p className="text-xs text-red-500">{error}</p> : null}
+              <button
+                type="button"
+                onClick={handleGuestContinueToStickerStep}
+                disabled={isDisabled || isWriteBlocked}
+                className="w-full rounded-2xl bg-[#7B61FF] py-3 text-sm font-semibold text-white transition hover:bg-[#6b52e0] disabled:opacity-40"
+              >
+                {isWriteBlocked ? `${cooldown}초 후 작성 가능` : "댓글 작성하기"}
+              </button>
             </div>
-          </div>
+          ) : null}
 
-          <div>
-            <p className="mb-2 text-xs font-semibold text-slate-500">댓글 *</p>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              maxLength={200}
-              rows={4}
-              disabled={isWriteBlocked}
-              placeholder="따뜻한 메시지를 남겨보세요 (최대 200자)"
-              className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
-            />
-            <p className="mt-1 text-right text-xs text-slate-400">{content.length} / 200</p>
-          </div>
+          {/* 회원 또는 비회원 2단계: 스티커 + 댓글 */}
+          {showStickerAndMessageFields ? (
+            <div className="space-y-4">
+              {!commentAsLoggedInUser && guestWriteStep === 2 ? (
+                <button
+                  type="button"
+                  onClick={handleGuestBackToIdentityStep}
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                >
+                  ← 이름·비밀번호 수정
+                </button>
+              ) : null}
 
-          {error && <p className="text-xs text-red-500">{error}</p>}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-slate-500">스티커 선택 *</p>
+                {stickerTabs && stickerTabs.length > 0 && onStickerFolderChange ? (
+                  <div
+                    ref={commentStickerTabStripScroll.stripRef}
+                    role="tablist"
+                    aria-label="스티커 카테고리"
+                    className="scrollbar-x-none mb-2 flex cursor-grab gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-100 pb-2 pt-0.5 select-none active:cursor-grabbing touch-pan-x"
+                    onPointerDown={commentStickerTabStripScroll.onPointerDown}
+                  >
+                    {stickerTabs.map((tab) => {
+                      const active = stickerFolderId === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          onClick={(clickEvent) => {
+                            if (commentStickerTabStripScroll.mouseDragRef.current.dragged) {
+                              clickEvent.preventDefault();
+                              clickEvent.stopPropagation();
+                              return;
+                            }
+                            onStickerFolderChange(tab.id);
+                          }}
+                          disabled={isWriteBlocked || stickersLoading}
+                          className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                            active
+                              ? "bg-[#7B61FF] text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          } disabled:opacity-40`}
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {/** 조상만 container-type — 로딩/본문 동일 `scrollable` 래퍼로 틀 고정 */}
+                <div className="min-h-0 w-full [container-type:inline-size]">
+                  {stickersError ? (
+                    <StickerSheetFixedViewport className="flex items-center justify-center px-1">
+                      <p className="text-center text-xs text-red-500">{stickersError}</p>
+                    </StickerSheetFixedViewport>
+                  ) : (
+                    <StickerSheetFixedViewport scrollable className="pr-0.5">
+                      {stickersLoading ? (
+                        <StickerGridSkeleton />
+                      ) : stickerOptions.length === 0 ? (
+                        <div className="flex h-full min-h-0 flex-col items-center justify-center px-1">
+                          <p className="text-center text-xs text-slate-500">
+                            선택할 스티커가 없습니다.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-6 gap-1">
+                          {stickerOptions.map((option) => {
+                            const thumb = getAssetImageUrl(option.assetKey);
+                            const selected = selectedSticker === option.assetKey;
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => setSelectedSticker(option.assetKey)}
+                                disabled={isWriteBlocked}
+                                className={`relative aspect-square overflow-hidden rounded-md border transition enabled:active:scale-[0.98] ${
+                                  selected
+                                    ? "border-[#7B61FF] bg-slate-50 shadow-[0_0_0_2px_rgba(123,97,255,0.2)]"
+                                    : "border-slate-200 bg-slate-50 enabled:hover:border-[#7B61FF]/50"
+                                } disabled:opacity-40`}
+                                aria-label={option.label}
+                              >
+                                {shouldUseNativeImg(thumb) ? (
+                                  <img
+                                    src={thumb}
+                                    alt={option.label}
+                                    className="absolute inset-0 h-full w-full object-contain object-center p-0.5"
+                                  />
+                                ) : (
+                                  <Image
+                                    src={thumb}
+                                    alt={option.label}
+                                    fill
+                                    sizes="(max-width: 340px) 14vw, 48px"
+                                    className="object-contain object-center p-0.5"
+                                  />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </StickerSheetFixedViewport>
+                  )}
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={isDisabled || isWriteBlocked}
-            className="w-full rounded-2xl bg-[#7B61FF] py-3 text-sm font-semibold text-white transition hover:bg-[#6b52e0] disabled:opacity-40"
-          >
-            {loading ? "작성 중..." : isWriteBlocked ? `${cooldown}초 후 작성 가능` : "작성하기"}
-          </button>
+              <div>
+                <p className="mb-2 text-xs font-semibold text-slate-500">댓글 *</p>
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  maxLength={200}
+                  rows={4}
+                  disabled={isWriteBlocked}
+                  placeholder="따뜻한 메시지를 남겨보세요 (최대 200자)"
+                  className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+                />
+                <p className="mt-1 text-right text-xs text-slate-400">{content.length} / 200</p>
+              </div>
+
+              {error ? <p className="text-xs text-red-500">{error}</p> : null}
+
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={isDisabled || isWriteBlocked}
+                className="w-full rounded-2xl bg-[#7B61FF] py-3 text-sm font-semibold text-white transition hover:bg-[#6b52e0] disabled:opacity-40"
+              >
+                {loading ? "작성 중..." : isWriteBlocked ? `${cooldown}초 후 작성 가능` : "작성하기"}
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -506,12 +699,31 @@ export function CommentPopup({
             <p className="mt-1 text-right text-xs text-slate-400">{content.length} / 200</p>
           </div>
 
+          {showGuestPasswordOnEdit ? (
+            <div>
+              <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
+              <input
+                type="password"
+                value={editGuestPassword}
+                onChange={(e) => setEditGuestPassword(e.target.value)}
+                disabled={isDisabled}
+                autoComplete="current-password"
+                placeholder="작성 시 입력한 비밀번호"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+              />
+            </div>
+          ) : null}
+
           {error && <p className="text-xs text-red-500">{error}</p>}
 
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => { setError(null); onModeChange("view"); }}
+              onClick={() => {
+                setError(null);
+                setEditGuestPassword("");
+                onModeChange("view");
+              }}
               disabled={isDisabled}
               className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
             >
@@ -543,6 +755,20 @@ export function CommentPopup({
       }
     >
       <div className="mt-5 flex flex-col gap-3">
+        {guestDeleteNeedsPassword ? (
+          <div className="text-left">
+            <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
+            <input
+              type="password"
+              value={deleteGuestPassword}
+              onChange={(e) => setDeleteGuestPassword(e.target.value)}
+              disabled={loading}
+              autoComplete="current-password"
+              placeholder="작성 시 입력한 비밀번호"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+            />
+          </div>
+        ) : null}
         {error ? <p className="text-center text-xs text-red-500">{error}</p> : null}
         <div className="grid grid-cols-2 gap-3">
           <button

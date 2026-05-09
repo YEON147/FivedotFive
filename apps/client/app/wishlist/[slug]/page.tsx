@@ -22,7 +22,11 @@ import {
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { WishlistMyBoardScreen } from "@/components/wishlist/WishlistMyBoardScreen";
-import { CommentPopup, type CommentStickerTab } from "@/components/wishlist/CommentPopup";
+import {
+  CommentPopup,
+  type CommentCreateGuestFields,
+  type CommentStickerTab,
+} from "@/components/wishlist/CommentPopup";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
@@ -49,10 +53,18 @@ import {
 } from "@/features/wishlist/board-background";
 import { getAssetImageUrl } from "@/lib/asset-url";
 import {
+  isMaskedOthersWishComment,
+  isSoftDeletedWishComment,
+} from "@/features/wishlist/comment-display";
+import {
   computeCommentSheetCount,
   normalizeCommentsToSlotGrid,
   resolveGlobalSlotIndexForCreate,
 } from "@/features/wishlist/comment-slot-layout";
+import {
+  canEditGuestWishComment,
+  rememberGuestWishComment,
+} from "@/features/wishlist/guest-comment-session";
 import {
   compactGiftAssetKeysToLayoutSlots,
   compactGiftTextsToLayoutSlots,
@@ -601,6 +613,20 @@ export default function PublicWishlistPage({
     [visitorMenuLoggedIn, myBoardSlug, isViewingOwnBoard],
   );
 
+  /** 수정·삭제: 회원 본인 또는 이 세션에서 작성한 비회원 댓글 */
+  const canModifySelectedComment = useMemo(() => {
+    if (!selectedComment) return false;
+    if (selectedComment.isUser) return true;
+    if (visitorMenuLoggedIn) return false;
+    if (
+      isMaskedOthersWishComment(selectedComment) ||
+      isSoftDeletedWishComment(selectedComment)
+    ) {
+      return false;
+    }
+    return canEditGuestWishComment(slug, selectedComment.id);
+  }, [selectedComment, visitorMenuLoggedIn, slug]);
+
   const loadPublicBoard = useCallback(() => {
     return getPublicBoard(slug)
       .then((data) => {
@@ -950,13 +976,8 @@ export default function PublicWishlistPage({
         setPopupMode("view");
         return;
       }
-      if (!visitorMenuLoggedIn) {
-        setGuestAuthModalOpen(true);
-        return;
-      }
-
       let boardSlugResolved = myBoardSlug;
-      if (boardSlugResolved === undefined) {
+      if (boardSlugResolved === undefined && visitorMenuLoggedIn) {
         try {
           const ok = await isLoggedInOwnerOfBoardSlug(slug);
           const resolved = ok ? slug.trim() : null;
@@ -1009,7 +1030,11 @@ export default function PublicWishlistPage({
     }
   };
 
-  const handleCreate = async (content: string, stickerKey: string) => {
+  const handleCreate = async (
+    content: string,
+    stickerKey: string,
+    guest?: CommentCreateGuestFields,
+  ) => {
     if (popupCommentPage === null || selectedSlot === null || isViewingOwnBoard) {
       return;
     }
@@ -1025,7 +1050,20 @@ export default function PublicWishlistPage({
       wroteOnPage,
       inPageSlot,
     );
-    await createComment(slug, content, stickerKey, globalSlotIndex);
+    const created = await createComment(slug, {
+      content,
+      stickerKey,
+      slotIndex: globalSlotIndex,
+      ...(visitorMenuLoggedIn
+        ? {}
+        : {
+            guestNickname: guest?.guestNickname ?? "",
+            guestPassword: guest?.guestPassword ?? "",
+          }),
+    });
+    if (!visitorMenuLoggedIn && created.data?.id != null) {
+      rememberGuestWishComment(slug, created.data.id);
+    }
     const payload = await refreshCommentPage(wroteOnPage);
     handleClosePopup();
 
@@ -1041,14 +1079,25 @@ export default function PublicWishlistPage({
     }, 0);
   };
 
-  const handleUpdate = async (commentId: number, content: string) => {
-    await updateComment(slug, commentId, content);
+  const handleUpdate = async (
+    commentId: number,
+    content: string,
+    guestPassword?: string,
+  ) => {
+    await updateComment(slug, commentId, {
+      content,
+      ...(guestPassword !== undefined ? { guestPassword } : {}),
+    });
     if (popupCommentPage !== null) await refreshCommentPage(popupCommentPage);
     handleClosePopup();
   };
 
-  const handleDelete = async (commentId: number) => {
-    await deleteComment(slug, commentId);
+  const handleDelete = async (commentId: number, guestPassword?: string) => {
+    await deleteComment(
+      slug,
+      commentId,
+      guestPassword !== undefined ? { guestPassword } : undefined,
+    );
     if (popupCommentPage !== null) await refreshCommentPage(popupCommentPage);
     handleClosePopup();
   };
@@ -1300,6 +1349,8 @@ export default function PublicWishlistPage({
         <CommentPopup
           mode={popupMode}
           comment={selectedComment}
+          commentAsLoggedInUser={visitorMenuLoggedIn}
+          canModifyComment={canModifySelectedComment}
           stickerOptions={commentStickerOptions}
           stickerTabs={commentStickerTabs}
           stickerFolderId={commentStickerFolderId}

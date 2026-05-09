@@ -38,9 +38,11 @@ export function EditBoardOrRollingPaperModal({
   const initialRef = useRef<{
     title: string;
     targetDate: string;
-    isPublic: boolean;
+    /** 위시보드: 보드 공개(isPublic). 롤링: 플레이스홀더(true) */
+    boardPublic: boolean;
     recipientName: string;
-    isCommentPublic: boolean;
+    /** 위시·롤링: 댓글 공개(isCommentPublic) */
+    commentPublic: boolean;
   } | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +50,10 @@ export function EditBoardOrRollingPaperModal({
 
   const [title, setTitle] = useState("");
   const [targetDate, setTargetDate] = useState("");
+  /** 위시보드: 다른 사람이 링크로 보드를 열 수 있는지 */
   const [isPublic, setIsPublic] = useState(true);
+  /** 위시보드: 공개 기준일 전 타인 댓글 노출 */
+  const [wishCommentPublic, setWishCommentPublic] = useState(false);
   /** 롤링페이퍼 전용 · 백엔드 `isCommentPublic` */
   const [rollingCommentPublic, setRollingCommentPublic] = useState(true);
   const [recipientName, setRecipientName] = useState("");
@@ -71,14 +76,15 @@ export function EditBoardOrRollingPaperModal({
     const pub = entry.isPublic !== undefined && entry.isPublic !== null ? Boolean(entry.isPublic) : true;
     const rn = entry.recipientName?.trim() ?? "";
     const rolling = isRollingPaperListType(entry.type);
-    const cpRoll = entry.isCommentPublic === true;
+    const commentPub = entry.isCommentPublic === true;
 
     setTitle(t);
     setTargetDate(td);
     if (rolling) {
-      setRollingCommentPublic(cpRoll);
+      setRollingCommentPublic(commentPub);
     } else {
       setIsPublic(pub);
+      setWishCommentPublic(commentPub);
     }
     setRecipientName(rn);
     setRecipientImageFile(null);
@@ -90,9 +96,9 @@ export function EditBoardOrRollingPaperModal({
     initialRef.current = {
       title: t,
       targetDate: td,
-      isPublic: rolling ? true : pub,
+      boardPublic: rolling ? true : pub,
       recipientName: rn,
-      isCommentPublic: rolling ? cpRoll : false,
+      commentPublic: commentPub,
     };
   }, [open, entry]);
 
@@ -160,7 +166,7 @@ export function EditBoardOrRollingPaperModal({
         if (ti !== init.title.trim()) patch.title = ti;
         if (rn !== init.recipientName.trim()) patch.recipientName = rn;
         if (td !== init.targetDate.trim()) patch.targetDate = td;
-        if (rollingCommentPublic !== init.isCommentPublic) {
+        if (rollingCommentPublic !== init.commentPublic) {
           patch.isCommentPublic = rollingCommentPublic;
         }
 
@@ -191,13 +197,20 @@ export function EditBoardOrRollingPaperModal({
         return;
       }
 
-      const patch: Partial<{ title: string | null; isPublic: boolean; targetDate: string | null }> =
-        {};
+      const patch: Partial<{
+        title: string | null;
+        isPublic: boolean;
+        isCommentPublic: boolean;
+        targetDate: string | null;
+      }> = {};
       if (ti !== init.title.trim()) {
         patch.title = ti === "" ? null : ti;
       }
-      if (isPublic !== init.isPublic) {
+      if (isPublic !== init.boardPublic) {
         patch.isPublic = isPublic;
+      }
+      if (wishCommentPublic !== init.commentPublic) {
+        patch.isCommentPublic = wishCommentPublic;
       }
       const td = targetDate.trim();
       const initTd = init.targetDate.trim();
@@ -226,6 +239,7 @@ export function EditBoardOrRollingPaperModal({
       isPublic,
       isRolling,
       rollingCommentPublic,
+      wishCommentPublic,
       onClose,
       onSaved,
       recipientImageFile,
@@ -397,14 +411,45 @@ export function EditBoardOrRollingPaperModal({
             />
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
               <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                보드 공개
+              </p>
+              <p className="mb-3 text-[12px] leading-snug text-[var(--color-text-secondary)]">
+                비공개면 링크를 알아도 다른 사람은 위시보드를 열 수 없어요. 본인은 항상 볼 수 있어요.
+              </p>
+              <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                <input
+                  type="radio"
+                  name="wish-board-vis"
+                  checked={isPublic}
+                  onChange={() => setIsPublic(true)}
+                  className="size-4 accent-[#7B61FF]"
+                />
+                보드 공개
+              </label>
+              <label className="mt-2 flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
+                <input
+                  type="radio"
+                  name="wish-board-vis"
+                  checked={!isPublic}
+                  onChange={() => setIsPublic(false)}
+                  className="size-4 accent-[#7B61FF]"
+                />
+                보드 비공개
+              </label>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
+              <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">
                 댓글 공개
+              </p>
+              <p className="mb-3 text-[12px] leading-snug text-[var(--color-text-secondary)]">
+                공개 기준일 전에 다른 사람이 작성한 댓글을 볼 수 있는지 정해요.
               </p>
               <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-text-primary)]">
                 <input
                   type="radio"
                   name="wish-comment-mode"
-                  checked={isPublic}
-                  onChange={() => setIsPublic(true)}
+                  checked={wishCommentPublic}
+                  onChange={() => setWishCommentPublic(true)}
                   className="size-4 accent-[#7B61FF]"
                 />
                 댓글 공개
@@ -413,8 +458,8 @@ export function EditBoardOrRollingPaperModal({
                 <input
                   type="radio"
                   name="wish-comment-mode"
-                  checked={!isPublic}
-                  onChange={() => setIsPublic(false)}
+                  checked={!wishCommentPublic}
+                  onChange={() => setWishCommentPublic(false)}
                   className="size-4 accent-[#7B61FF]"
                 />
                 댓글 비공개
