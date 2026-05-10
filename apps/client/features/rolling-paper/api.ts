@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api/client";
+import { apiClient, publicApiClient } from "@/lib/api/client";
 
 function encodeRollingSlug(slug: string): string {
   return encodeURIComponent(slug.trim());
@@ -144,4 +144,50 @@ export async function createRollingPaperComment(
       body: JSON.stringify(body),
     },
   );
+}
+
+/**
+ * PATCH /api/rolling-papers/{slug}/comments/{commentId}
+ * - 회원 본인 댓글: `Authorization: Bearer` + 본문 `{ content }` 만 (`apiClient`)
+ * - 비회원 댓글: Authorization 없음 + `{ content, guestPassword }` (`publicApiClient`)
+ */
+export async function updateRollingPaperComment(
+  slug: string,
+  commentId: number,
+  params:
+    | {
+        mode: "member";
+        content: string;
+        rollingToken?: string | null;
+      }
+    | {
+        mode: "guest";
+        content: string;
+        guestPassword: string;
+        rollingToken?: string | null;
+      },
+): Promise<{ success?: boolean; message?: string }> {
+  const enc = encodeRollingSlug(slug);
+  const path = `/api/rolling-papers/${enc}/comments/${commentId}`;
+
+  if (params.mode === "guest") {
+    return publicApiClient<{ success?: boolean; message?: string }>(path, {
+      method: "PATCH",
+      headers: mergeRollingPaperHeaders(params.rollingToken, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        content: params.content.trim(),
+        guestPassword: params.guestPassword.trim(),
+      }),
+    });
+  }
+
+  return apiClient<{ success?: boolean; message?: string }>(path, {
+    method: "PATCH",
+    headers: mergeRollingPaperHeaders(params.rollingToken, {
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ content: params.content.trim() }),
+  });
 }
