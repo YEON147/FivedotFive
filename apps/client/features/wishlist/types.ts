@@ -63,6 +63,7 @@ export type MyBoardMeSummaryWishBoard = {
   targetDate: string;
   createdAt: string;
   isPublic: boolean;
+  isCommentPublic?: boolean;
 };
 
 export type MyBoardMeSummaryRollingPaper = {
@@ -90,6 +91,7 @@ export type MyBoardData = {
   data: {
     boardSlug: string;
     isPublic: boolean;
+    isCommentPublic?: boolean;
     targetDate: string;
     items: WishItemData[];
     assets: BoardAssetData[];
@@ -101,6 +103,7 @@ export type MyWishBoardListItem = {
   boardSlug: string;
   title: string | null;
   isPublic: boolean;
+  isCommentPublic?: boolean;
   targetDate: string;
   createdAt: string;
 };
@@ -153,6 +156,8 @@ export type MyBoardListEntry = {
   /** 롤링페이퍼 전용 */
   recipientName?: string | null;
   imageKey?: string | null;
+  /** 롤링페이퍼 전용 — 댓글 즉시 공개 */
+  isCommentPublic?: boolean | null;
 };
 
 export type MyBoardsAllApiResponse = {
@@ -168,8 +173,10 @@ export type MyLatestBoardSummaryPayload = {
   title?: string | null;
   targetDate?: string | null;
   createdAt: string;
-  /** WISHBOARD만 */
+  /** WISH_BOARD: 링크로 다른 사람에게 공개 여부 */
   isPublic?: boolean;
+  /** WISH_BOARD·ROLLING_PAPER: 기준일 전 타인 댓글 노출 */
+  isCommentPublic?: boolean;
   /** ROLLINGPAPER만 */
   recipientName?: string;
   imageKey?: string | null;

@@ -25,91 +25,82 @@ public class GmsService {
 
     public byte[] generateCharacterImage(MultipartFile sourceImage) {
         try {
-            // 1. 이미지를 Base64로 인코딩
             String base64Image = Base64.getEncoder().encodeToString(sourceImage.getBytes());
             String mimeType = sourceImage.getContentType();
 
-            // 2. GPT-4o 요청 바디 구성
-            Map<String, Object> requestBody = createGpt4oRequestBody(base64Image, mimeType);
+            Map<String, Object> requestBody = createGeminiRequestBody(base64Image, mimeType);
 
-            // 3. 헤더 구성 (Authorization: Bearer 방식)
+            // [수정] GMS 가이드대로 헤더 설정
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + gmsKey);
+            headers.set("x-goog-api-key", gmsKey); // URL 파라미터 대신 헤더에 추가!
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            // 4. GMS API 호출
-            log.info("GPT-4o API 호출 중 (URL: {})", gmsUrl);
+            // [수정] URL에서 ?key= 부분 삭제 (순수 URL만 사용)
+            log.info("Gemini 2.0 호출 중... (URL: {})", gmsUrl);
+
             ResponseEntity<Map> response = restTemplate.postForEntity(gmsUrl, entity, Map.class);
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return extractImageBytesFromGpt4o(response.getBody());
+                return extractImageBytesFromGemini(response.getBody());
             }
-
             throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
 
         } catch (Exception e) {
-            log.error("GPT-4o 서비스 오류: ", e);
+            log.error("Gemini 캐릭터 생성 실패 상세: ", e);
             throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
         }
     }
 
-    private Map<String, Object> createGpt4oRequestBody(String base64Image, String mimeType) {
-        Map<String, Object> textContent = new HashMap<>();
-        textContent.put("type", "text");
-        textContent.put("text", "캐릭터 느낌은 간결한 표현을 주로한 캐리커처 느낌으로 색감은 조금만 사용해주세요.");
+    private Map<String, Object> createGeminiRequestBody(String base64Image, String mimeType) {
+        String prompt = "Generate a cute 2D vector character image based on the attached photo. Return only the image.";
 
-        Map<String, Object> imageContent = new HashMap<>();
-        imageContent.put("type", "image_url");
-        Map<String, String> imageUrl = new HashMap<>();
-        imageUrl.put("url", "data:" + mimeType + ";base64," + base64Image);
-        imageContent.put("image_url", imageUrl);
+        Map<String, Object> textPart = new HashMap<>();
+        textPart.put("text", prompt);
 
-        Map<String, Object> message = new HashMap<>();
-        message.put("role", "user");
-        message.put("content", Arrays.asList(textContent, imageContent));
+        Map<String, Object> imagePart = new HashMap<>();
+        Map<String, String> inlineData = new HashMap<>();
+        inlineData.put("mimeType", mimeType);
+        inlineData.put("data", base64Image);
+        imagePart.put("inlineData", inlineData);
+
+        Map<String, Object> content = new HashMap<>();
+        content.put("parts", Arrays.asList(textPart, imagePart));
 
         Map<String, Object> body = new HashMap<>();
-        body.put("model", "gpt-4o");
-        body.put("messages", Arrays.asList(message));
+        body.put("contents", Arrays.asList(content));
+
+//        Map<String, Object> generationConfig = new HashMap<>();
+//        //generationConfig.put("responseModalities", Arrays.asList("Text", "Image"));
+//        generationConfig.put("responseModalities", List.of("IMAGE"));
+//        body.put("generationConfig", generationConfig);
 
         return body;
     }
 
     @SuppressWarnings("unchecked")
-    private byte[] extractImageBytesFromGpt4o(Map responseBody) {
+    private byte[] extractImageBytesFromGemini(Map responseBody) {
         try {
-            List<Map> choices = (List<Map>) responseBody.get("choices");
-            Map message = (Map) choices.get(0).get("message");
-            
-            Object contentObj = message.get("content");
-            if (contentObj instanceof List) {
-                List<Map> contents = (List<Map>) contentObj;
-                for (Map part : contents) {
-                    if ("image".equals(part.get("type")) || part.containsKey("image_url")) {
-                        return extractBytes(part);
-                    }
+            List<Map> candidates = (List<Map>) responseBody.get("candidates");
+            if (candidates == null || candidates.isEmpty()) throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
+
+            Map content = (Map) candidates.get(0).get("content");
+            List<Map> parts = (List<Map>) content.get("parts");
+
+            // [수정] 원본 사진이 에코(Echo)되는 경우를 대비해, 리스트의 '뒤에서부터' 거꾸로 찾습니다.
+            // 보통 AI가 새로 생성한 결과물은 리스트의 가장 마지막에 위치합니다.
+            for (int i = parts.size() - 1; i >= 0; i--) {
+                Map part = parts.get(i);
+                if (part.containsKey("inlineData")) {
+                    Map inlineData = (Map) part.get("inlineData");
+                    String base64Data = (String) inlineData.get("data");
+                    log.info("이미지 데이터를 찾았습니다 (index: {})", i);
+                    return Base64.getDecoder().decode(base64Data);
                 }
-            } else if (contentObj instanceof String) {
-                log.warn("GPT-4o가 텍스트 응답만 반환했습니다: {}", contentObj);
             }
         } catch (Exception e) {
-            log.error("GPT-4o 응답 파싱 오류: ", e);
-        }
-        throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
-    }
-
-    private byte[] extractBytes(Map part) {
-        if (part.containsKey("image")) {
-            return Base64.getDecoder().decode((String) part.get("image"));
-        }
-        if (part.containsKey("image_url")) {
-            Map imageUrl = (Map) part.get("image_url");
-            String url = (String) imageUrl.get("url");
-            if (url.startsWith("data:")) {
-                return Base64.getDecoder().decode(url.substring(url.indexOf(",") + 1));
-            }
+            log.error("Gemini 응답 파싱 오류: ", e);
         }
         throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
     }

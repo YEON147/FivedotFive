@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client";
+import { isRollingPaperListType } from "@/lib/board-entry-path";
 import type {
   BoardAssetData,
   CommentCreateData,
@@ -149,6 +150,7 @@ function parseBoardsMeEnvelope(raw: unknown): {
         targetDate: d.targetDate ?? null,
         createdAt: String(d.createdAt ?? ""),
         isPublic: d.isPublic,
+        isCommentPublic: d.isCommentPublic,
         recipientName: d.recipientName,
         imageKey: d.imageKey ?? null,
       },
@@ -189,6 +191,9 @@ function wishBoardListRowToMyData(row: unknown): MyBoardData["data"] | null {
   return {
     boardSlug,
     isPublic: Boolean(o.isPublic),
+    ...(typeof o.isCommentPublic === "boolean"
+      ? { isCommentPublic: o.isCommentPublic }
+      : {}),
     targetDate,
     items: o.items as WishItemData[],
     assets: o.assets as BoardAssetData[],
@@ -214,12 +219,37 @@ export async function getMyLatestBoardSummary(): Promise<MyLatestBoardSummaryPay
 
 /**
  * 편집용 풀 위시보드.
- * - 소유 보드: `GET /api/boards/me/list`에서 해당 `boardSlug` 행 사용.
- * - 보조: 공개 보드만 `GET /api/boards/{slug}`(비공개 소유 보드는 목록으로만 로드).
+ * - 소유 위시보드: 목록(`/api/me/boards-all` 또는 `/api/boards/me/list`)에서 슬러그 확인 후
+ *   로그인 상태에서 `GET .../items`·에셋 API로 조립(비공개 보드 포함).
+ * - 보조: 공개 보드만 익명 `GET /api/boards/{slug}`.
  */
 const inflightWishBoardDetail = new Map<string, Promise<MyBoardData>>();
 
 async function loadMyWishBoardDetailOnce(slug: string): Promise<MyBoardData> {
+  const trimmed = slug.trim();
+
+  try {
+    const listRes = await getMyBoardsAll();
+    const rows = Array.isArray(listRes.data) ? listRes.data : [];
+    for (const row of rows) {
+      if (!row || typeof row !== "object") continue;
+      const r = row as Record<string, unknown>;
+      const rowSlug = typeof r.slug === "string" ? r.slug.trim() : "";
+      if (rowSlug !== trimmed) continue;
+      if (isRollingPaperListType(String(r.type ?? ""))) continue;
+      const meta = {
+        isPublic: typeof r.isPublic === "boolean" ? r.isPublic : true,
+        targetDate:
+          r.targetDate == null || r.targetDate === ""
+            ? ""
+            : String(r.targetDate).slice(0, 10),
+      };
+      return fetchMyWishBoardEditorSnapshot(trimmed, meta);
+    }
+  } catch {
+    /* ignore */
+  }
+
   try {
     const raw = await apiClient<unknown>("/api/boards/me/list", undefined, {
       silentFailure: true,
@@ -227,10 +257,18 @@ async function loadMyWishBoardDetailOnce(slug: string): Promise<MyBoardData> {
     const data = (raw as { data?: unknown }).data;
     if (Array.isArray(data)) {
       for (const row of data) {
-        const parsed = wishBoardListRowToMyData(row);
-        if (parsed && parsed.boardSlug === slug) {
-          return { data: parsed };
-        }
+        if (!row || typeof row !== "object") continue;
+        const o = row as Record<string, unknown>;
+        const boardSlug = typeof o.boardSlug === "string" ? o.boardSlug.trim() : "";
+        if (boardSlug !== trimmed) continue;
+        const meta = {
+          isPublic: typeof o.isPublic === "boolean" ? o.isPublic : true,
+          targetDate:
+            o.targetDate == null || o.targetDate === ""
+              ? ""
+              : String(o.targetDate).slice(0, 10),
+        };
+        return fetchMyWishBoardEditorSnapshot(trimmed, meta);
       }
     }
   } catch {
@@ -238,7 +276,7 @@ async function loadMyWishBoardDetailOnce(slug: string): Promise<MyBoardData> {
   }
 
   try {
-    const raw = await apiClient<unknown>(`/api/boards/${encodeBoardSlug(slug)}`, undefined, {
+    const raw = await apiClient<unknown>(`/api/boards/${encodeBoardSlug(trimmed)}`, undefined, {
       silentFailure: true,
     });
     const { fullWishBoard } = parseBoardsMeEnvelope(raw);
@@ -290,11 +328,17 @@ export async function getMyBoardsAll(): Promise<MyBoardsAllApiResponse> {
 /** PATCH /api/boards/{slug} — 보낸 필드만 갱신 */
 export async function patchWishBoard(
   slug: string,
-  patch: Partial<{ title: string | null; isPublic: boolean; targetDate: string | null }>,
+  patch: Partial<{
+    title: string | null;
+    isPublic: boolean;
+    isCommentPublic: boolean;
+    targetDate: string | null;
+  }>,
 ): Promise<void> {
   const payload: Record<string, unknown> = {};
   if ("title" in patch) payload.title = patch.title;
   if ("isPublic" in patch) payload.isPublic = patch.isPublic;
+  if ("isCommentPublic" in patch) payload.isCommentPublic = patch.isCommentPublic;
   if ("targetDate" in patch) {
     const td = patch.targetDate;
     payload.targetDate =
@@ -321,6 +365,7 @@ export async function patchRollingPaper(
     recipientName: string;
     targetDate: string | null;
     imageKey: string | null;
+    isCommentPublic: boolean;
   }>,
 ): Promise<void> {
   const payload: Record<string, unknown> = {};
@@ -334,6 +379,8 @@ export async function patchRollingPaper(
         : String(td).trim().slice(0, 10);
   }
   if ("imageKey" in patch) payload.imageKey = patch.imageKey;
+  if ("isCommentPublic" in patch)
+    payload.isCommentPublic = patch.isCommentPublic;
   if (Object.keys(payload).length === 0) return;
 
   await apiClient(`/api/rolling-papers/${encodeBoardSlug(slug)}`, {
@@ -374,14 +421,17 @@ export type CreateBoardApiResponse = {
   };
 };
 
-/** POST /api/boards 요청 — title 선택(null 가능), targetDate·isPublic 선택 */
+/** POST /api/boards 요청 — title 선택(null 가능), targetDate·보드 공개·댓글 공개 선택 */
 export type CreateWishBoardBody = {
   title?: string | null;
   targetDate?: string | null;
+  /** 다른 사용자가 링크·목록으로 보드를 볼 수 있는지 (본인은 항상 조회 가능) */
   isPublic?: boolean | null;
+  /** 공개 기준일 전에 타인이 작성한 댓글을 볼 수 있는지 */
+  isCommentPublic?: boolean | null;
 };
 
-/** POST /api/boards — 위시보드 생성 (서버: WishBoardCreateRequest, 제목 최대 100자) */
+/** POST /api/boards — 위시보드 생성 (서버: WishBoardCreateRequest, 제목 최대 8자) */
 export async function createWishBoard(
   body: CreateWishBoardBody = {},
 ): Promise<CreateBoardApiResponse> {
@@ -396,6 +446,9 @@ export async function createWishBoard(
   }
   if (body.isPublic !== undefined && body.isPublic !== null) {
     payload.isPublic = body.isPublic;
+  }
+  if (body.isCommentPublic !== undefined && body.isCommentPublic !== null) {
+    payload.isCommentPublic = body.isCommentPublic;
   }
 
   return apiClient<CreateBoardApiResponse>("/api/boards", {
@@ -424,12 +477,13 @@ export function formatCreateBoardLimitError(message: string): string {
   return message;
 }
 
-/** POST /api/rolling-papers — 본문 RollingPaperCreateRequest (제목·수신자명·targetDate 필수, imageKey 선택) */
+/** POST /api/rolling-papers — RollingPaperCreateRequest (제목·기준일, imageKey·isCommentPublic; recipientName은 서버 선택) */
 export type CreateRollingPaperBody = {
   title: string;
-  recipientName: string;
   targetDate: string;
   imageKey?: string | null;
+  /** 댓글 즉시 공개 여부 · 서버 기본 false와 맞추려면 명시 전달 권장 */
+  isCommentPublic: boolean;
 };
 
 /** POST /api/rolling-papers — 201 CREATED, data에 댓글용·저장용 공유 URL 포함 */
@@ -448,8 +502,8 @@ export async function createRollingPaper(
 ): Promise<CreateRollingPaperApiResponse> {
   const payload: Record<string, unknown> = {
     title: body.title.trim(),
-    recipientName: body.recipientName.trim(),
     targetDate: body.targetDate.trim(),
+    isCommentPublic: body.isCommentPublic,
   };
   const ik = body.imageKey?.trim();
   if (ik) {
@@ -655,35 +709,73 @@ export async function getComments(slug: string, page: number): Promise<CommentLi
   return p;
 }
 
-/**
- * POST /api/boards/:slug/comments — CHILD
- * 서버 `CommentCreateRequest`: `slotIndex` 필수(`@NotNull`), `stickerKey` 선택
- */
+/** POST /api/boards/:slug/comments — 비회원 시 guestNickname·guestPassword 필수 */
+export type CreateCommentPayload = {
+  content: string;
+  stickerKey: string;
+  slotIndex: number;
+  guestNickname?: string;
+  guestPassword?: string;
+};
+
 export async function createComment(
   slug: string,
-  content: string,
-  stickerKey: string,
-  slotIndex: number,
+  payload: CreateCommentPayload,
 ): Promise<CommentCreateData> {
-  return apiClient<CommentCreateData>(`/api/boards/${slug}/comments`, {
-    method: "POST",
-    body: JSON.stringify({ content, stickerKey, slotIndex }),
-  });
+  const body: Record<string, unknown> = {
+    content: payload.content,
+    stickerKey: payload.stickerKey,
+    slotIndex: payload.slotIndex,
+  };
+  const gn = payload.guestNickname?.trim();
+  const gp = payload.guestPassword;
+  if (gn !== undefined && gn !== "" && gp !== undefined && gp !== "") {
+    body.guestNickname = gn;
+    body.guestPassword = gp;
+  }
+  return apiClient<CommentCreateData>(
+    `/api/boards/${encodeBoardSlug(slug)}/comments`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
 }
+
+/** PATCH /api/boards/:slug/comments/:id — 비회원 시 guestPassword 필수 */
+export type UpdateCommentPayload = {
+  content: string;
+  guestPassword?: string;
+};
 
 export async function updateComment(
   slug: string,
   commentId: number,
-  content: string,
+  payload: UpdateCommentPayload,
 ): Promise<void> {
-  await apiClient(`/api/boards/${slug}/comments/${commentId}`, {
+  const body: Record<string, unknown> = {
+    content: payload.content,
+  };
+  const gp = payload.guestPassword;
+  if (gp !== undefined && gp !== "") {
+    body.guestPassword = gp;
+  }
+  await apiClient(`/api/boards/${encodeBoardSlug(slug)}/comments/${commentId}`, {
     method: "PATCH",
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(body),
   });
 }
 
-export async function deleteComment(slug: string, commentId: number): Promise<void> {
-  await apiClient(`/api/boards/${slug}/comments/${commentId}`, {
+/** DELETE /api/boards/:slug/comments/:id — 비회원 시 body에 guestPassword */
+export async function deleteComment(
+  slug: string,
+  commentId: number,
+  options?: { guestPassword?: string },
+): Promise<void> {
+  const gp = options?.guestPassword;
+  const hasBody = gp !== undefined && gp !== "";
+  await apiClient(`/api/boards/${encodeBoardSlug(slug)}/comments/${commentId}`, {
     method: "DELETE",
+    ...(hasBody ? { body: JSON.stringify({ guestPassword: gp }) } : {}),
   });
 }
