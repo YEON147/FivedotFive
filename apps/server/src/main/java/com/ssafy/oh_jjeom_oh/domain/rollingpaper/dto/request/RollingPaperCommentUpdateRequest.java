@@ -13,5 +13,5 @@ public class RollingPaperCommentUpdateRequest {
     @Size(max = 200, message = "댓글은 200자 이내여야 합니다.")
     private String content;
 
-    private String guestPassword; // 비회원 댓글 수정 시 필수
+    private String verifyToken; // 비회원 댓글 수정 시 필수 (verifyPassword API에서 발급)
 }
