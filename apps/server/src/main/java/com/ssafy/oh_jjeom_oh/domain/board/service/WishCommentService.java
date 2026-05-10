@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,7 @@ public class WishCommentService {
     private final WishBoardRepository wishBoardRepository;
     private final WishCommentRepository wishCommentRepository;
     private final UserRepository userRepository;
+    private final BCryptPasswordEncoder passwordEncoder;
     private final Clock clock;
 
     // 레이트 리밋 키 -> 마지막 댓글 작성 시각 (ms)
@@ -116,7 +118,7 @@ public class WishCommentService {
                     .content(request.getContent())
                     .stickerKey(request.getStickerKey())
                     .slotIndex(request.getSlotIndex())
-                    .guestPassword(request.getGuestPassword())
+                    .guestPassword(passwordEncoder.encode(request.getGuestPassword()))
                     .build();
         } else {
             User sender = userRepository.findById(userId)

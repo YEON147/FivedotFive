@@ -22,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -61,6 +62,7 @@ class WishCommentServiceTest {
     @Mock private WishBoardRepository wishBoardRepository;
     @Mock private WishCommentRepository wishCommentRepository;
     @Mock private UserRepository userRepository;
+    @Mock private BCryptPasswordEncoder passwordEncoder;
 
     private User sender;
     private WishBoard board;
@@ -191,6 +193,7 @@ class WishCommentServiceTest {
 
         given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
         given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 2)).willReturn(false);
+        given(passwordEncoder.encode("1234")).willReturn("$2a$hashed_password");
 
         WishComment saved = WishComment.builder()
                 .wishBoard(board).user(null).senderName("게스트")
@@ -237,6 +240,7 @@ class WishCommentServiceTest {
 
         given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
         given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 0)).willReturn(false);
+        given(passwordEncoder.encode("1234")).willReturn("$2a$hashed_password");
 
         WishComment saved = WishComment.builder()
                 .wishBoard(board).user(null).senderName("게스트")
