@@ -3,6 +3,7 @@ package com.ssafy.oh_jjeom_oh.domain.board.service;
 import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
 import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentResponse;
@@ -22,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -61,6 +63,7 @@ class WishCommentServiceTest {
     @Mock private WishBoardRepository wishBoardRepository;
     @Mock private WishCommentRepository wishCommentRepository;
     @Mock private UserRepository userRepository;
+    @Mock private BCryptPasswordEncoder passwordEncoder;
 
     private User sender;
     private WishBoard board;
@@ -179,6 +182,79 @@ class WishCommentServiceTest {
 
         assertThatThrownBy(() ->
                 wishCommentService.createComment(1L, "abc123def4", request2))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_RATE_LIMIT));
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 작성 성공")
+    void createComment_guest_success() {
+        CommentCreateRequest request = buildGuestRequest("안녕!", "assets/sticker/a.png", 2, "게스트", "1234");
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 2)).willReturn(false);
+        given(passwordEncoder.encode("1234")).willReturn("$2a$hashed_password");
+
+        WishComment saved = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("안녕!").stickerKey("assets/sticker/a.png").slotIndex(2)
+                .guestPassword("1234")
+                .build();
+        ReflectionTestUtils.setField(saved, "id", 200L);
+        given(wishCommentRepository.saveAndFlush(any())).willReturn(saved);
+
+        CommentCreateResponse response = wishCommentService.createComment(null, "abc123def4", request);
+
+        assertThat(response.getId()).isEqualTo(200L);
+        assertThat(response.getSlotIndex()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 작성 실패 - guestNickname 누락")
+    void createComment_guest_missingNickname() {
+        CommentCreateRequest request = buildGuestRequest("안녕!", null, 2, null, "1234");
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(null, "abc123def4", request))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_GUEST_REQUIRED));
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 작성 실패 - guestPassword 누락")
+    void createComment_guest_missingPassword() {
+        CommentCreateRequest request = buildGuestRequest("안녕!", null, 2, "게스트", null);
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(null, "abc123def4", request))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_GUEST_REQUIRED));
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 작성 실패 - 10초 레이트 리밋")
+    void createComment_guest_rateLimitExceeded() {
+        CommentCreateRequest request = buildGuestRequest("첫 댓글", null, 0, "게스트", "1234");
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 0)).willReturn(false);
+        given(passwordEncoder.encode("1234")).willReturn("$2a$hashed_password");
+
+        WishComment saved = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("첫 댓글").slotIndex(0).build();
+        ReflectionTestUtils.setField(saved, "id", 1L);
+        given(wishCommentRepository.saveAndFlush(any())).willReturn(saved);
+
+        wishCommentService.createComment(null, "abc123def4", request);
+
+        CommentCreateRequest request2 = buildGuestRequest("두 번째", null, 1, "게스트", "1234");
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(null, "abc123def4", request2))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                         .isEqualTo(ErrorCode.COMMENT_RATE_LIMIT));
@@ -480,7 +556,7 @@ class WishCommentServiceTest {
 
         given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
 
-        wishCommentService.deleteComment(1L, "abc123def4", 1L);
+        wishCommentService.deleteComment(1L, "abc123def4", 1L, null);
 
         assertThat(comment.getSenderName()).isEqualTo("(삭제된사용자)");
     }
@@ -496,7 +572,7 @@ class WishCommentServiceTest {
 
         given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
 
-        wishCommentService.deleteComment(1L, "abc123def4", 1L);
+        wishCommentService.deleteComment(1L, "abc123def4", 1L, null);
 
         assertThat(comment.getContent()).isEqualTo("삭제된 댓글입니다.");
     }
@@ -512,7 +588,7 @@ class WishCommentServiceTest {
 
         given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
 
-        wishCommentService.deleteComment(1L, "abc123def4", 1L);
+        wishCommentService.deleteComment(1L, "abc123def4", 1L, null);
 
         assertThat(comment.getStickerKey()).isEqualTo("assets/sticker/a.png");
     }
@@ -528,10 +604,98 @@ class WishCommentServiceTest {
 
         given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
 
-        wishCommentService.deleteComment(1L, "abc123def4", 1L);
+        wishCommentService.deleteComment(1L, "abc123def4", 1L, null);
 
         assertThat(comment.getUser()).isNull();
         assertThat(comment.getIsUser()).isFalse();
+    }
+
+    // ===================== updateComment =====================
+
+    @Test
+    @DisplayName("비회원 댓글 수정 성공 - 올바른 비밀번호")
+    void updateComment_guest_success() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("원래 내용").slotIndex(0)
+                .guestPassword("$2a$hashed")
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        CommentUpdateRequest request = new CommentUpdateRequest();
+        ReflectionTestUtils.setField(request, "content", "수정된 내용");
+        ReflectionTestUtils.setField(request, "guestPassword", "1234");
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+        given(passwordEncoder.matches("1234", "$2a$hashed")).willReturn(true);
+
+        wishCommentService.updateComment(null, "abc123def4", 1L, request);
+
+        assertThat(comment.getContent()).isEqualTo("수정된 내용");
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 수정 실패 - 비밀번호 불일치")
+    void updateComment_guest_wrongPassword() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("원래 내용").slotIndex(0)
+                .guestPassword("$2a$hashed")
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        CommentUpdateRequest request = new CommentUpdateRequest();
+        ReflectionTestUtils.setField(request, "content", "수정 시도");
+        ReflectionTestUtils.setField(request, "guestPassword", "wrong");
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+        given(passwordEncoder.matches("wrong", "$2a$hashed")).willReturn(false);
+
+        assertThatThrownBy(() ->
+                wishCommentService.updateComment(null, "abc123def4", 1L, request))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_WRONG_PASSWORD));
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 삭제 성공 - 올바른 비밀번호")
+    void deleteComment_guest_success() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("삭제 전 내용").slotIndex(0)
+                .guestPassword("$2a$hashed")
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+        given(passwordEncoder.matches("1234", "$2a$hashed")).willReturn(true);
+
+        wishCommentService.deleteComment(null, "abc123def4", 1L, "1234");
+
+        assertThat(comment.getUser()).isNull();
+        assertThat(comment.getIsUser()).isFalse();
+        assertThat(comment.getSenderName()).isEqualTo("(삭제된사용자)");
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 삭제 실패 - 비밀번호 불일치")
+    void deleteComment_guest_wrongPassword() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("삭제 전 내용").slotIndex(0)
+                .guestPassword("$2a$hashed")
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+        given(passwordEncoder.matches("wrong", "$2a$hashed")).willReturn(false);
+
+        assertThatThrownBy(() ->
+                wishCommentService.deleteComment(null, "abc123def4", 1L, "wrong"))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_WRONG_PASSWORD));
     }
 
     // ===== helpers =====
@@ -541,6 +705,17 @@ class WishCommentServiceTest {
         ReflectionTestUtils.setField(request, "content", content);
         ReflectionTestUtils.setField(request, "stickerKey", stickerKey);
         ReflectionTestUtils.setField(request, "slotIndex", slotIndex);
+        return request;
+    }
+
+    private CommentCreateRequest buildGuestRequest(String content, String stickerKey, int slotIndex,
+                                                    String guestNickname, String guestPassword) {
+        CommentCreateRequest request = new CommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", content);
+        ReflectionTestUtils.setField(request, "stickerKey", stickerKey);
+        ReflectionTestUtils.setField(request, "slotIndex", slotIndex);
+        ReflectionTestUtils.setField(request, "guestNickname", guestNickname);
+        ReflectionTestUtils.setField(request, "guestPassword", guestPassword);
         return request;
     }
 
