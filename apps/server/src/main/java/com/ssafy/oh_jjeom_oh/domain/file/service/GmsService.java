@@ -28,10 +28,8 @@ public class GmsService {
             String base64Image = Base64.getEncoder().encodeToString(sourceImage.getBytes());
             String mimeType = sourceImage.getContentType();
 
-            // Gemini 2.0 Flash 요청 바디 구성
             Map<String, Object> requestBody = createGeminiRequestBody(base64Image, mimeType);
 
-            // GMS 전용 헤더: x-goog-api-key 사용
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("x-goog-api-key", gmsKey);
@@ -41,8 +39,10 @@ public class GmsService {
             log.info("Gemini 2.0 Image Generation 호출 중...");
             ResponseEntity<Map> response = restTemplate.postForEntity(gmsUrl, entity, Map.class);
 
+            // [중요 로그] 원본이 올라가는 원인을 추적하기 위해 응답 바디를 반드시 확인하세요.
             log.info("Gemini 응답 상태 코드: {}", response.getStatusCode());
-            // 이미지 데이터가 포함된 경우 로그가 매우 길어질 수 있으므로 주의
+            log.info("Gemini 응답 바디: {}", response.getBody());
+
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 return extractImageBytesFromGemini(response.getBody());
             }
@@ -56,8 +56,8 @@ public class GmsService {
     }
 
     private Map<String, Object> createGeminiRequestBody(String base64Image, String mimeType) {
-        String prompt = "업로드된 인물 사진을 기반으로 귀여운 캐리커처 스타일의 캐릭터 이미지를 생성해주세요. " +
-                "배경은 제거하고 캐릭터만 명확하게 그려주세요.";
+        String prompt = "업로드된 인물 사진을 기반으로 귀여운 캐릭터 이미지를 생성해주세요. " +
+                "사람이 아닌 간결한 스타일의 2D 캐릭터로 그려주세요.";
 
         Map<String, Object> textPart = new HashMap<>();
         textPart.put("text", prompt);
@@ -74,7 +74,6 @@ public class GmsService {
         Map<String, Object> body = new HashMap<>();
         body.put("contents", Arrays.asList(content));
 
-        // 응답 형식을 텍스트와 이미지 모두 포함하도록 설정
         Map<String, Object> generationConfig = new HashMap<>();
         generationConfig.put("responseModalities", Arrays.asList("Text", "Image"));
         body.put("generationConfig", generationConfig);
@@ -86,19 +85,19 @@ public class GmsService {
     private byte[] extractImageBytesFromGemini(Map responseBody) {
         try {
             List<Map> candidates = (List<Map>) responseBody.get("candidates");
-            if (candidates == null || candidates.isEmpty()) {
-                log.error("Gemini 응답에 후보(candidates)가 없습니다.");
-                throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
-            }
+            if (candidates == null || candidates.isEmpty()) throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
 
             Map content = (Map) candidates.get(0).get("content");
             List<Map> parts = (List<Map>) content.get("parts");
 
-            // Parts 중에서 inlineData(이미지 데이터)가 포함된 파트를 찾음
-            for (Map part : parts) {
+            // [수정] 원본 사진이 에코(Echo)되는 경우를 대비해, 리스트의 '뒤에서부터' 거꾸로 찾습니다.
+            // 보통 AI가 새로 생성한 결과물은 리스트의 가장 마지막에 위치합니다.
+            for (int i = parts.size() - 1; i >= 0; i--) {
+                Map part = parts.get(i);
                 if (part.containsKey("inlineData")) {
                     Map inlineData = (Map) part.get("inlineData");
                     String base64Data = (String) inlineData.get("data");
+                    log.info("이미지 데이터를 찾았습니다 (index: {})", i);
                     return Base64.getDecoder().decode(base64Data);
                 }
             }
