@@ -31,6 +31,25 @@ import {
 } from "@/features/rolling-paper/guest-comment-session";
 import { getAccessToken } from "@/lib/api/token-store";
 
+/** 롤링 포스트잇 슬롯 수 — 다이얼로그 제목·레이블 등과 동기화 */
+const ROLLING_POSTIT_SLOT_COUNT = 4;
+
+const GUEST_NICKNAME_MAX_LEN = 8;
+
+/** 메인 콜라주 미리보기에서 줄 수 제한을 걸기 시작하는 글자 수 */
+const BOARD_PREVIEW_LINE_CLAMP_MIN_CHARS = 100;
+
+const ROLLING_COMMENTS_FETCH_PAGE_SIZE = 8;
+
+function isRollingPaperForbiddenMessage(msg: string): boolean {
+  return (
+    msg.includes("403") ||
+    msg.includes("권한") ||
+    msg.includes("FORBIDDEN") ||
+    msg.includes("롤링페이퍼에 대한 권한")
+  );
+}
+
 const ROLLING_PAPER_BOARD_WRAP =
   "relative flex h-full min-h-0 max-h-full w-full max-w-[min(420px,calc(100vw-1.5rem))] flex-1 flex-col overflow-visible bg-transparent";
 
@@ -41,6 +60,24 @@ const ROLLING_PAPER_BOARD_INNER =
   "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
 
 const COLLAGE_BG = "bg-[#f4f2ec]";
+
+/**
+ * `public/rollingpaper/*.png` 교체·삭제 후에도 예전 그림이 보이면 대개 캐시 때문입니다.
+ * `.env.local`에 `NEXT_PUBLIC_ROLLING_ASSET_VERSION=2` 처럼 숫자만 올리면 URL이 바뀌어 브라우저·`/_next/image` 캐시를 함께 비웁니다.
+ */
+const ROLLING_ASSET_VERSION =
+  process.env.NEXT_PUBLIC_ROLLING_ASSET_VERSION?.trim() || "1";
+
+function rollingPaperImageSrc(basePath: string): string {
+  const sep = basePath.includes("?") ? "&" : "?";
+  return `${basePath}${sep}v=${ROLLING_ASSET_VERSION}`;
+}
+
+/** 개발 중 `/_next/image` 디스크 캐시로 옛 PNG가 남는 경우 완화 */
+const rollingPaperImageDevProps =
+  process.env.NODE_ENV === "development"
+    ? ({ unoptimized: true } as const)
+    : ({} as const);
 
 type CollagePiece =
   | {
@@ -63,7 +100,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
   {
     kind: "polaroid",
     src: "/rollingpaper/rollingpaper-01.png",
-    className: "left-[5%] top-[1%] z-10 w-[46%] -rotate-[7deg]",
+    className: "left-[5%] top-[1%] z-10 w-[48%] -rotate-[2deg]",
     aspect: [376, 489],
     alt: "폴라로이드 포토 프레임",
   },
@@ -71,7 +108,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 0,
     src: "/rollingpaper/postit_01.png",
-    className: "right-2 top-[16%] z-[20] w-[42%] rotate-[4deg]",
+    className: "right-2 top-[16%] z-[20] w-[44%] rotate-[4deg]",
     aspect: [435, 466],
     alt: "포스트잇1",
   },
@@ -79,7 +116,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 1,
     src: "/rollingpaper/postit_02.png",
-    className: "left-[6%] top-[38%] z-[22] w-[56%] -rotate-[6deg]",
+    className: "left-[4%] top-[36%] z-[22] w-[62%] -rotate-[6deg]",
     aspect: [642, 571],
     alt: "포스트잇2",
   },
@@ -87,7 +124,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 2,
     src: "/rollingpaper/postit_03.png",
-    className: "right-[4%] bottom-[18%] z-[24] w-[44%] rotate-[5deg]",
+    className: "right-[1.5%] bottom-[14%] z-[24] w-[46%] rotate-[5deg]",
     aspect: [458, 542],
     alt: "포스트잇3",
   },
@@ -95,19 +132,11 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 3,
     src: "/rollingpaper/postit_04.png",
-    className: "left-[7%] bottom-[4%] z-[32] w-[42%] -rotate-[10deg]",
+    className: "left-[7%] bottom-[4%] z-[32] w-[44%] -rotate-[10deg]",
     aspect: [399, 436],
     alt: "포스트잇4",
   },
 ];
-
-/** 보드 위 포스트잇과 동일한 기울기 — 모달 미리보기용 */
-const POSTIT_MODAL_ROTATE: Record<number, string> = {
-  0: "rotate-[4deg]",
-  1: "-rotate-[6deg]",
-  2: "rotate-[5deg]",
-  3: "-rotate-[10deg]",
-};
 
 function postitAssetForSlot(slotIndex: number): {
   src: string;
@@ -129,27 +158,53 @@ function postitAssetForSlot(slotIndex: number): {
 }
 
 function postitModalTextFramePaddingClass(slotIndex: number): string {
+  const pxPostit2 = "px-4 sm:px-5";
+  const pxOther = "px-3 sm:px-3.5";
+  const tail = "pb-1 sm:pb-1.5";
+  /** 포스트잇 1·3·4 — 상단 여유 + 하단 잘림 방지용 pb */
+  const modal134 = `${pxOther} pt-3.5 sm:pt-5 pb-2.5 sm:pb-3`;
   if (slotIndex === 1) {
-    return "pt-6 sm:pt-7 pb-2 pl-2 pr-5 sm:pl-3 sm:pr-6";
+    return `pt-2 sm:pt-2.5 ${pxPostit2} ${tail}`;
   }
   if (slotIndex === 2) {
-    return "pt-5 sm:pt-6";
+    return `${pxOther} pt-5 sm:pt-6 pb-2.5 sm:pb-3`;
   }
   if (slotIndex === 0 || slotIndex === 3) {
-    return "pt-3 sm:pt-3.5";
+    return modal134;
   }
   return "";
 }
 
-function postitBoardTextFramePaddingClass(slotIndex: number): string {
+/** 포스트잇2(슬롯1)만 가로폭이 넓어 텍스트 박스 inset 살짝 확대 — 읽기·수정 동일 */
+function modalPostitFrameInsetClass(slotIndex: number): string {
   if (slotIndex === 1) {
-    return "pt-3 sm:pt-3.5 pb-0.5 pl-1 pr-3 sm:pl-2 sm:pr-5";
+    /** 살짝 위로: 상단 inset↓, 하단은 여유 유지 */
+    return "inset-[5%_7%_13%_7%]";
+  }
+  /**
+   * 포스트잇1·4(슬롯0·3): 메인에서 세로 가운데 + `overflow-hidden`일 때 하단이 특히 잘려 보이는 경우가 많아
+   * 하단 inset만 추가로 줄여 텍스트 박스를 PNG 안쪽으로 더 내림.
+   */
+  if (slotIndex === 0 || slotIndex === 3) {
+    return "inset-[10%_9%_6%_9%]";
   }
   if (slotIndex === 2) {
-    return "pt-3.5 sm:pt-4";
+    return "inset-[12.5%_9%_10%_9%]";
+  }
+  return "inset-[10%_9%_14%_9%]";
+}
+
+function postitBoardTextFramePaddingClass(slotIndex: number): string {
+  const pxPostit2 = "px-4 sm:px-4";
+  const pxBoard134 = "px-1 sm:px-1.5";
+  if (slotIndex === 1) {
+    return `pt-2 sm:pt-2.5 ${pxPostit2}`;
+  }
+  if (slotIndex === 2) {
+    return `pt-6 sm:pt-7 pb-2.5 sm:pb-3 ${pxBoard134}`;
   }
   if (slotIndex === 0 || slotIndex === 3) {
-    return "pt-2 sm:pt-2.5";
+    return `pt-4 sm:pt-5 pb-2.5 sm:pb-3 ${pxBoard134}`;
   }
   return "";
 }
@@ -167,25 +222,29 @@ function RollingPaperPostitShell({
 }) {
   const asset = postitAssetForSlot(slotIndex);
   const [aw, ah] = asset.aspect;
-  const tilt = POSTIT_MODAL_ROTATE[slotIndex] ?? "";
 
+  const inset = modalPostitFrameInsetClass(slotIndex);
+  const framePad = fullTextScroll
+    ? postitModalTextFramePaddingClass(slotIndex)
+    : postitBoardTextFramePaddingClass(slotIndex);
   const frameClass = fullTextScroll
-    ? `absolute inset-[10%_9%_14%_9%] z-[5] flex flex-col overflow-y-auto overscroll-contain ${postitModalTextFramePaddingClass(slotIndex)}`
-    : `absolute inset-[10%_9%_14%_9%] z-[5] flex items-center justify-center overflow-hidden ${postitModalTextFramePaddingClass(slotIndex)}`;
+    ? `absolute ${inset} z-[5] flex min-h-0 flex-col overflow-y-auto overscroll-contain ${framePad}`
+    : `absolute ${inset} z-[5] flex items-center justify-center overflow-hidden ${framePad}`;
 
   return (
-    <div className={`mx-auto w-full max-w-[min(300px,85vw)] ${tilt}`}>
+    <div className="mx-auto w-full max-w-[min(300px,85vw)]">
       <div
         className="relative w-full drop-shadow-[0_12px_28px_rgba(0,0,0,0.14)]"
         style={{ aspectRatio: `${aw} / ${ah}` }}
       >
         <Image
-          src={asset.src}
+          src={rollingPaperImageSrc(asset.src)}
           alt={asset.alt}
           fill
           className="pointer-events-none object-contain"
           sizes="300px"
           priority
+          {...rollingPaperImageDevProps}
         />
         <div className={frameClass}>{children}</div>
       </div>
@@ -193,7 +252,197 @@ function RollingPaperPostitShell({
   );
 }
 
-/** 상세 오버레이 — 읽기 전용 본문 */
+/**
+ * 모달 포스트잇 본문 영역 — 슬롯 0~3만 사용하며 항상 세로 가운데 정렬.
+ */
+function RollingPaperModalTextSlot({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-full w-full min-w-0 flex-col items-center justify-center">
+      <div className="flex w-full min-w-0 max-w-full flex-col items-center justify-center">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const CONTENT_MAX = 200;
+
+/** `globals.css` / `public/fonts/MemomentKkukkukk.otf` — 꾹꾹체 */
+const ROLLING_POSTIT_FONT_CLASS =
+  "font-['MemomentKkukkukk',sans-serif] font-normal";
+
+const ROLLING_POSTIT_DROP_SHADOW =
+  "drop-shadow-[0_1px_0_rgba(255,255,255,0.85)]";
+
+/** 글자 수 구간 인덱스 0…5 — 보드·모달 `TEXT_SIZE` 배열과 동일 순서 */
+function rollingPostitLengthTier(charCount: number): number {
+  const n = Math.max(0, charCount);
+  if (n <= 10) return 0;
+  if (n <= 30) return 1;
+  if (n <= 50) return 2;
+  if (n <= 100) return 3;
+  if (n <= 150) return 4;
+  return 5;
+}
+
+/** 메인 콜라주 미리보기 — 10↓ / 11–30 / 31–50 / 51–100 / 101–150 / 151–200 */
+const ROLLING_POSTIT_BOARD_PREVIEW_TEXT_SIZE: readonly string[] = [
+  "text-[16px] sm:text-[17px]",
+  "text-[15px] sm:text-[16px]",
+  "text-[14px] sm:text-[15px]",
+  "text-[13px] sm:text-[14px]",
+  "text-[12px] sm:text-[13px]",
+  "text-[11px] sm:text-[12px]",
+];
+
+function rollingPostitBoardPreviewTextSizeClass(charCount: number): string {
+  return ROLLING_POSTIT_BOARD_PREVIEW_TEXT_SIZE[
+    rollingPostitLengthTier(charCount)
+  ];
+}
+
+/**
+ * 메인 콜라주 본문 — 슬롯마다 가로폭·줄바꿈이 달라 글자 수만으로는 세로 여유를 알 수 없음.
+ * 프레임 놀이 실제 블록 놀이보다 작을 때만 위쪽 정렬로 하단 잘림을 피하고, 그 외에는 가운데 정렬 유지.
+ */
+function RollingPaperBoardPostitPreviewText({
+  slotIndex,
+  text,
+}: {
+  slotIndex: number;
+  text: string;
+}) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const blockRef = useRef<HTMLDivElement>(null);
+  const [alignStart, setAlignStart] = useState(false);
+
+  const recompute = useCallback(() => {
+    const outer = outerRef.current;
+    const block = blockRef.current;
+    if (!outer || !block) return;
+    if (typeof window === "undefined") return;
+    const cs = window.getComputedStyle(outer);
+    const pt = Number.parseFloat(cs.paddingTop) || 0;
+    const pb = Number.parseFloat(cs.paddingBottom) || 0;
+    const avail = outer.clientHeight - pt - pb;
+    if (avail <= 0) return;
+    setAlignStart(block.scrollHeight > avail + 0.5);
+  }, []);
+
+  useLayoutEffect(() => {
+    recompute();
+  }, [text, slotIndex, recompute]);
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current;
+    const block = blockRef.current;
+    if (!outer) return;
+    const ro = new ResizeObserver(() => {
+      recompute();
+    });
+    ro.observe(outer);
+    if (block) ro.observe(block);
+    return () => ro.disconnect();
+  }, [recompute, text]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
+    const fonts = document.fonts;
+    if (!fonts?.ready) return;
+    let cancelled = false;
+    void fonts.ready.then(() => {
+      if (!cancelled) recompute();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [recompute, text]);
+
+  const leadingPad =
+    alignStart ? "pb-1 leading-[1.28]" : "pb-0.5 leading-[1.35]";
+
+  /** 메인 콜라주 — 긴 글만 미리보기 줄 수 제한(모달·전체 텍스트와 무관) */
+  const clampLongPreview = text.length >= BOARD_PREVIEW_LINE_CLAMP_MIN_CHARS;
+  /**
+   * `line-clamp`만 쓰면 한글·drop-shadow 때문에 9번째 줄이 살짝 비칠 수 있어,
+   * 줄간격을 고정하고 `max-height`로 8줄 높이를 한 번 더 자른다.
+   */
+  const boardLongClampBox =
+    clampLongPreview
+      ? "line-clamp-8 overflow-hidden leading-[1.35] pb-0 max-h-[calc(1.35em*8-2px)] [overflow-wrap:anywhere]"
+      : "";
+  /**
+   * `line-clamp` + `whitespace-pre-wrap`은 WebKit에서 깨지기 쉬워 클램프 시에는 normal만 사용.
+   */
+  const boardWhitespaceClass = clampLongPreview
+    ? "whitespace-normal break-words"
+    : "whitespace-pre-wrap break-words";
+  /** 필터는 레이어 밖으로 번져 overflow 클립을 깨뜨릴 수 있음 */
+  const boardTextShadowClass = clampLongPreview ? "" : ROLLING_POSTIT_DROP_SHADOW;
+
+  return (
+    <div
+      ref={outerRef}
+      className={`pointer-events-none absolute ${modalPostitFrameInsetClass(slotIndex)} z-[5] flex min-h-0 flex-col items-center overflow-hidden ${postitBoardTextFramePaddingClass(slotIndex)} ${
+        alignStart ? "justify-start" : "justify-center"
+      }`}
+    >
+      <div
+        ref={blockRef}
+        className={`min-h-0 w-full shrink-0 ${clampLongPreview ? "overflow-hidden [contain:paint]" : ""}`}
+      >
+        <p
+          className={`${boardLongClampBox} min-h-0 min-w-0 w-full ${boardWhitespaceClass} text-center text-slate-800 ${boardTextShadowClass} ${ROLLING_POSTIT_FONT_CLASS} ${rollingPostitBoardPreviewTextSizeClass(text.length)} ${clampLongPreview ? "" : leadingPad}`}
+        >
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** 모달 읽기·작성 — `CONTENT_MAX`와 동일 구간 */
+const ROLLING_POSTIT_MODAL_TEXT_SIZE: readonly string[] = [
+  "text-[clamp(17px,4.5vw,21px)] sm:text-[19px]",
+  "text-[clamp(16px,4.3vw,20px)] sm:text-[18px]",
+  "text-[clamp(15px,4.2vw,19px)] sm:text-[17px]",
+  "text-[clamp(14px,3.9vw,18px)] sm:text-[16px]",
+  "text-[clamp(13px,3.6vw,17px)] sm:text-[15px]",
+  "text-[clamp(12px,3.3vw,16px)] sm:text-[14px]",
+];
+
+function rollingPostitModalTextSizeClass(charCount: number): string {
+  return ROLLING_POSTIT_MODAL_TEXT_SIZE[rollingPostitLengthTier(charCount)];
+}
+
+/** textarea 공통 — 글자 크기는 `rollingPostitModalTextSizeClass`로 합성 */
+const ROLLING_POSTIT_TEXTAREA_BASE = [
+  "box-border min-h-0 min-w-0 w-full max-w-full resize-none overflow-y-auto bg-transparent text-center leading-[1.35] text-slate-800 placeholder:text-slate-400 outline-none [field-sizing:content]",
+  ROLLING_POSTIT_FONT_CLASS,
+].join(" ");
+
+const ROLLING_POSTIT_MODAL_BODY_TEXT_CLASS =
+  `pointer-events-none min-w-0 w-full whitespace-pre-wrap break-words text-center leading-[1.35] text-slate-800 ${ROLLING_POSTIT_DROP_SHADOW}`;
+
+const ROLLING_OVERLAY_GUEST_CARD_CLASS =
+  "flex w-full shrink-0 flex-col gap-2 rounded-[14px] bg-[#ebe8df]/95 px-3 py-3 shadow-inner ring-1 ring-white/35 backdrop-blur-[2px]";
+
+const ROLLING_OVERLAY_INPUT_CLASS =
+  "w-full rounded-xl border border-slate-200/90 bg-white/90 px-3 py-2 text-[14px] outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-300";
+
+const ROLLING_OVERLAY_INPUT_TEXT_CLASS = `${ROLLING_OVERLAY_INPUT_CLASS} text-slate-900`;
+
+const ROLLING_OVERLAY_PRIMARY_BTN_CLASS =
+  "rounded-full bg-[#7B61FF] px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#6b52e0]";
+
+const ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS = `${ROLLING_OVERLAY_PRIMARY_BTN_CLASS} disabled:opacity-50`;
+
+const ROLLING_OVERLAY_GHOST_BTN_CLASS =
+  "rounded-full px-4 py-2 text-[13px] font-medium text-white/95 hover:bg-white/10";
+
+const ROLLING_ACCENT_TEXT_CLASS = "text-[#7B61FF]";
+
+/** 상세 오버레이 — 읽기 전용 본문 (슬롯별 프레임 안 가운데 정렬) */
 function RollingPaperPostitModalFrame({
   slotIndex,
   text,
@@ -203,20 +452,16 @@ function RollingPaperPostitModalFrame({
 }) {
   return (
     <RollingPaperPostitShell slotIndex={slotIndex} fullTextScroll>
-      <div className="flex min-h-full w-full flex-col items-center justify-center">
-        <p className="pointer-events-none min-w-0 w-full shrink-0 whitespace-pre-wrap break-words text-center text-[clamp(11px,3.5vw,15px)] font-medium leading-[1.25] text-slate-800 drop-shadow-[0_1px_0_rgba(255,255,255,0.85)] sm:text-[13px]">
+      <RollingPaperModalTextSlot>
+        <p
+          className={`${ROLLING_POSTIT_MODAL_BODY_TEXT_CLASS} ${ROLLING_POSTIT_FONT_CLASS} ${rollingPostitModalTextSizeClass(text.length)}`}
+        >
           {text}
         </p>
-      </div>
+      </RollingPaperModalTextSlot>
     </RollingPaperPostitShell>
   );
 }
-
-const CONTENT_MAX = 200;
-
-/** 읽기 `<p>`와 같이 짧을 땐 포스트잇 안에서 블록이 중앙에 오도록 — 고정 `min-h`·큰 `rows`는 전체를 채워 상단 정렬처럼 보임 */
-const ROLLING_POSTIT_TEXTAREA_CLASS =
-  "min-h-0 min-w-0 w-full max-h-full resize-none overflow-y-auto bg-transparent text-center text-[clamp(11px,3.5vw,15px)] font-medium leading-[1.25] text-slate-800 placeholder:text-slate-400 outline-none sm:text-[13px] [field-sizing:content]";
 
 function RollingPaperPostitModalTextarea({
   value,
@@ -248,7 +493,7 @@ function RollingPaperPostitModalTextarea({
       onChange={onChange}
       maxLength={CONTENT_MAX}
       rows={1}
-      className={`${ROLLING_POSTIT_TEXTAREA_CLASS} shrink-0`}
+      className={`${ROLLING_POSTIT_TEXTAREA_BASE} ${rollingPostitModalTextSizeClass(value.length)}`}
       placeholder={placeholder}
       aria-required
       autoFocus={autoFocus}
@@ -378,7 +623,11 @@ export default function RollingPaperSlugPage({
     try {
       const [detailRes, commentsRes] = await Promise.all([
         getRollingPaperDetail(slug, rollingToken),
-        getRollingPaperComments(slug, { rollingToken, page: 0, size: 8 }),
+        getRollingPaperComments(slug, {
+          rollingToken,
+          page: 0,
+          size: ROLLING_COMMENTS_FETCH_PAGE_SIZE,
+        }),
       ]);
       setDetail(detailRes.data);
       const next: Partial<Record<number, RollingPaperCommentRow>> = {};
@@ -391,12 +640,7 @@ export default function RollingPaperSlugPage({
       setSlotComments(next);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "불러오지 못했습니다.";
-      if (
-        msg.includes("403") ||
-        msg.includes("권한") ||
-        msg.includes("FORBIDDEN") ||
-        msg.includes("롤링페이퍼에 대한 권한")
-      ) {
+      if (isRollingPaperForbiddenMessage(msg)) {
         setDetailForbidden(true);
         setDetail(null);
       } else {
@@ -464,8 +708,8 @@ export default function RollingPaperSlugPage({
         setFormError("닉네임을 입력해 주세요. (비회원)");
         return;
       }
-      if (nick.length > 8) {
-        setFormError("닉네임은 8자 이내입니다.");
+      if (nick.length > GUEST_NICKNAME_MAX_LEN) {
+        setFormError(`닉네임은 ${GUEST_NICKNAME_MAX_LEN}자 이내입니다.`);
         return;
       }
       if (!guestPassword.trim()) {
@@ -590,12 +834,12 @@ export default function RollingPaperSlugPage({
   const rollingDialogTitle = useMemo(() => {
     if (modalMode === "view" && activeSlot !== null) {
       if (viewModalStep === "edit") {
-        return `메시지 수정 (${activeSlot + 1}/4)`;
+        return `메시지 수정 (${activeSlot + 1}/${ROLLING_POSTIT_SLOT_COUNT})`;
       }
-      return `메시지 보기 (${activeSlot + 1}/4)`;
+      return `메시지 보기 (${activeSlot + 1}/${ROLLING_POSTIT_SLOT_COUNT})`;
     }
     if (activeSlot !== null) {
-      return `메시지 작성 (${activeSlot + 1}/4)`;
+      return `메시지 작성 (${activeSlot + 1}/${ROLLING_POSTIT_SLOT_COUNT})`;
     }
     return "메시지 작성";
   }, [activeSlot, modalMode, viewModalStep]);
@@ -609,8 +853,8 @@ export default function RollingPaperSlugPage({
   }
 
   const modalPanelNeedsInnerScroll =
-    (modalMode === "create" && createOverlayStep === "compose") ||
-    (modalMode === "view" && viewModalStep === "edit");
+    modalMode === "view" ||
+    (modalMode === "create" && createOverlayStep === "compose");
 
   const rollingPaperOverlay = (
     <div
@@ -645,21 +889,19 @@ export default function RollingPaperSlugPage({
             {modalMode === "view" && activeSlot !== null && viewRow ? (
               viewModalStep === "read" ? (
                 <>
-                  <div className="w-full shrink-0">
-                    <RollingPaperPostitModalFrame
-                      slotIndex={activeSlot}
-                      text={
-                        typeof viewRow.content === "string" &&
-                        viewRow.content.trim() !== ""
-                          ? viewRow.content.trim()
-                          : "아직 공개되지 않은 메시지입니다."
-                      }
-                    />
-                  </div>
+                  <RollingPaperPostitModalFrame
+                    slotIndex={activeSlot}
+                    text={
+                      typeof viewRow.content === "string" &&
+                      viewRow.content.trim() !== ""
+                        ? viewRow.content.trim()
+                        : "아직 공개되지 않은 메시지입니다."
+                    }
+                  />
                   {canEditViewMessage ? (
                     <button
                       type="button"
-                      className="shrink-0 rounded-full bg-[#7B61FF] px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#6b52e0]"
+                      className={`shrink-0 ${ROLLING_OVERLAY_PRIMARY_BTN_CLASS}`}
                       onClick={() => {
                         setViewModalStep("edit");
                         setContent(
@@ -678,7 +920,7 @@ export default function RollingPaperSlugPage({
               ) : (
                 <>
                   {!loggedInState ? (
-                    <div className="flex w-full shrink-0 flex-col gap-2 rounded-[14px] bg-[#ebe8df]/95 px-3 py-3 shadow-inner ring-1 ring-white/35 backdrop-blur-[2px]">
+                    <div className={ROLLING_OVERLAY_GUEST_CARD_CLASS}>
                       <label className="flex flex-col gap-1">
                         <span className="text-[11px] font-medium text-slate-700">
                           비밀번호 (수정 확인)
@@ -687,7 +929,7 @@ export default function RollingPaperSlugPage({
                           type="password"
                           value={guestPassword}
                           onChange={(e) => setGuestPassword(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200/90 bg-white/90 px-3 py-2 text-[14px] outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-300"
+                          className={ROLLING_OVERLAY_INPUT_CLASS}
                           placeholder="작성 시 설정한 비밀번호"
                           autoComplete="current-password"
                         />
@@ -696,14 +938,14 @@ export default function RollingPaperSlugPage({
                   ) : null}
 
                   <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
-                    <div className="flex min-h-full w-full flex-col items-center justify-center">
+                    <RollingPaperModalTextSlot>
                       <RollingPaperPostitModalTextarea
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         placeholder="메시지를 수정해 보세요"
                         autoFocus
                       />
-                    </div>
+                    </RollingPaperModalTextSlot>
                   </RollingPaperPostitShell>
                   <span className="w-full text-right text-[11px] text-white/80">
                     {content.trim().length}/{CONTENT_MAX}
@@ -718,7 +960,7 @@ export default function RollingPaperSlugPage({
                   <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
                     <button
                       type="button"
-                      className="rounded-full px-4 py-2 text-[13px] font-medium text-white/95 hover:bg-white/10"
+                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
                       onClick={() => {
                         setViewModalStep("read");
                         setFormError(null);
@@ -730,7 +972,7 @@ export default function RollingPaperSlugPage({
                     </button>
                     <button
                       type="button"
-                      className="rounded-full bg-[#7B61FF] px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#6b52e0] disabled:opacity-50"
+                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
                       onClick={() => void handleViewEditSubmit()}
                       disabled={submitting}
                     >
@@ -757,19 +999,21 @@ export default function RollingPaperSlugPage({
               ) : (
                 <>
                   {!loggedInState ? (
-                    <div className="flex w-full shrink-0 flex-col gap-2 rounded-[14px] bg-[#ebe8df]/95 px-3 py-3 shadow-inner ring-1 ring-white/35 backdrop-blur-[2px]">
+                    <div className={ROLLING_OVERLAY_GUEST_CARD_CLASS}>
                       <label className="flex flex-col gap-1">
                         <span className="text-[11px] font-medium text-slate-700">
-                          닉네임 (최대 8자)
+                          닉네임 (최대 {GUEST_NICKNAME_MAX_LEN}자)
                         </span>
                         <input
                           type="text"
                           value={guestNickname}
                           onChange={(e) =>
-                            setGuestNickname(e.target.value.slice(0, 8))
+                            setGuestNickname(
+                              e.target.value.slice(0, GUEST_NICKNAME_MAX_LEN),
+                            )
                           }
-                          maxLength={8}
-                          className="w-full rounded-xl border border-slate-200/90 bg-white/90 px-3 py-2 text-[14px] text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-300"
+                          maxLength={GUEST_NICKNAME_MAX_LEN}
+                          className={ROLLING_OVERLAY_INPUT_TEXT_CLASS}
                           placeholder="친구"
                           autoComplete="nickname"
                         />
@@ -782,7 +1026,7 @@ export default function RollingPaperSlugPage({
                           type="password"
                           value={guestPassword}
                           onChange={(e) => setGuestPassword(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200/90 bg-white/90 px-3 py-2 text-[14px] outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-300"
+                          className={ROLLING_OVERLAY_INPUT_CLASS}
                           placeholder="비회원 작성 시 필요"
                           autoComplete="new-password"
                         />
@@ -795,14 +1039,14 @@ export default function RollingPaperSlugPage({
                   )}
 
                   <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
-                    <div className="flex min-h-full w-full flex-col items-center justify-center">
+                    <RollingPaperModalTextSlot>
                       <RollingPaperPostitModalTextarea
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         placeholder="생일 축하해!"
                         autoFocus
                       />
-                    </div>
+                    </RollingPaperModalTextSlot>
                   </RollingPaperPostitShell>
                   <span className="w-full text-right text-[11px] text-white/80">
                     {content.trim().length}/{CONTENT_MAX}
@@ -817,7 +1061,7 @@ export default function RollingPaperSlugPage({
                   <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
                     <button
                       type="button"
-                      className="rounded-full px-4 py-2 text-[13px] font-medium text-white/95 hover:bg-white/10"
+                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
                       onClick={() => setCreateOverlayStep("postit")}
                       disabled={submitting}
                     >
@@ -825,7 +1069,7 @@ export default function RollingPaperSlugPage({
                     </button>
                     <button
                       type="button"
-                      className="rounded-full bg-[#7B61FF] px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#6b52e0] disabled:opacity-50"
+                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
                       onClick={() => void handleSubmit()}
                       disabled={submitting}
                     >
@@ -869,7 +1113,9 @@ export default function RollingPaperSlugPage({
                     <div className="min-w-0 flex-1">
                       <h1 className="text-left leading-snug text-slate-900">
                         <span className="block text-[clamp(15px,4.2vw,18px)]">
-                          <span className="font-bold text-[#7B61FF]">{headerTitle}</span>
+                          <span className={`font-bold ${ROLLING_ACCENT_TEXT_CLASS}`}>
+                            {headerTitle}
+                          </span>
                           <span className="font-light text-slate-900">
                             님을 위한 롤링페이퍼
                           </span>
@@ -877,7 +1123,7 @@ export default function RollingPaperSlugPage({
                       </h1>
                       <Link
                         href="/wishlist"
-                        className="mt-1 inline-block text-[12px] font-medium text-[#7B61FF]/90 underline-offset-4 hover:underline"
+                        className={`mt-1 inline-block text-[12px] font-medium ${ROLLING_ACCENT_TEXT_CLASS}/90 underline-offset-4 hover:underline`}
                       >
                         위시 홈으로
                       </Link>
@@ -932,12 +1178,13 @@ export default function RollingPaperSlugPage({
                               >
                                 <div className="relative h-full w-full">
                                   <Image
-                                    src={piece.src}
+                                    src={rollingPaperImageSrc(piece.src)}
                                     alt={piece.alt}
                                     fill
                                     className="object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                     sizes="(max-width: 420px) 50vw, 220px"
                                     priority
+                                    {...rollingPaperImageDevProps}
                                   />
                                 </div>
                               </div>
@@ -958,30 +1205,35 @@ export default function RollingPaperSlugPage({
                             >
                               <div className="relative h-full w-full">
                                 <Image
-                                  src={piece.src}
+                                  src={rollingPaperImageSrc(piece.src)}
                                   alt={piece.alt}
                                   fill
                                   className="pointer-events-none object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                   sizes="(max-width: 420px) 50vw, 220px"
+                                  priority={slotIdx === 1}
+                                  {...rollingPaperImageDevProps}
                                 />
 
-                                <div
-                                  className={`pointer-events-none absolute inset-[10%_9%_14%_9%] z-[5] flex items-center justify-center overflow-hidden ${postitBoardTextFramePaddingClass(slotIdx)}`}
-                                >
-                                  {text ? (
-                                    <p className="line-clamp-8 max-h-full min-w-0 w-full overflow-hidden text-center text-[10px] font-medium leading-[1.25] text-slate-800 drop-shadow-[0_1px_0_rgba(255,255,255,0.85)] sm:text-[11px]">
-                                      {text}
-                                    </p>
-                                  ) : (
-                                    <span className="text-[9px] text-slate-400/90">
+                                {text ? (
+                                  <RollingPaperBoardPostitPreviewText
+                                    slotIndex={slotIdx}
+                                    text={text}
+                                  />
+                                ) : (
+                                  <div
+                                    className={`pointer-events-none absolute ${modalPostitFrameInsetClass(slotIdx)} z-[5] flex min-h-0 flex-col items-center justify-center overflow-hidden ${postitBoardTextFramePaddingClass(slotIdx)}`}
+                                  >
+                                    <span
+                                      className={`text-center text-[13px] leading-snug text-slate-400/90 sm:text-[14px] ${ROLLING_POSTIT_FONT_CLASS}`}
+                                    >
                                       {canComment && !occupied
                                         ? "탭하여 작성"
                                         : occupied
                                           ? "탭하여 보기"
                                           : ""}
                                     </span>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
 
                                 {canComment && !occupied ? (
                                   <button
