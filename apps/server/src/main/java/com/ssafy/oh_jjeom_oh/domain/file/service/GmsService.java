@@ -71,10 +71,10 @@ public class GmsService {
         Map<String, Object> body = new HashMap<>();
         body.put("contents", Arrays.asList(content));
 
-        Map<String, Object> generationConfig = new HashMap<>();
-        //generationConfig.put("responseModalities", Arrays.asList("Text", "Image"));
-        generationConfig.put("responseModalities", List.of("IMAGE"));
-        body.put("generationConfig", generationConfig);
+//        Map<String, Object> generationConfig = new HashMap<>();
+//        //generationConfig.put("responseModalities", Arrays.asList("Text", "Image"));
+//        generationConfig.put("responseModalities", List.of("IMAGE"));
+//        body.put("generationConfig", generationConfig);
 
         return body;
     }
