@@ -4,6 +4,7 @@ import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
 import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
 import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentDeleteRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentStickerUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentCreateResponse;
@@ -37,19 +38,20 @@ public class WishCommentController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_LIST_FOUND, data));
     }
 
-    // POST /api/boards/{slug}/comments - 댓글 작성 (CHILD)
+    // POST /api/boards/{slug}/comments - 댓글 작성 (Anyone)
     @PostMapping
     public ResponseEntity<ApiResponse<CommentCreateResponse>> createComment(
             @PathVariable String slug,
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CommentCreateRequest request) {
 
-        CommentCreateResponse data = wishCommentService.createComment(userPrincipal.getId(), slug, request);
+        Long userId = userPrincipal != null ? userPrincipal.getId() : null;
+        CommentCreateResponse data = wishCommentService.createComment(userId, slug, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(SuccessMessage.COMMENT_CREATED, data));
     }
 
-    // PATCH /api/boards/{slug}/comments/{commentId} - 댓글 수정 (CHILD, 본인만)
+    // PATCH /api/boards/{slug}/comments/{commentId} - 댓글 수정 (Anyone, 본인만)
     @PatchMapping("/{commentId}")
     public ResponseEntity<ApiResponse<Void>> updateComment(
             @PathVariable String slug,
@@ -57,18 +59,22 @@ public class WishCommentController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CommentUpdateRequest request) {
 
-        wishCommentService.updateComment(userPrincipal.getId(), slug, commentId, request);
+        Long userId = userPrincipal != null ? userPrincipal.getId() : null;
+        wishCommentService.updateComment(userId, slug, commentId, request);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_UPDATED));
     }
 
-    // DELETE /api/boards/{slug}/comments/{commentId} - 댓글 삭제 (CHILD, 본인만)
+    // DELETE /api/boards/{slug}/comments/{commentId} - 댓글 삭제 (Anyone, 본인만)
     @DeleteMapping("/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @PathVariable String slug,
             @PathVariable Long commentId,
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody(required = false) CommentDeleteRequest request) {
 
-        wishCommentService.deleteComment(userPrincipal.getId(), slug, commentId);
+        Long userId = userPrincipal != null ? userPrincipal.getId() : null;
+        String guestPassword = request != null ? request.getGuestPassword() : null;
+        wishCommentService.deleteComment(userId, slug, commentId, guestPassword);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_DELETED));
     }
 
