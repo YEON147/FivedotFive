@@ -148,14 +148,15 @@ public class WishCommentService {
     // PATCH /api/boards/{slug}/comments/{commentId}
     @Transactional
     public void updateComment(Long userId, String slug, Long commentId, CommentUpdateRequest request) {
-        WishComment comment = getCommentAndValidateOwner(commentId, userId, slug);
+        WishComment comment = getCommentAndValidateOwnerOrGuest(
+                commentId, slug, userId, request.getGuestPassword());
         comment.updateContent(request.getContent());
     }
 
     // DELETE /api/boards/{slug}/comments/{commentId}
     @Transactional
-    public void deleteComment(Long userId, String slug, Long commentId) {
-        WishComment comment = getCommentAndValidateOwner(commentId, userId, slug);
+    public void deleteComment(Long userId, String slug, Long commentId, String guestPassword) {
+        WishComment comment = getCommentAndValidateOwnerOrGuest(commentId, slug, userId, guestPassword);
         comment.softDelete();
     }
 
@@ -201,20 +202,45 @@ public class WishCommentService {
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
     }
 
-    private WishComment getCommentAndValidateOwner(Long commentId, Long userId, String slug) {
+    /** 회원/비회원 모두 사용 - 댓글 수정·삭제용 */
+    private WishComment getCommentAndValidateOwnerOrGuest(Long commentId, String slug,
+                                                           Long userId, String guestPassword) {
         WishComment comment = wishCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
-        // slug와 실제 보드가 일치하는지 검증
         if (!comment.getWishBoard().getBoardSlug().equals(slug)) {
             throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
         }
 
-        // 작성자 검증
+        // 회원 댓글
+        if (comment.getUser() != null) {
+            if (userId == null || !comment.getUser().getId().equals(userId)) {
+                throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
+            }
+            return comment;
+        }
+
+        // 비회원 댓글 - guestPassword로 검증
+        if (guestPassword == null || guestPassword.isBlank()
+                || comment.getGuestPassword() == null
+                || !passwordEncoder.matches(guestPassword, comment.getGuestPassword())) {
+            throw new CustomException(ErrorCode.COMMENT_WRONG_PASSWORD);
+        }
+        return comment;
+    }
+
+    /** 회원 전용 - 스티커 설정·삭제용 */
+    private WishComment getCommentAndValidateOwner(Long commentId, Long userId, String slug) {
+        WishComment comment = wishCommentRepository.findById(commentId)
+                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
+
+        if (!comment.getWishBoard().getBoardSlug().equals(slug)) {
+            throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
         if (comment.getUser() == null || !comment.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
         }
-
         return comment;
     }
 }

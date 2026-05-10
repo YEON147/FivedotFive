@@ -55,6 +55,8 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rankings/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/boards/*/comments").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/boards/*/comments/*").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/boards/*/comments/*").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments/*/sticker").permitAll()
                         // /api/boards/me 는 인증 필요 → 먼저 선언해서 아래 wildcard보다 우선 적용
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/me").authenticated()

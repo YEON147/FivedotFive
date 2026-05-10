@@ -66,6 +66,7 @@ public enum ErrorCode {
     COMMENT_SLOT_CONFLICT(HttpStatus.CONFLICT, "해당 슬롯에는 이미 댓글이 존재합니다."),
     COMMENT_INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "댓글 슬롯 번호는 0~5 사이여야 합니다."),
     COMMENT_GUEST_REQUIRED(HttpStatus.BAD_REQUEST, "비로그인 댓글 작성 시 닉네임과 비밀번호가 필요합니다."),
+    COMMENT_WRONG_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다."),
 
     // 공유 링크
     SHARE_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, "유효하지 않거나 만료된 공유 링크입니다."),
