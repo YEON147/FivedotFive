@@ -733,12 +733,17 @@ export function WishlistMyBoardScreen({
     embeddedPrefetchedProfile,
   ]);
 
-  /** 보드 없음일 때 온보딩 UI는 메인(`/`)과 통합 — `/wishlist` 직진 시 메인으로 이동 */
+  /**
+   * 허브 전용(`/wishlist` 레거시 단독 화면).
+   * `[slug]`에 임베드된 경우 비공개 보드는 공개 GET이 안 되므로 잠깐 실패할 수 있는데,
+   * 그때 메인(`/`)으로 보내면 안 됨 — 소유 슬러그 페이지에 남김.
+   */
   useEffect(() => {
     if (!wishSlotsLoaded || hasMyBoard) return;
     if (!getAccessToken()) return;
+    if (embeddedInSlugCarousel) return;
     router.replace("/");
-  }, [wishSlotsLoaded, hasMyBoard, router]);
+  }, [wishSlotsLoaded, hasMyBoard, router, embeddedInSlugCarousel]);
 
   /** 메인에서 위시보드 생성 직후 진입 시 한 번만 꾸미기 모드로 연다 */
   useEffect(() => {
