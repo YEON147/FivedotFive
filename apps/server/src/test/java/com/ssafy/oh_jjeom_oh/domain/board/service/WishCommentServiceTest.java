@@ -184,6 +184,77 @@ class WishCommentServiceTest {
                         .isEqualTo(ErrorCode.COMMENT_RATE_LIMIT));
     }
 
+    @Test
+    @DisplayName("비회원 댓글 작성 성공")
+    void createComment_guest_success() {
+        CommentCreateRequest request = buildGuestRequest("안녕!", "assets/sticker/a.png", 2, "게스트", "1234");
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 2)).willReturn(false);
+
+        WishComment saved = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("안녕!").stickerKey("assets/sticker/a.png").slotIndex(2)
+                .guestPassword("1234")
+                .build();
+        ReflectionTestUtils.setField(saved, "id", 200L);
+        given(wishCommentRepository.saveAndFlush(any())).willReturn(saved);
+
+        CommentCreateResponse response = wishCommentService.createComment(null, "abc123def4", request);
+
+        assertThat(response.getId()).isEqualTo(200L);
+        assertThat(response.getSlotIndex()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 작성 실패 - guestNickname 누락")
+    void createComment_guest_missingNickname() {
+        CommentCreateRequest request = buildGuestRequest("안녕!", null, 2, null, "1234");
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(null, "abc123def4", request))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_GUEST_REQUIRED));
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 작성 실패 - guestPassword 누락")
+    void createComment_guest_missingPassword() {
+        CommentCreateRequest request = buildGuestRequest("안녕!", null, 2, "게스트", null);
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(null, "abc123def4", request))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_GUEST_REQUIRED));
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 작성 실패 - 10초 레이트 리밋")
+    void createComment_guest_rateLimitExceeded() {
+        CommentCreateRequest request = buildGuestRequest("첫 댓글", null, 0, "게스트", "1234");
+
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(board));
+        given(wishCommentRepository.existsByBoardIdAndSlotIndexNative(10L, 0)).willReturn(false);
+
+        WishComment saved = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("첫 댓글").slotIndex(0).build();
+        ReflectionTestUtils.setField(saved, "id", 1L);
+        given(wishCommentRepository.saveAndFlush(any())).willReturn(saved);
+
+        wishCommentService.createComment(null, "abc123def4", request);
+
+        CommentCreateRequest request2 = buildGuestRequest("두 번째", null, 1, "게스트", "1234");
+
+        assertThatThrownBy(() ->
+                wishCommentService.createComment(null, "abc123def4", request2))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_RATE_LIMIT));
+    }
+
     // ===================== getComments =====================
 
     @Test
@@ -541,6 +612,17 @@ class WishCommentServiceTest {
         ReflectionTestUtils.setField(request, "content", content);
         ReflectionTestUtils.setField(request, "stickerKey", stickerKey);
         ReflectionTestUtils.setField(request, "slotIndex", slotIndex);
+        return request;
+    }
+
+    private CommentCreateRequest buildGuestRequest(String content, String stickerKey, int slotIndex,
+                                                    String guestNickname, String guestPassword) {
+        CommentCreateRequest request = new CommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", content);
+        ReflectionTestUtils.setField(request, "stickerKey", stickerKey);
+        ReflectionTestUtils.setField(request, "slotIndex", slotIndex);
+        ReflectionTestUtils.setField(request, "guestNickname", guestNickname);
+        ReflectionTestUtils.setField(request, "guestPassword", guestPassword);
         return request;
     }
 

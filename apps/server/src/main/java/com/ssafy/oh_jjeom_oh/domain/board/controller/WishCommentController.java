@@ -37,14 +37,15 @@ public class WishCommentController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_LIST_FOUND, data));
     }
 
-    // POST /api/boards/{slug}/comments - 댓글 작성 (CHILD)
+    // POST /api/boards/{slug}/comments - 댓글 작성 (Anyone)
     @PostMapping
     public ResponseEntity<ApiResponse<CommentCreateResponse>> createComment(
             @PathVariable String slug,
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CommentCreateRequest request) {
 
-        CommentCreateResponse data = wishCommentService.createComment(userPrincipal.getId(), slug, request);
+        Long userId = userPrincipal != null ? userPrincipal.getId() : null;
+        CommentCreateResponse data = wishCommentService.createComment(userId, slug, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(SuccessMessage.COMMENT_CREATED, data));
     }

@@ -43,8 +43,9 @@ public class WishCommentService {
     private final UserRepository userRepository;
     private final Clock clock;
 
-    // userId -> 마지막 댓글 작성 시각 (ms)
-    private final Map<Long, Long> lastCommentTimeMap = new ConcurrentHashMap<>();
+    // 레이트 리밋 키 -> 마지막 댓글 작성 시각 (ms)
+    // 로그인 사용자: "user:{userId}", 비로그인 사용자: "guest:{guestNickname}"
+    private final Map<String, Long> lastCommentTimeMap = new ConcurrentHashMap<>();
 
     // GET /api/boards/{slug}/comments?page=0&size=6
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
@@ -72,9 +73,22 @@ public class WishCommentService {
     // POST /api/boards/{slug}/comments
     @Transactional
     public CommentCreateResponse createComment(Long userId, String slug, CommentCreateRequest request) {
-        // 10초 rate limit
+        boolean isGuest = (userId == null);
+
+        // 비회원 필수 파라미터 검증
+        if (isGuest) {
+            if (request.getGuestNickname() == null || request.getGuestNickname().isBlank()
+                    || request.getGuestPassword() == null || request.getGuestPassword().isBlank()) {
+                throw new CustomException(ErrorCode.COMMENT_GUEST_REQUIRED);
+            }
+        }
+
+        // 10초 rate limit (로그인: "user:{id}", 비로그인: "guest:{닉네임}")
+        String rateLimitKey = isGuest
+                ? "guest:" + request.getGuestNickname()
+                : "user:" + userId;
         long now = System.currentTimeMillis();
-        Long last = lastCommentTimeMap.get(userId);
+        Long last = lastCommentTimeMap.get(rateLimitKey);
         if (last != null && now - last < RATE_LIMIT_MILLIS) {
             throw new CustomException(ErrorCode.COMMENT_RATE_LIMIT);
         }
@@ -92,24 +106,37 @@ public class WishCommentService {
             throw new CustomException(ErrorCode.COMMENT_SLOT_CONFLICT);
         }
 
-        User sender = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        WishComment comment = WishComment.builder()
-                .wishBoard(board)
-                .user(sender)
-                .senderName(sender.getNickname()) // 작성 시점 닉네임 스냅샷
-                .isUser(true)
-                .content(request.getContent())
-                .stickerKey(request.getStickerKey())
-                .slotIndex(request.getSlotIndex())
-                .build();
+        WishComment comment;
+        if (isGuest) {
+            comment = WishComment.builder()
+                    .wishBoard(board)
+                    .user(null)
+                    .senderName(request.getGuestNickname())
+                    .isUser(false)
+                    .content(request.getContent())
+                    .stickerKey(request.getStickerKey())
+                    .slotIndex(request.getSlotIndex())
+                    .guestPassword(request.getGuestPassword())
+                    .build();
+        } else {
+            User sender = userRepository.findById(userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+            comment = WishComment.builder()
+                    .wishBoard(board)
+                    .user(sender)
+                    .senderName(sender.getNickname()) // 작성 시점 닉네임 스냅샷
+                    .isUser(true)
+                    .content(request.getContent())
+                    .stickerKey(request.getStickerKey())
+                    .slotIndex(request.getSlotIndex())
+                    .build();
+        }
 
         // existsBy 체크와 save 사이의 동시성 레이스 컨디션을 방어
         // DB Unique 제약 위반 시 500 대신 409로 변환
         try {
             WishComment saved = wishCommentRepository.saveAndFlush(comment);
-            lastCommentTimeMap.put(userId, now);
+            lastCommentTimeMap.put(rateLimitKey, now);
             return CommentCreateResponse.of(saved);
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.COMMENT_SLOT_CONFLICT);
