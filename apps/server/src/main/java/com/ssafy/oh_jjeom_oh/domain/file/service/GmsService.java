@@ -30,27 +30,25 @@ public class GmsService {
 
             Map<String, Object> requestBody = createGeminiRequestBody(base64Image, mimeType);
 
+            // [수정] GMS 가이드대로 헤더 설정
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("x-goog-api-key", gmsKey);
+            headers.set("x-goog-api-key", gmsKey); // URL 파라미터 대신 헤더에 추가!
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            log.info("Gemini 2.0 Image Generation 호출 중...");
-            ResponseEntity<Map> response = restTemplate.postForEntity(gmsUrl, entity, Map.class);
+            // [수정] URL에서 ?key= 부분 삭제 (순수 URL만 사용)
+            log.info("Gemini 2.0 호출 중... (URL: {})", gmsUrl);
 
-            // [중요 로그] 원본이 올라가는 원인을 추적하기 위해 응답 바디를 반드시 확인하세요.
-            log.info("Gemini 응답 상태 코드: {}", response.getStatusCode());
-            log.info("Gemini 응답 바디: {}", response.getBody());
+            ResponseEntity<Map> response = restTemplate.postForEntity(gmsUrl, entity, Map.class);
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 return extractImageBytesFromGemini(response.getBody());
             }
-
             throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
 
         } catch (Exception e) {
-            log.error("Gemini 캐릭터 생성 실패: ", e);
+            log.error("Gemini 캐릭터 생성 실패 상세: ", e);
             throw new CustomException(ErrorCode.AI_GENERATION_FAILED);
         }
     }
