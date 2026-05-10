@@ -69,6 +69,7 @@ public enum SuccessMessage {
     COMMENT_CREATED("댓글이 작성되었습니다."),
     COMMENT_UPDATED("댓글이 수정되었습니다."),
     COMMENT_DELETED("댓글이 삭제되었습니다."),
+    COMMENT_VERIFIED("비밀번호 인증이 완료되었습니다."),
 
     // 댓글 스티커 (선물 아이콘)
     COMMENT_STICKER_FOUND("선물 아이콘 조회가 완료되었습니다."),
@@ -88,6 +89,7 @@ public enum SuccessMessage {
     RP_COMMENT_CREATED("댓글이 작성되었습니다."),
     RP_COMMENT_UPDATED("댓글이 수정되었습니다."),
     RP_COMMENT_DELETED("댓글이 삭제되었습니다."),
+    RP_COMMENT_VERIFIED("비밀번호 인증이 완료되었습니다."),
 
     // 롤링페이퍼
     ROLLING_PAPER_CREATED("롤링페이퍼가 생성되었습니다."),

@@ -7,5 +7,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class RollingPaperCommentDeleteRequest {
 
-    private String guestPassword; // 비회원 댓글 삭제 시 필수
+    private String verifyToken; // 비회원 댓글 삭제 시 필수 (verifyPassword API에서 발급)
 }

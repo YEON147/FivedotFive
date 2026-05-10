@@ -4,9 +4,11 @@ import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
 import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentUpdateRequest;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentVerifyRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentVerifyResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
@@ -23,6 +25,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -64,6 +68,8 @@ class WishCommentServiceTest {
     @Mock private WishCommentRepository wishCommentRepository;
     @Mock private UserRepository userRepository;
     @Mock private BCryptPasswordEncoder passwordEncoder;
+    @Mock private RedisTemplate<String, String> redisTemplate;
+    @Mock private ValueOperations<String, String> valueOps;
 
     private User sender;
     private WishBoard board;
@@ -610,10 +616,78 @@ class WishCommentServiceTest {
         assertThat(comment.getIsUser()).isFalse();
     }
 
+    // ===================== verifyPassword =====================
+
+    @Test
+    @DisplayName("비회원 댓글 비밀번호 검증 성공 - verifyToken 반환")
+    void verifyPassword_success() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("내용").slotIndex(0)
+                .guestPassword("$2a$hashed")
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        CommentVerifyRequest request = new CommentVerifyRequest();
+        ReflectionTestUtils.setField(request, "guestPassword", "1234");
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+        given(passwordEncoder.matches("1234", "$2a$hashed")).willReturn(true);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+
+        CommentVerifyResponse response = wishCommentService.verifyPassword("abc123def4", 1L, request);
+
+        assertThat(response.getVerifyToken()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 비밀번호 검증 - 회원 댓글 접근 시 403")
+    void verifyPassword_memberComment_forbidden() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(sender).senderName("테스터")
+                .isUser(true).content("내용").slotIndex(0)
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        CommentVerifyRequest request = new CommentVerifyRequest();
+        ReflectionTestUtils.setField(request, "guestPassword", "1234");
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+
+        assertThatThrownBy(() ->
+                wishCommentService.verifyPassword("abc123def4", 1L, request))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_FORBIDDEN));
+    }
+
+    @Test
+    @DisplayName("비회원 댓글 비밀번호 검증 - 비밀번호 불일치 시 401")
+    void verifyPassword_wrongPassword() {
+        WishComment comment = WishComment.builder()
+                .wishBoard(board).user(null).senderName("게스트")
+                .isUser(false).content("내용").slotIndex(0)
+                .guestPassword("$2a$hashed")
+                .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        CommentVerifyRequest request = new CommentVerifyRequest();
+        ReflectionTestUtils.setField(request, "guestPassword", "wrong");
+
+        given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
+        given(passwordEncoder.matches("wrong", "$2a$hashed")).willReturn(false);
+
+        assertThatThrownBy(() ->
+                wishCommentService.verifyPassword("abc123def4", 1L, request))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMENT_WRONG_PASSWORD));
+    }
+
     // ===================== updateComment =====================
 
     @Test
-    @DisplayName("비회원 댓글 수정 성공 - 올바른 비밀번호")
+    @DisplayName("비회원 댓글 수정 성공 - 유효한 verifyToken")
     void updateComment_guest_success() {
         WishComment comment = WishComment.builder()
                 .wishBoard(board).user(null).senderName("게스트")
@@ -624,10 +698,11 @@ class WishCommentServiceTest {
 
         CommentUpdateRequest request = new CommentUpdateRequest();
         ReflectionTestUtils.setField(request, "content", "수정된 내용");
-        ReflectionTestUtils.setField(request, "guestPassword", "1234");
+        ReflectionTestUtils.setField(request, "verifyToken", "valid-token-uuid");
 
         given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
-        given(passwordEncoder.matches("1234", "$2a$hashed")).willReturn(true);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.get("comment:verify:valid-token-uuid")).willReturn("1");
 
         wishCommentService.updateComment(null, "abc123def4", 1L, request);
 
@@ -635,8 +710,8 @@ class WishCommentServiceTest {
     }
 
     @Test
-    @DisplayName("비회원 댓글 수정 실패 - 비밀번호 불일치")
-    void updateComment_guest_wrongPassword() {
+    @DisplayName("비회원 댓글 수정 실패 - 만료된 verifyToken")
+    void updateComment_guest_invalidToken() {
         WishComment comment = WishComment.builder()
                 .wishBoard(board).user(null).senderName("게스트")
                 .isUser(false).content("원래 내용").slotIndex(0)
@@ -646,20 +721,21 @@ class WishCommentServiceTest {
 
         CommentUpdateRequest request = new CommentUpdateRequest();
         ReflectionTestUtils.setField(request, "content", "수정 시도");
-        ReflectionTestUtils.setField(request, "guestPassword", "wrong");
+        ReflectionTestUtils.setField(request, "verifyToken", "expired-token");
 
         given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
-        given(passwordEncoder.matches("wrong", "$2a$hashed")).willReturn(false);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.get("comment:verify:expired-token")).willReturn(null);
 
         assertThatThrownBy(() ->
                 wishCommentService.updateComment(null, "abc123def4", 1L, request))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.COMMENT_WRONG_PASSWORD));
+                        .isEqualTo(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID));
     }
 
     @Test
-    @DisplayName("비회원 댓글 삭제 성공 - 올바른 비밀번호")
+    @DisplayName("비회원 댓글 삭제 성공 - 유효한 verifyToken")
     void deleteComment_guest_success() {
         WishComment comment = WishComment.builder()
                 .wishBoard(board).user(null).senderName("게스트")
@@ -669,9 +745,10 @@ class WishCommentServiceTest {
         ReflectionTestUtils.setField(comment, "id", 1L);
 
         given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
-        given(passwordEncoder.matches("1234", "$2a$hashed")).willReturn(true);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.get("comment:verify:valid-token-uuid")).willReturn("1");
 
-        wishCommentService.deleteComment(null, "abc123def4", 1L, "1234");
+        wishCommentService.deleteComment(null, "abc123def4", 1L, "valid-token-uuid");
 
         assertThat(comment.getUser()).isNull();
         assertThat(comment.getIsUser()).isFalse();
@@ -679,8 +756,8 @@ class WishCommentServiceTest {
     }
 
     @Test
-    @DisplayName("비회원 댓글 삭제 실패 - 비밀번호 불일치")
-    void deleteComment_guest_wrongPassword() {
+    @DisplayName("비회원 댓글 삭제 실패 - 잘못된 verifyToken")
+    void deleteComment_guest_invalidToken() {
         WishComment comment = WishComment.builder()
                 .wishBoard(board).user(null).senderName("게스트")
                 .isUser(false).content("삭제 전 내용").slotIndex(0)
@@ -689,13 +766,14 @@ class WishCommentServiceTest {
         ReflectionTestUtils.setField(comment, "id", 1L);
 
         given(wishCommentRepository.findById(1L)).willReturn(Optional.of(comment));
-        given(passwordEncoder.matches("wrong", "$2a$hashed")).willReturn(false);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.get("comment:verify:bad-token")).willReturn(null);
 
         assertThatThrownBy(() ->
-                wishCommentService.deleteComment(null, "abc123def4", 1L, "wrong"))
+                wishCommentService.deleteComment(null, "abc123def4", 1L, "bad-token"))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.COMMENT_WRONG_PASSWORD));
+                        .isEqualTo(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID));
     }
 
     // ===== helpers =====

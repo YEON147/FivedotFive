@@ -4,8 +4,10 @@ import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
 import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentUpdateRequest;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentVerifyRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentListResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentVerifyResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaperComment;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
@@ -24,6 +26,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -50,6 +54,8 @@ class RollingPaperCommentServiceTest {
     @Mock RollingPaperCommentRepository commentRepository;
     @Mock UserRepository userRepository;
     @Mock BCryptPasswordEncoder passwordEncoder;
+    @Mock RedisTemplate<String, String> redisTemplate;
+    @Mock ValueOperations<String, String> valueOps;
     @Mock Clock clock;
 
     static final String SLUG          = "paper-slug-01";
@@ -330,7 +336,7 @@ class RollingPaperCommentServiceTest {
         }
 
         @Test
-        @DisplayName("비회원 댓글 올바른 비밀번호로 수정 성공")
+        @DisplayName("비회원 댓글 유효한 verifyToken으로 수정 성공")
         void guest_success() {
             RollingPaperComment comment = RollingPaperComment.builder()
                     .rollingPaper(paper).user(null).isUser(false)
@@ -338,11 +344,12 @@ class RollingPaperCommentServiceTest {
             ReflectionTestUtils.setField(comment, "id", 101L);
 
             given(commentRepository.findById(101L)).willReturn(Optional.of(comment));
-            given(passwordEncoder.matches("1234", "hashed")).willReturn(true);
+            given(redisTemplate.opsForValue()).willReturn(valueOps);
+            given(valueOps.get("rp-comment:verify:valid-token")).willReturn("101");
 
             RollingPaperCommentUpdateRequest req = new RollingPaperCommentUpdateRequest();
             ReflectionTestUtils.setField(req, "content", "수정된 내용");
-            ReflectionTestUtils.setField(req, "guestPassword", "1234");
+            ReflectionTestUtils.setField(req, "verifyToken", "valid-token");
 
             service.updateComment(null, SLUG, 101L, req);
 
@@ -350,24 +357,25 @@ class RollingPaperCommentServiceTest {
         }
 
         @Test
-        @DisplayName("비회원 댓글 틀린 비밀번호 → 403")
-        void guest_wrongPassword() {
+        @DisplayName("비회원 댓글 잘못된 verifyToken → 401")
+        void guest_invalidToken() {
             RollingPaperComment comment = RollingPaperComment.builder()
                     .rollingPaper(paper).user(null).isUser(false)
                     .senderName("게스트").content("원래 내용").slotIndex(1).guestPassword("hashed").build();
             ReflectionTestUtils.setField(comment, "id", 101L);
 
             given(commentRepository.findById(101L)).willReturn(Optional.of(comment));
-            given(passwordEncoder.matches("wrong", "hashed")).willReturn(false);
+            given(redisTemplate.opsForValue()).willReturn(valueOps);
+            given(valueOps.get("rp-comment:verify:bad-token")).willReturn(null);
 
             RollingPaperCommentUpdateRequest req = new RollingPaperCommentUpdateRequest();
             ReflectionTestUtils.setField(req, "content", "수정 시도");
-            ReflectionTestUtils.setField(req, "guestPassword", "wrong");
+            ReflectionTestUtils.setField(req, "verifyToken", "bad-token");
 
             assertThatThrownBy(() -> service.updateComment(null, SLUG, 101L, req))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                            .isEqualTo(ErrorCode.RP_COMMENT_WRONG_PASSWORD));
+                            .isEqualTo(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID));
         }
     }
 
@@ -393,7 +401,7 @@ class RollingPaperCommentServiceTest {
         }
 
         @Test
-        @DisplayName("비회원 댓글 올바른 비밀번호로 삭제 성공")
+        @DisplayName("비회원 댓글 유효한 verifyToken으로 삭제 성공")
         void guest_success() {
             RollingPaperComment comment = RollingPaperComment.builder()
                     .rollingPaper(paper).user(null).isUser(false)
@@ -401,26 +409,94 @@ class RollingPaperCommentServiceTest {
             ReflectionTestUtils.setField(comment, "id", 101L);
 
             given(commentRepository.findById(101L)).willReturn(Optional.of(comment));
-            given(passwordEncoder.matches("1234", "hashed")).willReturn(true);
+            given(redisTemplate.opsForValue()).willReturn(valueOps);
+            given(valueOps.get("rp-comment:verify:valid-token")).willReturn("101");
 
-            service.deleteComment(null, SLUG, 101L, "1234");
+            service.deleteComment(null, SLUG, 101L, "valid-token");
 
             assertThat(comment.getContent()).isEqualTo("삭제된 댓글입니다.");
             assertThat(comment.getGuestPassword()).isNull();
         }
 
         @Test
-        @DisplayName("비회원 댓글 틀린 비밀번호 → 403")
-        void guest_wrongPassword() {
+        @DisplayName("비회원 댓글 잘못된 verifyToken → 401")
+        void guest_invalidToken() {
             RollingPaperComment comment = RollingPaperComment.builder()
                     .rollingPaper(paper).user(null).isUser(false)
                     .senderName("게스트").content("내용").slotIndex(1).guestPassword("hashed").build();
             ReflectionTestUtils.setField(comment, "id", 101L);
 
             given(commentRepository.findById(101L)).willReturn(Optional.of(comment));
-            given(passwordEncoder.matches("bad", "hashed")).willReturn(false);
+            given(redisTemplate.opsForValue()).willReturn(valueOps);
+            given(valueOps.get("rp-comment:verify:bad-token")).willReturn(null);
 
-            assertThatThrownBy(() -> service.deleteComment(null, SLUG, 101L, "bad"))
+            assertThatThrownBy(() -> service.deleteComment(null, SLUG, 101L, "bad-token"))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID));
+        }
+    }
+
+    // ==================== verifyPassword ====================
+
+    @Nested
+    @DisplayName("verifyPassword")
+    class VerifyPassword {
+
+        @Test
+        @DisplayName("비밀번호 일치 시 verifyToken 반환 성공")
+        void success() {
+            RollingPaperComment comment = RollingPaperComment.builder()
+                    .rollingPaper(paper).user(null).isUser(false)
+                    .senderName("게스트").content("내용").slotIndex(1).guestPassword("hashed").build();
+            ReflectionTestUtils.setField(comment, "id", 101L);
+
+            RollingPaperCommentVerifyRequest req = new RollingPaperCommentVerifyRequest();
+            ReflectionTestUtils.setField(req, "guestPassword", "1234");
+
+            given(commentRepository.findById(101L)).willReturn(Optional.of(comment));
+            given(passwordEncoder.matches("1234", "hashed")).willReturn(true);
+            given(redisTemplate.opsForValue()).willReturn(valueOps);
+
+            RollingPaperCommentVerifyResponse response = service.verifyPassword(SLUG, 101L, req);
+
+            assertThat(response.getVerifyToken()).isNotBlank();
+        }
+
+        @Test
+        @DisplayName("회원 댓글에 비밀번호 검증 시도 → 403")
+        void memberComment_forbidden() {
+            RollingPaperComment comment = RollingPaperComment.builder()
+                    .rollingPaper(paper).user(owner).isUser(true)
+                    .senderName("오너").content("내용").slotIndex(0).build();
+            ReflectionTestUtils.setField(comment, "id", 100L);
+
+            RollingPaperCommentVerifyRequest req = new RollingPaperCommentVerifyRequest();
+            ReflectionTestUtils.setField(req, "guestPassword", "1234");
+
+            given(commentRepository.findById(100L)).willReturn(Optional.of(comment));
+
+            assertThatThrownBy(() -> service.verifyPassword(SLUG, 100L, req))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMENT_FORBIDDEN));
+        }
+
+        @Test
+        @DisplayName("비밀번호 불일치 → 401")
+        void wrongPassword() {
+            RollingPaperComment comment = RollingPaperComment.builder()
+                    .rollingPaper(paper).user(null).isUser(false)
+                    .senderName("게스트").content("내용").slotIndex(1).guestPassword("hashed").build();
+            ReflectionTestUtils.setField(comment, "id", 101L);
+
+            RollingPaperCommentVerifyRequest req = new RollingPaperCommentVerifyRequest();
+            ReflectionTestUtils.setField(req, "guestPassword", "wrong");
+
+            given(commentRepository.findById(101L)).willReturn(Optional.of(comment));
+            given(passwordEncoder.matches("wrong", "hashed")).willReturn(false);
+
+            assertThatThrownBy(() -> service.verifyPassword(SLUG, 101L, req))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                             .isEqualTo(ErrorCode.RP_COMMENT_WRONG_PASSWORD));
