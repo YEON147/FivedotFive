@@ -54,8 +54,7 @@ public class GmsService {
     }
 
     private Map<String, Object> createGeminiRequestBody(String base64Image, String mimeType) {
-        String prompt = "이 이미지의 전체적인 분위기와 색감을 참고해서 귀여운 캐릭터 이미지를 생성해주세요. " +
-                "간결한 스타일의 2D 캐릭터로 그려주세요.";
+        String prompt = "Generate a cute 2D vector character image based on the attached photo. Return only the image.";
 
         Map<String, Object> textPart = new HashMap<>();
         textPart.put("text", prompt);
@@ -74,6 +73,7 @@ public class GmsService {
 
         Map<String, Object> generationConfig = new HashMap<>();
         //generationConfig.put("responseModalities", Arrays.asList("Text", "Image"));
+        generationConfig.put("responseModalities", List.of("IMAGE"));
         body.put("generationConfig", generationConfig);
 
         return body;
