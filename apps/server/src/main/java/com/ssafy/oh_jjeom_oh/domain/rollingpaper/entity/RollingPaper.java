@@ -35,7 +35,7 @@ public class RollingPaper {
     @Column(nullable = false, length = 100)
     private String slug;                                    // 공개 URL 슬러그
 
-    @Column(nullable = false, length = 8)
+    @Column(nullable = false, length = 12)
     private String title;                                   // 롤링페이퍼 제목
 
     @Column(name = "recipient_name", length = 100)
