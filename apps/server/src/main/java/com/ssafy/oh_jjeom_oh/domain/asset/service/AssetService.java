@@ -6,6 +6,7 @@ import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.AssetItemResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.BackgroundItemResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.BackgroundListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.GiftIconListResponse;
+import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.RollingPaperProfileListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerCatalogListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderResponse;
@@ -252,6 +253,15 @@ public class AssetService {
             return false;
         }
         return assetKey.toLowerCase().startsWith("icons/baseball/");
+    }
+
+    public RollingPaperProfileListResponse getRollingPaperProfiles() {
+        List<AssetItemResponse> items = assetRepository
+                .findByAssetTypeOrderByDisplayOrderAsc(AssetType.ROLLING_PAPER_PROFILE)
+                .stream()
+                .map(AssetItemResponse::of)
+                .toList();
+        return RollingPaperProfileListResponse.of(items);
     }
 
     private static boolean includeStickerForBoardContext(String assetKey, String boardSlug) {
