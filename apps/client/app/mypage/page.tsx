@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { MyPageForm } from "@/components/common/MyPageForm";
+import { logoutSession } from "@/features/login/api";
 import { useMyPageForm } from "@/features/user/hooks";
-import { clearAccessToken } from "@/lib/api/token-store";
 import {
   APP_MAIN_COLUMN,
   APP_MAIN_SCROLL_BODY,
@@ -80,8 +80,8 @@ export default function MyPagePage() {
     submitWithdrawAccount,
   } = useMyPageForm();
 
-  const handleLogout = useCallback(() => {
-    clearAccessToken();
+  const handleLogout = useCallback(async () => {
+    await logoutSession();
     setIsSidebarOpen(false);
     router.push("/login");
   }, [router]);

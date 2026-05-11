@@ -20,7 +20,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
+import { logoutSession } from "@/features/login/api";
+import { getAccessToken } from "@/lib/api/token-store";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
 import {
@@ -1641,8 +1642,8 @@ export function WishlistMyBoardScreen({
     wishTexts,
   ]);
 
-  const handleLogout = () => {
-    clearAccessToken();
+  const handleLogout = async () => {
+    await logoutSession();
     clearWishlistPageSessionCache();
     setIsSidebarOpen(false);
     router.push("/login");

@@ -14,9 +14,10 @@ import {
   updateAdminNotice,
   type NoticeDetail,
 } from "@/features/notice/api";
+import { logoutSession } from "@/features/login/api";
 import { getMyProfile } from "@/features/user/api";
 import { compressImagesForUpload } from "@/lib/images/compress-images-for-upload";
-import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
+import { getAccessToken } from "@/lib/api/token-store";
 import { shouldUseNativeImg } from "@/lib/native-img";
 import {
   APP_MAIN_COLUMN,
@@ -132,8 +133,8 @@ export default function NoticeDetailPage() {
     };
   }, [noticeId]);
 
-  const handleLogout = useCallback(() => {
-    clearAccessToken();
+  const handleLogout = useCallback(async () => {
+    await logoutSession();
     setIsSidebarOpen(false);
     router.push("/login");
   }, [router]);
