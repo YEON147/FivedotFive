@@ -1,10 +1,28 @@
 "use client";
 
 import { Export } from "@phosphor-icons/react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
+
+/** 롤링페이퍼 소유자 공유 모달 — 댓글 작성용 / 선물·저장용 탭 */
+export type RollingPaperOwnerShareTabId = "comment" | "view";
+
+export type RollingPaperOwnerShareTabsConfig = {
+  activeTab: RollingPaperOwnerShareTabId;
+  onTabChange: (tab: RollingPaperOwnerShareTabId) => void;
+  comment: {
+    absoluteUrl: string | null;
+    linkHref: string | null;
+  };
+  view: {
+    absoluteUrl: string | null;
+    linkHref: string | null;
+    expiresAt: string | null;
+    error: string | null;
+  };
+};
 
 /** 모달 안 — 링크 미리보기 · 복사 · Web Share (복사 피드백 상태 내장) */
 export function ShareLinkModalPanel({
@@ -12,6 +30,8 @@ export function ShareLinkModalPanel({
   absoluteUrl,
   linkHref,
   navigatorShareTitle = "공유",
+  errorMessage,
+  hint,
 }: {
   dialogOpen: boolean;
   /** 클립보드·Web Share용 전체 URL — 없으면 로딩 문구 */
@@ -20,6 +40,10 @@ export function ShareLinkModalPanel({
   linkHref: string | null;
   /** `navigator.share` 의 `title` */
   navigatorShareTitle?: string;
+  /** 링크 대신 표시할 오류 문구 */
+  errorMessage?: string | null;
+  /** 링크 아래 보조 설명(예: 만료 시각) */
+  hint?: ReactNode;
 }) {
   const [copyFeedback, setCopyFeedback] = useState(false);
 
@@ -38,12 +62,15 @@ export function ShareLinkModalPanel({
   }, [copyFeedback]);
 
   const displayText = absoluteUrl || linkHref;
+  const err = errorMessage?.trim();
 
   return (
     <>
       <div className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
         <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
-          {linkHref && displayText ? (
+          {err ? (
+            <span className="text-[#c02626]">{err}</span>
+          ) : linkHref && displayText ? (
             <a
               href={linkHref}
               target="_blank"
@@ -68,6 +95,9 @@ export function ShareLinkModalPanel({
           </div>
         ) : null}
       </div>
+      {hint != null && hint !== false ? (
+        <p className="mt-2 text-xs leading-snug text-slate-500">{hint}</p>
+      ) : null}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <button
@@ -112,6 +142,8 @@ type BoardShareDialogProps = {
   onClose: () => void;
   absoluteUrl: string | null;
   linkHref: string | null;
+  /** 롤링페이퍼 소유자 — 댓글 / 선물·저장 링크 탭 (전달 시 absoluteUrl·linkHref 대신 탭별 값 사용) */
+  rollingPaperOwnerTabs?: RollingPaperOwnerShareTabsConfig;
   /** `carousel-portal`: 위시 캐러셀 임베드용 — static + `document.body` 포털 */
   presentation: BoardShareDialogPresentation;
   /** `presentation === "carousel-portal"` 일 때만 사용 */
@@ -127,11 +159,25 @@ type BoardShareDialogProps = {
 /**
  * 위시 보드 / 롤링페이퍼 공통 — `WishlistCenterDialog` + `ShareLinkModalPanel`
  */
+function rollingPaperViewExpiryHint(expiresAt: string | null): ReactNode {
+  const raw = expiresAt?.trim();
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  const datePart = d.toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  return `공개일 당일 자정까지 유효해요 (${datePart})`;
+}
+
 export function BoardShareDialog({
   open,
   onClose,
   absoluteUrl,
   linkHref,
+  rollingPaperOwnerTabs,
   presentation,
   portalReady = false,
   title = "공유하기",
@@ -144,6 +190,32 @@ export function BoardShareDialog({
   const titleId = titleIdProp ?? genId;
   const variant = presentation === "carousel-portal" ? "static" : "animated";
 
+  const tabs = rollingPaperOwnerTabs;
+  const activeTab = tabs?.activeTab ?? "comment";
+
+  const panelAbsolute =
+    tabs == null
+      ? absoluteUrl
+      : activeTab === "comment"
+        ? tabs.comment.absoluteUrl
+        : tabs.view.absoluteUrl;
+  const panelLinkHref =
+    tabs == null
+      ? linkHref
+      : activeTab === "comment"
+        ? tabs.comment.linkHref
+        : tabs.view.linkHref;
+  const panelError =
+    tabs != null && activeTab === "view"
+      ? tabs.view.error
+      : null;
+  const panelHint =
+    tabs != null && activeTab === "view"
+      ? tabs.view.absoluteUrl && !tabs.view.error
+        ? rollingPaperViewExpiryHint(tabs.view.expiresAt)
+        : null
+      : null;
+
   const inner = (
     <WishlistCenterDialog
       variant={variant}
@@ -154,11 +226,49 @@ export function BoardShareDialog({
       closeLabel={closeLabel}
       description={description}
     >
+      {tabs ? (
+        <div
+          className="mt-4 flex w-full gap-1 rounded-[14px] bg-[var(--color-bg-subtle)] p-1"
+          role="tablist"
+          aria-label="공유 링크 종류"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "comment"}
+            id={`${titleId}-tab-comment`}
+            className={`min-h-[44px] min-w-0 flex-1 rounded-[12px] px-3 py-2.5 text-center text-body-sm font-semibold transition-[background,box-shadow,color] ${
+              activeTab === "comment"
+                ? "bg-[var(--color-surface)] text-slate-900 shadow-sm ring-1 ring-black/[0.06]"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+            onClick={() => tabs.onTabChange("comment")}
+          >
+            댓글 작성 링크
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "view"}
+            id={`${titleId}-tab-view`}
+            className={`min-h-[44px] min-w-0 flex-1 rounded-[12px] px-3 py-2.5 text-center text-body-sm font-semibold transition-[background,box-shadow,color] ${
+              activeTab === "view"
+                ? "bg-[var(--color-surface)] text-slate-900 shadow-sm ring-1 ring-black/[0.06]"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+            onClick={() => tabs.onTabChange("view")}
+          >
+            선물·저장용 링크
+          </button>
+        </div>
+      ) : null}
       <ShareLinkModalPanel
         dialogOpen={open}
-        absoluteUrl={absoluteUrl}
-        linkHref={linkHref}
+        absoluteUrl={panelAbsolute}
+        linkHref={panelLinkHref}
         navigatorShareTitle={navigatorShareTitle}
+        errorMessage={panelError}
+        hint={panelHint}
       />
     </WishlistCenterDialog>
   );

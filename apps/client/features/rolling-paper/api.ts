@@ -133,6 +133,21 @@ export async function postRollingPaperShareCommentLink(
   );
 }
 
+/** POST /api/rolling-papers/{slug}/share/view — 소유자만, 저장·열람용 단축 링크 (공개일까지 유효, 댓글 작성 불가 토큰) */
+export async function postRollingPaperShareViewLink(
+  slug: string,
+): Promise<RollingPaperShareCommentLinkEnvelope> {
+  const enc = encodeRollingSlug(slug);
+  return apiClient<RollingPaperShareCommentLinkEnvelope>(
+    `/api/rolling-papers/${enc}/share/view`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
+}
+
 /** GET /api/rolling-papers/{slug}/comments */
 export async function getRollingPaperComments(
   slug: string,

@@ -20,6 +20,7 @@ import { AppSideMenu } from "@/components/common/AppSideMenu";
 import {
   BoardShareDialog,
   BoardShareFabButton,
+  type RollingPaperOwnerShareTabId,
 } from "@/components/common/ShareBoardLink";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "@/components/wishlist/WishlistSlots";
@@ -29,6 +30,7 @@ import {
   getRollingPaperComments,
   getRollingPaperDetail,
   postRollingPaperShareCommentLink,
+  postRollingPaperShareViewLink,
   updateRollingPaperComment,
   type RollingPaperCommentRow,
   type RollingPaperDetailPayload,
@@ -665,12 +667,26 @@ export default function RollingPaperSlugPage({
 
   const [portalReady, setPortalReady] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
   /** 소유자 공유 모달 — `POST .../share/comment` 단축 URL (실패 시 기존 롱 링크로 폴백) */
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
   const [ownerCommentShareFailed, setOwnerCommentShareFailed] = useState(false);
+  /** 소유자 — `POST .../share/view` 선물·저장 전용 단축 URL (탭 선택 시 요청) */
+  const [ownerViewShareUrl, setOwnerViewShareUrl] = useState<string | null>(null);
+  const [ownerViewExpiresAt, setOwnerViewExpiresAt] = useState<string | null>(null);
+  const [ownerViewShareError, setOwnerViewShareError] = useState<string | null>(null);
   useEffect(() => {
     setPortalReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!isShareModalOpen) {
+      setShareTab("comment");
+      setOwnerViewShareUrl(null);
+      setOwnerViewExpiresAt(null);
+      setOwnerViewShareError(null);
+    }
+  }, [isShareModalOpen]);
 
   useEffect(() => {
     if (!isShareModalOpen || !slug.trim()) return;
@@ -699,6 +715,43 @@ export default function RollingPaperSlugPage({
       cancelled = true;
     };
   }, [isShareModalOpen, detail?.isOwner, slug]);
+
+  useEffect(() => {
+    if (!isShareModalOpen || !slug.trim() || !detail?.isOwner) return;
+    if (shareTab !== "view") return;
+    if (ownerViewShareUrl?.trim()) return;
+
+    let cancelled = false;
+    setOwnerViewShareError(null);
+    void postRollingPaperShareViewLink(slug)
+      .then((res) => {
+        const u = res.data?.shortUrl?.trim();
+        const exp = res.data?.expiresAt?.trim();
+        if (cancelled) return;
+        if (u) {
+          setOwnerViewShareUrl(u);
+          setOwnerViewExpiresAt(exp ?? null);
+        } else {
+          setOwnerViewShareError(res.message?.trim() || "링크를 만들지 못했습니다.");
+        }
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const msg =
+          e instanceof Error ? e.message.trim() : "링크를 만들지 못했습니다.";
+        setOwnerViewShareError(msg || "링크를 만들지 못했습니다.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isShareModalOpen,
+    detail?.isOwner,
+    slug,
+    shareTab,
+    ownerViewShareUrl,
+  ]);
 
   const syncVisitorSession = useCallback(async (force = false) => {
     const token = getAccessToken()?.trim();
@@ -812,11 +865,11 @@ export default function RollingPaperSlugPage({
   }, [slug, detail?.viewToken, rollingToken]);
 
   /**
-   * 공유 모달 — 미리보기·`<a href>`·링크 복사·Web Share 모두 동일 문자열.
-   * 소유자: 단축 URL(API) 우선, 실패 시 전체 페이지 URL 폴백.
+   * 공유 모달 — 댓글 탭·비소유자 공통: 미리보기·복사·Web Share 문자열.
+   * 소유자 댓글 탭: 단축 URL(API) 우선, 실패 시 전체 페이지 URL 폴백.
    * 비소유자: 브라우저 기준 전체 공유 URL(`rollingPaperShareUrl`).
    */
-  const boardShareUrl = useMemo((): string | null => {
+  const commentTabShareUrl = useMemo((): string | null => {
     if (!detail?.isOwner) {
       return rollingShareUrl;
     }
@@ -828,6 +881,11 @@ export default function RollingPaperSlugPage({
     }
     return null;
   }, [detail?.isOwner, ownerCommentShareUrl, ownerCommentShareFailed, rollingShareUrl]);
+
+  const viewTabShareUrl = useMemo((): string | null => {
+    if (!detail?.isOwner) return null;
+    return ownerViewShareUrl?.trim() || null;
+  }, [detail?.isOwner, ownerViewShareUrl]);
 
   /** 받는 사람 프로필 — `rollingpaper-01` 폴라로이드 프레임 안쪽에 깔림 */
   const recipientProfileImageUrl = useMemo(() => {
@@ -880,6 +938,9 @@ export default function RollingPaperSlugPage({
   }, [loadBoard]);
 
   const canComment = detail?.canComment === true;
+  /** 조회·저장 전용(view 토큰) 방문자 — 공유 UI 숨김 (소유자·댓글 작성 링크 방문자만 공유 가능) */
+  const showRollingPaperShareEntry =
+    Boolean(detail && (detail.isOwner === true || canComment));
 
   const openCreateModal = (slotIndex: number) => {
     if (!canComment) return;
@@ -1477,16 +1538,18 @@ export default function RollingPaperSlugPage({
                         })}
                       </div>
 
-                      <div
-                        className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end gap-2.5 transition-opacity duration-200 ${
-                          modalOpen ? "opacity-0" : "opacity-100"
-                        }`}
-                      >
-                        <BoardShareFabButton
-                          onClick={() => setIsShareModalOpen(true)}
-                          ariaLabel="롤링페이퍼 공유"
-                        />
-                      </div>
+                      {showRollingPaperShareEntry ? (
+                        <div
+                          className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end gap-2.5 transition-opacity duration-200 ${
+                            modalOpen ? "opacity-0" : "opacity-100"
+                          }`}
+                        >
+                          <BoardShareFabButton
+                            onClick={() => setIsShareModalOpen(true)}
+                            ariaLabel="롤링페이퍼 공유"
+                          />
+                        </div>
+                      ) : null}
                     </>
                   )}
                   </div>
@@ -1521,19 +1584,41 @@ export default function RollingPaperSlugPage({
       )}
     </main>
 
-      <BoardShareDialog
-        presentation="page"
-        open={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        description={
-          detail?.isOwner
-            ? "댓글 작성용 단축 링크예요. 공개일(기준일)까지 접속 후 작성할 수 있어요."
-            : "롤링페이퍼 링크를 복사하거나 공유할 수 있어요."
-        }
-        absoluteUrl={boardShareUrl}
-        linkHref={boardShareUrl}
-        navigatorShareTitle="롤링페이퍼"
-      />
+      {showRollingPaperShareEntry ? (
+        <BoardShareDialog
+          presentation="page"
+          open={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          description={
+            !detail?.isOwner
+              ? "롤링페이퍼 링크를 복사하거나 공유할 수 있어요."
+              : shareTab === "comment"
+                ? "댓글 작성용 단축 링크예요. 공개일(기준일)까지 접속 후 작성할 수 있어요."
+                : "받는 사람만 저장·열람할 링크예요. 이 링크로는 댓글을 작성할 수 없어요."
+          }
+          absoluteUrl={commentTabShareUrl}
+          linkHref={commentTabShareUrl}
+          rollingPaperOwnerTabs={
+            detail?.isOwner
+              ? {
+                  activeTab: shareTab,
+                  onTabChange: setShareTab,
+                  comment: {
+                    absoluteUrl: commentTabShareUrl,
+                    linkHref: commentTabShareUrl,
+                  },
+                  view: {
+                    absoluteUrl: viewTabShareUrl,
+                    linkHref: viewTabShareUrl,
+                    expiresAt: ownerViewExpiresAt,
+                    error: ownerViewShareError,
+                  },
+                }
+              : undefined
+          }
+          navigatorShareTitle="롤링페이퍼"
+        />
+      ) : null}
 
       {modalOpen && portalReady && typeof document !== "undefined"
         ? createPortal(rollingPaperOverlay, document.body)
