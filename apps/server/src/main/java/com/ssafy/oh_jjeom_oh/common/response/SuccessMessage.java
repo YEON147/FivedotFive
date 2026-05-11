@@ -63,6 +63,7 @@ public enum SuccessMessage {
     STICKER_UPDATED("스티커가 변경되었습니다."),
     STICKER_DELETED("스티커가 삭제되었습니다."),
     GIFT_ICON_LIST_FOUND("선물 아이콘 목록 조회가 완료되었습니다."),
+    ROLLING_PAPER_PROFILE_LIST_FOUND("롤링페이퍼 프로필 이미지 목록 조회가 완료되었습니다."),
 
     // 댓글
     COMMENT_LIST_FOUND("댓글 목록 조회가 완료되었습니다."),

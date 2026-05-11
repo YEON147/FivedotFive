@@ -1,0 +1,4 @@
+ALTER TABLE assets DROP CONSTRAINT IF EXISTS assets_asset_type_check;
+ALTER TABLE assets ALTER COLUMN asset_type TYPE VARCHAR(30);
+ALTER TABLE assets ADD CONSTRAINT assets_asset_type_check
+    CHECK (asset_type IN ('BACKGROUND', 'STICKER', 'GIFT_STICKER', 'ROLLING_PAPER_PROFILE'));

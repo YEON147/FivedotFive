@@ -21,8 +21,8 @@ import {
   mapSchoolUserRankingsToEntries,
   mapUserCommentRankingsToEntries,
 } from "@/features/ranking/api";
+import { logoutSession } from "@/features/login/api";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
-import { clearAccessToken } from "@/lib/api/token-store";
 import {
   APP_MAIN_COLUMN,
   APP_SHELL_STAGE,
@@ -133,8 +133,8 @@ export default function RankingPage() {
     [tab],
   );
 
-  const handleLogout = useCallback(() => {
-    clearAccessToken();
+  const handleLogout = useCallback(async () => {
+    await logoutSession();
     clearWishlistPageSessionCache();
     setIsSidebarOpen(false);
     router.push("/login");
