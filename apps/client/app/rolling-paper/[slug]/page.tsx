@@ -645,9 +645,9 @@ export default function RollingPaperSlugPage({
   const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
-  /** 작성 오버레이: 포스트잇만 → 탭 후 입력 */
+  /** 작성 오버레이: 포스트잇 → 본문 입력 →(비회원) 닉네임·비밀번호 */
   const [createOverlayStep, setCreateOverlayStep] = useState<
-    "postit" | "compose"
+    "postit" | "compose" | "guestCredentials"
   >("postit");
   /** 빈 슬롯: 작성 / 채워진 슬롯: 내용만 보기 */
   const [modalMode, setModalMode] = useState<"create" | "view">("create");
@@ -1074,6 +1074,21 @@ export default function RollingPaperSlugPage({
     setGuestEditVerifyToken(null);
   };
 
+  /** 비회원: 본문만 채운 뒤 완료 → 닉네임·비밀번호 단계로 이동 */
+  const handleGuestComposeComplete = () => {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      setFormError("내용을 입력해 주세요.");
+      return;
+    }
+    if (trimmed.length > CONTENT_MAX) {
+      setFormError(`댓글은 ${CONTENT_MAX}자 이내입니다.`);
+      return;
+    }
+    setFormError(null);
+    setCreateOverlayStep("guestCredentials");
+  };
+
   const handleSubmit = async () => {
     if (modalMode !== "create" || activeSlot === null || !slug) return;
     const member = Boolean(getAccessToken()?.trim());
@@ -1283,7 +1298,9 @@ export default function RollingPaperSlugPage({
 
   const modalPanelNeedsInnerScroll =
     modalMode === "view" ||
-    (modalMode === "create" && createOverlayStep === "compose");
+    (modalMode === "create" &&
+      (createOverlayStep === "compose" ||
+        createOverlayStep === "guestCredentials"));
 
   const rollingPaperOverlay = (
     <div
@@ -1506,47 +1523,78 @@ export default function RollingPaperSlugPage({
                     text="탭하여 작성"
                   />
                 </button>
+              ) : createOverlayStep === "guestCredentials" ? (
+                <>
+                  <div className={`${ROLLING_OVERLAY_GUEST_CARD_CLASS} w-full`}>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] font-medium text-slate-700">
+                        닉네임 (필수, 최대 {GUEST_NICKNAME_MAX_LEN}자)
+                      </span>
+                      <input
+                        type="text"
+                        value={guestNickname}
+                        onChange={(e) =>
+                          setGuestNickname(
+                            e.target.value.slice(0, GUEST_NICKNAME_MAX_LEN),
+                          )
+                        }
+                        maxLength={GUEST_NICKNAME_MAX_LEN}
+                        className={ROLLING_OVERLAY_INPUT_TEXT_CLASS}
+                        placeholder="친구"
+                        autoComplete="nickname"
+                        autoFocus
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] font-medium text-slate-700">
+                        비밀번호 (필수)
+                      </span>
+                      <input
+                        type="password"
+                        value={guestPassword}
+                        onChange={(e) => setGuestPassword(e.target.value)}
+                        className={ROLLING_OVERLAY_INPUT_CLASS}
+                        placeholder="메시지 수정 시 필요해요"
+                        autoComplete="new-password"
+                      />
+                    </label>
+                  </div>
+
+                  {formError ? (
+                    <p className="text-[13px] text-red-200" role="alert">
+                      {formError}
+                    </p>
+                  ) : null}
+
+                  <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                      onClick={() => {
+                        setFormError(null);
+                        setCreateOverlayStep("compose");
+                      }}
+                      disabled={submitting}
+                    >
+                      이전
+                    </button>
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                      onClick={() => void handleSubmit()}
+                      disabled={submitting}
+                    >
+                      {submitting ? "전송 중…" : "등록"}
+                    </button>
+                  </div>
+                </>
               ) : (
                 <>
-                  {!loggedInState ? (
-                    <div className={ROLLING_OVERLAY_GUEST_CARD_CLASS}>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[11px] font-medium text-slate-700">
-                          닉네임 (최대 {GUEST_NICKNAME_MAX_LEN}자)
-                        </span>
-                        <input
-                          type="text"
-                          value={guestNickname}
-                          onChange={(e) =>
-                            setGuestNickname(
-                              e.target.value.slice(0, GUEST_NICKNAME_MAX_LEN),
-                            )
-                          }
-                          maxLength={GUEST_NICKNAME_MAX_LEN}
-                          className={ROLLING_OVERLAY_INPUT_TEXT_CLASS}
-                          placeholder="친구"
-                          autoComplete="nickname"
-                        />
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[11px] font-medium text-slate-700">
-                          비밀번호
-                        </span>
-                        <input
-                          type="password"
-                          value={guestPassword}
-                          onChange={(e) => setGuestPassword(e.target.value)}
-                          className={ROLLING_OVERLAY_INPUT_CLASS}
-                          placeholder="비회원 작성 시 필요"
-                          autoComplete="new-password"
-                        />
-                      </label>
-                    </div>
-                  ) : (
+                  {loggedInState ? (
                     <p className="max-w-full shrink-0 text-center text-[11px] leading-snug text-white/85">
                       작성 후에는 이 슬롯에 다른 메시지를 넣을 수 없습니다.
                     </p>
-                  )}
+                  ) : null}
 
                   <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
                     <RollingPaperModalTextSlot>
@@ -1569,22 +1617,44 @@ export default function RollingPaperSlugPage({
                   ) : null}
 
                   <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                      onClick={() => setCreateOverlayStep("postit")}
-                      disabled={submitting}
-                    >
-                      이전
-                    </button>
-                    <button
-                      type="button"
-                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                      onClick={() => void handleSubmit()}
-                      disabled={submitting}
-                    >
-                      {submitting ? "전송 중…" : "등록"}
-                    </button>
+                    {loggedInState ? (
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                        onClick={() => setCreateOverlayStep("postit")}
+                        disabled={submitting}
+                      >
+                        이전
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                        onClick={() => closeModal()}
+                        disabled={submitting}
+                      >
+                        취소
+                      </button>
+                    )}
+                    {loggedInState ? (
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                        onClick={() => void handleSubmit()}
+                        disabled={submitting}
+                      >
+                        {submitting ? "전송 중…" : "등록"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                        onClick={() => handleGuestComposeComplete()}
+                        disabled={submitting}
+                      >
+                        완료
+                      </button>
+                    )}
                   </div>
                 </>
               )
