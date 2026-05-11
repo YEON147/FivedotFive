@@ -58,7 +58,9 @@ public final class WallpaperDisplayNames {
             Map.entry("wallpaper-47.png", "감천문화마을"),
             Map.entry("wallpaper-48.png", "흰여울마을"),
             Map.entry("wallpaper-49.png", "부산송정"),
-            Map.entry("wallpaper-50.png", "광안리")
+            Map.entry("wallpaper-50.png", "광안리"),
+            Map.entry("wallpaper-51.png", "한옥마을"),
+            Map.entry("wallpaper-52.png", "야시장골목")
 
     );
 
