@@ -36,6 +36,7 @@ import {
   STICKER_SLOT_IMAGE_MASKED,
   StickerSlots,
 } from "@/components/wishlist/WishlistSlots";
+import { logoutSession } from "@/features/login/api";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
 import type { MyProfile } from "@/features/user/types";
@@ -45,6 +46,7 @@ import {
   getComments,
   getPublicBoard,
   updateComment,
+  verifyGuestCommentPassword,
 } from "@/features/wishlist/api";
 import { isLoggedInOwnerOfBoardSlug } from "@/features/wishlist/resolve-logged-in-home";
 import {
@@ -84,11 +86,7 @@ import {
   fetchStickersByFolder,
   type StickerAssetDto,
 } from "@/lib/api/assets";
-import {
-  ACCESS_TOKEN_STORAGE_KEY,
-  clearAccessToken,
-  getAccessToken,
-} from "@/lib/api/token-store";
+import { ACCESS_TOKEN_STORAGE_KEY, getAccessToken } from "@/lib/api/token-store";
 import {
   PAGE_HEADER_BACK_BUTTON,
   PAGE_HEADER_LEADING_CLUSTER,
@@ -660,10 +658,11 @@ export default function PublicWishlistPage({
     setIsSidebarOpen((open) => !open);
   };
 
-  const handleVisitorLogout = useCallback(() => {
-    clearAccessToken();
+  const handleVisitorLogout = useCallback(async () => {
+    await logoutSession();
     clearWishlistPageSessionCache();
     setVisitorMenuLoggedIn(false);
+    setVisitorProfile(null);
     setIsSidebarOpen(false);
     router.push("/login");
   }, [router]);
@@ -1082,22 +1081,29 @@ export default function PublicWishlistPage({
   const handleUpdate = async (
     commentId: number,
     content: string,
-    guestPassword?: string,
+    guestMeta?: { verifyToken: string },
   ) => {
-    await updateComment(slug, commentId, {
-      content,
-      ...(guestPassword !== undefined ? { guestPassword } : {}),
-    });
+    const vt = guestMeta?.verifyToken?.trim();
+    if (vt) {
+      await updateComment(slug, commentId, { content, verifyToken: vt });
+    } else {
+      await updateComment(slug, commentId, { content });
+    }
     if (popupCommentPage !== null) await refreshCommentPage(popupCommentPage);
     handleClosePopup();
   };
 
   const handleDelete = async (commentId: number, guestPassword?: string) => {
-    await deleteComment(
-      slug,
-      commentId,
-      guestPassword !== undefined ? { guestPassword } : undefined,
-    );
+    if (guestPassword !== undefined) {
+      const verifyToken = await verifyGuestCommentPassword(
+        slug,
+        commentId,
+        guestPassword,
+      );
+      await deleteComment(slug, commentId, { verifyToken });
+    } else {
+      await deleteComment(slug, commentId);
+    }
     if (popupCommentPage !== null) await refreshCommentPage(popupCommentPage);
     handleClosePopup();
   };
@@ -1349,6 +1355,7 @@ export default function PublicWishlistPage({
         <CommentPopup
           mode={popupMode}
           comment={selectedComment}
+          boardSlug={slug}
           commentAsLoggedInUser={visitorMenuLoggedIn}
           canModifyComment={canModifySelectedComment}
           stickerOptions={commentStickerOptions}
