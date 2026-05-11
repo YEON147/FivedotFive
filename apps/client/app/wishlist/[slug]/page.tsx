@@ -30,12 +30,20 @@ import {
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
-  DESIGN_HEIGHT,
-  DESIGN_WIDTH,
   GiftSlots,
   STICKER_SLOT_IMAGE_MASKED,
   StickerSlots,
 } from "@/components/wishlist/WishlistSlots";
+import {
+  PUBLIC_BOARD_INNER,
+  PUBLIC_BOARD_PAGE_CENTER_CLASS,
+  PUBLIC_BOARD_PAGE_COLUMN_CLASS,
+  PUBLIC_BOARD_PAGE_MAIN_CLASS,
+  PUBLIC_BOARD_PAGE_Z10_CLASS,
+  PUBLIC_WISHLIST_BOARD_FRAME,
+  PUBLIC_WISHLIST_BOARD_WRAP,
+  publicBoardAspectRatioStyle,
+} from "@/lib/constants/public-board-shell";
 import { logoutSession } from "@/features/login/api";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
@@ -158,23 +166,6 @@ function isCommentListLastPageFullByShape(p: CommentListPayload): boolean {
 }
 
 type PopupMode = "view" | "write" | "edit";
-
-/**
- * `app/wishlist/page.tsx` 꾸미기·보드 영역과 동일 (`WISHLIST_BOARD_PAGE_WRAP`) — 흰 카드 셸 없음.
- */
-const PUBLIC_WISHLIST_BOARD_WRAP =
-  "relative flex h-full min-h-0 max-h-full w-full max-w-[min(420px,calc(100vw-1.5rem))] flex-1 flex-col overflow-visible bg-transparent";
-
-/**
- * 공개 보드 한 장 — `app/wishlist/page.tsx` 꾸미기 보드(`WISHLIST_BOARD_FRAME_BASE` + decorate)와 동일.
- * 배경 에셋이 없을 때도 오로라(`wishlist-board-frame--decorate`)가 깔림.
- */
-const PUBLIC_WISHLIST_BOARD_FRAME =
-  "relative isolate overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 wishlist-board-frame--decorate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 ring-violet-200/55";
-
-/** 배경 이미지는 위 레이어 — 없을 때는 바깥 프레임 오로라만 보임 */
-const PUBLIC_BOARD_INNER =
-  "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
 
 function PublicBoardProfileHeader({
   ownerName,
@@ -1126,23 +1117,18 @@ export default function PublicWishlistPage({
   }, [embeddedBgDraftKey, boardAssets]);
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col overflow-visible px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+    <main className={PUBLIC_BOARD_PAGE_MAIN_CLASS}>
       {selectedSlot !== null ? (
         <div className="fixed inset-0 z-20 bg-black/40" onClick={handleClosePopup} />
       ) : null}
 
-      <div className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-visible transition-all duration-300 ease-out">
+      <div className={PUBLIC_BOARD_PAGE_Z10_CLASS}>
         <section className={`${PUBLIC_WISHLIST_BOARD_WRAP} mx-auto min-h-0 w-full`}>
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-visible p-0">
+          <div className={PUBLIC_BOARD_PAGE_COLUMN_CLASS}>
             {/** `app/wishlist/page.tsx` 꾸미기 보드 래퍼와 동일 패딩 */}
             {/** `app/wishlist/page.tsx` 꾸미기 보드 래퍼와 동일: 세로 가운데 + 가로 중앙 */}
-            <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-visible px-1 pb-1 pt-2 sm:px-2 sm:pb-2 sm:pt-3">
-              <div
-                className={PUBLIC_WISHLIST_BOARD_FRAME}
-                style={{
-                  aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
-                }}
-              >
+            <div className={PUBLIC_BOARD_PAGE_CENTER_CLASS}>
+              <div className={PUBLIC_WISHLIST_BOARD_FRAME} style={publicBoardAspectRatioStyle()}>
                 {boardBackgroundUrl ? (
                   <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
                     {shouldUseNativeImg(boardBackgroundUrl) ? (
