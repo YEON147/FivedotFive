@@ -103,7 +103,7 @@ export default function RootLayout({
           />
         </noscript>
 
-        <Script id="google-tag-manager" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: GTM_SCRIPT }} />
+        <Script id="google-tag-manager" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: GTM_SCRIPT }} />
 
         {/* Google tag (gtag.js) — GA4 기초 + 자동 page_view */}
         <Script

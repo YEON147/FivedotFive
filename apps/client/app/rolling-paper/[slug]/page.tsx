@@ -1,6 +1,10 @@
 "use client";
 
-import { TextAlignJustify } from "@phosphor-icons/react";
+import {
+  CaretLeftIcon,
+  CaretRightIcon,
+  TextAlignJustify,
+} from "@phosphor-icons/react";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -37,6 +41,11 @@ import {
   type RollingPaperDetailPayload,
 } from "@/features/rolling-paper/api";
 import {
+  mapRollingCommentsToLocalSlots,
+  rollingPaperBoardSheetCount,
+  rollingPaperLastPageFullFromPayload,
+} from "@/features/rolling-paper/board-pagination";
+import {
   canEditRollingPaperGuestComment,
   rememberRollingPaperGuestComment,
 } from "@/features/rolling-paper/guest-comment-session";
@@ -52,23 +61,22 @@ import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
-import { getAssetImageUrl } from "@/lib/asset-url";
-import { effectivePublicSiteOrigin } from "@/lib/effective-site-origin";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import { RollingPaperBubbleLayer } from "@/components/rolling-paper/RollingPaperBubbleLayer";
 import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
 import { isMaskedOthersWishComment } from "@/features/wishlist/comment-display";
 import { getKstStartOfLocalDateMs } from "@/features/wishlist/comment-reveal-at";
 
-/** 롤링 포스트잇 슬롯 수 — 다이얼로그 제목·레이블 등과 동기화 */
+/**
+ * 보드 한 장(면)당 포스트잇 개수 — UI 슬롯·전역 `slotIndex` 묶음·GET `/comments` 의 `size` 와 동일.
+ * (위시 보드 슬롯 수와 별개 — 공통 상수로 두지 않음.)
+ */
 const ROLLING_POSTIT_SLOT_COUNT = 4;
 
 const GUEST_NICKNAME_MAX_LEN = 8;
 
 /** 메인 콜라주 미리보기에서 줄 수 제한을 걸기 시작하는 글자 수 */
 const BOARD_PREVIEW_LINE_CLAMP_MIN_CHARS = 100;
-
-const ROLLING_COMMENTS_FETCH_PAGE_SIZE = 8;
 
 function isRollingPaperForbiddenMessage(msg: string): boolean {
   return (
@@ -145,7 +153,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 1,
     src: "/rollingpaper/postit_02.png",
-    className: "left-[4%] top-[42%] z-[22] w-[62%] -rotate-[6deg]",
+    className: "left-[4%] top-[41%] z-[22] w-[62%] -rotate-[6deg]",
     aspect: [642, 571],
     alt: "포스트잇2",
   },
@@ -153,7 +161,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 2,
     src: "/rollingpaper/postit_03.png",
-    className: "right-[1.5%] bottom-[12%] z-[24] w-[46%] rotate-[5deg]",
+    className: "right-[1.5%] bottom-[14%] z-[24] w-[46%] rotate-[5deg]",
     aspect: [458, 542],
     alt: "포스트잇3",
   },
@@ -161,7 +169,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 3,
     src: "/rollingpaper/postit_04.png",
-    className: "left-[7%] bottom-[4%] z-[32] w-[44%] -rotate-[10deg]",
+    className: "left-[7%] bottom-[6%] z-[32] w-[44%] -rotate-[10deg]",
     aspect: [399, 436],
     alt: "포스트잇4",
   },
@@ -528,24 +536,6 @@ function RollingPaperPostitModalTextarea({
   );
 }
 
-/** API가 `slotIndex`를 문자열로 줄 때 대비 — 누락 시 특정 칸만 빈칸·모달 비표시처럼 보일 수 있음 */
-function normalizeRollingSlotIndex(raw: unknown): number | null {
-  let n: number | null = null;
-  if (typeof raw === "number" && Number.isFinite(raw)) {
-    n = Math.trunc(raw);
-  } else if (typeof raw === "string") {
-    const t = raw.trim();
-    if (!t) return null;
-    const parsed = Number.parseInt(t, 10);
-    if (Number.isFinite(parsed)) n = Math.trunc(parsed);
-  }
-  if (n === null) return null;
-  /** 네 번째 칸만 1-based `4`로 오는 응답 대비 */
-  if (n === 4) return 3;
-  if (n >= 0 && n <= 3) return n;
-  return null;
-}
-
 function displayNameFromSlug(slug: string): string {
   const raw = slug?.trim() || "";
   if (!raw) return "회원";
@@ -560,11 +550,7 @@ function displayNameFromSlug(slug: string): string {
 function rollingPaperAbsoluteShareUrl(slug: string, token: string | null): string {
   const s = slug?.trim();
   if (!s) return "";
-  const origin =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : effectivePublicSiteOrigin();
-  if (!origin) return "";
+  const origin = window.location.origin;
   const path = `/rolling-paper/${encodeURIComponent(s)}`;
   const t = token?.trim();
   if (t) return `${origin}${path}?token=${encodeURIComponent(t)}`;
@@ -642,22 +628,26 @@ export default function RollingPaperSlugPage({
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
-  /** `GET /api/users/me` 성공 시각 — 포커스·visibility 반복 시 과호출 방지 */
-  const lastVisitorMeSuccessAtRef = useRef(0);
-  const VISITOR_ME_COOLDOWN_MS = 45_000;
 
   const [detail, setDetail] = useState<RollingPaperDetailPayload | null>(null);
   const [detailForbidden, setDetailForbidden] = useState(false);
   const [slotComments, setSlotComments] = useState<
     Partial<Record<number, RollingPaperCommentRow>>
   >({});
+  /** 보드(면) 단위 페이지 — GET comments `page` 와 동일 (0부터) */
+  const [visibleBoardPage, setVisibleBoardPage] = useState(0);
+  const [commentsPaging, setCommentsPaging] = useState<{
+    totalPages: number;
+    lastPageFull: boolean;
+    totalCount: number;
+  }>({ totalPages: 0, lastPageFull: false, totalCount: 0 });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
-  /** 작성 오버레이: 포스트잇만 → 탭 후 입력 */
+  /** 작성 오버레이: 포스트잇 → 본문 입력 →(비회원) 닉네임·비밀번호 */
   const [createOverlayStep, setCreateOverlayStep] = useState<
-    "postit" | "compose"
+    "postit" | "compose" | "guestCredentials"
   >("postit");
   /** 빈 슬롯: 작성 / 채워진 슬롯: 내용만 보기 */
   const [modalMode, setModalMode] = useState<"create" | "view">("create");
@@ -681,10 +671,8 @@ export default function RollingPaperSlugPage({
   const [portalReady, setPortalReady] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
-  /** 소유자 공유 모달 — `POST .../share/comment` 단축 URL (실패 시 기존 롱 링크로 폴백) */
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
   const [ownerCommentShareFailed, setOwnerCommentShareFailed] = useState(false);
-  /** 소유자 — `POST .../share/view` 선물·저장 전용 단축 URL (탭 선택 시 요청) */
   const [ownerViewShareUrl, setOwnerViewShareUrl] = useState<string | null>(null);
   const [ownerViewExpiresAt, setOwnerViewExpiresAt] = useState<string | null>(null);
   const [ownerViewShareError, setOwnerViewShareError] = useState<string | null>(null);
@@ -758,32 +746,16 @@ export default function RollingPaperSlugPage({
     return () => {
       cancelled = true;
     };
-  }, [
-    isShareModalOpen,
-    detail?.isOwner,
-    slug,
-    shareTab,
-    ownerViewShareUrl,
-  ]);
+  }, [isShareModalOpen, detail?.isOwner, slug, shareTab, ownerViewShareUrl]);
 
-  const syncVisitorSession = useCallback(async (force = false) => {
+  const syncVisitorSession = useCallback(async () => {
     const token = getAccessToken()?.trim();
     if (!token) {
-      lastVisitorMeSuccessAtRef.current = 0;
       setVisitorMenuLoggedIn(false);
-      return;
-    }
-    const now = Date.now();
-    if (
-      !force &&
-      lastVisitorMeSuccessAtRef.current > 0 &&
-      now - lastVisitorMeSuccessAtRef.current < VISITOR_ME_COOLDOWN_MS
-    ) {
       return;
     }
     try {
       await getMyProfile();
-      lastVisitorMeSuccessAtRef.current = Date.now();
       setVisitorMenuLoggedIn(true);
     } catch {
       setVisitorMenuLoggedIn(!!getAccessToken()?.trim());
@@ -791,7 +763,7 @@ export default function RollingPaperSlugPage({
   }, []);
 
   useEffect(() => {
-    void syncVisitorSession(true);
+    void syncVisitorSession();
   }, [syncVisitorSession]);
 
   useEffect(() => {
@@ -803,8 +775,7 @@ export default function RollingPaperSlugPage({
     const onStorage = (e: StorageEvent) => {
       if (e.key === ACCESS_TOKEN_STORAGE_KEY || e.key === null) {
         syncTokens();
-        lastVisitorMeSuccessAtRef.current = 0;
-        void syncVisitorSession(true);
+        void syncVisitorSession();
       }
     };
     const onVisibility = () => {
@@ -825,7 +796,7 @@ export default function RollingPaperSlugPage({
 
   const handleRollingPaperMenuClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    void syncVisitorSession(true);
+    void syncVisitorSession();
     setIsSidebarOpen((open) => !open);
   };
 
@@ -958,13 +929,42 @@ export default function RollingPaperSlugPage({
     return ownerViewShareUrl?.trim() || null;
   }, [detail?.isOwner, ownerViewShareUrl]);
 
-  /** 받는 사람 프로필 — `rollingpaper-01` 폴라로이드 프레임 안쪽에 깔림 */
-  const recipientProfileImageUrl = useMemo(() => {
-    const key = detail?.imageKey?.trim();
-    if (!key) return null;
-    const url = getAssetImageUrl(key).trim();
-    return url || null;
-  }, [detail?.imageKey]);
+  const loadCommentsPage = useCallback(
+    async (pageIdx: number) => {
+      if (!slug.trim()) return;
+      const commentsRes = await getRollingPaperComments(slug, {
+        rollingToken,
+        page: pageIdx,
+        size: ROLLING_POSTIT_SLOT_COUNT,
+      });
+      const payload = commentsRes.data;
+      const totalCount = payload.totalCount ?? 0;
+      const lastFull = rollingPaperLastPageFullFromPayload(payload);
+      setCommentsPaging({
+        totalPages: payload.totalPages,
+        lastPageFull: lastFull,
+        totalCount,
+      });
+      setSlotComments(
+        mapRollingCommentsToLocalSlots(
+          pageIdx,
+          payload.comments,
+          ROLLING_POSTIT_SLOT_COUNT,
+        ),
+      );
+    },
+    [slug, rollingToken],
+  );
+
+  const boardsToRender = useMemo(
+    () =>
+      rollingPaperBoardSheetCount({
+        totalPages: commentsPaging.totalPages,
+        lastPageFull: commentsPaging.lastPageFull,
+        totalCount: commentsPaging.totalCount,
+      }),
+    [commentsPaging],
+  );
 
   const loadBoard = useCallback(async () => {
     if (!slug) return;
@@ -974,23 +974,10 @@ export default function RollingPaperSlugPage({
     setLoadError(null);
     setDetailForbidden(false);
     try {
-      const [detailRes, commentsRes] = await Promise.all([
-        getRollingPaperDetail(slug, rollingToken),
-        getRollingPaperComments(slug, {
-          rollingToken,
-          page: 0,
-          size: ROLLING_COMMENTS_FETCH_PAGE_SIZE,
-        }),
-      ]);
+      const detailRes = await getRollingPaperDetail(slug, rollingToken);
       setDetail(detailRes.data);
-      const next: Partial<Record<number, RollingPaperCommentRow>> = {};
-      for (const c of commentsRes.data.comments ?? []) {
-        const si = normalizeRollingSlotIndex(c.slotIndex);
-        if (si !== null) {
-          next[si] = c;
-        }
-      }
-      setSlotComments(next);
+      setVisibleBoardPage(0);
+      await loadCommentsPage(0);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "불러오지 못했습니다.";
       if (isRollingPaperForbiddenMessage(msg)) {
@@ -1002,16 +989,38 @@ export default function RollingPaperSlugPage({
     } finally {
       setLoading(false);
     }
-  }, [slug, rollingToken]);
+  }, [slug, rollingToken, loadCommentsPage]);
 
   useEffect(() => {
     void loadBoard();
   }, [loadBoard]);
 
+  useEffect(() => {
+    setVisibleBoardPage((p) =>
+      Math.min(p, Math.max(0, boardsToRender - 1)),
+    );
+  }, [boardsToRender]);
+
+  const goPrevBoard = useCallback(() => {
+    const next = Math.max(0, visibleBoardPage - 1);
+    if (next === visibleBoardPage) return;
+    setVisibleBoardPage(next);
+    void loadCommentsPage(next);
+  }, [visibleBoardPage, loadCommentsPage]);
+
+  const goNextBoard = useCallback(() => {
+    const max = Math.max(0, boardsToRender - 1);
+    const next = Math.min(max, visibleBoardPage + 1);
+    if (next === visibleBoardPage) return;
+    setVisibleBoardPage(next);
+    void loadCommentsPage(next);
+  }, [boardsToRender, visibleBoardPage, loadCommentsPage]);
+
   const canComment = detail?.canComment === true;
-  /** 조회·저장 전용(view 토큰) 방문자 — 공유 UI 숨김 (소유자·댓글 작성 링크 방문자만 공유 가능) */
-  const showRollingPaperShareEntry =
-    Boolean(detail && (detail.isOwner === true || canComment));
+
+  const showRollingPaperShareEntry = Boolean(
+    detail && (detail.isOwner === true || canComment),
+  );
 
   /** 포스트잇에 메시지가 올라간 개수 — 첫 방문 시 물방울 개수와 동일 */
   const filledMessageCount = useMemo(() => {
@@ -1065,6 +1074,21 @@ export default function RollingPaperSlugPage({
     setGuestEditVerifyToken(null);
   };
 
+  /** 비회원: 본문만 채운 뒤 완료 → 닉네임·비밀번호 단계로 이동 */
+  const handleGuestComposeComplete = () => {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      setFormError("내용을 입력해 주세요.");
+      return;
+    }
+    if (trimmed.length > CONTENT_MAX) {
+      setFormError(`댓글은 ${CONTENT_MAX}자 이내입니다.`);
+      return;
+    }
+    setFormError(null);
+    setCreateOverlayStep("guestCredentials");
+  };
+
   const handleSubmit = async () => {
     if (modalMode !== "create" || activeSlot === null || !slug) return;
     const member = Boolean(getAccessToken()?.trim());
@@ -1097,13 +1121,15 @@ export default function RollingPaperSlugPage({
     setFormError(null);
     setSubmitting(true);
     try {
+      const globalSlot =
+        visibleBoardPage * ROLLING_POSTIT_SLOT_COUNT + activeSlot;
       if (member) {
         await createRollingPaperComment(
           slug,
           {
             content: trimmed,
             stickerKey: DEFAULT_ROLLING_COMMENT_STICKER_KEY,
-            slotIndex: activeSlot,
+            slotIndex: globalSlot,
           },
           rollingToken,
         );
@@ -1113,7 +1139,7 @@ export default function RollingPaperSlugPage({
           {
             content: trimmed,
             stickerKey: DEFAULT_ROLLING_COMMENT_STICKER_KEY,
-            slotIndex: activeSlot,
+            slotIndex: globalSlot,
             guestNickname: guestNickname.trim(),
             guestPassword: guestPassword,
           },
@@ -1125,8 +1151,7 @@ export default function RollingPaperSlugPage({
         }
       }
       closeModal();
-      await loadBoard();
-      router.refresh();
+      await loadCommentsPage(visibleBoardPage);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "작성에 실패했습니다.";
@@ -1184,8 +1209,7 @@ export default function RollingPaperSlugPage({
       setViewModalStep("read");
       setGuestPassword("");
       setGuestEditVerifyToken(null);
-      await loadBoard();
-      router.refresh();
+      await loadCommentsPage(visibleBoardPage);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "수정에 실패했습니다.";
@@ -1248,17 +1272,21 @@ export default function RollingPaperSlugPage({
   }, [modalMode, activeSlot, slotComments, slug]);
 
   const rollingDialogTitle = useMemo(() => {
-    if (modalMode === "view" && activeSlot !== null) {
+    const labelSlot =
+      activeSlot !== null
+        ? visibleBoardPage * ROLLING_POSTIT_SLOT_COUNT + activeSlot + 1
+        : null;
+    if (modalMode === "view" && activeSlot !== null && labelSlot !== null) {
       if (viewModalStep === "edit") {
-        return `메시지 수정 (${activeSlot + 1}/${ROLLING_POSTIT_SLOT_COUNT})`;
+        return `메시지 수정 (${labelSlot}번 슬롯)`;
       }
-      return `메시지 보기 (${activeSlot + 1}/${ROLLING_POSTIT_SLOT_COUNT})`;
+      return `메시지 보기 (${labelSlot}번 슬롯)`;
     }
-    if (activeSlot !== null) {
-      return `메시지 작성 (${activeSlot + 1}/${ROLLING_POSTIT_SLOT_COUNT})`;
+    if (activeSlot !== null && labelSlot !== null) {
+      return `메시지 작성 (${labelSlot}번 슬롯)`;
     }
     return "메시지 작성";
-  }, [activeSlot, modalMode, viewModalStep]);
+  }, [activeSlot, modalMode, viewModalStep, visibleBoardPage]);
 
   if (!slug) {
     return (
@@ -1270,7 +1298,9 @@ export default function RollingPaperSlugPage({
 
   const modalPanelNeedsInnerScroll =
     modalMode === "view" ||
-    (modalMode === "create" && createOverlayStep === "compose");
+    (modalMode === "create" &&
+      (createOverlayStep === "compose" ||
+        createOverlayStep === "guestCredentials"));
 
   const rollingPaperOverlay = (
     <div
@@ -1493,47 +1523,78 @@ export default function RollingPaperSlugPage({
                     text="탭하여 작성"
                   />
                 </button>
+              ) : createOverlayStep === "guestCredentials" ? (
+                <>
+                  <div className={`${ROLLING_OVERLAY_GUEST_CARD_CLASS} w-full`}>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] font-medium text-slate-700">
+                        닉네임 (필수, 최대 {GUEST_NICKNAME_MAX_LEN}자)
+                      </span>
+                      <input
+                        type="text"
+                        value={guestNickname}
+                        onChange={(e) =>
+                          setGuestNickname(
+                            e.target.value.slice(0, GUEST_NICKNAME_MAX_LEN),
+                          )
+                        }
+                        maxLength={GUEST_NICKNAME_MAX_LEN}
+                        className={ROLLING_OVERLAY_INPUT_TEXT_CLASS}
+                        placeholder="친구"
+                        autoComplete="nickname"
+                        autoFocus
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] font-medium text-slate-700">
+                        비밀번호 (필수)
+                      </span>
+                      <input
+                        type="password"
+                        value={guestPassword}
+                        onChange={(e) => setGuestPassword(e.target.value)}
+                        className={ROLLING_OVERLAY_INPUT_CLASS}
+                        placeholder="메시지 수정 시 필요해요"
+                        autoComplete="new-password"
+                      />
+                    </label>
+                  </div>
+
+                  {formError ? (
+                    <p className="text-[13px] text-red-200" role="alert">
+                      {formError}
+                    </p>
+                  ) : null}
+
+                  <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                      onClick={() => {
+                        setFormError(null);
+                        setCreateOverlayStep("compose");
+                      }}
+                      disabled={submitting}
+                    >
+                      이전
+                    </button>
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                      onClick={() => void handleSubmit()}
+                      disabled={submitting}
+                    >
+                      {submitting ? "전송 중…" : "등록"}
+                    </button>
+                  </div>
+                </>
               ) : (
                 <>
-                  {!loggedInState ? (
-                    <div className={ROLLING_OVERLAY_GUEST_CARD_CLASS}>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[11px] font-medium text-slate-700">
-                          닉네임 (최대 {GUEST_NICKNAME_MAX_LEN}자)
-                        </span>
-                        <input
-                          type="text"
-                          value={guestNickname}
-                          onChange={(e) =>
-                            setGuestNickname(
-                              e.target.value.slice(0, GUEST_NICKNAME_MAX_LEN),
-                            )
-                          }
-                          maxLength={GUEST_NICKNAME_MAX_LEN}
-                          className={ROLLING_OVERLAY_INPUT_TEXT_CLASS}
-                          placeholder="친구"
-                          autoComplete="nickname"
-                        />
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[11px] font-medium text-slate-700">
-                          비밀번호
-                        </span>
-                        <input
-                          type="password"
-                          value={guestPassword}
-                          onChange={(e) => setGuestPassword(e.target.value)}
-                          className={ROLLING_OVERLAY_INPUT_CLASS}
-                          placeholder="비회원 작성 시 필요"
-                          autoComplete="new-password"
-                        />
-                      </label>
-                    </div>
-                  ) : (
+                  {loggedInState ? (
                     <p className="max-w-full shrink-0 text-center text-[11px] leading-snug text-white/85">
                       작성 후에는 이 슬롯에 다른 메시지를 넣을 수 없습니다.
                     </p>
-                  )}
+                  ) : null}
 
                   <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
                     <RollingPaperModalTextSlot>
@@ -1556,22 +1617,44 @@ export default function RollingPaperSlugPage({
                   ) : null}
 
                   <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                      onClick={() => setCreateOverlayStep("postit")}
-                      disabled={submitting}
-                    >
-                      이전
-                    </button>
-                    <button
-                      type="button"
-                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                      onClick={() => void handleSubmit()}
-                      disabled={submitting}
-                    >
-                      {submitting ? "전송 중…" : "등록"}
-                    </button>
+                    {loggedInState ? (
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                        onClick={() => setCreateOverlayStep("postit")}
+                        disabled={submitting}
+                      >
+                        이전
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                        onClick={() => closeModal()}
+                        disabled={submitting}
+                      >
+                        취소
+                      </button>
+                    )}
+                    {loggedInState ? (
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                        onClick={() => void handleSubmit()}
+                        disabled={submitting}
+                      >
+                        {submitting ? "전송 중…" : "등록"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                        onClick={() => handleGuestComposeComplete()}
+                        disabled={submitting}
+                      >
+                        완료
+                      </button>
+                    )}
                   </div>
                 </>
               )
@@ -1662,38 +1745,25 @@ export default function RollingPaperSlugPage({
                                 style={{ aspectRatio: `${aw} / ${ah}` }}
                               >
                                 <div className="relative h-full w-full">
-                                  {/* 프레임 PNG 사진 구멍이 불투명 흰색이면 아래 레이어 이미지가 안 보임 → 프레임을 먼저 깔고 CDN 사진을 창 영역만 위에 얹음 */}
                                   <Image
                                     src={rollingPaperImageSrc(piece.src)}
                                     alt={piece.alt}
                                     fill
-                                    className="z-0 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
+                                    className="object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                     sizes="(max-width: 420px) 50vw, 220px"
                                     priority
                                     {...rollingPaperImageDevProps}
                                   />
-                                  {recipientProfileImageUrl ? (
-                                    <div className="absolute left-[7%] right-[7%] top-[15%] bottom-[16%] z-[2] overflow-hidden rounded-[2px] bg-[#e8e8e6] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] origin-center rotate-[2deg]">
-                                      {/* eslint-disable-next-line @next/next/no-img-element -- CDN assetKey URL */}
-                                      <img
-                                        src={recipientProfileImageUrl}
-                                        alt={
-                                          detail?.recipientName?.trim()
-                                            ? `${detail.recipientName} 님`
-                                            : "받는 사람"
-                                        }
-                                        className="h-full w-full object-cover object-center"
-                                        loading="eager"
-                                        decoding="async"
-                                      />
-                                    </div>
-                                  ) : null}
                                 </div>
                               </div>
                             );
                           }
 
                           const slotIdx = piece.slotIndex;
+                          const globalPostitNo =
+                            visibleBoardPage * ROLLING_POSTIT_SLOT_COUNT +
+                            slotIdx +
+                            1;
                           const row = slotComments[slotIdx];
                           const occupied = Boolean(row);
                           const masked =
@@ -1747,14 +1817,14 @@ export default function RollingPaperSlugPage({
                                   <button
                                     type="button"
                                     className="absolute inset-0 z-10 cursor-pointer rounded-sm bg-transparent transition hover:bg-black/[0.03] active:bg-black/[0.06]"
-                                    aria-label={`포스트잇 ${slotIdx + 1}번에 메시지 작성`}
+                                    aria-label={`포스트잇 ${globalPostitNo}번에 메시지 작성`}
                                     onClick={() => openCreateModal(slotIdx)}
                                   />
                                 ) : occupied ? (
                                   <button
                                     type="button"
                                     className="absolute inset-0 z-10 cursor-pointer rounded-sm bg-transparent transition hover:bg-black/[0.03] active:bg-black/[0.06]"
-                                    aria-label={`포스트잇 ${slotIdx + 1}번 메시지 보기`}
+                                    aria-label={`포스트잇 ${globalPostitNo}번 메시지 보기`}
                                     onClick={() => openViewModal(slotIdx)}
                                   />
                                 ) : null}
@@ -1762,6 +1832,37 @@ export default function RollingPaperSlugPage({
                             </div>
                           );
                         })}
+
+                        <div
+                          className={`pointer-events-none absolute bottom-2 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 transition-opacity duration-200 sm:bottom-3 sm:gap-2.5 ${
+                            modalOpen ? "opacity-0" : "opacity-100"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            disabled={loading || visibleBoardPage <= 0}
+                            onClick={goPrevBoard}
+                            className="pointer-events-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white disabled:pointer-events-none disabled:opacity-35"
+                            aria-label="이전 보드"
+                          >
+                            <CaretLeftIcon size={20} weight="bold" />
+                          </button>
+                          <span className="pointer-events-none min-w-[3.25rem] text-center text-[11px] font-semibold tabular-nums text-slate-700">
+                            {visibleBoardPage + 1} / {boardsToRender}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={
+                              loading ||
+                              visibleBoardPage >= boardsToRender - 1
+                            }
+                            onClick={goNextBoard}
+                            className="pointer-events-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white disabled:pointer-events-none disabled:opacity-35"
+                            aria-label="다음 보드"
+                          >
+                            <CaretRightIcon size={20} weight="bold" />
+                          </button>
+                        </div>
                       </div>
 
                       {showRollingPaperShareEntry ? (
@@ -1779,6 +1880,7 @@ export default function RollingPaperSlugPage({
                     </>
                   )}
                   </div>
+
                 </div>
 
                 <RollingPaperProfileHeader
