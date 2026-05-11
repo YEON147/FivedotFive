@@ -75,6 +75,8 @@ type CommentPopupProps = {
     guestMeta?: { verifyToken: string },
   ) => Promise<void>;
   onDelete: (commentId: number, guestPassword?: string) => Promise<void>;
+  /** 보드 기념일 0시(KST) 기준 공개 카운트다운 — 마스킹된 타인 댓글 보기 시 사용 */
+  commentRevealAtMs?: number;
 };
 
 const GUEST_NICKNAME_MAX = 8;
@@ -97,6 +99,7 @@ export function CommentPopup({
   canModifyComment,
   onUpdate,
   onDelete,
+  commentRevealAtMs,
 }: CommentPopupProps) {
   const [content, setContent] = useState(mode === "edit" ? (comment?.content ?? "") : "");
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
@@ -498,7 +501,14 @@ export function CommentPopup({
                 aria-live="polite"
                 aria-atomic="true"
               >
-                <CommentRevealCountdown />
+                <CommentRevealCountdown
+                  revealAtMs={
+                    typeof commentRevealAtMs === "number" &&
+                    Number.isFinite(commentRevealAtMs)
+                      ? commentRevealAtMs
+                      : undefined
+                  }
+                />
               </p>
               <p className="mt-1.5 text-[11px] leading-snug text-violet-700/85">
                 공개 후 작성자 닉네임·내용·선물 아이콘이 표시됩니다.

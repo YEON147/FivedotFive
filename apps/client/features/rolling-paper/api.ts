@@ -64,8 +64,26 @@ export type RollingPaperDetailPayload = {
   canComment: boolean;
   canSave: boolean;
   isCommentPublic: boolean;
+  /** 서버 계산 — 타인 댓글 마스킹 해제 여부 */
+  commentsRevealed?: boolean;
   commentToken?: string | null;
   viewToken?: string | null;
+};
+
+/** GET /api/rolling-papers/me/list */
+export type RollingPaperSummaryItem = {
+  slug: string;
+  title: string;
+  recipientName: string;
+  targetDate: string;
+  createdAt: string;
+  imageKey?: string | null;
+};
+
+export type RollingPaperMyListData = {
+  success?: boolean;
+  message?: string;
+  data: RollingPaperSummaryItem[];
 };
 
 export type RollingPaperDetailData = {
@@ -148,6 +166,11 @@ export async function postRollingPaperShareViewLink(
   );
 }
 
+/** GET /api/rolling-papers/me/list — 로그인 회원만 */
+export async function getMyRollingPapersList(): Promise<RollingPaperMyListData> {
+  return apiClient<RollingPaperMyListData>("/api/rolling-papers/me/list");
+}
+
 /** GET /api/rolling-papers/{slug}/comments */
 export async function getRollingPaperComments(
   slug: string,
@@ -185,67 +208,131 @@ export type CreateRollingPaperCommentBodyGuest =
     guestPassword: string;
   };
 
-/** POST /api/rolling-papers/{slug}/comments — 회원은 JWT, 비회원은 guest 필드 필수, 공유 링크는 `X-Rolling-Token` */
+/** POST /api/rolling-papers/{slug}/comments — 회원은 JWT(`apiClient`), 비회원은 guest 필드·`publicApiClient`, 공유 링크는 `X-Rolling-Token` */
 export async function createRollingPaperComment(
   slug: string,
   body: CreateRollingPaperCommentBodyMember | CreateRollingPaperCommentBodyGuest,
   rollingToken?: string | null,
 ): Promise<RollingPaperCommentCreateData> {
   const enc = encodeRollingSlug(slug);
+  const headers = mergeRollingPaperHeaders(rollingToken, {
+    "Content-Type": "application/json",
+  });
+  const isGuest =
+    "guestNickname" in body && "guestPassword" in body;
+  if (isGuest) {
+    return publicApiClient<RollingPaperCommentCreateData>(
+      `/api/rolling-papers/${enc}/comments`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      },
+    );
+  }
   return apiClient<RollingPaperCommentCreateData>(
     `/api/rolling-papers/${enc}/comments`,
     {
       method: "POST",
-      headers: mergeRollingPaperHeaders(rollingToken, {
-        "Content-Type": "application/json",
-      }),
+      headers,
       body: JSON.stringify(body),
     },
   );
 }
 
+/** POST /api/rolling-papers/{slug}/comments/{commentId}/verify — 비회원 비밀번호 검증 → 단기 verifyToken + 편집용 본문 */
+export type RollingPaperCommentVerifyEnvelope = {
+  success?: boolean;
+  message?: string;
+  data?: { verifyToken?: string; content?: string | null };
+};
+
+export async function verifyRollingPaperGuestCommentPassword(
+  slug: string,
+  commentId: number,
+  guestPassword: string,
+): Promise<{ verifyToken: string; content: string }> {
+  const enc = encodeRollingSlug(slug);
+  const res = await publicApiClient<RollingPaperCommentVerifyEnvelope>(
+    `/api/rolling-papers/${enc}/comments/${commentId}/verify`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guestPassword: guestPassword.trim() }),
+    },
+  );
+  const token = res.data?.verifyToken?.trim();
+  if (!token) {
+    throw new Error(res.message ?? "인증 토큰을 받지 못했습니다.");
+  }
+  const raw = res.data?.content;
+  const content = typeof raw === "string" ? raw : "";
+  return { verifyToken: token, content };
+}
+
+export type UpdateRollingPaperCommentPayload = {
+  content: string;
+  verifyToken?: string;
+  rollingToken?: string | null;
+};
+
 /**
  * PATCH /api/rolling-papers/{slug}/comments/{commentId}
- * - 회원 본인 댓글: `Authorization: Bearer` + 본문 `{ content }` 만 (`apiClient`)
- * - 비회원 댓글: Authorization 없음 + `{ content, guestPassword }` (`publicApiClient`)
+ * - 회원: JWT + `{ content }` (`apiClient`)
+ * - 비회원: `{ content, verifyToken }` (`publicApiClient`)
  */
 export async function updateRollingPaperComment(
   slug: string,
   commentId: number,
-  params:
-    | {
-        mode: "member";
-        content: string;
-        rollingToken?: string | null;
-      }
-    | {
-        mode: "guest";
-        content: string;
-        guestPassword: string;
-        rollingToken?: string | null;
-      },
+  payload: UpdateRollingPaperCommentPayload,
 ): Promise<{ success?: boolean; message?: string }> {
   const enc = encodeRollingSlug(slug);
   const path = `/api/rolling-papers/${enc}/comments/${commentId}`;
-
-  if (params.mode === "guest") {
+  const body: Record<string, unknown> = {
+    content: payload.content.trim(),
+  };
+  const vt = payload.verifyToken?.trim();
+  if (vt) {
+    body.verifyToken = vt;
     return publicApiClient<{ success?: boolean; message?: string }>(path, {
       method: "PATCH",
-      headers: mergeRollingPaperHeaders(params.rollingToken, {
+      headers: mergeRollingPaperHeaders(payload.rollingToken, {
         "Content-Type": "application/json",
       }),
-      body: JSON.stringify({
-        content: params.content.trim(),
-        guestPassword: params.guestPassword.trim(),
-      }),
+      body: JSON.stringify(body),
     });
   }
-
   return apiClient<{ success?: boolean; message?: string }>(path, {
     method: "PATCH",
-    headers: mergeRollingPaperHeaders(params.rollingToken, {
+    headers: mergeRollingPaperHeaders(payload.rollingToken, {
       "Content-Type": "application/json",
     }),
-    body: JSON.stringify({ content: params.content.trim() }),
+    body: JSON.stringify(body),
+  });
+}
+
+/** DELETE — 회원: JWT. 비회원: `{ verifyToken }` */
+export async function deleteRollingPaperComment(
+  slug: string,
+  commentId: number,
+  options?: { verifyToken?: string },
+  rollingToken?: string | null,
+): Promise<void> {
+  const enc = encodeRollingSlug(slug);
+  const path = `/api/rolling-papers/${enc}/comments/${commentId}`;
+  const vt = options?.verifyToken?.trim();
+  if (vt) {
+    await publicApiClient(path, {
+      method: "DELETE",
+      headers: mergeRollingPaperHeaders(rollingToken, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({ verifyToken: vt }),
+    });
+    return;
+  }
+  await apiClient(path, {
+    method: "DELETE",
+    headers: mergeRollingPaperHeaders(rollingToken),
   });
 }
