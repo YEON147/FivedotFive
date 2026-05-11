@@ -9,13 +9,16 @@ import com.ssafy.oh_jjeom_oh.domain.auth.service.AuthService;
 import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
 import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
 import com.ssafy.oh_jjeom_oh.domain.auth.service.NicknameService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -123,7 +126,15 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @CookieValue(value = "refreshToken", required = false) String refreshToken,
+            HttpServletRequest request,
             HttpServletResponse response) {
+
+        // 서버 사이드 세션 및 인증 정보 즉시 파기
+        SecurityContextHolder.clearContext(); // 현재 스레드의 인증 정보 삭제
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate(); // 서버 세션 파기
+        }
 
         if (refreshToken != null) {
             authService.logout(refreshToken);
@@ -138,6 +149,15 @@ public class AuthController {
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        ResponseCookie sessionCookie = ResponseCookie.from("JSESSIONID", "")
+                .httpOnly(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .secure(true)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.toString());
 
         return ResponseEntity.ok()
                 .body(ApiResponse.success(SuccessMessage.LOGOUT_SUCCESS));
