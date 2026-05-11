@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api/client";
+import { apiClient, publicApiClient } from "@/lib/api/client";
 import { isRollingPaperListType } from "@/lib/board-entry-path";
 import type {
   BoardAssetData,
@@ -742,10 +742,36 @@ export async function createComment(
   );
 }
 
-/** PATCH /api/boards/:slug/comments/:id — 비회원 시 guestPassword 필수 */
+/** POST /api/boards/:slug/comments/:commentId/verify — 비회원 비밀번호 검증 → 단기 verifyToken */
+export type CommentVerifyEnvelope = {
+  success?: boolean;
+  message?: string;
+  data?: { verifyToken?: string };
+};
+
+export async function verifyGuestCommentPassword(
+  slug: string,
+  commentId: number,
+  guestPassword: string,
+): Promise<string> {
+  const res = await publicApiClient<CommentVerifyEnvelope>(
+    `/api/boards/${encodeBoardSlug(slug)}/comments/${commentId}/verify`,
+    {
+      method: "POST",
+      body: JSON.stringify({ guestPassword: guestPassword.trim() }),
+    },
+  );
+  const token = res.data?.verifyToken?.trim();
+  if (!token) {
+    throw new Error(res.message ?? "인증 토큰을 받지 못했습니다.");
+  }
+  return token;
+}
+
+/** PATCH /api/boards/:slug/comments/:id — 회원: JWT + `{ content }`. 비회원: `{ content, verifyToken }` */
 export type UpdateCommentPayload = {
   content: string;
-  guestPassword?: string;
+  verifyToken?: string;
 };
 
 export async function updateComment(
@@ -753,29 +779,41 @@ export async function updateComment(
   commentId: number,
   payload: UpdateCommentPayload,
 ): Promise<void> {
+  const path = `/api/boards/${encodeBoardSlug(slug)}/comments/${commentId}`;
   const body: Record<string, unknown> = {
     content: payload.content,
   };
-  const gp = payload.guestPassword;
-  if (gp !== undefined && gp !== "") {
-    body.guestPassword = gp;
+  const vt = payload.verifyToken?.trim();
+  if (vt) {
+    body.verifyToken = vt;
+    await publicApiClient(path, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+    return;
   }
-  await apiClient(`/api/boards/${encodeBoardSlug(slug)}/comments/${commentId}`, {
+  await apiClient(path, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
 }
 
-/** DELETE /api/boards/:slug/comments/:id — 비회원 시 body에 guestPassword */
+/** DELETE /api/boards/:slug/comments/:id — 회원: JWT. 비회원: `{ verifyToken }` */
 export async function deleteComment(
   slug: string,
   commentId: number,
-  options?: { guestPassword?: string },
+  options?: { verifyToken?: string },
 ): Promise<void> {
-  const gp = options?.guestPassword;
-  const hasBody = gp !== undefined && gp !== "";
-  await apiClient(`/api/boards/${encodeBoardSlug(slug)}/comments/${commentId}`, {
+  const path = `/api/boards/${encodeBoardSlug(slug)}/comments/${commentId}`;
+  const vt = options?.verifyToken?.trim();
+  if (vt) {
+    await publicApiClient(path, {
+      method: "DELETE",
+      body: JSON.stringify({ verifyToken: vt }),
+    });
+    return;
+  }
+  await apiClient(path, {
     method: "DELETE",
-    ...(hasBody ? { body: JSON.stringify({ guestPassword: gp }) } : {}),
   });
 }

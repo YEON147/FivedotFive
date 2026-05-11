@@ -15,6 +15,8 @@ import {
   isMaskedOthersWishComment,
   isSoftDeletedWishComment,
 } from "@/features/wishlist/comment-display";
+import { getRandomNickname } from "@/features/signup/api";
+import { verifyGuestCommentPassword } from "@/features/wishlist/api";
 import type { CommentData, StickerOption } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
 import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
@@ -46,6 +48,8 @@ export type CommentCreateGuestFields = {
 type CommentPopupProps = {
   mode: PopupMode;
   comment: CommentData | null;
+  /** 비회원 댓글 수정 인증·검증 API용 보드 슬러그 */
+  boardSlug?: string;
   /** 로그인 방문자면 게스트 필드 숨김·전송 생략 */
   commentAsLoggedInUser?: boolean;
   stickerOptions: StickerOption[];
@@ -68,7 +72,7 @@ type CommentPopupProps = {
   onUpdate: (
     commentId: number,
     content: string,
-    guestPassword?: string,
+    guestMeta?: { verifyToken: string },
   ) => Promise<void>;
   onDelete: (commentId: number, guestPassword?: string) => Promise<void>;
 };
@@ -78,6 +82,7 @@ const GUEST_NICKNAME_MAX = 8;
 export function CommentPopup({
   mode,
   comment,
+  boardSlug = "",
   commentAsLoggedInUser = false,
   stickerOptions,
   stickerTabs,
@@ -96,15 +101,18 @@ export function CommentPopup({
   const [content, setContent] = useState(mode === "edit" ? (comment?.content ?? "") : "");
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
   const [guestNickname, setGuestNickname] = useState("");
+  const [guestNicknameLoading, setGuestNicknameLoading] = useState(false);
   const [guestPassword, setGuestPassword] = useState("");
   /** 비회원만: 1 = 이름·비밀번호, 2 = 스티커·댓글 */
   const [guestWriteStep, setGuestWriteStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  /** 비회원 댓글 수정 시 API `guestPassword` */
-  const [editGuestPassword, setEditGuestPassword] = useState("");
-  /** 비회원 댓글 삭제 확인 시 API `guestPassword` */
+  /** 비회원 댓글 수정 — 게이트에서 verify 후 저장까지 유지(1회 PATCH) */
+  const [guestEditVerifyToken, setGuestEditVerifyToken] = useState<string | null>(null);
+  const [editPasswordGateOpen, setEditPasswordGateOpen] = useState(false);
+  const [editGatePassword, setEditGatePassword] = useState("");
+  /** 비회원 댓글 삭제 확인 */
   const [deleteGuestPassword, setDeleteGuestPassword] = useState("");
 
   // 10초 쿨다운 카운트다운
@@ -129,6 +137,13 @@ export function CommentPopup({
   }, [mode, comment?.id, comment?.content]);
 
   useEffect(() => {
+    setGuestEditVerifyToken(null);
+    setEditGatePassword("");
+    setEditPasswordGateOpen(false);
+    setDeleteGuestPassword("");
+  }, [comment?.id]);
+
+  useEffect(() => {
     if (!comment || mode !== "view") {
       setDeleteConfirmOpen(false);
     }
@@ -142,15 +157,34 @@ export function CommentPopup({
     });
   }, [mode, stickerOptions, stickerFolderId]);
 
-  const prevModeRef = useRef<PopupMode>(mode);
+  /** 비회원 댓글 쓰기: 모드가 처음부터 `write`여도 반드시 요청되도록 `enteredWrite` 패턴 사용 안 함 */
   useEffect(() => {
-    const enteredWrite = prevModeRef.current !== "write" && mode === "write";
-    prevModeRef.current = mode;
-    if (enteredWrite && !commentAsLoggedInUser) {
-      setGuestNickname("");
-      setGuestPassword("");
-      setGuestWriteStep(1);
-    }
+    if (mode !== "write" || commentAsLoggedInUser) return;
+
+    let cancelled = false;
+    setGuestPassword("");
+    setGuestWriteStep(1);
+    setGuestNickname("");
+    setGuestNicknameLoading(true);
+    setError(null);
+
+    void getRandomNickname()
+      .then((nick) => {
+        if (!cancelled) setGuestNickname(nick.slice(0, GUEST_NICKNAME_MAX));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGuestNickname("");
+          setError("랜덤 닉네임을 불러오지 못했습니다. 팝업을 닫았다가 다시 시도해 주세요.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setGuestNicknameLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [mode, commentAsLoggedInUser]);
 
   useEffect(() => {
@@ -185,13 +219,13 @@ export function CommentPopup({
       setError(`댓글은 10초에 한 번만 작성할 수 있습니다. (${cooldown}초 후 가능)`);
       return;
     }
-    const nick = guestNickname.trim();
-    if (!nick) {
-      setError("닉네임을 입력해주세요.");
+    if (guestNicknameLoading) {
+      setError("랜덤 닉네임을 불러오는 중입니다.");
       return;
     }
-    if (nick.length > GUEST_NICKNAME_MAX) {
-      setError(`닉네임은 ${GUEST_NICKNAME_MAX}자 이하로 입력해주세요.`);
+    const nick = guestNickname.trim();
+    if (!nick) {
+      setError("랜덤 닉네임을 불러오지 못했습니다. 팝업을 닫았다가 다시 시도해 주세요.");
       return;
     }
     if (!guestPassword.trim()) {
@@ -273,17 +307,21 @@ export function CommentPopup({
     }
     const allowModify = canModifyComment ?? !!comment.isUser;
     const guestEdit = allowModify && !comment.isUser;
-    if (guestEdit && !editGuestPassword.trim()) {
-      setError("비밀번호를 입력해주세요.");
-      return;
+    if (guestEdit) {
+      const vt = guestEditVerifyToken?.trim();
+      if (!vt) {
+        setError("비밀번호 확인이 필요합니다.");
+        return;
+      }
     }
     setError(null);
     setLoading(true);
     try {
+      const vt = guestEditVerifyToken?.trim();
       await onUpdate(
         comment.id,
         content.trim(),
-        guestEdit ? editGuestPassword : undefined,
+        guestEdit && vt ? { verifyToken: vt } : undefined,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "댓글 수정에 실패했습니다.");
@@ -315,9 +353,56 @@ export function CommentPopup({
 
   const handleEditClick = () => {
     setContent(comment?.content ?? "");
-    setEditGuestPassword("");
     setError(null);
+    const allowModify = canModifyComment ?? !!comment?.isUser;
+    const guestLocked = comment && allowModify && !comment.isUser;
+    if (guestLocked) {
+      const slug = boardSlug.trim();
+      if (!slug) {
+        setError("보드 정보가 없어 수정할 수 없습니다.");
+        return;
+      }
+      setEditGatePassword("");
+      setEditPasswordGateOpen(true);
+      return;
+    }
+    setGuestEditVerifyToken(null);
     onModeChange("edit");
+  };
+
+  const submitEditPasswordGate = async () => {
+    if (!comment) return;
+    const slug = boardSlug.trim();
+    if (!slug) {
+      setError("보드 정보가 없어 수정할 수 없습니다.");
+      return;
+    }
+    const pwd = editGatePassword.trim();
+    if (!pwd) {
+      setError("비밀번호를 입력해주세요.");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const token = await verifyGuestCommentPassword(slug, comment.id, pwd);
+      setGuestEditVerifyToken(token);
+      setEditPasswordGateOpen(false);
+      setEditGatePassword("");
+      setContent(comment.content ?? "");
+      onModeChange("edit");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "비밀번호 확인에 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const closeEditPasswordGate = () => {
+    if (loading) return;
+    setError(null);
+    setEditGatePassword("");
+    setEditPasswordGateOpen(false);
   };
 
   const isDisabled = loading || isSubmitting;
@@ -344,11 +429,6 @@ export function CommentPopup({
   const allowModifyComment = canModifyComment ?? !!comment?.isUser;
   const guestDeleteNeedsPassword =
     !!comment && allowModifyComment && !comment.isUser;
-  const showGuestPasswordOnEdit =
-    mode === "edit" &&
-    comment &&
-    allowModifyComment &&
-    !comment.isUser;
 
   return (
     <>
@@ -485,17 +565,24 @@ export function CommentPopup({
               <div>
                 <p className="mb-2 text-xs font-semibold text-slate-500">
                   닉네임 *{" "}
-                  <span className="font-normal text-slate-400">(최대 {GUEST_NICKNAME_MAX}자)</span>
+                  <span className="font-normal text-slate-400">(랜덤 배정 · 변경 불가)</span>
                 </p>
                 <input
                   type="text"
+                  readOnly
                   value={guestNickname}
-                  onChange={(e) => setGuestNickname(e.target.value.slice(0, GUEST_NICKNAME_MAX))}
                   maxLength={GUEST_NICKNAME_MAX}
-                  disabled={isWriteBlocked}
-                  autoComplete="nickname"
-                  placeholder="표시될 이름"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+                  disabled={isWriteBlocked || guestNicknameLoading}
+                  autoComplete="off"
+                  placeholder={
+                    guestNicknameLoading
+                      ? "랜덤 닉네임 생성 중..."
+                      : guestNickname
+                        ? ""
+                        : "랜덤 닉네임을 불러오지 못했습니다"
+                  }
+                  aria-readonly="true"
+                  className="w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 outline-none disabled:opacity-40"
                 />
               </div>
               <div>
@@ -514,10 +601,14 @@ export function CommentPopup({
               <button
                 type="button"
                 onClick={handleGuestContinueToStickerStep}
-                disabled={isDisabled || isWriteBlocked}
+                disabled={isDisabled || isWriteBlocked || guestNicknameLoading || !guestNickname.trim()}
                 className="w-full rounded-2xl bg-[#7B61FF] py-3 text-sm font-semibold text-white transition hover:bg-[#6b52e0] disabled:opacity-40"
               >
-                {isWriteBlocked ? `${cooldown}초 후 작성 가능` : "댓글 작성하기"}
+                {isWriteBlocked
+                  ? `${cooldown}초 후 작성 가능`
+                  : guestNicknameLoading
+                    ? "닉네임 불러오는 중…"
+                    : "댓글 작성하기"}
               </button>
             </div>
           ) : null}
@@ -699,21 +790,6 @@ export function CommentPopup({
             <p className="mt-1 text-right text-xs text-slate-400">{content.length} / 200</p>
           </div>
 
-          {showGuestPasswordOnEdit ? (
-            <div>
-              <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
-              <input
-                type="password"
-                value={editGuestPassword}
-                onChange={(e) => setEditGuestPassword(e.target.value)}
-                disabled={isDisabled}
-                autoComplete="current-password"
-                placeholder="작성 시 입력한 비밀번호"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
-              />
-            </div>
-          ) : null}
-
           {error && <p className="text-xs text-red-500">{error}</p>}
 
           <div className="flex gap-2">
@@ -721,7 +797,7 @@ export function CommentPopup({
               type="button"
               onClick={() => {
                 setError(null);
-                setEditGuestPassword("");
+                setGuestEditVerifyToken(null);
                 onModeChange("view");
               }}
               disabled={isDisabled}
@@ -741,6 +817,53 @@ export function CommentPopup({
         </div>
       )}
     </div>
+
+    <WishlistCenterDialog
+      variant="static"
+      open={editPasswordGateOpen}
+      onClose={closeEditPasswordGate}
+      title="댓글 수정하기"
+      titleId="comment-edit-gate-title"
+      description={
+        <span className="block leading-relaxed">
+          작성 시 입력한 비밀번호를 입력하면 수정 화면으로 이동합니다.
+        </span>
+      }
+    >
+      <div className="mt-5 flex flex-col gap-3">
+        <div className="text-left">
+          <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
+          <input
+            type="password"
+            value={editGatePassword}
+            onChange={(e) => setEditGatePassword(e.target.value)}
+            disabled={loading}
+            autoComplete="current-password"
+            placeholder="작성 시 입력한 비밀번호"
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+          />
+        </div>
+        {error ? <p className="text-center text-xs text-red-500">{error}</p> : null}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={closeEditPasswordGate}
+            disabled={loading}
+            className="rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={() => void submitEditPasswordGate()}
+            disabled={loading}
+            className="rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6b52e0] disabled:opacity-40"
+          >
+            {loading ? "확인 중…" : "확인"}
+          </button>
+        </div>
+      </div>
+    </WishlistCenterDialog>
 
     <WishlistCenterDialog
       variant="static"

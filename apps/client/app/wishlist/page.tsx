@@ -1,9 +1,10 @@
 "use client";
 
 import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
+import { logoutSession } from "@/features/login/api";
 import { loginUrlWithCurrentPageAsNext } from "@/features/login/post-login-destination";
 import { resolveLoggedInHomeHref } from "@/features/wishlist/resolve-logged-in-home";
-import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
+import { getAccessToken } from "@/lib/api/token-store";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -72,8 +73,10 @@ export default function WishlistEntryPage() {
               type="button"
               className="rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-[15px] font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
               onClick={() => {
-                clearAccessToken();
-                router.replace(loginUrlWithCurrentPageAsNext());
+                void (async () => {
+                  await logoutSession();
+                  router.replace(loginUrlWithCurrentPageAsNext());
+                })();
               }}
             >
               다시 로그인
