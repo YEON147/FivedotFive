@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Export,
   Image as ImageIcon,
   PencilSimple,
   TextAlignJustify,
@@ -23,6 +22,7 @@ import { createPortal } from "react-dom";
 import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { BoardShareDialog, BoardShareFabButton } from "@/components/common/ShareBoardLink";
 import {
   GiftIconModalChromeSkeleton,
   StickerGridSkeleton,
@@ -38,7 +38,6 @@ import {
   UI_FOCUS_OUTLINE_VISIBLE,
   UI_FOCUS_RING_INSET_VISIBLE,
 } from "@/components/ui/focus-ring";
-import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
@@ -275,86 +274,6 @@ function DefaultOptionButton({
   );
 }
 
-function ShareModalPanelBody({
-  boardSlug,
-  shareLinkCopyFeedback,
-  setShareLinkCopyFeedback,
-}: {
-  boardSlug: string | null;
-  shareLinkCopyFeedback: boolean;
-  setShareLinkCopyFeedback: (value: boolean) => void;
-}) {
-  return (
-    <>
-      <div className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
-        <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
-          {boardSlug ? (
-            <a
-              href={`/wishlist/${encodeURIComponent(boardSlug)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full text-[var(--color-text-primary)] underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF]"
-            >
-              {typeof window !== "undefined"
-                ? `${window.location.origin}/wishlist/${boardSlug}`
-                : `/wishlist/${boardSlug}`}
-            </a>
-          ) : (
-            "링크를 불러오는 중..."
-          )}
-        </div>
-        {shareLinkCopyFeedback ? (
-          <div className="pointer-events-auto absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden] backdrop-blur-xl">
-            <p
-              className="min-w-0 max-w-full px-2 text-center text-sm font-semibold text-slate-700"
-              role="status"
-              aria-live="polite"
-            >
-              클립보드에 복사되었습니다.
-            </p>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          disabled={!boardSlug}
-          onClick={async () => {
-            if (!boardSlug) {
-              return;
-            }
-            const url = `${window.location.origin}/wishlist/${encodeURIComponent(boardSlug)}`;
-            try {
-              await navigator.clipboard.writeText(url);
-              setShareLinkCopyFeedback(true);
-            } catch {
-              /* 클립보드 거부/비지원 */
-            }
-          }}
-          className="rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:opacity-50 disabled:active:scale-100"
-        >
-          링크 복사
-        </button>
-        <button
-          type="button"
-          disabled={!boardSlug}
-          onClick={() => {
-            if (!boardSlug || !navigator.share) return;
-            void navigator.share({
-              title: "내 위시리스트",
-              url: `${window.location.origin}/wishlist/${encodeURIComponent(boardSlug)}`,
-            });
-          }}
-          className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:opacity-40 disabled:active:scale-100"
-        >
-          공유하기
-        </button>
-      </div>
-    </>
-  );
-}
-
 export function WishlistMyBoardScreen({
   routeBoardSlug,
   embeddedInSlugCarousel = false,
@@ -403,8 +322,6 @@ export function WishlistMyBoardScreen({
   const [draftBackgroundAssetKey, setDraftBackgroundAssetKey] = useState<string | null>(null);
   const [isCompactBackgroundOpen, setIsCompactBackgroundOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  /** 공유 모달 – 링크 복사 성공 토스트(짧은 문구) */
-  const [shareLinkCopyFeedback, setShareLinkCopyFeedback] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarPortalReady, setSidebarPortalReady] = useState(false);
   const [boardSlug, setBoardSlug] = useState<string | null>(
@@ -455,6 +372,18 @@ export function WishlistMyBoardScreen({
   });
   /** 슬러그 임베드 + 배경 낙관적 반영 시 부모에 넘길 `items`(직전 GET 기준) */
   const lastLoadedWishItemsRef = useRef<WishItemData[]>([]);
+
+  const wishlistShareLinkHref = useMemo(() => {
+    const s = boardSlug?.trim();
+    if (!s) return null;
+    return `/wishlist/${encodeURIComponent(s)}`;
+  }, [boardSlug]);
+
+  const wishlistShareAbsoluteUrl = useMemo(() => {
+    const s = boardSlug?.trim();
+    if (!s || typeof window === "undefined") return null;
+    return `${window.location.origin}/wishlist/${encodeURIComponent(s)}`;
+  }, [boardSlug]);
 
   const applyLoadedBoard = useCallback(
     (board: MyBoardData) => {
@@ -1091,20 +1020,6 @@ export function WishlistMyBoardScreen({
       setBackgroundSaveError(null);
     }
   }, [isCompactBackgroundOpen, backgroundPickerStripScroll]);
-
-  useEffect(() => {
-    if (!isShareModalOpen) {
-      setShareLinkCopyFeedback(false);
-    }
-  }, [isShareModalOpen]);
-
-  useEffect(() => {
-    if (!shareLinkCopyFeedback) {
-      return;
-    }
-    const t = window.setTimeout(() => setShareLinkCopyFeedback(false), 2500);
-    return () => window.clearTimeout(t);
-  }, [shareLinkCopyFeedback]);
 
   const closeEditUi = () => {
     setIsBottomSheetOpen(false);
@@ -1966,14 +1881,10 @@ export function WishlistMyBoardScreen({
                   <PencilSimple size={23} weight="bold" />
                 </button>
 
-                <button
-                  type="button"
+                <BoardShareFabButton
                   onClick={() => setIsShareModalOpen(true)}
-                  className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-body text-white shadow-lg"
-                  aria-label="위시리스트 공유"
-                >
-                  <Export size={23} weight="bold" />
-                </button>
+                  ariaLabel="위시리스트 공유"
+                />
               </div>
                 </div>
               </div>
@@ -2098,43 +2009,30 @@ export function WishlistMyBoardScreen({
         </div>
       </section>
 
-      {sidebarPortalReady && embeddedInSlugCarousel
-        ? createPortal(
-            <WishlistCenterDialog
-              variant="static"
-              open={isShareModalOpen}
-              onClose={() => setIsShareModalOpen(false)}
-              title="공유하기"
-              titleId="wishlist-share-dialog-title"
-              closeLabel="공유 창 닫기"
-              description="위시리스트 링크를 복사하거나 공유할 수 있어요."
-            >
-              <ShareModalPanelBody
-                boardSlug={boardSlug}
-                shareLinkCopyFeedback={shareLinkCopyFeedback}
-                setShareLinkCopyFeedback={setShareLinkCopyFeedback}
-              />
-            </WishlistCenterDialog>,
-            document.body,
-          )
-        : null}
-      {!embeddedInSlugCarousel ? (
-        <WishlistCenterDialog
-          variant="animated"
+      {embeddedInSlugCarousel ? (
+        <BoardShareDialog
+          presentation="carousel-portal"
+          portalReady={sidebarPortalReady}
           open={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
-          title="공유하기"
           titleId="wishlist-share-dialog-title"
-          closeLabel="공유 창 닫기"
           description="위시리스트 링크를 복사하거나 공유할 수 있어요."
-        >
-          <ShareModalPanelBody
-            boardSlug={boardSlug}
-            shareLinkCopyFeedback={shareLinkCopyFeedback}
-            setShareLinkCopyFeedback={setShareLinkCopyFeedback}
-          />
-        </WishlistCenterDialog>
-      ) : null}
+          absoluteUrl={wishlistShareAbsoluteUrl}
+          linkHref={wishlistShareLinkHref}
+          navigatorShareTitle="내 위시리스트"
+        />
+      ) : (
+        <BoardShareDialog
+          presentation="page"
+          open={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          titleId="wishlist-share-dialog-title"
+          description="위시리스트 링크를 복사하거나 공유할 수 있어요."
+          absoluteUrl={wishlistShareAbsoluteUrl}
+          linkHref={wishlistShareLinkHref}
+          navigatorShareTitle="내 위시리스트"
+        />
+      )}
 
       {sidebarPortalReady && isGiftModalOpen
         ? createPortal(

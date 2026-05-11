@@ -1,13 +1,12 @@
 "use client";
 
-import { Export, TextAlignJustify } from "@phosphor-icons/react";
+import { TextAlignJustify } from "@phosphor-icons/react";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   use,
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -18,8 +17,11 @@ import {
 import { createPortal } from "react-dom";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import {
+  BoardShareDialog,
+  BoardShareFabButton,
+} from "@/components/common/ShareBoardLink";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
-import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "@/components/wishlist/WishlistSlots";
 import {
   createRollingPaperComment,
@@ -611,7 +613,6 @@ export default function RollingPaperSlugPage({
 }) {
   const { slug: slugParam } = use(params);
   const slug = slugParam?.trim() ?? "";
-  const shareDialogTitleId = useId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -655,24 +656,9 @@ export default function RollingPaperSlugPage({
 
   const [portalReady, setPortalReady] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [shareLinkCopyFeedback, setShareLinkCopyFeedback] = useState(false);
   useEffect(() => {
     setPortalReady(true);
   }, []);
-
-  useEffect(() => {
-    if (!isShareModalOpen) {
-      setShareLinkCopyFeedback(false);
-    }
-  }, [isShareModalOpen]);
-
-  useEffect(() => {
-    if (!shareLinkCopyFeedback) {
-      return;
-    }
-    const t = window.setTimeout(() => setShareLinkCopyFeedback(false), 2500);
-    return () => window.clearTimeout(t);
-  }, [shareLinkCopyFeedback]);
 
   const syncVisitorSession = useCallback(async () => {
     const token = getAccessToken()?.trim();
@@ -765,15 +751,14 @@ export default function RollingPaperSlugPage({
     return displayNameFromSlug(slug);
   }, [detail?.recipientName, slug]);
 
-  const rollingShareUrl = useMemo(
-    () =>
-      rollingPaperShareUrl({
-        slug,
-        viewToken: detail?.viewToken,
-        urlToken: rollingToken,
-      }),
-    [slug, detail?.viewToken, rollingToken],
-  );
+  const rollingShareUrl = useMemo(() => {
+    const raw = rollingPaperShareUrl({
+      slug,
+      viewToken: detail?.viewToken,
+      urlToken: rollingToken,
+    });
+    return raw.trim() ? raw : null;
+  }, [slug, detail?.viewToken, rollingToken]);
 
   const rollingSharePathWithQs = useMemo(() => {
     const s = slug.trim();
@@ -1412,14 +1397,10 @@ export default function RollingPaperSlugPage({
                           modalOpen ? "opacity-0" : "opacity-100"
                         }`}
                       >
-                        <button
-                          type="button"
+                        <BoardShareFabButton
                           onClick={() => setIsShareModalOpen(true)}
-                          className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-body text-white shadow-lg"
-                          aria-label="롤링페이퍼 공유"
-                        >
-                          <Export size={23} weight="bold" />
-                        </button>
+                          ariaLabel="롤링페이퍼 공유"
+                        />
                       </div>
                     </>
                   )}
@@ -1455,78 +1436,15 @@ export default function RollingPaperSlugPage({
       )}
     </main>
 
-      <WishlistCenterDialog
-        variant="animated"
+      <BoardShareDialog
+        presentation="page"
         open={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
-        title="공유하기"
-        titleId={shareDialogTitleId}
-        closeLabel="공유 창 닫기"
         description="롤링페이퍼 링크를 복사하거나 공유할 수 있어요."
-      >
-        <>
-          <div className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
-            <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
-              {rollingSharePathWithQs ? (
-                <a
-                  href={rollingSharePathWithQs}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full text-[var(--color-text-primary)] underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF]"
-                >
-                  {rollingShareUrl || rollingSharePathWithQs}
-                </a>
-              ) : (
-                "링크를 불러오는 중..."
-              )}
-            </div>
-            {shareLinkCopyFeedback ? (
-              <div className="pointer-events-auto absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden] backdrop-blur-xl">
-                <p
-                  className="min-w-0 max-w-full px-2 text-center text-sm font-semibold text-slate-700"
-                  role="status"
-                  aria-live="polite"
-                >
-                  클립보드에 복사되었습니다.
-                </p>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              disabled={!rollingShareUrl}
-              onClick={async () => {
-                if (!rollingShareUrl) return;
-                try {
-                  await navigator.clipboard.writeText(rollingShareUrl);
-                  setShareLinkCopyFeedback(true);
-                } catch {
-                  /* 클립보드 거부/비지원 */
-                }
-              }}
-              className="rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:opacity-50 disabled:active:scale-100"
-            >
-              링크 복사
-            </button>
-            <button
-              type="button"
-              disabled={!rollingShareUrl}
-              onClick={() => {
-                if (!rollingShareUrl || !navigator.share) return;
-                void navigator.share({
-                  title: "롤링페이퍼",
-                  url: rollingShareUrl,
-                });
-              }}
-              className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:opacity-40 disabled:active:scale-100"
-            >
-              공유하기
-            </button>
-          </div>
-        </>
-      </WishlistCenterDialog>
+        absoluteUrl={rollingShareUrl}
+        linkHref={rollingSharePathWithQs || null}
+        navigatorShareTitle="롤링페이퍼"
+      />
 
       {modalOpen && portalReady && typeof document !== "undefined"
         ? createPortal(rollingPaperOverlay, document.body)
