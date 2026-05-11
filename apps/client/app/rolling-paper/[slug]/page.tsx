@@ -2,7 +2,6 @@
 
 import { TextAlignJustify } from "@phosphor-icons/react";
 import Image from "next/image";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   use,
@@ -561,26 +560,17 @@ function RollingPaperProfileHeader({
   return (
     <header className={PAGE_HEADER_ROW_COMPACT}>
       <div className={`${PAGE_HEADER_LEADING_CLUSTER} items-start`}>
-        <div className="min-w-0 flex-1">
-          <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
-            <span className="block">
-              <span className="inline-flex items-baseline gap-0.5">
-                <span className="font-bold leading-[0.8] text-[#7B61FF]">{displayName}</span>
-                <span className="text-[18px] font-light leading-none text-slate-900">님을 위한</span>
-              </span>
+        <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
+          <span className="block">
+            <span className="inline-flex items-baseline gap-0.5">
+              <span className="font-bold leading-[0.8] text-[#7B61FF]">{displayName}</span>
+              <span className="text-[18px] font-light leading-none text-slate-900">님을 위한</span>
             </span>
-            <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">
-              롤링페이퍼
-            </span>
-          </h1>
-          <Link
-            href="/wishlist"
-            className="mt-1 inline-block text-[12px] font-medium text-[#7B61FF]/90 underline-offset-4 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            위시 홈으로
-          </Link>
-        </div>
+          </span>
+          <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">
+            롤링페이퍼
+          </span>
+        </h1>
       </div>
       <button
         type="button"
@@ -1382,6 +1372,7 @@ export default function RollingPaperSlugPage({
           open={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           onLogout={handleRollingPaperLogout}
+          hideMyWishlistShortcut
         />
       ) : (
         <PublicWishlistVisitorMenu
