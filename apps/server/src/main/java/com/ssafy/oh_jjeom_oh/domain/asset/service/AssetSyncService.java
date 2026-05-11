@@ -106,9 +106,10 @@ public class AssetSyncService {
 
     /**
      * DB 저장 키(assets/ 제거 후)의 첫 번째 경로 세그먼트로 AssetType 결정
-     * stickers/...   → STICKER
-     * wallpapers/... → BACKGROUND
-     * icons/...      → GIFT_STICKER
+     * stickers/...        → STICKER
+     * wallpapers/...      → BACKGROUND
+     * icons/...           → GIFT_STICKER
+     * rolling-papers/...  → ROLLING_PAPER_PROFILE
      */
     private AssetType resolveAssetType(String dbKey) {
         if (dbKey.startsWith("stickers/")) {
@@ -117,6 +118,8 @@ public class AssetSyncService {
             return AssetType.BACKGROUND;
         } else if (dbKey.startsWith("icons/")) {
             return AssetType.GIFT_STICKER;
+        } else if (dbKey.startsWith("rolling-papers/")) {
+            return AssetType.ROLLING_PAPER_PROFILE;
         }
         return null;
     }

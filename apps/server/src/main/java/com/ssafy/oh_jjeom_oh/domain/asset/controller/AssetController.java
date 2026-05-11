@@ -4,6 +4,7 @@ import com.ssafy.oh_jjeom_oh.common.response.ApiResponse;
 import com.ssafy.oh_jjeom_oh.common.response.SuccessMessage;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.BackgroundListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.GiftIconListResponse;
+import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.RollingPaperProfileListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerCatalogListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderListResponse;
 import com.ssafy.oh_jjeom_oh.domain.asset.dto.response.StickerFolderResponse;
@@ -73,5 +74,12 @@ public class AssetController {
             @RequestParam(required = false) String boardSlug) {
         GiftIconListResponse data = assetService.getGiftIcons(boardSlug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.GIFT_ICON_LIST_FOUND, data));
+    }
+
+    // GET /api/assets/rolling-paper-profiles - 롤링페이퍼 프로필 이미지 목록 조회 (Anyone)
+    @GetMapping("/rolling-paper-profiles")
+    public ResponseEntity<ApiResponse<RollingPaperProfileListResponse>> getRollingPaperProfiles() {
+        RollingPaperProfileListResponse data = assetService.getRollingPaperProfiles();
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.ROLLING_PAPER_PROFILE_LIST_FOUND, data));
     }
 }
