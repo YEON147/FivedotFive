@@ -63,7 +63,8 @@ const GUEST_NICKNAME_MAX_LEN = 8;
 /** 메인 콜라주 미리보기에서 줄 수 제한을 걸기 시작하는 글자 수 */
 const BOARD_PREVIEW_LINE_CLAMP_MIN_CHARS = 100;
 
-const ROLLING_COMMENTS_FETCH_PAGE_SIZE = 8;
+/** 댓글 API 페이지 크기 — 보드 슬롯 수와 동일(슬롯당 최대 1건). 임의로 8일 필요 없음 */
+const ROLLING_COMMENTS_FETCH_PAGE_SIZE = ROLLING_POSTIT_SLOT_COUNT;
 
 function isRollingPaperForbiddenMessage(msg: string): boolean {
   return (
@@ -903,7 +904,8 @@ export default function RollingPaperSlugPage({
     setLoadError(null);
     setDetailForbidden(false);
     try {
-      const [detailRes, commentsRes] = await Promise.all([
+      /** 상세·댓글 목록은 각각 실패해도 나머지를 반영 (`Promise.all`은 한쪽 실패 시 둘 다 버림) */
+      const [detailOutcome, commentsOutcome] = await Promise.allSettled([
         getRollingPaperDetail(slug, rollingToken),
         getRollingPaperComments(slug, {
           rollingToken,
@@ -911,27 +913,42 @@ export default function RollingPaperSlugPage({
           size: ROLLING_COMMENTS_FETCH_PAGE_SIZE,
         }),
       ]);
-      setDetail(detailRes.data);
-      const next: Partial<Record<number, RollingPaperCommentRow>> = {};
-      for (const c of commentsRes.data.comments ?? []) {
-        const si = normalizeRollingSlotIndex(c.slotIndex);
-        if (si !== null) {
-          next[si] = c;
+
+      if (detailOutcome.status === "fulfilled") {
+        setDetail(detailOutcome.value.data);
+        setDetailForbidden(false);
+      } else {
+        const err = detailOutcome.reason;
+        const msg =
+          err instanceof Error ? err.message : "불러오지 못했습니다.";
+        if (isRollingPaperForbiddenMessage(msg)) {
+          setDetailForbidden(true);
+          setDetail(null);
+        } else {
+          setLoadError(msg);
         }
       }
-      setSlotComments(next);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "불러오지 못했습니다.";
-      if (isRollingPaperForbiddenMessage(msg)) {
-        setDetailForbidden(true);
-        setDetail(null);
+
+      if (detailOutcome.status === "fulfilled") {
+        if (commentsOutcome.status === "fulfilled") {
+          const next: Partial<Record<number, RollingPaperCommentRow>> = {};
+          for (const c of commentsOutcome.value.data.comments ?? []) {
+            const si = normalizeRollingSlotIndex(c.slotIndex);
+            if (si !== null) {
+              next[si] = c;
+            }
+          }
+          setSlotComments(next);
+        } else {
+          setSlotComments({});
+        }
       } else {
-        setLoadError(msg);
+        setSlotComments({});
       }
     } finally {
       setLoading(false);
     }
-  }, [slug, rollingToken]);
+  }, [slug, rollingToken, loggedInState]);
 
   useEffect(() => {
     void loadBoard();
