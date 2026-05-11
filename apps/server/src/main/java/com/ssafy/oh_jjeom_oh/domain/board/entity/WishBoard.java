@@ -28,7 +28,7 @@ public class WishBoard {
     @Column(name = "board_slug", nullable = false, unique = true, length = 100)
     private String boardSlug;
 
-    @Column(length = 8)
+    @Column(length = 12)
     private String title;
 
     @Column(name = "is_public", nullable = false)
