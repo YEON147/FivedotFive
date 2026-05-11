@@ -71,10 +71,25 @@ public class GmsService {
         Map<String, Object> body = new HashMap<>();
         body.put("contents", Arrays.asList(content));
 
-//        Map<String, Object> generationConfig = new HashMap<>();
-//        //generationConfig.put("responseModalities", Arrays.asList("Text", "Image"));
-//        generationConfig.put("responseModalities", List.of("IMAGE"));
-//        body.put("generationConfig", generationConfig);
+        Map<String, Object> generationConfig = new HashMap<>();
+        generationConfig.put("responseModalities", List.of("IMAGE"));
+        body.put("generationConfig", generationConfig);
+
+        // [추가] 안전 필터 완화 (인물 묘사 거부 방지)
+        List<Map<String, String>> safetySettings = new ArrayList<>();
+        String[] categories = {
+            "HARM_CATEGORY_HARASSMENT",
+            "HARM_CATEGORY_HATE_SPEECH",
+            "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "HARM_CATEGORY_DANGEROUS_CONTENT"
+        };
+        for (String category : categories) {
+            Map<String, String> setting = new HashMap<>();
+            setting.put("category", category);
+            setting.put("threshold", "BLOCK_NONE");
+            safetySettings.add(setting);
+        }
+        body.put("safetySettings", safetySettings);
 
         return body;
     }
