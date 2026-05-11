@@ -8,4 +8,5 @@ import lombok.Getter;
 public class CommentVerifyResponse {
 
     private String verifyToken;
+    private String content;
 }

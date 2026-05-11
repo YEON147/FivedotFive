@@ -167,7 +167,7 @@ public class RollingPaperCommentService {
                 VERIFY_TOKEN_TTL_MINUTES,
                 TimeUnit.MINUTES
         );
-        return new RollingPaperCommentVerifyResponse(verifyToken);
+        return new RollingPaperCommentVerifyResponse(verifyToken, comment.getContent());
     }
 
     // PATCH /api/rolling-papers/{slug}/comments/{commentId}
