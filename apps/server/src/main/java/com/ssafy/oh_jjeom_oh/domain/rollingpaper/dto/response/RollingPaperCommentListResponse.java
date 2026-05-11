@@ -8,7 +8,7 @@ import java.util.List;
 @Getter
 public class RollingPaperCommentListResponse {
 
-    private static final int PAGE_SIZE = 6;
+    private static final int PAGE_SIZE = 4;
 
     private final List<RollingPaperCommentResponse> comments;
     private final int currentPage;
