@@ -1,8 +1,9 @@
 "use client";
 
+import { TextAlignJustify } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   use,
   useCallback,
@@ -11,10 +12,13 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 
+import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "@/components/wishlist/WishlistSlots";
 import {
   createRollingPaperComment,
@@ -29,7 +33,19 @@ import {
   canEditRollingPaperGuestComment,
   rememberRollingPaperGuestComment,
 } from "@/features/rolling-paper/guest-comment-session";
-import { getAccessToken } from "@/lib/api/token-store";
+import { loginUrlForPath } from "@/features/login/post-login-destination";
+import { getMyProfile } from "@/features/user/api";
+import {
+  ACCESS_TOKEN_STORAGE_KEY,
+  clearAccessToken,
+  getAccessToken,
+} from "@/lib/api/token-store";
+import {
+  PAGE_HEADER_LEADING_CLUSTER,
+  PAGE_HEADER_MENU_BUTTON,
+  PAGE_HEADER_ROW_COMPACT,
+} from "@/lib/constants/page-header";
+import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 
 /** 롤링 포스트잇 슬롯 수 — 다이얼로그 제목·레이블 등과 동기화 */
 const ROLLING_POSTIT_SLOT_COUNT = 4;
@@ -100,7 +116,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
   {
     kind: "polaroid",
     src: "/rollingpaper/rollingpaper-01.png",
-    className: "left-[5%] top-[1%] z-10 w-[48%] -rotate-[2deg]",
+    className: "left-[5%] top-[12%] z-10 w-[48%] -rotate-[2deg]",
     aspect: [376, 489],
     alt: "폴라로이드 포토 프레임",
   },
@@ -108,7 +124,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 0,
     src: "/rollingpaper/postit_01.png",
-    className: "right-2 top-[16%] z-[20] w-[44%] rotate-[4deg]",
+    className: "right-1 top-[24%] z-[20] w-[44%] rotate-[4deg]",
     aspect: [435, 466],
     alt: "포스트잇1",
   },
@@ -116,7 +132,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 1,
     src: "/rollingpaper/postit_02.png",
-    className: "left-[4%] top-[36%] z-[22] w-[62%] -rotate-[6deg]",
+    className: "left-[4%] top-[42%] z-[22] w-[62%] -rotate-[6deg]",
     aspect: [642, 571],
     alt: "포스트잇2",
   },
@@ -124,7 +140,7 @@ const COLLAGE_PIECES: CollagePiece[] = [
     kind: "postit",
     slotIndex: 2,
     src: "/rollingpaper/postit_03.png",
-    className: "right-[1.5%] bottom-[14%] z-[24] w-[46%] rotate-[5deg]",
+    className: "right-[1.5%] bottom-[12%] z-[24] w-[46%] rotate-[5deg]",
     aspect: [458, 542],
     alt: "포스트잇3",
   },
@@ -440,8 +456,6 @@ const ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS = `${ROLLING_OVERLAY_PRIMARY_BT
 const ROLLING_OVERLAY_GHOST_BTN_CLASS =
   "rounded-full px-4 py-2 text-[13px] font-medium text-white/95 hover:bg-white/10";
 
-const ROLLING_ACCENT_TEXT_CLASS = "text-[#7B61FF]";
-
 /** 상세 오버레이 — 읽기 전용 본문 (슬롯별 프레임 안 가운데 정렬) */
 function RollingPaperPostitModalFrame({
   slotIndex,
@@ -529,6 +543,58 @@ function displayNameFromSlug(slug: string): string {
   }
 }
 
+/**
+ * `app/wishlist/[slug]/page.tsx` 의 `PublicBoardProfileHeader` 와 동일 헤더 규격
+ * (`PAGE_HEADER_ROW_COMPACT` · 우측 햄버거).
+ */
+function RollingPaperProfileHeader({
+  recipientName,
+  isSidebarOpen,
+  onMenuClick,
+}: {
+  recipientName: string;
+  isSidebarOpen: boolean;
+  onMenuClick: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const displayName = recipientName.trim() || "회원";
+
+  return (
+    <header className={PAGE_HEADER_ROW_COMPACT}>
+      <div className={`${PAGE_HEADER_LEADING_CLUSTER} items-start`}>
+        <div className="min-w-0 flex-1">
+          <h1 className="min-w-0 flex-1 text-left text-wish-title leading-tight text-slate-900">
+            <span className="block">
+              <span className="inline-flex items-baseline gap-0.5">
+                <span className="font-bold leading-[0.8] text-[#7B61FF]">{displayName}</span>
+                <span className="text-[18px] font-light leading-none text-slate-900">님을 위한</span>
+              </span>
+            </span>
+            <span className="mt-1 block text-[18px] font-light leading-snug text-slate-900">
+              롤링페이퍼
+            </span>
+          </h1>
+          <Link
+            href="/wishlist"
+            className="mt-1 inline-block text-[12px] font-medium text-[#7B61FF]/90 underline-offset-4 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            위시 홈으로
+          </Link>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onMenuClick}
+        className={PAGE_HEADER_MENU_BUTTON}
+        aria-label="메뉴 열기"
+        aria-expanded={isSidebarOpen}
+      >
+        <TextAlignJustify size={23} weight="bold" />
+      </button>
+    </header>
+  );
+}
+
 export default function RollingPaperSlugPage({
   params,
 }: {
@@ -537,8 +603,17 @@ export default function RollingPaperSlugPage({
   const { slug: slugParam } = use(params);
   const slug = slugParam?.trim() ?? "";
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const rollingToken = searchParams.get("token")?.trim() || null;
+
+  const loginHrefWithReturn = useMemo(() => {
+    const qs = searchParams.toString();
+    return loginUrlForPath(`${pathname}${qs ? `?${qs}` : ""}`);
+  }, [pathname, searchParams]);
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
 
   const [detail, setDetail] = useState<RollingPaperDetailPayload | null>(null);
   const [detailForbidden, setDetailForbidden] = useState(false);
@@ -573,15 +648,66 @@ export default function RollingPaperSlugPage({
     setPortalReady(true);
   }, []);
 
-  useEffect(() => {
-    const sync = () => setLoggedInState(!!getAccessToken()?.trim());
-    window.addEventListener("focus", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("focus", sync);
-      window.removeEventListener("storage", sync);
-    };
+  const syncVisitorSession = useCallback(async () => {
+    const token = getAccessToken()?.trim();
+    if (!token) {
+      setVisitorMenuLoggedIn(false);
+      return;
+    }
+    try {
+      await getMyProfile();
+      setVisitorMenuLoggedIn(true);
+    } catch {
+      setVisitorMenuLoggedIn(!!getAccessToken()?.trim());
+    }
   }, []);
+
+  useEffect(() => {
+    void syncVisitorSession();
+  }, [syncVisitorSession]);
+
+  useEffect(() => {
+    const syncTokens = () => setLoggedInState(!!getAccessToken()?.trim());
+    const onFocus = () => {
+      syncTokens();
+      void syncVisitorSession();
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === ACCESS_TOKEN_STORAGE_KEY || e.key === null) {
+        syncTokens();
+        void syncVisitorSession();
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        syncTokens();
+        void syncVisitorSession();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [syncVisitorSession]);
+
+  const handleRollingPaperMenuClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    void syncVisitorSession();
+    setIsSidebarOpen((open) => !open);
+  };
+
+  const handleRollingPaperLogout = useCallback(() => {
+    clearAccessToken();
+    clearWishlistPageSessionCache();
+    setVisitorMenuLoggedIn(false);
+    setLoggedInState(false);
+    setIsSidebarOpen(false);
+    router.push("/login");
+  }, [router]);
 
   /** 모달 중 배경 스크롤 제거 — 고정 `main` 안쪽 `overflow-y-auto` 래퍼가 뷰포트 스크롤바를 만들던 문제 */
   useLayoutEffect(() => {
@@ -1086,9 +1212,9 @@ export default function RollingPaperSlugPage({
 
   return (
     <>
-      <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col !overflow-hidden px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+      <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col overflow-visible px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
       <div
-        className={`relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-x-hidden overscroll-contain ${
+        className={`relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-x-hidden overscroll-contain transition-all duration-300 ease-out ${
           modalOpen ? "overflow-y-hidden" : "overflow-y-auto"
         }`}
       >
@@ -1106,30 +1232,10 @@ export default function RollingPaperSlugPage({
                   aria-hidden
                 />
 
-                <div
-                  className={`${ROLLING_PAPER_BOARD_INNER} relative z-10 flex h-full min-h-0 flex-col`}
-                >
-                  <header className="flex shrink-0 items-start justify-between gap-2 px-1 pb-2 pt-0 sm:px-2">
-                    <div className="min-w-0 flex-1">
-                      <h1 className="text-left leading-snug text-slate-900">
-                        <span className="block text-[clamp(15px,4.2vw,18px)]">
-                          <span className={`font-bold ${ROLLING_ACCENT_TEXT_CLASS}`}>
-                            {headerTitle}
-                          </span>
-                          <span className="font-light text-slate-900">
-                            님을 위한 롤링페이퍼
-                          </span>
-                        </span>
-                      </h1>
-                      <Link
-                        href="/wishlist"
-                        className={`mt-1 inline-block text-[12px] font-medium ${ROLLING_ACCENT_TEXT_CLASS}/90 underline-offset-4 hover:underline`}
-                      >
-                        위시 홈으로
-                      </Link>
-                    </div>
-                  </header>
-
+                <div className="absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden rounded-[18px]">
+                  <div
+                    className={`${ROLLING_PAPER_BOARD_INNER} relative flex h-full min-h-0 flex-1 flex-col`}
+                  >
                   {loading ? (
                     <div className="flex flex-1 items-center justify-center py-16 text-[13px] text-slate-500">
                       불러오는 중…
@@ -1257,12 +1363,35 @@ export default function RollingPaperSlugPage({
                       </div>
                     </>
                   )}
+                  </div>
                 </div>
+
+                <RollingPaperProfileHeader
+                  recipientName={headerTitle}
+                  isSidebarOpen={isSidebarOpen}
+                  onMenuClick={handleRollingPaperMenuClick}
+                />
               </div>
             </div>
           </div>
         </section>
       </div>
+
+      {visitorMenuLoggedIn ? (
+        <AppSideMenu
+          open={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          onLogout={handleRollingPaperLogout}
+        />
+      ) : (
+        <PublicWishlistVisitorMenu
+          open={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          loggedIn={false}
+          onLogout={handleRollingPaperLogout}
+          loginHref={loginHrefWithReturn}
+        />
+      )}
     </main>
       {modalOpen && portalReady && typeof document !== "undefined"
         ? createPortal(rollingPaperOverlay, document.body)
