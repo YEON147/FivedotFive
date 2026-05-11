@@ -37,6 +37,11 @@ import {
   type RollingPaperDetailPayload,
 } from "@/features/rolling-paper/api";
 import {
+  mapRollingCommentsToLocalSlots,
+  rollingPaperBoardSheetCount,
+  rollingPaperLastPageFullFromPayload,
+} from "@/features/rolling-paper/board-pagination";
+import {
   canEditRollingPaperGuestComment,
   rememberRollingPaperGuestComment,
 } from "@/features/rolling-paper/guest-comment-session";
@@ -54,16 +59,16 @@ import {
 } from "@/lib/constants/page-header";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 
-/** 롤링 포스트잇 슬롯 수 — 다이얼로그 제목·레이블 등과 동기화 */
+/**
+ * 보드 한 장(면)당 포스트잇 개수 — UI 슬롯·전역 `slotIndex` 묶음·GET `/comments` 의 `size` 와 동일.
+ * (위시 보드 슬롯 수와 별개 — 공통 상수로 두지 않음.)
+ */
 const ROLLING_POSTIT_SLOT_COUNT = 4;
 
 const GUEST_NICKNAME_MAX_LEN = 8;
 
 /** 메인 콜라주 미리보기에서 줄 수 제한을 걸기 시작하는 글자 수 */
 const BOARD_PREVIEW_LINE_CLAMP_MIN_CHARS = 100;
-
-/** API·보드 한 장당 포스트잇 슬롯 수와 동일 (`RollingPaperCommentListResponse.PAGE_SIZE` = 4) */
-const ROLLING_COMMENTS_FETCH_PAGE_SIZE = ROLLING_POSTIT_SLOT_COUNT;
 
 function isRollingPaperForbiddenMessage(msg: string): boolean {
   return (
@@ -523,21 +528,6 @@ function RollingPaperPostitModalTextarea({
   );
 }
 
-/** API `slotIndex` — 전역 칸 번호(0,1,… 면×4+로컬). 문자열·실수 대비 */
-function parseRollingGlobalSlotIndex(raw: unknown): number | null {
-  let n: number | null = null;
-  if (typeof raw === "number" && Number.isFinite(raw)) {
-    n = Math.trunc(raw);
-  } else if (typeof raw === "string") {
-    const t = raw.trim();
-    if (!t) return null;
-    const parsed = Number.parseInt(t, 10);
-    if (Number.isFinite(parsed)) n = Math.trunc(parsed);
-  }
-  if (n === null || n < 0) return null;
-  return n;
-}
-
 function displayNameFromSlug(slug: string): string {
   const raw = slug?.trim() || "";
   if (!raw) return "회원";
@@ -784,44 +774,36 @@ export default function RollingPaperSlugPage({
       const commentsRes = await getRollingPaperComments(slug, {
         rollingToken,
         page: pageIdx,
-        size: ROLLING_COMMENTS_FETCH_PAGE_SIZE,
+        size: ROLLING_POSTIT_SLOT_COUNT,
       });
       const payload = commentsRes.data;
       const totalCount = payload.totalCount ?? 0;
-      const lastFull =
-        payload.lastPageFull === true ||
-        payload.isLastPageFull === true ||
-        (totalCount > 0 && totalCount % ROLLING_POSTIT_SLOT_COUNT === 0);
+      const lastFull = rollingPaperLastPageFullFromPayload(payload);
       setCommentsPaging({
         totalPages: payload.totalPages,
         lastPageFull: lastFull,
         totalCount,
       });
-      const base = pageIdx * ROLLING_POSTIT_SLOT_COUNT;
-      const nextSlots: Partial<Record<number, RollingPaperCommentRow>> = {};
-      for (const c of payload.comments ?? []) {
-        const g = parseRollingGlobalSlotIndex(c.slotIndex);
-        if (g === null) continue;
-        const local = g - base;
-        if (
-          local >= 0 &&
-          local < ROLLING_POSTIT_SLOT_COUNT
-        ) {
-          nextSlots[local] = c;
-        }
-      }
-      setSlotComments(nextSlots);
+      setSlotComments(
+        mapRollingCommentsToLocalSlots(
+          pageIdx,
+          payload.comments,
+          ROLLING_POSTIT_SLOT_COUNT,
+        ),
+      );
     },
     [slug, rollingToken],
   );
 
-  const boardsToRender = useMemo(() => {
-    const tp = Math.max(0, commentsPaging.totalPages);
-    const tc = commentsPaging.totalCount;
-    const lpf = commentsPaging.lastPageFull;
-    if (tc === 0) return 1;
-    return lpf ? tp + 1 : Math.max(1, tp);
-  }, [commentsPaging]);
+  const boardsToRender = useMemo(
+    () =>
+      rollingPaperBoardSheetCount({
+        totalPages: commentsPaging.totalPages,
+        lastPageFull: commentsPaging.lastPageFull,
+        totalCount: commentsPaging.totalCount,
+      }),
+    [commentsPaging],
+  );
 
   const loadBoard = useCallback(async () => {
     if (!slug) return;
@@ -859,12 +841,11 @@ export default function RollingPaperSlugPage({
   }, [boardsToRender]);
 
   const goPrevBoard = useCallback(() => {
-    const max = Math.max(0, boardsToRender - 1);
     const next = Math.max(0, visibleBoardPage - 1);
     if (next === visibleBoardPage) return;
     setVisibleBoardPage(next);
     void loadCommentsPage(next);
-  }, [boardsToRender, visibleBoardPage, loadCommentsPage]);
+  }, [visibleBoardPage, loadCommentsPage]);
 
   const goNextBoard = useCallback(() => {
     const max = Math.max(0, boardsToRender - 1);
