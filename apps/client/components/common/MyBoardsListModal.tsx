@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { EditBoardOrRollingPaperModal } from "@/components/common/EditBoardOrRollingPaperModal";
+import {
+  SIDE_MENU_ICON_WRAP_PRIMARY,
+  SIDE_MENU_ICON_WRAP_ROSE,
+} from "@/components/common/SideMenuPrimitives";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import { deleteRollingPaper, deleteWishBoard, getMyBoardsAll } from "@/features/wishlist/api";
 import type { MyBoardListEntry } from "@/features/wishlist/types";
@@ -78,47 +82,49 @@ function BoardListRow({
   onDelete,
 }: BoardListRowProps) {
   return (
-    <li className="flex gap-2">
+    <li className="flex min-h-[48px] items-center gap-1 border-b border-slate-200/90 last:border-b-0">
       <Link
         href={entryHref(entry)}
         onClick={onNavigate}
-        className="flex min-h-[3.25rem] min-w-0 flex-1 items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2.5 transition hover:bg-[var(--color-surface)]"
+        className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 transition [-webkit-tap-highlight-color:transparent] [@media(pointer:coarse)]:bg-slate-50 [@media(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-slate-50 active:bg-slate-100/90 sm:min-h-[44px] sm:py-1.5 touch-manipulation"
       >
-        <p className="min-w-0 flex-1 truncate text-[15px] font-medium text-[var(--color-text-primary)]">
+        <p className="min-w-0 flex-1 truncate text-[15px] font-medium leading-snug text-slate-900">
           {entry.title?.trim() ? entry.title : "(제목 없음)"}
         </p>
         <ArrowSquareOut
-          className="shrink-0 text-[var(--color-text-secondary)]"
+          className="pointer-events-none shrink-0 text-slate-600"
           size={22}
           weight="bold"
           aria-hidden
         />
       </Link>
-      <div className="flex shrink-0 gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5 pr-0.5 sm:gap-2">
         <button
           type="button"
           onClick={() => onEdit(entry)}
           disabled={deletingSlug != null}
-          className="inline-flex h-auto min-w-[3rem] flex-col items-center justify-center gap-0.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-2.5 py-2 text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface)] hover:text-[var(--color-primary-main)] disabled:pointer-events-none disabled:opacity-45"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl p-1 transition [-webkit-tap-highlight-color:transparent] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 touch-manipulation [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-90"
           aria-label={`${typeLabel(entry.type)} 설정 수정`}
         >
-          <PencilSimple size={22} weight="bold" aria-hidden />
-          <span className="text-[10px] font-medium leading-tight">수정</span>
+          <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
+            <PencilSimple size={20} weight="bold" />
+          </span>
         </button>
         <button
           type="button"
           onClick={() => void onDelete(entry)}
           disabled={deletingSlug != null}
-          className="inline-flex h-auto min-w-[3rem] flex-col items-center justify-center gap-0.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-2.5 py-2 text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:pointer-events-none disabled:opacity-45"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl p-1 transition [-webkit-tap-highlight-color:transparent] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 touch-manipulation [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-90"
           aria-label={`${typeLabel(entry.type)} 삭제`}
         >
           {deletingSlug === entry.slug ? (
-            <span className="text-[10px] font-medium leading-tight">…</span>
+            <span className={SIDE_MENU_ICON_WRAP_ROSE} aria-hidden>
+              <span className="text-[15px] font-semibold leading-none">…</span>
+            </span>
           ) : (
-            <>
-              <Trash size={22} weight="bold" aria-hidden />
-              <span className="text-[10px] font-medium leading-tight">삭제</span>
-            </>
+            <span className={SIDE_MENU_ICON_WRAP_ROSE} aria-hidden>
+              <Trash size={20} weight="bold" />
+            </span>
           )}
         </button>
       </div>
@@ -128,10 +134,13 @@ function BoardListRow({
 
 export function MyBoardsListModal({ open, onClose }: MyBoardsListModalProps) {
   const titleId = useId();
+  const deleteConfirmTitleId = useId();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<MyBoardListEntry[]>([]);
   const [editEntry, setEditEntry] = useState<MyBoardListEntry | null>(null);
+  /** 삭제 확인 모달에 표시할 항목 */
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<MyBoardListEntry | null>(null);
   /** 삭제 요청 중인 슬러그 (중복 클릭 방지) */
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
 
@@ -157,20 +166,14 @@ export function MyBoardsListModal({ open, onClose }: MyBoardsListModalProps) {
     if (!open) {
       setEditEntry(null);
       setDeletingSlug(null);
+      setPendingDeleteEntry(null);
       return;
     }
     void reloadList();
   }, [open, reloadList]);
 
-  const handleDeleteEntry = useCallback(
+  const performDeleteEntry = useCallback(
     async (entry: MyBoardListEntry) => {
-      const label = typeLabel(entry.type);
-      const name = entry.title?.trim() ? `"${entry.title.trim()}"` : "(제목 없음)";
-      const ok = window.confirm(
-        `${label} ${name} 페이지를 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`,
-      );
-      if (!ok) return;
-
       setDeletingSlug(entry.slug);
       setError(null);
       try {
@@ -192,6 +195,17 @@ export function MyBoardsListModal({ open, onClose }: MyBoardsListModalProps) {
     [editEntry, reloadList],
   );
 
+  const requestDeleteEntry = useCallback((entry: MyBoardListEntry) => {
+    setPendingDeleteEntry(entry);
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    const entry = pendingDeleteEntry;
+    if (!entry) return;
+    setPendingDeleteEntry(null);
+    void performDeleteEntry(entry);
+  }, [pendingDeleteEntry, performDeleteEntry]);
+
   const wishItems = useMemo(
     () => items.filter((e) => !isRollingPaperListType(e.type)),
     [items],
@@ -212,27 +226,27 @@ export function MyBoardsListModal({ open, onClose }: MyBoardsListModalProps) {
         staticStack="aboveMenu"
         closeLabel="닫기"
       >
-        <div className="mt-4 flex max-h-[min(380px,52vh)] flex-col gap-2 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+        <div className="mt-2 flex max-h-[min(calc(100svh-11rem),26rem)] flex-col overflow-y-auto overscroll-y-contain pb-[max(0.25rem,env(safe-area-inset-bottom,0px))] [-webkit-overflow-scrolling:touch] touch-pan-y sm:max-h-[min(380px,52vh)]">
           {loading ? (
-            <p className="py-8 text-center text-body-sm text-[var(--color-text-secondary)]">
+            <p className="py-8 text-center text-[15px] leading-relaxed text-slate-500 sm:py-6 sm:text-[14px]">
               불러오는 중…
             </p>
           ) : error ? (
-            <p className="rounded-xl bg-rose-50 px-3 py-2.5 text-[13px] leading-snug text-rose-700 ring-1 ring-rose-100">
+            <p className="border-l-[3px] border-rose-400 py-1.5 pl-3 text-[14px] leading-relaxed text-rose-700 sm:text-[13px]">
               {error}
             </p>
           ) : items.length === 0 ? (
-            <p className="py-8 text-center text-body-sm text-[var(--color-text-secondary)]">
+            <p className="py-8 text-center text-[15px] leading-relaxed text-slate-500 sm:py-6 sm:text-[14px]">
               아직 생성된 페이지가 없습니다.
             </p>
           ) : (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-4">
               {wishItems.length > 0 ? (
                 <section>
-                  <h3 className="mb-2 border-b border-[var(--color-border)] pb-1.5 text-[12px] font-semibold tracking-wide text-violet-800">
+                  <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-[0.1em] text-violet-700 sm:mb-0.5 sm:text-[11px] sm:tracking-[0.12em]">
                     위시보드
                   </h3>
-                  <ul className="flex flex-col gap-2">
+                  <ul className="flex flex-col">
                     {wishItems.map((entry) => (
                       <BoardListRow
                         key={`${entry.type}-${entry.slug}`}
@@ -240,7 +254,7 @@ export function MyBoardsListModal({ open, onClose }: MyBoardsListModalProps) {
                         onNavigate={onClose}
                         deletingSlug={deletingSlug}
                         onEdit={setEditEntry}
-                        onDelete={handleDeleteEntry}
+                        onDelete={requestDeleteEntry}
                       />
                     ))}
                   </ul>
@@ -249,10 +263,10 @@ export function MyBoardsListModal({ open, onClose }: MyBoardsListModalProps) {
 
               {rollingItems.length > 0 ? (
                 <section>
-                  <h3 className="mb-2 border-b border-[var(--color-border)] pb-1.5 text-[12px] font-semibold tracking-wide text-amber-900">
+                  <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-[0.1em] text-amber-900 sm:mb-0.5 sm:text-[11px] sm:tracking-[0.12em]">
                     롤링페이퍼
                   </h3>
-                  <ul className="flex flex-col gap-2">
+                  <ul className="flex flex-col">
                     {rollingItems.map((entry) => (
                       <BoardListRow
                         key={`${entry.type}-${entry.slug}`}
@@ -260,7 +274,7 @@ export function MyBoardsListModal({ open, onClose }: MyBoardsListModalProps) {
                         onNavigate={onClose}
                         deletingSlug={deletingSlug}
                         onEdit={setEditEntry}
-                        onDelete={handleDeleteEntry}
+                        onDelete={requestDeleteEntry}
                       />
                     ))}
                   </ul>
@@ -277,6 +291,44 @@ export function MyBoardsListModal({ open, onClose }: MyBoardsListModalProps) {
         entry={editEntry}
         onSaved={() => void reloadList(true)}
       />
+
+      <WishlistCenterDialog
+        open={pendingDeleteEntry != null}
+        onClose={() => setPendingDeleteEntry(null)}
+        title="보드를 삭제할까요?"
+        titleId={deleteConfirmTitleId}
+        variant="static"
+        staticStack="aboveDialogs"
+        closeLabel="닫기"
+        description={
+          pendingDeleteEntry ? (
+            <p className="text-[13px] leading-relaxed text-slate-500">
+              {typeLabel(pendingDeleteEntry.type)}
+              {pendingDeleteEntry.title?.trim()
+                ? ` · ${pendingDeleteEntry.title.trim()}`
+                : " · (제목 없음)"}
+              <span className="text-slate-400"> — 복구할 수 없습니다.</span>
+            </p>
+          ) : null
+        }
+      >
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setPendingDeleteEntry(null)}
+            className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl border border-slate-200 bg-white text-[14px] font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirmDelete}
+            className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl bg-rose-600 text-[14px] font-semibold text-white transition hover:bg-rose-700 active:scale-[0.99]"
+          >
+            삭제
+          </button>
+        </div>
+      </WishlistCenterDialog>
     </>
   );
 }
