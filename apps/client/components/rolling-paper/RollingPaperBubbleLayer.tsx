@@ -1,0 +1,238 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+type BubbleKind = "intro" | "visitor";
+
+type BubbleState = {
+  id: string;
+  kind: BubbleKind;
+  xPercent: number;
+  popping: boolean;
+  /** CSS 애니메이션 길이(초) */
+  durationSec: number;
+};
+
+const INTRO_SESSION_KEY = "rp-bubble-intro-v2";
+
+function createId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/**
+ * 롤링페이퍼 보드 위 물방울 — 첫 방문 시 메시지 개수만큼 올라오고,
+ * 이후 주기적으로 "+1" 방문 물방울이 생깁니다. 탭하면 터집니다.
+ */
+export function RollingPaperBubbleLayer({
+  slug,
+  messageCount,
+  paused,
+}: {
+  slug: string;
+  messageCount: number;
+  paused: boolean;
+}) {
+  const [bubbles, setBubbles] = useState<BubbleState[]>([]);
+  const introDoneRef = useRef(false);
+  const visitorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** 첫 세션 방문: 작성된 메시지 수만큼 물방울 연속 생성 */
+  useEffect(() => {
+    if (paused || !slug.trim() || messageCount <= 0) return;
+    if (introDoneRef.current) return;
+    let skip = false;
+    try {
+      skip =
+        typeof sessionStorage !== "undefined" &&
+        sessionStorage.getItem(`${INTRO_SESSION_KEY}:${slug}`) === "1";
+    } catch {
+      skip = false;
+    }
+    if (skip) {
+      introDoneRef.current = true;
+      return;
+    }
+    introDoneRef.current = true;
+    try {
+      sessionStorage.setItem(`${INTRO_SESSION_KEY}:${slug}`, "1");
+    } catch {
+      /* noop */
+    }
+
+    const staggerMs = 160;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (let i = 0; i < messageCount; i++) {
+      timers.push(
+        window.setTimeout(() => {
+          setBubbles((prev) => [
+            ...prev,
+            {
+              id: createId("intro"),
+              kind: "intro",
+              xPercent: 12 + ((i * 19 + Math.random() * 22) % 76),
+              popping: false,
+              durationSec: 4.8 + Math.random() * 0.8,
+            },
+          ]);
+        }, i * staggerMs),
+      );
+    }
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+    };
+  }, [paused, slug, messageCount]);
+
+  /** 방문자 "+1" 물방울 — 일정 간격으로 생성 (다른 탭에서 온 것처럼 보이게 랜덤 지연) */
+  useEffect(() => {
+    if (paused) return;
+
+    const schedule = () => {
+      const delay = 10_000 + Math.random() * 12_000;
+      visitorTimeoutRef.current = window.setTimeout(() => {
+        visitorTimeoutRef.current = null;
+        if (document.visibilityState !== "visible") {
+          schedule();
+          return;
+        }
+        setBubbles((prev) => {
+          const visitors = prev.filter((b) => b.kind === "visitor").length;
+          if (visitors >= 8) return prev;
+          return [
+            ...prev,
+            {
+              id: createId("visit"),
+              kind: "visitor",
+              xPercent: 8 + Math.random() * 84,
+              popping: false,
+              durationSec: 11 + Math.random() * 6,
+            },
+          ];
+        });
+        schedule();
+      }, delay);
+    };
+
+    schedule();
+    return () => {
+      if (visitorTimeoutRef.current !== null) {
+        window.clearTimeout(visitorTimeoutRef.current);
+        visitorTimeoutRef.current = null;
+      }
+    };
+  }, [paused]);
+
+  /** 창 포커스 시 가끔 추가 물방울 */
+  useEffect(() => {
+    if (paused) return;
+    let lastSpawn = 0;
+    const onFocus = () => {
+      const now = Date.now();
+      if (now - lastSpawn < 25_000) return;
+      if (Math.random() > 0.35) return;
+      lastSpawn = now;
+      setBubbles((prev) => [
+        ...prev,
+        {
+          id: createId("focus"),
+          kind: "visitor",
+          xPercent: 10 + Math.random() * 80,
+          popping: false,
+          durationSec: 10 + Math.random() * 5,
+        },
+      ]);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [paused]);
+
+  const popBubble = useCallback((id: string) => {
+    setBubbles((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, popping: true } : b)),
+    );
+    window.setTimeout(() => {
+      setBubbles((prev) => prev.filter((b) => b.id !== id));
+    }, 320);
+  }, []);
+
+  const removeAfterAnim = useCallback((id: string) => {
+    setBubbles((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  return (
+    <>
+      <style>{`
+        @keyframes rpBubbleRise {
+          0% {
+            transform: translate(-50%, 0) translateY(110%);
+            opacity: 0;
+          }
+          7% {
+            opacity: 1;
+          }
+          92% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-50%, 0) translateY(-320%);
+            opacity: 0;
+          }
+        }
+        .rp-bubble-rise {
+          animation: rpBubbleRise var(--rp-dur, 13s) linear forwards;
+        }
+      `}</style>
+      <div className="pointer-events-none absolute inset-0 z-[21] overflow-hidden rounded-[18px]">
+        {bubbles.map((b) => (
+          <BubbleItem
+            key={b.id}
+            bubble={b}
+            onPop={() => popBubble(b.id)}
+            onAnimationEnd={() => removeAfterAnim(b.id)}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function BubbleItem({
+  bubble,
+  onPop,
+  onAnimationEnd,
+}: {
+  bubble: BubbleState;
+  onPop: () => void;
+  onAnimationEnd: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`rp-bubble-rise pointer-events-auto absolute bottom-0 z-[22] flex h-12 w-12 -translate-x-1/2 touch-manipulation items-center justify-center rounded-[50%] border border-sky-400/50 bg-gradient-to-b from-sky-50 via-sky-200/95 to-sky-400/90 text-[12px] font-extrabold tracking-tight text-sky-950 shadow-[0_6px_18px_rgba(14,165,233,0.35)] outline-none ring-1 ring-white/50 transition-[transform,opacity] before:pointer-events-none before:absolute before:inset-[18%] before:rounded-full before:bg-white/35 ${
+        bubble.popping
+          ? "scale-150 opacity-0 duration-300 ease-out"
+          : "hover:scale-[1.06] active:scale-95"
+      }`}
+      style={{
+        left: `${bubble.xPercent}%`,
+        bottom: "2%",
+        ["--rp-dur" as string]: `${bubble.durationSec}s`,
+      }}
+      onAnimationEnd={(e) => {
+        if (bubble.popping) return;
+        if (e.animationName !== "rpBubbleRise") return;
+        onAnimationEnd();
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onPop();
+      }}
+      aria-label="물방울 터뜨리기"
+    >
+      <span className="relative z-[1] drop-shadow-sm">+1</span>
+      <span
+        className="pointer-events-none absolute inset-[22%] rounded-full bg-gradient-to-br from-white/70 to-transparent opacity-80"
+        aria-hidden
+      />
+    </button>
+  );
+}

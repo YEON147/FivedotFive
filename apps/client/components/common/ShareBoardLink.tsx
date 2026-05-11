@@ -32,6 +32,10 @@ export function ShareLinkModalPanel({
   navigatorShareTitle = "공유",
   errorMessage,
   hint,
+  secondaryAbsoluteUrl = null,
+  secondaryLinkHref = null,
+  primaryLinkCaption,
+  secondaryLinkCaption,
 }: {
   dialogOpen: boolean;
   /** 클립보드·Web Share용 전체 URL — 없으면 로딩 문구 */
@@ -44,6 +48,13 @@ export function ShareLinkModalPanel({
   errorMessage?: string | null;
   /** 링크 아래 보조 설명(예: 만료 시각) */
   hint?: ReactNode;
+  /** 롤링페이퍼 등 — 보조 링크(예: 보기 전용). 없으면 한 줄만 표시 */
+  secondaryAbsoluteUrl?: string | null;
+  secondaryLinkHref?: string | null;
+  /** 주 링크 위 짧은 설명 */
+  primaryLinkCaption?: string;
+  /** 보조 링크 위 짧은 설명 */
+  secondaryLinkCaption?: string;
 }) {
   const [copyFeedback, setCopyFeedback] = useState(false);
 
@@ -63,10 +74,22 @@ export function ShareLinkModalPanel({
 
   const displayText = absoluteUrl || linkHref;
   const err = errorMessage?.trim();
+  const secondaryDisplay = secondaryAbsoluteUrl || secondaryLinkHref;
+  const hasSecondary =
+    Boolean(secondaryAbsoluteUrl?.trim()) && Boolean(secondaryLinkHref?.trim());
 
   return (
     <>
-      <div className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
+      {primaryLinkCaption ? (
+        <p className="mt-4 text-left text-[12px] font-medium leading-snug text-slate-600">
+          {primaryLinkCaption}
+        </p>
+      ) : null}
+      <div
+        className={`relative w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)] ${
+          primaryLinkCaption ? "mt-2" : "mt-5"
+        }`}
+      >
         <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
           {err ? (
             <span className="text-[#c02626]">{err}</span>
@@ -131,6 +154,43 @@ export function ShareLinkModalPanel({
           공유하기
         </button>
       </div>
+
+      {hasSecondary ? (
+        <div className="mt-6 w-full min-w-0 border-t border-[var(--color-border)] pt-5">
+          {secondaryLinkCaption ? (
+            <p className="text-left text-[12px] font-medium leading-snug text-slate-600">
+              {secondaryLinkCaption}
+            </p>
+          ) : null}
+          <div className="relative mt-2 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
+            <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
+              <a
+                href={secondaryLinkHref!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-[var(--color-text-primary)] underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF]"
+              >
+                {secondaryDisplay}
+              </a>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="mt-3 w-full rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] font-semibold text-[var(--color-text-primary)] transition-[transform,filter] active:scale-[0.99] active:brightness-95"
+            onClick={async () => {
+              if (!secondaryAbsoluteUrl) return;
+              try {
+                await navigator.clipboard.writeText(secondaryAbsoluteUrl);
+                setCopyFeedback(true);
+              } catch {
+                /* noop */
+              }
+            }}
+          >
+            위 링크 복사
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -144,6 +204,10 @@ type BoardShareDialogProps = {
   linkHref: string | null;
   /** 롤링페이퍼 소유자 — 댓글 / 선물·저장 링크 탭 (전달 시 absoluteUrl·linkHref 대신 탭별 값 사용) */
   rollingPaperOwnerTabs?: RollingPaperOwnerShareTabsConfig;
+  secondaryAbsoluteUrl?: string | null;
+  secondaryLinkHref?: string | null;
+  primaryLinkCaption?: string;
+  secondaryLinkCaption?: string;
   /** `carousel-portal`: 위시 캐러셀 임베드용 — static + `document.body` 포털 */
   presentation: BoardShareDialogPresentation;
   /** `presentation === "carousel-portal"` 일 때만 사용 */
@@ -178,6 +242,10 @@ export function BoardShareDialog({
   absoluteUrl,
   linkHref,
   rollingPaperOwnerTabs,
+  secondaryAbsoluteUrl,
+  secondaryLinkHref,
+  primaryLinkCaption,
+  secondaryLinkCaption,
   presentation,
   portalReady = false,
   title = "공유하기",
@@ -269,6 +337,10 @@ export function BoardShareDialog({
         navigatorShareTitle={navigatorShareTitle}
         errorMessage={panelError}
         hint={panelHint}
+        secondaryAbsoluteUrl={secondaryAbsoluteUrl}
+        secondaryLinkHref={secondaryLinkHref}
+        primaryLinkCaption={primaryLinkCaption}
+        secondaryLinkCaption={secondaryLinkCaption}
       />
     </WishlistCenterDialog>
   );
