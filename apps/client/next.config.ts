@@ -23,6 +23,9 @@ import type { RemotePattern } from "next/dist/shared/lib/image-config";
  *
  * 프론트 코드 점검: `fetch`·apiClient 경로는 항상 `/api/...` 로 시작하는지 확인
  * (`/boards/me` 절대 경로만 쓰면 브라우저는 동일 오리진에 두고 /api 가 빠질 수 있음)
+ *
+ * 단축 공유 링크 `FRONTEND_URL/share/{code}` 는 Spring `GET /share/{code}`(302)에서 처리.
+ * 동일 오리진으로 노출되므로 여기서 백엔드로 넘깁니다.
  */
 const backendOrigin =
   process.env.BACKEND_REWRITE_TARGET?.replace(/\/$/, "") ||
@@ -132,6 +135,10 @@ const nextConfig: NextConfig = {
 
     return [
       ...assetRewrites,
+      {
+        source: "/share/:path*",
+        destination: `${backendOrigin}/share/:path*`,
+      },
       {
         source: "/boards/:path*",
         destination: `${backendOrigin}/api/boards/:path*`,

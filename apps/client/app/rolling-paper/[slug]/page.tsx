@@ -20,6 +20,7 @@ import { AppSideMenu } from "@/components/common/AppSideMenu";
 import {
   BoardShareDialog,
   BoardShareFabButton,
+  type RollingPaperOwnerShareTabId,
 } from "@/components/common/ShareBoardLink";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "@/components/wishlist/WishlistSlots";
@@ -28,6 +29,8 @@ import {
   DEFAULT_ROLLING_COMMENT_STICKER_KEY,
   getRollingPaperComments,
   getRollingPaperDetail,
+  postRollingPaperShareCommentLink,
+  postRollingPaperShareViewLink,
   updateRollingPaperComment,
   type RollingPaperCommentRow,
   type RollingPaperDetailPayload,
@@ -48,6 +51,8 @@ import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
+import { getAssetImageUrl } from "@/lib/asset-url";
+import { effectivePublicSiteOrigin } from "@/lib/effective-site-origin";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 
 /** 롤링 포스트잇 슬롯 수 — 다이얼로그 제목·레이블 등과 동기화 */
@@ -552,11 +557,14 @@ function rollingPaperShareUrl(args: {
   viewToken?: string | null;
   urlToken?: string | null;
 }): string {
-  if (typeof window === "undefined") return "";
   const { slug, viewToken, urlToken } = args;
   const s = slug?.trim();
   if (!s) return "";
-  const origin = window.location.origin;
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : effectivePublicSiteOrigin();
+  if (!origin) return "";
   const path = `/rolling-paper/${encodeURIComponent(s)}`;
   const token = viewToken?.trim() || urlToken?.trim() || "";
   if (token) return `${origin}${path}?token=${encodeURIComponent(token)}`;
@@ -625,6 +633,9 @@ export default function RollingPaperSlugPage({
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
+  /** `GET /api/users/me` 성공 시각 — 포커스·visibility 반복 시 과호출 방지 */
+  const lastVisitorMeSuccessAtRef = useRef(0);
+  const VISITOR_ME_COOLDOWN_MS = 45_000;
 
   const [detail, setDetail] = useState<RollingPaperDetailPayload | null>(null);
   const [detailForbidden, setDetailForbidden] = useState(false);
@@ -656,18 +667,110 @@ export default function RollingPaperSlugPage({
 
   const [portalReady, setPortalReady] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
+  /** 소유자 공유 모달 — `POST .../share/comment` 단축 URL (실패 시 기존 롱 링크로 폴백) */
+  const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
+  const [ownerCommentShareFailed, setOwnerCommentShareFailed] = useState(false);
+  /** 소유자 — `POST .../share/view` 선물·저장 전용 단축 URL (탭 선택 시 요청) */
+  const [ownerViewShareUrl, setOwnerViewShareUrl] = useState<string | null>(null);
+  const [ownerViewExpiresAt, setOwnerViewExpiresAt] = useState<string | null>(null);
+  const [ownerViewShareError, setOwnerViewShareError] = useState<string | null>(null);
   useEffect(() => {
     setPortalReady(true);
   }, []);
 
-  const syncVisitorSession = useCallback(async () => {
+  useEffect(() => {
+    if (!isShareModalOpen) {
+      setShareTab("comment");
+      setOwnerViewShareUrl(null);
+      setOwnerViewExpiresAt(null);
+      setOwnerViewShareError(null);
+    }
+  }, [isShareModalOpen]);
+
+  useEffect(() => {
+    if (!isShareModalOpen || !slug.trim()) return;
+    if (!detail?.isOwner) {
+      setOwnerCommentShareUrl(null);
+      setOwnerCommentShareFailed(false);
+      return;
+    }
+    let cancelled = false;
+    setOwnerCommentShareFailed(false);
+    setOwnerCommentShareUrl(null);
+    void postRollingPaperShareCommentLink(slug)
+      .then((res) => {
+        const u = res.data?.shortUrl?.trim();
+        if (cancelled) return;
+        if (u) {
+          setOwnerCommentShareUrl(u);
+        } else {
+          setOwnerCommentShareFailed(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOwnerCommentShareFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isShareModalOpen, detail?.isOwner, slug]);
+
+  useEffect(() => {
+    if (!isShareModalOpen || !slug.trim() || !detail?.isOwner) return;
+    if (shareTab !== "view") return;
+    if (ownerViewShareUrl?.trim()) return;
+
+    let cancelled = false;
+    setOwnerViewShareError(null);
+    void postRollingPaperShareViewLink(slug)
+      .then((res) => {
+        const u = res.data?.shortUrl?.trim();
+        const exp = res.data?.expiresAt?.trim();
+        if (cancelled) return;
+        if (u) {
+          setOwnerViewShareUrl(u);
+          setOwnerViewExpiresAt(exp ?? null);
+        } else {
+          setOwnerViewShareError(res.message?.trim() || "링크를 만들지 못했습니다.");
+        }
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const msg =
+          e instanceof Error ? e.message.trim() : "링크를 만들지 못했습니다.";
+        setOwnerViewShareError(msg || "링크를 만들지 못했습니다.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isShareModalOpen,
+    detail?.isOwner,
+    slug,
+    shareTab,
+    ownerViewShareUrl,
+  ]);
+
+  const syncVisitorSession = useCallback(async (force = false) => {
     const token = getAccessToken()?.trim();
     if (!token) {
+      lastVisitorMeSuccessAtRef.current = 0;
       setVisitorMenuLoggedIn(false);
+      return;
+    }
+    const now = Date.now();
+    if (
+      !force &&
+      lastVisitorMeSuccessAtRef.current > 0 &&
+      now - lastVisitorMeSuccessAtRef.current < VISITOR_ME_COOLDOWN_MS
+    ) {
       return;
     }
     try {
       await getMyProfile();
+      lastVisitorMeSuccessAtRef.current = Date.now();
       setVisitorMenuLoggedIn(true);
     } catch {
       setVisitorMenuLoggedIn(!!getAccessToken()?.trim());
@@ -675,7 +778,7 @@ export default function RollingPaperSlugPage({
   }, []);
 
   useEffect(() => {
-    void syncVisitorSession();
+    void syncVisitorSession(true);
   }, [syncVisitorSession]);
 
   useEffect(() => {
@@ -687,7 +790,8 @@ export default function RollingPaperSlugPage({
     const onStorage = (e: StorageEvent) => {
       if (e.key === ACCESS_TOKEN_STORAGE_KEY || e.key === null) {
         syncTokens();
-        void syncVisitorSession();
+        lastVisitorMeSuccessAtRef.current = 0;
+        void syncVisitorSession(true);
       }
     };
     const onVisibility = () => {
@@ -708,7 +812,7 @@ export default function RollingPaperSlugPage({
 
   const handleRollingPaperMenuClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    void syncVisitorSession();
+    void syncVisitorSession(true);
     setIsSidebarOpen((open) => !open);
   };
 
@@ -760,14 +864,36 @@ export default function RollingPaperSlugPage({
     return raw.trim() ? raw : null;
   }, [slug, detail?.viewToken, rollingToken]);
 
-  const rollingSharePathWithQs = useMemo(() => {
-    const s = slug.trim();
-    if (!s) return "";
-    const token = detail?.viewToken?.trim() || rollingToken?.trim() || "";
-    return token
-      ? `/rolling-paper/${encodeURIComponent(s)}?token=${encodeURIComponent(token)}`
-      : `/rolling-paper/${encodeURIComponent(s)}`;
-  }, [slug, detail?.viewToken, rollingToken]);
+  /**
+   * 공유 모달 — 댓글 탭·비소유자 공통: 미리보기·복사·Web Share 문자열.
+   * 소유자 댓글 탭: 단축 URL(API) 우선, 실패 시 전체 페이지 URL 폴백.
+   * 비소유자: 브라우저 기준 전체 공유 URL(`rollingPaperShareUrl`).
+   */
+  const commentTabShareUrl = useMemo((): string | null => {
+    if (!detail?.isOwner) {
+      return rollingShareUrl;
+    }
+    if (ownerCommentShareUrl?.trim()) {
+      return ownerCommentShareUrl.trim();
+    }
+    if (ownerCommentShareFailed) {
+      return rollingShareUrl;
+    }
+    return null;
+  }, [detail?.isOwner, ownerCommentShareUrl, ownerCommentShareFailed, rollingShareUrl]);
+
+  const viewTabShareUrl = useMemo((): string | null => {
+    if (!detail?.isOwner) return null;
+    return ownerViewShareUrl?.trim() || null;
+  }, [detail?.isOwner, ownerViewShareUrl]);
+
+  /** 받는 사람 프로필 — `rollingpaper-01` 폴라로이드 프레임 안쪽에 깔림 */
+  const recipientProfileImageUrl = useMemo(() => {
+    const key = detail?.imageKey?.trim();
+    if (!key) return null;
+    const url = getAssetImageUrl(key).trim();
+    return url || null;
+  }, [detail?.imageKey]);
 
   const loadBoard = useCallback(async () => {
     if (!slug) return;
@@ -812,6 +938,9 @@ export default function RollingPaperSlugPage({
   }, [loadBoard]);
 
   const canComment = detail?.canComment === true;
+  /** 조회·저장 전용(view 토큰) 방문자 — 공유 UI 숨김 (소유자·댓글 작성 링크 방문자만 공유 가능) */
+  const showRollingPaperShareEntry =
+    Boolean(detail && (detail.isOwner === true || canComment));
 
   const openCreateModal = (slotIndex: number) => {
     if (!canComment) return;
@@ -1313,15 +1442,32 @@ export default function RollingPaperSlugPage({
                                 style={{ aspectRatio: `${aw} / ${ah}` }}
                               >
                                 <div className="relative h-full w-full">
+                                  {/* 프레임 PNG 사진 구멍이 불투명 흰색이면 아래 레이어 이미지가 안 보임 → 프레임을 먼저 깔고 CDN 사진을 창 영역만 위에 얹음 */}
                                   <Image
                                     src={rollingPaperImageSrc(piece.src)}
                                     alt={piece.alt}
                                     fill
-                                    className="object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
+                                    className="z-0 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                     sizes="(max-width: 420px) 50vw, 220px"
                                     priority
                                     {...rollingPaperImageDevProps}
                                   />
+                                  {recipientProfileImageUrl ? (
+                                    <div className="absolute left-[7%] right-[7%] top-[15%] bottom-[16%] z-[2] overflow-hidden rounded-[2px] bg-[#e8e8e6] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] origin-center rotate-[2deg]">
+                                      {/* eslint-disable-next-line @next/next/no-img-element -- CDN assetKey URL */}
+                                      <img
+                                        src={recipientProfileImageUrl}
+                                        alt={
+                                          detail?.recipientName?.trim()
+                                            ? `${detail.recipientName} 님`
+                                            : "받는 사람"
+                                        }
+                                        className="h-full w-full object-cover object-center"
+                                        loading="eager"
+                                        decoding="async"
+                                      />
+                                    </div>
+                                  ) : null}
                                 </div>
                               </div>
                             );
@@ -1392,16 +1538,18 @@ export default function RollingPaperSlugPage({
                         })}
                       </div>
 
-                      <div
-                        className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end gap-2.5 transition-opacity duration-200 ${
-                          modalOpen ? "opacity-0" : "opacity-100"
-                        }`}
-                      >
-                        <BoardShareFabButton
-                          onClick={() => setIsShareModalOpen(true)}
-                          ariaLabel="롤링페이퍼 공유"
-                        />
-                      </div>
+                      {showRollingPaperShareEntry ? (
+                        <div
+                          className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end gap-2.5 transition-opacity duration-200 ${
+                            modalOpen ? "opacity-0" : "opacity-100"
+                          }`}
+                        >
+                          <BoardShareFabButton
+                            onClick={() => setIsShareModalOpen(true)}
+                            ariaLabel="롤링페이퍼 공유"
+                          />
+                        </div>
+                      ) : null}
                     </>
                   )}
                   </div>
@@ -1436,15 +1584,41 @@ export default function RollingPaperSlugPage({
       )}
     </main>
 
-      <BoardShareDialog
-        presentation="page"
-        open={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        description="롤링페이퍼 링크를 복사하거나 공유할 수 있어요."
-        absoluteUrl={rollingShareUrl}
-        linkHref={rollingSharePathWithQs || null}
-        navigatorShareTitle="롤링페이퍼"
-      />
+      {showRollingPaperShareEntry ? (
+        <BoardShareDialog
+          presentation="page"
+          open={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          description={
+            !detail?.isOwner
+              ? "롤링페이퍼 링크를 복사하거나 공유할 수 있어요."
+              : shareTab === "comment"
+                ? "댓글 작성용 단축 링크예요. 공개일(기준일)까지 접속 후 작성할 수 있어요."
+                : "받는 사람만 저장·열람할 링크예요. 이 링크로는 댓글을 작성할 수 없어요."
+          }
+          absoluteUrl={commentTabShareUrl}
+          linkHref={commentTabShareUrl}
+          rollingPaperOwnerTabs={
+            detail?.isOwner
+              ? {
+                  activeTab: shareTab,
+                  onTabChange: setShareTab,
+                  comment: {
+                    absoluteUrl: commentTabShareUrl,
+                    linkHref: commentTabShareUrl,
+                  },
+                  view: {
+                    absoluteUrl: viewTabShareUrl,
+                    linkHref: viewTabShareUrl,
+                    expiresAt: ownerViewExpiresAt,
+                    error: ownerViewShareError,
+                  },
+                }
+              : undefined
+          }
+          navigatorShareTitle="롤링페이퍼"
+        />
+      ) : null}
 
       {modalOpen && portalReady && typeof document !== "undefined"
         ? createPortal(rollingPaperOverlay, document.body)

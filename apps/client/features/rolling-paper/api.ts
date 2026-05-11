@@ -4,6 +4,25 @@ function encodeRollingSlug(slug: string): string {
   return encodeURIComponent(slug.trim());
 }
 
+/** GET /api/assets/rolling-paper-profiles — 누구나 (JWT 불필요) */
+export type RollingPaperProfileAsset = {
+  id: number;
+  assetKey: string;
+};
+
+export type RollingPaperProfileAssetsData = {
+  success?: boolean;
+  message?: string;
+  data: { profiles: RollingPaperProfileAsset[] };
+};
+
+export async function getRollingPaperProfileAssets(): Promise<RollingPaperProfileAssetsData> {
+  return publicApiClient<RollingPaperProfileAssetsData>(
+    "/api/assets/rolling-paper-profiles",
+    { method: "GET" },
+  );
+}
+
 /** 서버 예시와 동일한 기본 스티커 키 — 롤링페이퍼 댓글 본문만 쓰고 스티커 UI는 생략할 때 사용 */
 export const DEFAULT_ROLLING_COMMENT_STICKER_KEY =
   "stickers/balloon/sticker_01.png";
@@ -88,6 +107,45 @@ export async function getRollingPaperDetail(
     method: "GET",
     headers: mergeRollingPaperHeaders(rollingToken),
   });
+}
+
+/** POST /api/rolling-papers/{slug}/share/comment — 소유자만, 댓글 작성용 단축 링크 (공개일까지 유효) */
+export type RollingPaperShareCommentLinkEnvelope = {
+  success?: boolean;
+  message?: string;
+  data?: {
+    shortUrl?: string;
+    expiresAt?: string;
+  };
+};
+
+export async function postRollingPaperShareCommentLink(
+  slug: string,
+): Promise<RollingPaperShareCommentLinkEnvelope> {
+  const enc = encodeRollingSlug(slug);
+  return apiClient<RollingPaperShareCommentLinkEnvelope>(
+    `/api/rolling-papers/${enc}/share/comment`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+/** POST /api/rolling-papers/{slug}/share/view — 소유자만, 저장·열람용 단축 링크 (공개일까지 유효, 댓글 작성 불가 토큰) */
+export async function postRollingPaperShareViewLink(
+  slug: string,
+): Promise<RollingPaperShareCommentLinkEnvelope> {
+  const enc = encodeRollingSlug(slug);
+  return apiClient<RollingPaperShareCommentLinkEnvelope>(
+    `/api/rolling-papers/${enc}/share/view`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
 }
 
 /** GET /api/rolling-papers/{slug}/comments */
