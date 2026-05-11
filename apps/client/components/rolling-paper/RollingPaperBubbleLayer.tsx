@@ -34,7 +34,8 @@ export function RollingPaperBubbleLayer({
 }) {
   const [bubbles, setBubbles] = useState<BubbleState[]>([]);
   const introDoneRef = useRef(false);
-  const visitorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 브라우저 `window.setTimeout` 반환값은 `number`(Node `Timeout`과 구분) */
+  const visitorTimeoutRef = useRef<number | null>(null);
 
   /** 첫 세션 방문: 작성된 메시지 수만큼 물방울 연속 생성 */
   useEffect(() => {
@@ -60,7 +61,7 @@ export function RollingPaperBubbleLayer({
     }
 
     const staggerMs = 160;
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    const timers: number[] = [];
     for (let i = 0; i < messageCount; i++) {
       timers.push(
         window.setTimeout(() => {
@@ -69,7 +70,7 @@ export function RollingPaperBubbleLayer({
             {
               id: createId("intro"),
               kind: "intro",
-              xPercent: 12 + ((i * 19 + Math.random() * 22) % 76),
+              xPercent: 6 + ((i * 15 + Math.random() * 28) % 88),
               popping: false,
               durationSec: 4.8 + Math.random() * 0.8,
             },
@@ -102,7 +103,7 @@ export function RollingPaperBubbleLayer({
             {
               id: createId("visit"),
               kind: "visitor",
-              xPercent: 8 + Math.random() * 84,
+              xPercent: 5 + Math.random() * 90,
               popping: false,
               durationSec: 11 + Math.random() * 6,
             },
@@ -135,7 +136,7 @@ export function RollingPaperBubbleLayer({
         {
           id: createId("focus"),
           kind: "visitor",
-          xPercent: 10 + Math.random() * 80,
+          xPercent: 5 + Math.random() * 90,
           popping: false,
           durationSec: 10 + Math.random() * 5,
         },
@@ -173,7 +174,7 @@ export function RollingPaperBubbleLayer({
             opacity: 1;
           }
           100% {
-            transform: translate(-50%, 0) translateY(-320%);
+            transform: translate(-50%, 0) translateY(-360%);
             opacity: 0;
           }
         }
@@ -207,14 +208,14 @@ function BubbleItem({
   return (
     <button
       type="button"
-      className={`rp-bubble-rise pointer-events-auto absolute bottom-0 z-[22] flex h-12 w-12 -translate-x-1/2 touch-manipulation items-center justify-center rounded-[50%] border border-sky-400/50 bg-gradient-to-b from-sky-50 via-sky-200/95 to-sky-400/90 text-[12px] font-extrabold tracking-tight text-sky-950 shadow-[0_6px_18px_rgba(14,165,233,0.35)] outline-none ring-1 ring-white/50 transition-[transform,opacity] before:pointer-events-none before:absolute before:inset-[18%] before:rounded-full before:bg-white/35 ${
+      className={`rp-bubble-rise pointer-events-auto absolute bottom-0 z-[22] flex h-10 w-10 -translate-x-1/2 touch-manipulation items-center justify-center rounded-[50%] border border-sky-400/50 bg-gradient-to-b from-sky-50 via-sky-200/95 to-sky-400/90 text-[11px] font-extrabold tracking-tight text-sky-950 shadow-[0_5px_14px_rgba(14,165,233,0.32)] outline-none ring-1 ring-white/50 transition-[transform,opacity] before:pointer-events-none before:absolute before:inset-[18%] before:rounded-full before:bg-white/35 ${
         bubble.popping
           ? "scale-150 opacity-0 duration-300 ease-out"
           : "hover:scale-[1.06] active:scale-95"
       }`}
       style={{
         left: `${bubble.xPercent}%`,
-        bottom: "2%",
+        bottom: "1%",
         ["--rp-dur" as string]: `${bubble.durationSec}s`,
       }}
       onAnimationEnd={(e) => {
@@ -230,7 +231,7 @@ function BubbleItem({
     >
       <span className="relative z-[1] drop-shadow-sm">+1</span>
       <span
-        className="pointer-events-none absolute inset-[22%] rounded-full bg-gradient-to-br from-white/70 to-transparent opacity-80"
+        className="pointer-events-none absolute inset-[20%] rounded-full bg-gradient-to-br from-white/70 to-transparent opacity-80"
         aria-hidden
       />
     </button>
