@@ -130,6 +130,10 @@ export type PublicBoardData = {
     /** 공개 보드 헤더 표시용 — 없으면 `username` 폴백 */
     nickname?: string | null;
     targetDate: string;
+    /** GET 보드 응답 — 댓글 즉시 공개 설정 */
+    isCommentPublic?: boolean;
+    /** 서버 계산 — 타인 댓글 마스킹 해제 여부 */
+    commentsRevealed?: boolean;
     items: WishItemData[];
     assets: BoardAssetData[];
   };

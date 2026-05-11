@@ -32,6 +32,7 @@ import {
   postRollingPaperShareCommentLink,
   postRollingPaperShareViewLink,
   updateRollingPaperComment,
+  verifyRollingPaperGuestCommentPassword,
   type RollingPaperCommentRow,
   type RollingPaperDetailPayload,
 } from "@/features/rolling-paper/api";
@@ -54,6 +55,10 @@ import {
 import { getAssetImageUrl } from "@/lib/asset-url";
 import { effectivePublicSiteOrigin } from "@/lib/effective-site-origin";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
+import { RollingPaperBubbleLayer } from "@/components/rolling-paper/RollingPaperBubbleLayer";
+import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
+import { isMaskedOthersWishComment } from "@/features/wishlist/comment-display";
+import { getKstStartOfLocalDateMs } from "@/features/wishlist/comment-reveal-at";
 
 /** 롤링 포스트잇 슬롯 수 — 다이얼로그 제목·레이블 등과 동기화 */
 const ROLLING_POSTIT_SLOT_COUNT = 4;
@@ -551,13 +556,8 @@ function displayNameFromSlug(slug: string): string {
   }
 }
 
-/** 브라우저 기준 전체 URL — `viewToken` 우선(소유자 공유), 없으면 현재 주소의 `token` */
-function rollingPaperShareUrl(args: {
-  slug: string;
-  viewToken?: string | null;
-  urlToken?: string | null;
-}): string {
-  const { slug, viewToken, urlToken } = args;
+/** 브라우저 기준 전체 URL — `token`이 있으면 `?token=` 부착 */
+function rollingPaperAbsoluteShareUrl(slug: string, token: string | null): string {
   const s = slug?.trim();
   if (!s) return "";
   const origin =
@@ -566,9 +566,18 @@ function rollingPaperShareUrl(args: {
       : effectivePublicSiteOrigin();
   if (!origin) return "";
   const path = `/rolling-paper/${encodeURIComponent(s)}`;
-  const token = viewToken?.trim() || urlToken?.trim() || "";
-  if (token) return `${origin}${path}?token=${encodeURIComponent(token)}`;
+  const t = token?.trim();
+  if (t) return `${origin}${path}?token=${encodeURIComponent(t)}`;
   return `${origin}${path}`;
+}
+
+function rollingPaperSharePathWithToken(slug: string, token: string | null): string {
+  const s = slug?.trim();
+  if (!s) return "";
+  const path = `/rolling-paper/${encodeURIComponent(s)}`;
+  const t = token?.trim();
+  if (t) return `${path}?token=${encodeURIComponent(t)}`;
+  return path;
 }
 
 /**
@@ -658,6 +667,10 @@ export default function RollingPaperSlugPage({
   const [content, setContent] = useState("");
   const [guestNickname, setGuestNickname] = useState("");
   const [guestPassword, setGuestPassword] = useState("");
+  /** 비회원 수정 — `POST .../verify`로 받은 토큰(저장 시 PATCH 1회 소모) */
+  const [guestEditVerifyToken, setGuestEditVerifyToken] = useState<
+    string | null
+  >(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -855,19 +868,77 @@ export default function RollingPaperSlugPage({
     return displayNameFromSlug(slug);
   }, [detail?.recipientName, slug]);
 
+  /**
+   * 공유 모달 주소 — 댓글 작성 가능 토큰 우선(`commentToken` → 세션에서 댓글 가능할 때 URL의 `token`).
+   * 보기 전용(`viewToken`)은 주소와 다를 때만 보조 링크로 둡니다.
+   */
+  const rollingShareModalLinks = useMemo(() => {
+    const commentInviteToken =
+      detail?.commentToken?.trim() ||
+      (detail?.canComment ? rollingToken?.trim() || null : null);
+    const viewOnlyToken = detail?.viewToken?.trim() || null;
+
+    if (commentInviteToken) {
+      const secondaryToken =
+        viewOnlyToken && viewOnlyToken !== commentInviteToken
+          ? viewOnlyToken
+          : null;
+      return {
+        primaryToken: commentInviteToken,
+        secondaryToken,
+        primaryCaption: "댓글 작성 초대 링크",
+        secondaryCaption: secondaryToken ? "보기·저장용 링크" : undefined,
+      };
+    }
+    if (viewOnlyToken) {
+      return {
+        primaryToken: viewOnlyToken,
+        secondaryToken: null,
+        primaryCaption: "보기·저장용 링크",
+        secondaryCaption: undefined,
+      };
+    }
+    return {
+      primaryToken: rollingToken?.trim() || null,
+      secondaryToken: null,
+      primaryCaption: undefined as string | undefined,
+      secondaryCaption: undefined as string | undefined,
+    };
+  }, [detail, rollingToken]);
+
   const rollingShareUrl = useMemo(() => {
-    const raw = rollingPaperShareUrl({
+    const raw = rollingPaperAbsoluteShareUrl(
       slug,
-      viewToken: detail?.viewToken,
-      urlToken: rollingToken,
-    });
+      rollingShareModalLinks.primaryToken,
+    );
     return raw.trim() ? raw : null;
-  }, [slug, detail?.viewToken, rollingToken]);
+  }, [slug, rollingShareModalLinks.primaryToken]);
+
+  const rollingSharePathWithQs = useMemo(
+    () =>
+      rollingPaperSharePathWithToken(slug, rollingShareModalLinks.primaryToken),
+    [slug, rollingShareModalLinks.primaryToken],
+  );
+
+  const rollingShareSecondaryAbsolute = useMemo(() => {
+    const t = rollingShareModalLinks.secondaryToken;
+    if (!t) return null;
+    const raw = rollingPaperAbsoluteShareUrl(slug, t);
+    return raw.trim() ? raw : null;
+  }, [slug, rollingShareModalLinks.secondaryToken]);
+
+  const rollingShareSecondaryPath = useMemo(
+    () =>
+      rollingShareModalLinks.secondaryToken
+        ? rollingPaperSharePathWithToken(slug, rollingShareModalLinks.secondaryToken)
+        : null,
+    [slug, rollingShareModalLinks.secondaryToken],
+  );
 
   /**
    * 공유 모달 — 댓글 탭·비소유자 공통: 미리보기·복사·Web Share 문자열.
    * 소유자 댓글 탭: 단축 URL(API) 우선, 실패 시 전체 페이지 URL 폴백.
-   * 비소유자: 브라우저 기준 전체 공유 URL(`rollingPaperShareUrl`).
+   * 비소유자: `rollingShareUrl`(댓글 초대 토큰 우선).
    */
   const commentTabShareUrl = useMemo((): string | null => {
     if (!detail?.isOwner) {
@@ -942,6 +1013,23 @@ export default function RollingPaperSlugPage({
   const showRollingPaperShareEntry =
     Boolean(detail && (detail.isOwner === true || canComment));
 
+  /** 포스트잇에 메시지가 올라간 개수 — 첫 방문 시 물방울 개수와 동일 */
+  const filledMessageCount = useMemo(() => {
+    let n = 0;
+    for (let i = 0; i < ROLLING_POSTIT_SLOT_COUNT; i++) {
+      if (slotComments[i]) n += 1;
+    }
+    return n;
+  }, [slotComments]);
+
+  /** 기념일 0시(KST) — 마스킹 댓글 읽기 모달 카운트다운 */
+  const rollingCommentRevealAtMs = useMemo(() => {
+    const td = detail?.targetDate?.trim();
+    if (!td) return undefined;
+    const ms = getKstStartOfLocalDateMs(td);
+    return Number.isFinite(ms) ? ms : undefined;
+  }, [detail?.targetDate]);
+
   const openCreateModal = (slotIndex: number) => {
     if (!canComment) return;
     if (slotComments[slotIndex]) return;
@@ -962,6 +1050,8 @@ export default function RollingPaperSlugPage({
     setViewModalStep("read");
     setActiveSlot(slotIndex);
     setFormError(null);
+    setGuestEditVerifyToken(null);
+    setGuestPassword("");
     setModalOpen(true);
   };
 
@@ -972,6 +1062,7 @@ export default function RollingPaperSlugPage({
     setActiveSlot(null);
     setFormError(null);
     setCreateOverlayStep("postit");
+    setGuestEditVerifyToken(null);
   };
 
   const handleSubmit = async () => {
@@ -1067,36 +1158,76 @@ export default function RollingPaperSlugPage({
       return;
     }
 
-    const member = Boolean(getAccessToken()?.trim());
-    if (!member && !guestPassword.trim()) {
-      setFormError("비밀번호를 입력해 주세요. (비회원 수정)");
+    const jwtPresent = Boolean(getAccessToken()?.trim());
+    const useMemberPatch = jwtPresent && row.isUser;
+    const guestVt = guestEditVerifyToken?.trim();
+    if (!useMemberPatch && !guestVt) {
+      setFormError("먼저 비밀번호로 인증해 주세요.");
       return;
     }
 
     setFormError(null);
     setSubmitting(true);
     try {
-      if (member) {
+      if (useMemberPatch) {
         await updateRollingPaperComment(slug, row.id, {
-          mode: "member",
           content: trimmed,
           rollingToken,
         });
       } else {
         await updateRollingPaperComment(slug, row.id, {
-          mode: "guest",
           content: trimmed,
-          guestPassword: guestPassword.trim(),
+          verifyToken: guestVt,
           rollingToken,
         });
       }
       setViewModalStep("read");
       setGuestPassword("");
+      setGuestEditVerifyToken(null);
       await loadBoard();
       router.refresh();
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "수정에 실패했습니다.";
+      setFormError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGuestEditVerifyLoad = async () => {
+    if (
+      modalMode !== "view" ||
+      viewModalStep !== "edit" ||
+      activeSlot === null ||
+      !slug
+    ) {
+      return;
+    }
+    const row = slotComments[activeSlot];
+    if (!row || row.isUser) return;
+
+    if (!guestPassword.trim()) {
+      setFormError("비밀번호를 입력해 주세요.");
+      return;
+    }
+
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      const { verifyToken, content: verifiedContent } =
+        await verifyRollingPaperGuestCommentPassword(
+          slug,
+          row.id,
+          guestPassword.trim(),
+        );
+      setGuestEditVerifyToken(verifyToken);
+      setContent(
+        typeof verifiedContent === "string" ? verifiedContent : "",
+      );
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "인증에 실패했습니다.";
       setFormError(msg);
     } finally {
       setSubmitting(false);
@@ -1174,26 +1305,56 @@ export default function RollingPaperSlugPage({
             {modalMode === "view" && activeSlot !== null && viewRow ? (
               viewModalStep === "read" ? (
                 <>
-                  <RollingPaperPostitModalFrame
-                    slotIndex={activeSlot}
-                    text={
-                      typeof viewRow.content === "string" &&
-                      viewRow.content.trim() !== ""
-                        ? viewRow.content.trim()
-                        : "아직 공개되지 않은 메시지입니다."
-                    }
-                  />
+                  {isMaskedOthersWishComment(viewRow) ? (
+                    <RollingPaperPostitShell
+                      slotIndex={activeSlot}
+                      fullTextScroll
+                    >
+                      <RollingPaperModalTextSlot>
+                        <div className="flex w-full min-w-0 max-w-full flex-col items-center px-0.5 text-center">
+                          <div className="w-full max-w-[min(260px,100%)] rounded-2xl border border-violet-100 bg-violet-50/90 px-3 py-2.5 shadow-sm">
+                            <p className="text-[11px] font-semibold text-violet-900">
+                              전체 공개까지
+                            </p>
+                            <p
+                              className="mt-1 text-base font-bold leading-snug tracking-tight text-violet-700"
+                              aria-live="polite"
+                            >
+                              <CommentRevealCountdown
+                                revealAtMs={rollingCommentRevealAtMs}
+                              />
+                            </p>
+                          </div>
+                        </div>
+                      </RollingPaperModalTextSlot>
+                    </RollingPaperPostitShell>
+                  ) : (
+                    <RollingPaperPostitModalFrame
+                      slotIndex={activeSlot}
+                      text={
+                        typeof viewRow.content === "string" &&
+                        viewRow.content.trim() !== ""
+                          ? viewRow.content.trim()
+                          : "아직 공개되지 않은 메시지입니다."
+                      }
+                    />
+                  )}
                   {canEditViewMessage ? (
                     <button
                       type="button"
                       className={`shrink-0 ${ROLLING_OVERLAY_PRIMARY_BTN_CLASS}`}
                       onClick={() => {
                         setViewModalStep("edit");
-                        setContent(
-                          typeof viewRow.content === "string"
-                            ? viewRow.content
-                            : "",
-                        );
+                        setGuestEditVerifyToken(null);
+                        if (viewRow.isUser) {
+                          setContent(
+                            typeof viewRow.content === "string"
+                              ? viewRow.content
+                              : "",
+                          );
+                        } else {
+                          setContent("");
+                        }
                         setGuestPassword("");
                         setFormError(null);
                       }}
@@ -1204,66 +1365,117 @@ export default function RollingPaperSlugPage({
                 </>
               ) : (
                 <>
-                  {!loggedInState ? (
-                    <div className={ROLLING_OVERLAY_GUEST_CARD_CLASS}>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[11px] font-medium text-slate-700">
-                          비밀번호 (수정 확인)
-                        </span>
-                        <input
-                          type="password"
-                          value={guestPassword}
-                          onChange={(e) => setGuestPassword(e.target.value)}
-                          className={ROLLING_OVERLAY_INPUT_CLASS}
-                          placeholder="작성 시 설정한 비밀번호"
-                          autoComplete="current-password"
-                        />
-                      </label>
-                    </div>
-                  ) : null}
+                  {viewRow && !viewRow.isUser && !guestEditVerifyToken ? (
+                    <>
+                      <div className={ROLLING_OVERLAY_GUEST_CARD_CLASS}>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[11px] font-medium text-slate-700">
+                            비밀번호
+                          </span>
+                          <input
+                            type="password"
+                            value={guestPassword}
+                            onChange={(e) => setGuestPassword(e.target.value)}
+                            className={ROLLING_OVERLAY_INPUT_CLASS}
+                            placeholder="작성 시 설정한 비밀번호"
+                            autoComplete="current-password"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                void handleGuestEditVerifyLoad();
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
 
-                  <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
-                    <RollingPaperModalTextSlot>
-                      <RollingPaperPostitModalTextarea
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        placeholder="메시지를 수정해 보세요"
-                        autoFocus
-                      />
-                    </RollingPaperModalTextSlot>
-                  </RollingPaperPostitShell>
-                  <span className="w-full text-right text-[11px] text-white/80">
-                    {content.trim().length}/{CONTENT_MAX}
-                  </span>
+                      {formError ? (
+                        <p className="text-[13px] text-red-200" role="alert">
+                          {formError}
+                        </p>
+                      ) : null}
 
-                  {formError ? (
-                    <p className="text-[13px] text-red-200" role="alert">
-                      {formError}
-                    </p>
-                  ) : null}
+                      <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                          onClick={() => {
+                            setViewModalStep("read");
+                            setFormError(null);
+                            setGuestPassword("");
+                            setGuestEditVerifyToken(null);
+                          }}
+                          disabled={submitting}
+                        >
+                          취소
+                        </button>
+                        <button
+                          type="button"
+                          className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                          onClick={() => void handleGuestEditVerifyLoad()}
+                          disabled={submitting || !guestPassword.trim()}
+                        >
+                          {submitting ? "불러오는 중…" : "수정"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <RollingPaperPostitShell
+                        slotIndex={activeSlot}
+                        fullTextScroll
+                      >
+                        <RollingPaperModalTextSlot>
+                          <RollingPaperPostitModalTextarea
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            placeholder="메시지를 수정해 보세요"
+                            autoFocus={
+                              Boolean(viewRow?.isUser) ||
+                              Boolean(guestEditVerifyToken)
+                            }
+                          />
+                        </RollingPaperModalTextSlot>
+                      </RollingPaperPostitShell>
+                      <span className="w-full text-right text-[11px] text-white/80">
+                        {content.trim().length}/{CONTENT_MAX}
+                      </span>
 
-                  <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                      onClick={() => {
-                        setViewModalStep("read");
-                        setFormError(null);
-                        setGuestPassword("");
-                      }}
-                      disabled={submitting}
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="button"
-                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                      onClick={() => void handleViewEditSubmit()}
-                      disabled={submitting}
-                    >
-                      {submitting ? "저장 중…" : "저장"}
-                    </button>
-                  </div>
+                      {formError ? (
+                        <p className="text-[13px] text-red-200" role="alert">
+                          {formError}
+                        </p>
+                      ) : null}
+
+                      <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                          onClick={() => {
+                            setViewModalStep("read");
+                            setFormError(null);
+                            setGuestPassword("");
+                            setGuestEditVerifyToken(null);
+                          }}
+                          disabled={submitting}
+                        >
+                          취소
+                        </button>
+                        <button
+                          type="button"
+                          className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                          onClick={() => void handleViewEditSubmit()}
+                          disabled={
+                            submitting ||
+                            (Boolean(viewRow && !viewRow.isUser) &&
+                              !guestEditVerifyToken?.trim())
+                          }
+                        >
+                          {submitting ? "저장 중…" : "저장"}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </>
               )
             ) : null}
@@ -1391,6 +1603,14 @@ export default function RollingPaperSlugPage({
                   aria-hidden
                 />
 
+                {!loading && !detailForbidden && !loadError && detail ? (
+                  <RollingPaperBubbleLayer
+                    slug={slug}
+                    messageCount={filledMessageCount}
+                    paused={modalOpen}
+                  />
+                ) : null}
+
                 <div className="absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden rounded-[18px]">
                   <div
                     className={`${ROLLING_PAPER_BOARD_INNER} relative flex h-full min-h-0 flex-1 flex-col`}
@@ -1476,9 +1696,15 @@ export default function RollingPaperSlugPage({
                           const slotIdx = piece.slotIndex;
                           const row = slotComments[slotIdx];
                           const occupied = Boolean(row);
+                          const masked =
+                            row && isMaskedOthersWishComment(row);
                           const text =
                             row?.content?.trim() ||
-                            (occupied ? "···" : "");
+                            (occupied
+                              ? masked
+                                ? "메시지가 있어요"
+                                : "···"
+                              : "");
                           return (
                             <div
                               key={piece.src}
@@ -1591,13 +1817,15 @@ export default function RollingPaperSlugPage({
           onClose={() => setIsShareModalOpen(false)}
           description={
             !detail?.isOwner
-              ? "롤링페이퍼 링크를 복사하거나 공유할 수 있어요."
+              ? "롤링페이퍼 링크를 복사하거나 공유할 수 있어요. 친구에게 메시지를 남기게 하려면 댓글 초대 링크를 보내 주세요."
               : shareTab === "comment"
                 ? "댓글 작성용 단축 링크예요. 공개일(기준일)까지 접속 후 작성할 수 있어요."
                 : "받는 사람만 저장·열람할 링크예요. 이 링크로는 댓글을 작성할 수 없어요."
           }
-          absoluteUrl={commentTabShareUrl}
-          linkHref={commentTabShareUrl}
+          absoluteUrl={detail?.isOwner ? commentTabShareUrl : rollingShareUrl}
+          linkHref={
+            detail?.isOwner ? commentTabShareUrl : rollingSharePathWithQs || null
+          }
           rollingPaperOwnerTabs={
             detail?.isOwner
               ? {
@@ -1615,6 +1843,18 @@ export default function RollingPaperSlugPage({
                   },
                 }
               : undefined
+          }
+          secondaryAbsoluteUrl={
+            detail?.isOwner ? undefined : rollingShareSecondaryAbsolute
+          }
+          secondaryLinkHref={
+            detail?.isOwner ? undefined : rollingShareSecondaryPath
+          }
+          primaryLinkCaption={
+            detail?.isOwner ? undefined : rollingShareModalLinks.primaryCaption
+          }
+          secondaryLinkCaption={
+            detail?.isOwner ? undefined : rollingShareModalLinks.secondaryCaption
           }
           navigatorShareTitle="롤링페이퍼"
         />

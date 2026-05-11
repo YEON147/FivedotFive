@@ -55,6 +55,10 @@ import {
 } from "@/features/wishlist/board-background";
 import { getAssetImageUrl } from "@/lib/asset-url";
 import {
+  getKstStartOfLocalDateMs,
+  inferWishBoardCommentsRevealed,
+} from "@/features/wishlist/comment-reveal-at";
+import {
   isMaskedOthersWishComment,
   isSoftDeletedWishComment,
 } from "@/features/wishlist/comment-display";
@@ -455,6 +459,16 @@ export default function PublicWishlistPage({
   /** 내 보드 + 배경 시트 열림 — 저장 전 미리보기 키(`null`이면 `boardAssets`만 사용) */
   const [embeddedBgDraftKey, setEmbeddedBgDraftKey] = useState<string | null>(null);
   const [ownerName, setOwnerName] = useState("");
+  const [boardRevealMeta, setBoardRevealMeta] = useState<{
+    targetDate: string;
+    commentsRevealed: boolean;
+  } | null>(null);
+
+  const wishCommentRevealAtMs = useMemo(() => {
+    if (!boardRevealMeta || boardRevealMeta.commentsRevealed) return undefined;
+    const ms = getKstStartOfLocalDateMs(boardRevealMeta.targetDate);
+    return Number.isFinite(ms) ? ms : undefined;
+  }, [boardRevealMeta]);
 
   const [commentCache, setCommentCache] = useState<Record<number, (CommentData | null)[]>>({});
   const [loadingPages, setLoadingPages] = useState<Set<number>>(new Set());
@@ -635,6 +649,10 @@ export default function PublicWishlistPage({
           data.data.username?.trim() ||
           "회원";
         setOwnerName(display);
+        setBoardRevealMeta({
+          targetDate: data.data.targetDate,
+          commentsRevealed: inferWishBoardCommentsRevealed(data.data),
+        });
       })
       .catch(() => {});
   }, [slug]);
@@ -1356,6 +1374,7 @@ export default function PublicWishlistPage({
           mode={popupMode}
           comment={selectedComment}
           boardSlug={slug}
+          commentRevealAtMs={wishCommentRevealAtMs}
           commentAsLoggedInUser={visitorMenuLoggedIn}
           canModifyComment={canModifySelectedComment}
           stickerOptions={commentStickerOptions}
