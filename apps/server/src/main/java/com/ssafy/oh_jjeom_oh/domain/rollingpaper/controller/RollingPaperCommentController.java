@@ -6,8 +6,10 @@ import com.ssafy.oh_jjeom_oh.common.security.UserPrincipal;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentDeleteRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentUpdateRequest;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentVerifyRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentListResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentVerifyResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.service.RollingPaperCommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +68,18 @@ public class RollingPaperCommentController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.RP_COMMENT_UPDATED));
     }
 
+    // POST /api/rolling-papers/{slug}/comments/{commentId}/verify - 비회원 댓글 비밀번호 검증 (Anyone)
+    @PostMapping("/{commentId}/verify")
+    public ResponseEntity<ApiResponse<RollingPaperCommentVerifyResponse>> verifyPassword(
+            @PathVariable String slug,
+            @PathVariable Long commentId,
+            @Valid @RequestBody RollingPaperCommentVerifyRequest request) {
+
+        RollingPaperCommentVerifyResponse data =
+                rollingPaperCommentService.verifyPassword(slug, commentId, request);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.RP_COMMENT_VERIFIED, data));
+    }
+
     // DELETE /api/rolling-papers/{slug}/comments/{commentId}
     @DeleteMapping("/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
@@ -75,8 +89,8 @@ public class RollingPaperCommentController {
             @RequestBody(required = false) RollingPaperCommentDeleteRequest request) {
 
         Long userId = userPrincipal != null ? userPrincipal.getId() : null;
-        String guestPassword = request != null ? request.getGuestPassword() : null;
-        rollingPaperCommentService.deleteComment(userId, slug, commentId, guestPassword);
+        String verifyToken = request != null ? request.getVerifyToken() : null;
+        rollingPaperCommentService.deleteComment(userId, slug, commentId, verifyToken);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.RP_COMMENT_DELETED));
     }
 }

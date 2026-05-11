@@ -4,9 +4,11 @@ import com.ssafy.oh_jjeom_oh.common.exception.CustomException;
 import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentUpdateRequest;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.request.RollingPaperCommentVerifyRequest;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentListResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentResponse;
+import com.ssafy.oh_jjeom_oh.domain.rollingpaper.dto.response.RollingPaperCommentVerifyResponse;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaperComment;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
@@ -17,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +29,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -36,10 +41,14 @@ public class RollingPaperCommentService {
     private static final long RATE_LIMIT_MILLIS = 10_000L;
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    private static final String VERIFY_TOKEN_PREFIX = "rp-comment:verify:";
+    private static final long VERIFY_TOKEN_TTL_MINUTES = 5L;
+
     private final RollingPaperRepository rollingPaperRepository;
     private final RollingPaperCommentRepository rollingPaperCommentRepository;
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final RedisTemplate<String, String> redisTemplate;
     private final Clock clock;
 
     // userId → 마지막 댓글 작성 시각(ms) — 회원 전용 rate-limit
@@ -131,19 +140,49 @@ public class RollingPaperCommentService {
         }
     }
 
+    // POST /api/rolling-papers/{slug}/comments/{commentId}/verify
+    public RollingPaperCommentVerifyResponse verifyPassword(String slug, Long commentId,
+                                                             RollingPaperCommentVerifyRequest request) {
+        RollingPaperComment comment = rollingPaperCommentRepository.findById(commentId)
+                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
+
+        if (!comment.getRollingPaper().getSlug().equals(slug)) {
+            throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
+        if (comment.getUser() != null) {
+            throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
+        }
+
+        if (request.getGuestPassword() == null || request.getGuestPassword().isBlank()
+                || comment.getGuestPassword() == null
+                || !passwordEncoder.matches(request.getGuestPassword(), comment.getGuestPassword())) {
+            throw new CustomException(ErrorCode.RP_COMMENT_WRONG_PASSWORD);
+        }
+
+        String verifyToken = UUID.randomUUID().toString();
+        redisTemplate.opsForValue().set(
+                VERIFY_TOKEN_PREFIX + verifyToken,
+                String.valueOf(commentId),
+                VERIFY_TOKEN_TTL_MINUTES,
+                TimeUnit.MINUTES
+        );
+        return new RollingPaperCommentVerifyResponse(verifyToken);
+    }
+
     // PATCH /api/rolling-papers/{slug}/comments/{commentId}
     @Transactional
     public void updateComment(Long userId, String slug, Long commentId,
                                RollingPaperCommentUpdateRequest request) {
         RollingPaperComment comment = getCommentAndValidateOwner(
-                commentId, slug, userId, request.getGuestPassword());
+                commentId, slug, userId, request.getVerifyToken());
         comment.updateContent(request.getContent());
     }
 
     // DELETE /api/rolling-papers/{slug}/comments/{commentId}
     @Transactional
-    public void deleteComment(Long userId, String slug, Long commentId, String guestPassword) {
-        RollingPaperComment comment = getCommentAndValidateOwner(commentId, slug, userId, guestPassword);
+    public void deleteComment(Long userId, String slug, Long commentId, String verifyToken) {
+        RollingPaperComment comment = getCommentAndValidateOwner(commentId, slug, userId, verifyToken);
         comment.softDelete();
     }
 
@@ -177,7 +216,7 @@ public class RollingPaperCommentService {
     }
 
     private RollingPaperComment getCommentAndValidateOwner(Long commentId, String slug,
-                                                            Long userId, String guestPassword) {
+                                                            Long userId, String verifyToken) {
         RollingPaperComment comment = rollingPaperCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
@@ -193,12 +232,16 @@ public class RollingPaperCommentService {
             return comment;
         }
 
-        // 비회원 댓글
-        if (guestPassword == null || guestPassword.isBlank()
-                || comment.getGuestPassword() == null
-                || !passwordEncoder.matches(guestPassword, comment.getGuestPassword())) {
-            throw new CustomException(ErrorCode.RP_COMMENT_WRONG_PASSWORD);
+        // 비회원 댓글 - verifyToken으로 검증 (1회성)
+        if (verifyToken == null || verifyToken.isBlank()) {
+            throw new CustomException(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID);
         }
+        String key = VERIFY_TOKEN_PREFIX + verifyToken;
+        String stored = redisTemplate.opsForValue().get(key);
+        if (stored == null || !stored.equals(String.valueOf(commentId))) {
+            throw new CustomException(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID);
+        }
+        redisTemplate.delete(key);
         return comment;
     }
 }

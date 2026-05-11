@@ -7,9 +7,11 @@ import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentDeleteRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentStickerUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentUpdateRequest;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentVerifyRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentStickerResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentVerifyResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.service.WishCommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +66,17 @@ public class WishCommentController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_UPDATED));
     }
 
+    // POST /api/boards/{slug}/comments/{commentId}/verify - 비회원 댓글 비밀번호 검증 (Anyone)
+    @PostMapping("/{commentId}/verify")
+    public ResponseEntity<ApiResponse<CommentVerifyResponse>> verifyPassword(
+            @PathVariable String slug,
+            @PathVariable Long commentId,
+            @Valid @RequestBody CommentVerifyRequest request) {
+
+        CommentVerifyResponse data = wishCommentService.verifyPassword(slug, commentId, request);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_VERIFIED, data));
+    }
+
     // DELETE /api/boards/{slug}/comments/{commentId} - 댓글 삭제 (Anyone, 본인만)
     @DeleteMapping("/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
@@ -73,8 +86,8 @@ public class WishCommentController {
             @RequestBody(required = false) CommentDeleteRequest request) {
 
         Long userId = userPrincipal != null ? userPrincipal.getId() : null;
-        String guestPassword = request != null ? request.getGuestPassword() : null;
-        wishCommentService.deleteComment(userId, slug, commentId, guestPassword);
+        String verifyToken = request != null ? request.getVerifyToken() : null;
+        wishCommentService.deleteComment(userId, slug, commentId, verifyToken);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.COMMENT_DELETED));
     }
 

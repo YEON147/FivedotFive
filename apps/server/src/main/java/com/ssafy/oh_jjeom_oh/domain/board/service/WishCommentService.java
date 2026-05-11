@@ -5,10 +5,12 @@ import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentStickerUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentUpdateRequest;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentVerifyRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentStickerResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentVerifyResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
@@ -20,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +32,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -39,10 +44,14 @@ public class WishCommentService {
     private static final long RATE_LIMIT_MILLIS = 10_000L; // 10초
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    private static final String VERIFY_TOKEN_PREFIX = "comment:verify:";
+    private static final long VERIFY_TOKEN_TTL_MINUTES = 5L;
+
     private final WishBoardRepository wishBoardRepository;
     private final WishCommentRepository wishCommentRepository;
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final RedisTemplate<String, String> redisTemplate;
     private final Clock clock;
 
     // 레이트 리밋 키 -> 마지막 댓글 작성 시각 (ms)
@@ -145,18 +154,42 @@ public class WishCommentService {
         }
     }
 
+    // POST /api/boards/{slug}/comments/{commentId}/verify
+    public CommentVerifyResponse verifyPassword(String slug, Long commentId, CommentVerifyRequest request) {
+        WishComment comment = getCommentByIdAndSlug(commentId, slug);
+
+        if (comment.getUser() != null) {
+            throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
+        }
+
+        if (request.getGuestPassword() == null || request.getGuestPassword().isBlank()
+                || comment.getGuestPassword() == null
+                || !passwordEncoder.matches(request.getGuestPassword(), comment.getGuestPassword())) {
+            throw new CustomException(ErrorCode.COMMENT_WRONG_PASSWORD);
+        }
+
+        String verifyToken = UUID.randomUUID().toString();
+        redisTemplate.opsForValue().set(
+                VERIFY_TOKEN_PREFIX + verifyToken,
+                String.valueOf(commentId),
+                VERIFY_TOKEN_TTL_MINUTES,
+                TimeUnit.MINUTES
+        );
+        return new CommentVerifyResponse(verifyToken);
+    }
+
     // PATCH /api/boards/{slug}/comments/{commentId}
     @Transactional
     public void updateComment(Long userId, String slug, Long commentId, CommentUpdateRequest request) {
         WishComment comment = getCommentAndValidateOwnerOrGuest(
-                commentId, slug, userId, request.getGuestPassword());
+                commentId, slug, userId, request.getVerifyToken());
         comment.updateContent(request.getContent());
     }
 
     // DELETE /api/boards/{slug}/comments/{commentId}
     @Transactional
-    public void deleteComment(Long userId, String slug, Long commentId, String guestPassword) {
-        WishComment comment = getCommentAndValidateOwnerOrGuest(commentId, slug, userId, guestPassword);
+    public void deleteComment(Long userId, String slug, Long commentId, String verifyToken) {
+        WishComment comment = getCommentAndValidateOwnerOrGuest(commentId, slug, userId, verifyToken);
         comment.softDelete();
     }
 
@@ -204,7 +237,7 @@ public class WishCommentService {
 
     /** 회원/비회원 모두 사용 - 댓글 수정·삭제용 */
     private WishComment getCommentAndValidateOwnerOrGuest(Long commentId, String slug,
-                                                           Long userId, String guestPassword) {
+                                                           Long userId, String verifyToken) {
         WishComment comment = wishCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
@@ -220,12 +253,16 @@ public class WishCommentService {
             return comment;
         }
 
-        // 비회원 댓글 - guestPassword로 검증
-        if (guestPassword == null || guestPassword.isBlank()
-                || comment.getGuestPassword() == null
-                || !passwordEncoder.matches(guestPassword, comment.getGuestPassword())) {
-            throw new CustomException(ErrorCode.COMMENT_WRONG_PASSWORD);
+        // 비회원 댓글 - verifyToken으로 검증 (1회성)
+        if (verifyToken == null || verifyToken.isBlank()) {
+            throw new CustomException(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID);
         }
+        String key = VERIFY_TOKEN_PREFIX + verifyToken;
+        String stored = redisTemplate.opsForValue().get(key);
+        if (stored == null || !stored.equals(String.valueOf(commentId))) {
+            throw new CustomException(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID);
+        }
+        redisTemplate.delete(key);
         return comment;
     }
 
