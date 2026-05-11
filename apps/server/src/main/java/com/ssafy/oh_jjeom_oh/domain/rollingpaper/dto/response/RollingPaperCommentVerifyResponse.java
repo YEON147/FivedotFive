@@ -8,4 +8,5 @@ import lombok.Getter;
 public class RollingPaperCommentVerifyResponse {
 
     private String verifyToken;
+    private String content;
 }

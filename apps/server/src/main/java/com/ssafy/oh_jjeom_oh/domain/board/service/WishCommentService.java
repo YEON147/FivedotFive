@@ -175,7 +175,7 @@ public class WishCommentService {
                 VERIFY_TOKEN_TTL_MINUTES,
                 TimeUnit.MINUTES
         );
-        return new CommentVerifyResponse(verifyToken);
+        return new CommentVerifyResponse(verifyToken, comment.getContent());
     }
 
     // PATCH /api/boards/{slug}/comments/{commentId}
