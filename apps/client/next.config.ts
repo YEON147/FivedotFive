@@ -108,6 +108,9 @@ const nextConfig: NextConfig = {
   ],
   images: {
     remotePatterns: buildImageRemotePatterns(),
+    ...(process.env.NODE_ENV === "development"
+      ? { minimumCacheTTL: 0 }
+      : {}),
   },
   async rewrites() {
     const assetRewrites = assetCdnOrigin
