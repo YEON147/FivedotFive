@@ -65,9 +65,10 @@ build_frontend:
 
 deploy_staging:
   stage: deploy
-  tags:
-    - laptop
+  # tags:
+  #   - laptop
   script:
+    - echo "현재 스테이징 서버(노트북) 공간 부족으로 수동 배포 모드로 전환합니다."
     - echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin
     - cd infra
     - export GHCR_USER=$GHCR_USER
@@ -97,6 +98,7 @@ deploy_staging:
     - export GMS_KEY=$GMS_KEY
     - docker compose pull client backend-blue
     - docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --force-recreate client backend-blue caddy
+  when: manual
   only:
     - develop
     - master-hotfix
