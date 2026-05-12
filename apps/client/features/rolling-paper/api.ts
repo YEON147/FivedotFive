@@ -251,13 +251,16 @@ export async function verifyRollingPaperGuestCommentPassword(
   slug: string,
   commentId: number,
   guestPassword: string,
+  rollingToken?: string | null,
 ): Promise<{ verifyToken: string; content: string }> {
   const enc = encodeRollingSlug(slug);
   const res = await publicApiClient<RollingPaperCommentVerifyEnvelope>(
     `/api/rolling-papers/${enc}/comments/${commentId}/verify`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: mergeRollingPaperHeaders(rollingToken, {
+        "Content-Type": "application/json",
+      }),
       body: JSON.stringify({ guestPassword: guestPassword.trim() }),
     },
   );
@@ -315,24 +318,26 @@ export async function updateRollingPaperComment(
 export async function deleteRollingPaperComment(
   slug: string,
   commentId: number,
-  options?: { verifyToken?: string },
-  rollingToken?: string | null,
-): Promise<void> {
+  opts:
+    | { mode: "member"; rollingToken?: string | null }
+    | { mode: "guest"; verifyToken: string; rollingToken?: string | null },
+): Promise<{ success?: boolean; message?: string }> {
   const enc = encodeRollingSlug(slug);
   const path = `/api/rolling-papers/${enc}/comments/${commentId}`;
-  const vt = options?.verifyToken?.trim();
-  if (vt) {
-    await publicApiClient(path, {
+
+  if (opts.mode === "guest") {
+    const vt = opts.verifyToken.trim();
+    return publicApiClient<{ success?: boolean; message?: string }>(path, {
       method: "DELETE",
-      headers: mergeRollingPaperHeaders(rollingToken, {
+      headers: mergeRollingPaperHeaders(opts.rollingToken, {
         "Content-Type": "application/json",
       }),
       body: JSON.stringify({ verifyToken: vt }),
     });
-    return;
   }
-  await apiClient(path, {
+
+  return apiClient<{ success?: boolean; message?: string }>(path, {
     method: "DELETE",
-    headers: mergeRollingPaperHeaders(rollingToken),
+    headers: mergeRollingPaperHeaders(opts.rollingToken),
   });
 }

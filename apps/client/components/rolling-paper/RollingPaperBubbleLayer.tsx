@@ -1,6 +1,20 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+/** `app/rolling-paper/[slug]/page.tsx` 의 포스트잇 에셋과 동일 — 캐시 무효화 */
+const ROLLING_BUBBLE_ASSET_VERSION =
+  process.env.NEXT_PUBLIC_ROLLING_ASSET_VERSION?.trim() || "1";
+
+function rollingBubbleImageSrc(): string {
+  return `/rollingpaper/bubble2.png?v=${ROLLING_BUBBLE_ASSET_VERSION}`;
+}
+
+const bubbleImageDevProps =
+  process.env.NODE_ENV === "development"
+    ? ({ unoptimized: true } as const)
+    : ({} as const);
 
 type BubbleKind = "intro" | "visitor";
 
@@ -34,7 +48,7 @@ export function RollingPaperBubbleLayer({
 }) {
   const [bubbles, setBubbles] = useState<BubbleState[]>([]);
   const introDoneRef = useRef(false);
-  /** 브라우저 `window.setTimeout` 반환값은 `number`(Node `Timeout`과 구분) */
+  /** 브라우저 `window.setTimeout` 은 `number` — `@types/node` 의 `setTimeout`(`Timeout`) 과 구분 */
   const visitorTimeoutRef = useRef<number | null>(null);
 
   /** 첫 세션 방문: 작성된 메시지 수만큼 물방울 연속 생성 */
@@ -208,7 +222,7 @@ function BubbleItem({
   return (
     <button
       type="button"
-      className={`rp-bubble-rise pointer-events-auto absolute bottom-0 z-[22] flex h-10 w-10 -translate-x-1/2 touch-manipulation items-center justify-center rounded-[50%] border border-sky-400/50 bg-gradient-to-b from-sky-50 via-sky-200/95 to-sky-400/90 text-[11px] font-extrabold tracking-tight text-sky-950 shadow-[0_5px_14px_rgba(14,165,233,0.32)] outline-none ring-1 ring-white/50 transition-[transform,opacity] before:pointer-events-none before:absolute before:inset-[18%] before:rounded-full before:bg-white/35 ${
+      className={`rp-bubble-rise pointer-events-auto absolute bottom-0 z-[22] flex h-12 w-12 -translate-x-1/2 touch-manipulation items-center justify-center overflow-hidden rounded-full bg-transparent p-0 shadow-none outline-none ring-0 transition-[transform,opacity] ${
         bubble.popping
           ? "scale-150 opacity-0 duration-300 ease-out"
           : "hover:scale-[1.06] active:scale-95"
@@ -229,11 +243,22 @@ function BubbleItem({
       }}
       aria-label="물방울 터뜨리기"
     >
-      <span className="relative z-[1] drop-shadow-sm">+1</span>
-      <span
-        className="pointer-events-none absolute inset-[20%] rounded-full bg-gradient-to-br from-white/70 to-transparent opacity-80"
-        aria-hidden
-      />
+      <span className="relative block h-full w-full shrink-0 overflow-hidden rounded-full">
+        <Image
+          src={rollingBubbleImageSrc()}
+          alt=""
+          fill
+          className="pointer-events-none origin-center scale-[1.14] object-contain"
+          sizes="48px"
+          {...bubbleImageDevProps}
+        />
+        <span
+          className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[11px] font-extrabold tracking-tight text-slate-900 drop-shadow-[0_0.5px_0.5px_rgba(255,255,255,0.55)] sm:text-[12px]"
+          aria-hidden
+        >
+          +1
+        </span>
+      </span>
     </button>
   );
 }
