@@ -3,13 +3,11 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** `app/rolling-paper/[slug]/page.tsx` 의 포스트잇 에셋과 동일 — 캐시 무효화 */
+/** `app/rolling-paper/[slug]/page.tsx` 와 동일 버전 — `src`는 `/rollingpaper/...` 고정, 캐시 무효화는 `key`로만 */
 const ROLLING_BUBBLE_ASSET_VERSION =
   process.env.NEXT_PUBLIC_ROLLING_ASSET_VERSION?.trim() || "1";
 
-function rollingBubbleImageSrc(): string {
-  return `/rollingpaper/bubble2.png?v=${ROLLING_BUBBLE_ASSET_VERSION}`;
-}
+const ROLLING_BUBBLE_IMAGE_SRC = "/rollingpaper/bubble2.png";
 
 const bubbleImageDevProps =
   process.env.NODE_ENV === "development"
@@ -245,7 +243,8 @@ function BubbleItem({
     >
       <span className="relative block h-full w-full shrink-0 overflow-hidden rounded-full">
         <Image
-          src={rollingBubbleImageSrc()}
+          key={`${bubble.id}-bubble-${ROLLING_BUBBLE_ASSET_VERSION}`}
+          src={ROLLING_BUBBLE_IMAGE_SRC}
           alt=""
           fill
           className="pointer-events-none origin-center scale-[1.14] object-contain"
