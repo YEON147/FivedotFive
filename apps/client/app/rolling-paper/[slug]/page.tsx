@@ -584,28 +584,6 @@ function rollingDetailToEditBoardEntry(d: RollingPaperDetailPayload): MyBoardLis
   };
 }
 
-/** 브라우저 기준 전체 URL — `token`이 있으면 `?token=` 부착 (SSR 시 `window` 없음 → 상대 경로만) */
-function rollingPaperAbsoluteShareUrl(slug: string, token: string | null): string {
-  const s = slug?.trim();
-  if (!s) return "";
-  const path = `/rolling-paper/${encodeURIComponent(s)}`;
-  const t = token?.trim();
-  const qs = t ? `?token=${encodeURIComponent(t)}` : "";
-  if (typeof window === "undefined") {
-    return `${path}${qs}`;
-  }
-  return `${window.location.origin}${path}${qs}`;
-}
-
-function rollingPaperSharePathWithToken(slug: string, token: string | null): string {
-  const s = slug?.trim();
-  if (!s) return "";
-  const path = `/rolling-paper/${encodeURIComponent(s)}`;
-  const t = token?.trim();
-  if (t) return `${path}?token=${encodeURIComponent(t)}`;
-  return path;
-}
-
 /**
  * `app/wishlist/[slug]/page.tsx` 의 `PublicBoardProfileHeader` 와 동일 헤더 규격
  * (`PAGE_HEADER_ROW_COMPACT` · 우측 햄버거).
@@ -726,7 +704,21 @@ export default function RollingPaperSlugPage({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
-  const [ownerCommentShareFailed, setOwnerCommentShareFailed] = useState(false);
+  const [ownerCommentShareError, setOwnerCommentShareError] = useState<string | null>(
+    null,
+  );
+  const [visitorSharePrimaryUrl, setVisitorSharePrimaryUrl] = useState<string | null>(
+    null,
+  );
+  const [visitorSharePrimaryError, setVisitorSharePrimaryError] = useState<
+    string | null
+  >(null);
+  const [visitorShareSecondaryUrl, setVisitorShareSecondaryUrl] = useState<
+    string | null
+  >(null);
+  const [visitorShareSecondaryError, setVisitorShareSecondaryError] = useState<
+    string | null
+  >(null);
   const [ownerViewShareUrl, setOwnerViewShareUrl] = useState<string | null>(null);
   const [ownerViewExpiresAt, setOwnerViewExpiresAt] = useState<string | null>(null);
   const [ownerViewShareError, setOwnerViewShareError] = useState<string | null>(null);
@@ -740,6 +732,12 @@ export default function RollingPaperSlugPage({
       setOwnerViewShareUrl(null);
       setOwnerViewExpiresAt(null);
       setOwnerViewShareError(null);
+      setOwnerCommentShareUrl(null);
+      setOwnerCommentShareError(null);
+      setVisitorSharePrimaryUrl(null);
+      setVisitorSharePrimaryError(null);
+      setVisitorShareSecondaryUrl(null);
+      setVisitorShareSecondaryError(null);
     }
   }, [isShareModalOpen]);
 
@@ -747,11 +745,11 @@ export default function RollingPaperSlugPage({
     if (!isShareModalOpen || !slug.trim()) return;
     if (!detail?.isOwner) {
       setOwnerCommentShareUrl(null);
-      setOwnerCommentShareFailed(false);
+      setOwnerCommentShareError(null);
       return;
     }
     let cancelled = false;
-    setOwnerCommentShareFailed(false);
+    setOwnerCommentShareError(null);
     setOwnerCommentShareUrl(null);
     void postRollingPaperShareCommentLink(slug)
       .then((res) => {
@@ -759,12 +757,20 @@ export default function RollingPaperSlugPage({
         if (cancelled) return;
         if (u) {
           setOwnerCommentShareUrl(u);
+          setOwnerCommentShareError(null);
         } else {
-          setOwnerCommentShareFailed(true);
+          setOwnerCommentShareUrl(null);
+          setOwnerCommentShareError(
+            res.message?.trim() || "링크를 만들지 못했습니다.",
+          );
         }
       })
-      .catch(() => {
-        if (!cancelled) setOwnerCommentShareFailed(true);
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const msg =
+          e instanceof Error ? e.message.trim() : "링크를 만들지 못했습니다.";
+        setOwnerCommentShareUrl(null);
+        setOwnerCommentShareError(msg || "링크를 만들지 못했습니다.");
       });
     return () => {
       cancelled = true;
@@ -908,8 +914,8 @@ export default function RollingPaperSlugPage({
   ]);
 
   /**
-   * 공유 모달 주소 — 댓글 작성 가능 토큰 우선(`commentToken` → 세션에서 댓글 가능할 때 URL의 `token`).
-   * 보기 전용(`viewToken`)은 주소와 다를 때만 보조 링크로 둡니다.
+   * 공유 모달 — API 단축 URL 발급에 쓸 토큰·엔드포인트 종류.
+   * 댓글 초대(`commentToken` 또는 댓글 가능 시 URL `token`) / 보기·저장(`viewToken`) 분기.
    */
   const rollingShareModalLinks = useMemo(() => {
     const commentInviteToken =
@@ -925,6 +931,7 @@ export default function RollingPaperSlugPage({
       return {
         primaryToken: commentInviteToken,
         secondaryToken,
+        primaryKind: "comment" as const,
         primaryCaption: "댓글 작성 초대 링크",
         secondaryCaption: secondaryToken ? "보기·저장용 링크" : undefined,
       };
@@ -933,64 +940,113 @@ export default function RollingPaperSlugPage({
       return {
         primaryToken: viewOnlyToken,
         secondaryToken: null,
+        primaryKind: "view" as const,
         primaryCaption: "보기·저장용 링크",
         secondaryCaption: undefined,
       };
     }
+    const rt = rollingToken?.trim() || null;
+    const primaryKind: "comment" | "view" =
+      detail?.canSave && !detail?.canComment ? "view" : "comment";
     return {
-      primaryToken: rollingToken?.trim() || null,
+      primaryToken: rt,
       secondaryToken: null,
-      primaryCaption: undefined as string | undefined,
+      primaryKind,
+      primaryCaption: rt
+        ? primaryKind === "view"
+          ? "보기·저장용 링크"
+          : undefined
+        : undefined,
       secondaryCaption: undefined as string | undefined,
     };
   }, [detail, rollingToken]);
 
-  const rollingShareUrl = useMemo(() => {
-    const raw = rollingPaperAbsoluteShareUrl(
-      slug,
-      rollingShareModalLinks.primaryToken,
-    );
-    return raw.trim() ? raw : null;
-  }, [slug, rollingShareModalLinks.primaryToken]);
+  /** 비소유자: 서버에서 단축 URL 발급 (`X-Rolling-Token`으로 권한 확인) */
+  useEffect(() => {
+    if (!isShareModalOpen || !slug.trim() || detail?.isOwner) return;
 
-  const rollingSharePathWithQs = useMemo(
-    () =>
-      rollingPaperSharePathWithToken(slug, rollingShareModalLinks.primaryToken),
-    [slug, rollingShareModalLinks.primaryToken],
-  );
+    const primaryTok = rollingShareModalLinks.primaryToken?.trim();
+    const secondaryTok = rollingShareModalLinks.secondaryToken?.trim();
+    const primaryKind = rollingShareModalLinks.primaryKind;
 
-  const rollingShareSecondaryAbsolute = useMemo(() => {
-    const t = rollingShareModalLinks.secondaryToken;
-    if (!t) return null;
-    const raw = rollingPaperAbsoluteShareUrl(slug, t);
-    return raw.trim() ? raw : null;
-  }, [slug, rollingShareModalLinks.secondaryToken]);
-
-  const rollingShareSecondaryPath = useMemo(
-    () =>
-      rollingShareModalLinks.secondaryToken
-        ? rollingPaperSharePathWithToken(slug, rollingShareModalLinks.secondaryToken)
-        : null,
-    [slug, rollingShareModalLinks.secondaryToken],
-  );
-
-  /**
-   * 공유 모달 — 댓글 탭·비소유자 공통: 미리보기·복사·Web Share 문자열.
-   * 소유자 댓글 탭: 단축 URL(API) 우선, 실패 시 전체 페이지 URL 폴백.
-   * 비소유자: `rollingShareUrl`(댓글 초대 토큰 우선).
-   */
-  const commentTabShareUrl = useMemo((): string | null => {
-    if (!detail?.isOwner) {
-      return rollingShareUrl;
+    if (!primaryTok) {
+      setVisitorSharePrimaryUrl(null);
+      setVisitorSharePrimaryError("지금은 공유할 초대 링크를 만들 수 없습니다.");
+      setVisitorShareSecondaryUrl(null);
+      setVisitorShareSecondaryError(null);
+      return;
     }
-    if (ownerCommentShareUrl?.trim()) {
-      return ownerCommentShareUrl.trim();
+
+    let cancelled = false;
+    setVisitorSharePrimaryUrl(null);
+    setVisitorSharePrimaryError(null);
+    setVisitorShareSecondaryUrl(null);
+    setVisitorShareSecondaryError(null);
+
+    const runPrimary =
+      primaryKind === "comment"
+        ? postRollingPaperShareCommentLink(slug, primaryTok)
+        : postRollingPaperShareViewLink(slug, primaryTok);
+
+    void runPrimary
+      .then((res) => {
+        const u = res.data?.shortUrl?.trim();
+        if (cancelled) return;
+        if (u) {
+          setVisitorSharePrimaryUrl(u);
+          setVisitorSharePrimaryError(null);
+        } else {
+          setVisitorSharePrimaryUrl(null);
+          setVisitorSharePrimaryError(
+            res.message?.trim() || "링크를 만들지 못했습니다.",
+          );
+        }
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const msg =
+          e instanceof Error ? e.message.trim() : "링크를 만들지 못했습니다.";
+        setVisitorSharePrimaryUrl(null);
+        setVisitorSharePrimaryError(msg || "링크를 만들지 못했습니다.");
+      });
+
+    if (secondaryTok) {
+      void postRollingPaperShareViewLink(slug, secondaryTok)
+        .then((res) => {
+          const u = res.data?.shortUrl?.trim();
+          if (cancelled) return;
+          if (u) {
+            setVisitorShareSecondaryUrl(u);
+            setVisitorShareSecondaryError(null);
+          } else {
+            setVisitorShareSecondaryUrl(null);
+            setVisitorShareSecondaryError(
+              res.message?.trim() || "보조 링크를 만들지 못했습니다.",
+            );
+          }
+        })
+        .catch((e: unknown) => {
+          if (cancelled) return;
+          const msg =
+            e instanceof Error
+              ? e.message.trim()
+              : "보조 링크를 만들지 못했습니다.";
+          setVisitorShareSecondaryUrl(null);
+          setVisitorShareSecondaryError(msg || "보조 링크를 만들지 못했습니다.");
+        });
     }
-    if (ownerCommentShareFailed) {
-      return rollingShareUrl;
-    }
-    return null;
-  }, [detail?.isOwner, ownerCommentShareUrl, ownerCommentShareFailed, rollingShareUrl]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isShareModalOpen,
+    detail?.isOwner,
+    slug,
+    rollingShareModalLinks.primaryToken,
+    rollingShareModalLinks.secondaryToken,
+    rollingShareModalLinks.primaryKind,
+  ]);
 
   const viewTabShareUrl = useMemo((): string | null => {
     if (!detail?.isOwner) return null;
@@ -2217,9 +2273,14 @@ export default function RollingPaperSlugPage({
                 ? "댓글 작성용 단축 링크예요. 공개일(기준일)까지 접속 후 작성할 수 있어요."
                 : "받는 사람만 저장·열람할 링크예요. 이 링크로는 댓글을 작성할 수 없어요."
           }
-          absoluteUrl={detail?.isOwner ? commentTabShareUrl : rollingShareUrl}
+          absoluteUrl={
+            detail?.isOwner ? ownerCommentShareUrl : visitorSharePrimaryUrl
+          }
           linkHref={
-            detail?.isOwner ? commentTabShareUrl : rollingSharePathWithQs || null
+            detail?.isOwner ? ownerCommentShareUrl : visitorSharePrimaryUrl
+          }
+          sharePanelError={
+            detail?.isOwner ? null : visitorSharePrimaryError
           }
           rollingPaperOwnerTabs={
             detail?.isOwner
@@ -2227,8 +2288,9 @@ export default function RollingPaperSlugPage({
                   activeTab: shareTab,
                   onTabChange: setShareTab,
                   comment: {
-                    absoluteUrl: commentTabShareUrl,
-                    linkHref: commentTabShareUrl,
+                    absoluteUrl: ownerCommentShareUrl,
+                    linkHref: ownerCommentShareUrl,
+                    error: ownerCommentShareError,
                   },
                   view: {
                     absoluteUrl: viewTabShareUrl,
@@ -2240,10 +2302,13 @@ export default function RollingPaperSlugPage({
               : undefined
           }
           secondaryAbsoluteUrl={
-            detail?.isOwner ? undefined : rollingShareSecondaryAbsolute
+            detail?.isOwner ? undefined : visitorShareSecondaryUrl
           }
           secondaryLinkHref={
-            detail?.isOwner ? undefined : rollingShareSecondaryPath
+            detail?.isOwner ? undefined : visitorShareSecondaryUrl
+          }
+          secondaryPanelError={
+            detail?.isOwner ? undefined : visitorShareSecondaryError
           }
           primaryLinkCaption={
             detail?.isOwner ? undefined : rollingShareModalLinks.primaryCaption
