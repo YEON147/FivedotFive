@@ -84,7 +84,7 @@ export function RollingPaperBubbleLayer({
             {
               id: createId("intro"),
               kind: "intro",
-              xPercent: 12 + ((i * 19 + Math.random() * 22) % 76),
+              xPercent: 6 + ((i * 15 + Math.random() * 28) % 88),
               popping: false,
               durationSec: 4.8 + Math.random() * 0.8,
             },
@@ -117,7 +117,7 @@ export function RollingPaperBubbleLayer({
             {
               id: createId("visit"),
               kind: "visitor",
-              xPercent: 8 + Math.random() * 84,
+              xPercent: 5 + Math.random() * 90,
               popping: false,
               durationSec: 11 + Math.random() * 6,
             },
@@ -150,7 +150,7 @@ export function RollingPaperBubbleLayer({
         {
           id: createId("focus"),
           kind: "visitor",
-          xPercent: 10 + Math.random() * 80,
+          xPercent: 5 + Math.random() * 90,
           popping: false,
           durationSec: 10 + Math.random() * 5,
         },
@@ -188,7 +188,7 @@ export function RollingPaperBubbleLayer({
             opacity: 1;
           }
           100% {
-            transform: translate(-50%, 0) translateY(-320%);
+            transform: translate(-50%, 0) translateY(-360%);
             opacity: 0;
           }
         }
@@ -229,7 +229,7 @@ function BubbleItem({
       }`}
       style={{
         left: `${bubble.xPercent}%`,
-        bottom: "2%",
+        bottom: "1%",
         ["--rp-dur" as string]: `${bubble.durationSec}s`,
       }}
       onAnimationEnd={(e) => {
