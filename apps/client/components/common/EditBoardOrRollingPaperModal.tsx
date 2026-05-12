@@ -18,7 +18,6 @@ import {
 import {
   patchRollingPaper,
   patchWishBoard,
-  uploadRollingPaperRecipientImage,
 } from "@/features/wishlist/api";
 import type { MyBoardListEntry } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
@@ -27,9 +26,6 @@ import { isRollingPaperListType } from "@/lib/board-entry-path";
 /** 서버 WishBoardUpdateRequest·RollingPaperUpdateRequest title @Size(max = 8) */
 const PAGE_TITLE_MAX = 8;
 const RECIPIENT_MAX = 100;
-
-const RECIPIENT_IMAGE_ACCEPT =
-  "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
 /** 롤링페이퍼 저장 직후 상세 화면에 바로 반영할 필드 */
 export type RollingPaperSavedDetailPartial = Partial<
@@ -66,7 +62,7 @@ export function EditBoardOrRollingPaperModal({
     recipientName: string;
     /** 위시·롤링: 댓글 공개(isCommentPublic) */
     commentPublic: boolean;
-    /** 롤링: 받는 사람 이미지 키(카탈로그·업로드) */
+    /** 롤링: 받는 사람 이미지 키(카탈로그) */
     imageKey: string;
   } | null>(null);
 
@@ -82,16 +78,12 @@ export function EditBoardOrRollingPaperModal({
   /** 롤링페이퍼 전용 · 백엔드 `isCommentPublic` */
   const [rollingCommentPublic, setRollingCommentPublic] = useState(true);
   const [recipientName, setRecipientName] = useState("");
-  const [recipientImageFile, setRecipientImageFile] = useState<File | null>(null);
-  const [recipientImagePreviewUrl, setRecipientImagePreviewUrl] = useState<
-    string | null
-  >(null);
   /** 카탈로그 프로필 — `GET /api/assets/rolling-paper-profiles` */
   const [rollingProfiles, setRollingProfiles] = useState<RollingPaperProfileAsset[]>([]);
   const [rollingProfilesLoading, setRollingProfilesLoading] = useState(false);
   const [rollingProfilesError, setRollingProfilesError] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
-  /** 선택된 프리셋 `assetKey` — 파일 업로드와 배타 */
+  /** 선택된 프리셋 `assetKey` */
   const [recipientPresetImageKey, setRecipientPresetImageKey] = useState<string | null>(
     null,
   );
@@ -122,11 +114,6 @@ export function EditBoardOrRollingPaperModal({
       setWishCommentPublic(commentPub);
     }
     setRecipientName(rn);
-    setRecipientImageFile(null);
-    setRecipientImagePreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
     setErrorMessage(null);
     const ik = (entry.imageKey ?? "").trim();
     initialRef.current = {
@@ -188,22 +175,6 @@ export function EditBoardOrRollingPaperModal({
     };
   }, [open, entry?.slug, entry?.type, entry?.imageKey]);
 
-  const handleRecipientImageChange = useCallback(
-    (ev: React.ChangeEvent<HTMLInputElement>) => {
-      const file = ev.target.files?.[0] ?? null;
-      setRecipientImagePreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return file ? URL.createObjectURL(file) : null;
-      });
-      setRecipientImageFile(file);
-      if (file) {
-        setSelectedProfileId(null);
-        setRecipientPresetImageKey(null);
-      }
-    },
-    [],
-  );
-
   const handleSelectRollingProfile = useCallback(
     (profile: RollingPaperProfileAsset) => {
       setErrorMessage(null);
@@ -216,32 +187,9 @@ export function EditBoardOrRollingPaperModal({
       }
       setSelectedProfileId(profile.id);
       setRecipientPresetImageKey(key);
-      setRecipientImagePreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-      setRecipientImageFile(null);
     },
     [selectedProfileId],
   );
-
-  const clearRecipientImageSelection = useCallback(() => {
-    setRecipientImagePreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
-    setRecipientImageFile(null);
-    if (!entry || !isRollingPaperListType(entry.type)) return;
-    const ik = (entry.imageKey ?? "").trim();
-    const match = rollingProfiles.find((p) => (p.assetKey ?? "").trim() === ik);
-    if (match) {
-      setSelectedProfileId(match.id);
-      setRecipientPresetImageKey(match.assetKey.trim());
-    } else {
-      setSelectedProfileId(null);
-      setRecipientPresetImageKey(null);
-    }
-  }, [entry, rollingProfiles]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -256,27 +204,18 @@ export function EditBoardOrRollingPaperModal({
         const initIk = init.imageKey.trim();
         const presetIk = (recipientPresetImageKey ?? "").trim();
         const presetImageChanged =
-          !recipientImageFile &&
-          presetIk.length > 0 &&
-          presetIk !== initIk;
+          presetIk.length > 0 && presetIk !== initIk;
 
-        if (!recipientImageFile && !presetImageChanged) {
+        if (!presetImageChanged) {
           onClose();
           return;
         }
 
         setSubmitting(true);
         try {
-          const patch: Partial<{ imageKey: string }> = {};
-          if (recipientImageFile) {
-            patch.imageKey = await uploadRollingPaperRecipientImage(recipientImageFile);
-          } else if (presetImageChanged) {
-            patch.imageKey = presetIk;
-          }
+          const patch: Partial<{ imageKey: string }> = { imageKey: presetIk };
           await patchRollingPaper(entry.slug, patch);
-          const imageKeyAfter =
-            patch.imageKey !== undefined ? patch.imageKey : initIk || null;
-          onSaved?.({ imageKey: imageKeyAfter });
+          onSaved?.({ imageKey: presetIk });
           onClose();
         } catch (err) {
           setErrorMessage(err instanceof Error ? err.message : "저장에 실패했습니다.");
@@ -412,7 +351,6 @@ export function EditBoardOrRollingPaperModal({
       wishCommentPublic,
       onClose,
       onSaved,
-      recipientImageFile,
       recipientPresetImageKey,
       recipientName,
       rollingPhotoOnlyMode,
@@ -516,8 +454,7 @@ export function EditBoardOrRollingPaperModal({
               </span>
               {rollingPhotoOnlyMode ? (
                 <p className="text-[12px] leading-snug text-[var(--color-text-secondary)]">
-                  아래 썸네일을 고르거나 새 파일을 올려 바꿀 수 있어요. 썸네일을 다시 누르면 선택이
-                  해제됩니다.
+                  아래 썸네일을 눌러 바꿀 수 있어요. 다시 누르면 선택이 해제됩니다.
                 </p>
               ) : null}
               {rollingProfilesLoading ? (
@@ -567,9 +504,7 @@ export function EditBoardOrRollingPaperModal({
                   })}
                 </div>
               )}
-              {entry.imageKey?.trim() &&
-              !recipientImageFile &&
-              selectedProfileId == null ? (
+              {entry.imageKey?.trim() && selectedProfileId == null ? (
                 <div className="flex flex-col gap-1">
                   <span className="text-[12px] font-medium text-[var(--color-text-secondary)]">
                     현재 적용 중 (카탈로그에 없는 이미지)
@@ -583,43 +518,6 @@ export function EditBoardOrRollingPaperModal({
                     />
                   </div>
                 </div>
-              ) : null}
-              {rollingPhotoOnlyMode ? (
-                <>
-                  <p className="text-[12px] text-[var(--color-text-secondary)]">
-                    또는 파일 업로드 (JPG, PNG, WEBP)
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-[var(--color-border)] bg-white px-3 py-2 text-[13px] font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]">
-                      사진 선택
-                      <input
-                        type="file"
-                        accept={RECIPIENT_IMAGE_ACCEPT}
-                        className="sr-only"
-                        onChange={handleRecipientImageChange}
-                      />
-                    </label>
-                    {recipientImageFile ? (
-                      <button
-                        type="button"
-                        onClick={clearRecipientImageSelection}
-                        className="text-[13px] font-medium text-rose-600 underline-offset-2 hover:underline"
-                      >
-                        선택 취소
-                      </button>
-                    ) : null}
-                  </div>
-                  {recipientImagePreviewUrl ? (
-                    <div className="mt-1 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- 로컬 blob 미리보기 */}
-                      <img
-                        src={recipientImagePreviewUrl}
-                        alt="선택한 사진 미리보기"
-                        className="mx-auto max-h-40 w-auto object-contain"
-                      />
-                    </div>
-                  ) : null}
-                </>
               ) : null}
             </div>
           </div>
