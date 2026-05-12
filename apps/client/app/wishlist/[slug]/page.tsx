@@ -106,7 +106,10 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 import { shouldUseNativeImg } from "@/lib/native-img";
-import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
+import {
+  getStickerFolderLabel,
+  orderStickerFoldersForTabs,
+} from "@/lib/sticker-folder-labels";
 
 /** 공개 보드 프레임 배경 — 최대 폭 372px·모바일 100vw 근사 */
 const PUBLIC_BOARD_BG_SIZES =
@@ -680,7 +683,7 @@ export default function PublicWishlistPage({
     setStickerFoldersFetchDone(false);
     void fetchStickerFolders(slug)
       .then((folders) => {
-        setApiStickerFolders(folders);
+        setApiStickerFolders(orderStickerFoldersForTabs(folders));
         setStickerFoldersFetchDone(true);
       })
       .catch(() => {

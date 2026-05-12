@@ -261,6 +261,26 @@ export type GiftIconDto = {
   assetKey: string;
 };
 
+/** 빈 `assetKey` 등은 `next/image` 빈 `src` 런타임 오류로 이어지므로 카탈로그에서 제외합니다. */
+export function sanitizeGiftIconDtos(
+  list: readonly GiftIconDto[],
+): GiftIconDto[] {
+  const out: GiftIconDto[] = [];
+  for (const g of list) {
+    if (!g || typeof g !== "object") {
+      continue;
+    }
+    const id = Number(g.id);
+    const key =
+      typeof g.assetKey === "string" ? g.assetKey.trim() : "";
+    if (!Number.isFinite(id) || !key) {
+      continue;
+    }
+    out.push({ id, assetKey: key });
+  }
+  return out;
+}
+
 type GiftIconsApiResponse = {
   success: boolean;
   message: string;
@@ -288,7 +308,7 @@ export async function fetchGiftIcons(
     return [];
   }
 
-  return res.data.giftIcons;
+  return sanitizeGiftIconDtos(res.data.giftIcons);
 }
 
 type AssetsSyncApiResponse = {

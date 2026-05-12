@@ -127,7 +127,7 @@ export async function getRollingPaperDetail(
   });
 }
 
-/** POST /api/rolling-papers/{slug}/share/comment — 소유자만, 댓글 작성용 단축 링크 (공개일까지 유효) */
+/** POST /api/rolling-papers/{slug}/share/comment — 소유자(JWT) 또는 commentToken(`X-Rolling-Token`), 댓글 작성용 단축 링크 */
 export type RollingPaperShareCommentLinkEnvelope = {
   success?: boolean;
   message?: string;
@@ -139,28 +139,34 @@ export type RollingPaperShareCommentLinkEnvelope = {
 
 export async function postRollingPaperShareCommentLink(
   slug: string,
+  rollingToken?: string | null,
 ): Promise<RollingPaperShareCommentLinkEnvelope> {
   const enc = encodeRollingSlug(slug);
   return apiClient<RollingPaperShareCommentLinkEnvelope>(
     `/api/rolling-papers/${enc}/share/comment`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: mergeRollingPaperHeaders(rollingToken, {
+        "Content-Type": "application/json",
+      }),
       body: JSON.stringify({}),
     },
   );
 }
 
-/** POST /api/rolling-papers/{slug}/share/view — 소유자만, 저장·열람용 단축 링크 (공개일까지 유효, 댓글 작성 불가 토큰) */
+/** POST /api/rolling-papers/{slug}/share/view — 소유자(JWT) 또는 viewToken(`X-Rolling-Token`), 저장·열람용 단축 링크 */
 export async function postRollingPaperShareViewLink(
   slug: string,
+  rollingToken?: string | null,
 ): Promise<RollingPaperShareCommentLinkEnvelope> {
   const enc = encodeRollingSlug(slug);
   return apiClient<RollingPaperShareCommentLinkEnvelope>(
     `/api/rolling-papers/${enc}/share/view`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: mergeRollingPaperHeaders(rollingToken, {
+        "Content-Type": "application/json",
+      }),
       body: JSON.stringify({}),
     },
   );

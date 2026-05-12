@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 
 import { AppTopNoticeBanner } from "@/components/common/AppTopNoticeBanner";
+import { AuthSessionMaintainer } from "@/components/auth/AuthSessionMaintainer";
 import { effectivePublicSiteOrigin } from "@/lib/effective-site-origin";
 
 import "./globals.css";
@@ -119,6 +120,7 @@ export default function RootLayout({
         <header className="relative z-[95] shrink-0">
           <AppTopNoticeBanner />
         </header>
+        <AuthSessionMaintainer />
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </body>
     </html>

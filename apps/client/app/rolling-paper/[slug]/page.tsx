@@ -55,6 +55,7 @@ import {
   rememberRollingPaperGuestComment,
 } from "@/features/rolling-paper/guest-comment-session";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
+import { getRandomNickname } from "@/features/signup/api";
 import { getMyProfile } from "@/features/user/api";
 import {
   ACCESS_TOKEN_STORAGE_KEY,
@@ -583,28 +584,6 @@ function rollingDetailToEditBoardEntry(d: RollingPaperDetailPayload): MyBoardLis
   };
 }
 
-/** 브라우저 기준 전체 URL — `token`이 있으면 `?token=` 부착 (SSR 시 `window` 없음 → 상대 경로만) */
-function rollingPaperAbsoluteShareUrl(slug: string, token: string | null): string {
-  const s = slug?.trim();
-  if (!s) return "";
-  const path = `/rolling-paper/${encodeURIComponent(s)}`;
-  const t = token?.trim();
-  const qs = t ? `?token=${encodeURIComponent(t)}` : "";
-  if (typeof window === "undefined") {
-    return `${path}${qs}`;
-  }
-  return `${window.location.origin}${path}${qs}`;
-}
-
-function rollingPaperSharePathWithToken(slug: string, token: string | null): string {
-  const s = slug?.trim();
-  if (!s) return "";
-  const path = `/rolling-paper/${encodeURIComponent(s)}`;
-  const t = token?.trim();
-  if (t) return `${path}?token=${encodeURIComponent(t)}`;
-  return path;
-}
-
 /**
  * `app/wishlist/[slug]/page.tsx` 의 `PublicBoardProfileHeader` 와 동일 헤더 규격
  * (`PAGE_HEADER_ROW_COMPACT` · 우측 햄버거).
@@ -686,7 +665,7 @@ export default function RollingPaperSlugPage({
   const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
-  /** 작성 오버레이: 포스트잇 → 본문 입력 →(비회원) 닉네임·비밀번호 */
+  /** 작성 오버레이: 포스트잇 →(비회원) 닉네임·비밀번호 → 본문 / 회원은 포스트잇 → 본문 */
   const [createOverlayStep, setCreateOverlayStep] = useState<
     "postit" | "compose" | "guestCredentials"
   >("postit");
@@ -698,6 +677,7 @@ export default function RollingPaperSlugPage({
   const [content, setContent] = useState("");
   const [guestNickname, setGuestNickname] = useState("");
   const [guestPassword, setGuestPassword] = useState("");
+  const [guestNicknameLoading, setGuestNicknameLoading] = useState(false);
   /** 비회원 수정 — 비밀번호 게이트 후 verifyToken으로 PATCH(1회 소모) */
   const [editPasswordGateOpen, setEditPasswordGateOpen] = useState(false);
   const [editGatePassword, setEditGatePassword] = useState("");
@@ -724,7 +704,21 @@ export default function RollingPaperSlugPage({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
-  const [ownerCommentShareFailed, setOwnerCommentShareFailed] = useState(false);
+  const [ownerCommentShareError, setOwnerCommentShareError] = useState<string | null>(
+    null,
+  );
+  const [visitorSharePrimaryUrl, setVisitorSharePrimaryUrl] = useState<string | null>(
+    null,
+  );
+  const [visitorSharePrimaryError, setVisitorSharePrimaryError] = useState<
+    string | null
+  >(null);
+  const [visitorShareSecondaryUrl, setVisitorShareSecondaryUrl] = useState<
+    string | null
+  >(null);
+  const [visitorShareSecondaryError, setVisitorShareSecondaryError] = useState<
+    string | null
+  >(null);
   const [ownerViewShareUrl, setOwnerViewShareUrl] = useState<string | null>(null);
   const [ownerViewExpiresAt, setOwnerViewExpiresAt] = useState<string | null>(null);
   const [ownerViewShareError, setOwnerViewShareError] = useState<string | null>(null);
@@ -738,6 +732,12 @@ export default function RollingPaperSlugPage({
       setOwnerViewShareUrl(null);
       setOwnerViewExpiresAt(null);
       setOwnerViewShareError(null);
+      setOwnerCommentShareUrl(null);
+      setOwnerCommentShareError(null);
+      setVisitorSharePrimaryUrl(null);
+      setVisitorSharePrimaryError(null);
+      setVisitorShareSecondaryUrl(null);
+      setVisitorShareSecondaryError(null);
     }
   }, [isShareModalOpen]);
 
@@ -745,11 +745,11 @@ export default function RollingPaperSlugPage({
     if (!isShareModalOpen || !slug.trim()) return;
     if (!detail?.isOwner) {
       setOwnerCommentShareUrl(null);
-      setOwnerCommentShareFailed(false);
+      setOwnerCommentShareError(null);
       return;
     }
     let cancelled = false;
-    setOwnerCommentShareFailed(false);
+    setOwnerCommentShareError(null);
     setOwnerCommentShareUrl(null);
     void postRollingPaperShareCommentLink(slug)
       .then((res) => {
@@ -757,12 +757,20 @@ export default function RollingPaperSlugPage({
         if (cancelled) return;
         if (u) {
           setOwnerCommentShareUrl(u);
+          setOwnerCommentShareError(null);
         } else {
-          setOwnerCommentShareFailed(true);
+          setOwnerCommentShareUrl(null);
+          setOwnerCommentShareError(
+            res.message?.trim() || "링크를 만들지 못했습니다.",
+          );
         }
       })
-      .catch(() => {
-        if (!cancelled) setOwnerCommentShareFailed(true);
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const msg =
+          e instanceof Error ? e.message.trim() : "링크를 만들지 못했습니다.";
+        setOwnerCommentShareUrl(null);
+        setOwnerCommentShareError(msg || "링크를 만들지 못했습니다.");
       });
     return () => {
       cancelled = true;
@@ -906,8 +914,8 @@ export default function RollingPaperSlugPage({
   ]);
 
   /**
-   * 공유 모달 주소 — 댓글 작성 가능 토큰 우선(`commentToken` → 세션에서 댓글 가능할 때 URL의 `token`).
-   * 보기 전용(`viewToken`)은 주소와 다를 때만 보조 링크로 둡니다.
+   * 공유 모달 — API 단축 URL 발급에 쓸 토큰·엔드포인트 종류.
+   * 댓글 초대(`commentToken` 또는 댓글 가능 시 URL `token`) / 보기·저장(`viewToken`) 분기.
    */
   const rollingShareModalLinks = useMemo(() => {
     const commentInviteToken =
@@ -923,6 +931,7 @@ export default function RollingPaperSlugPage({
       return {
         primaryToken: commentInviteToken,
         secondaryToken,
+        primaryKind: "comment" as const,
         primaryCaption: "댓글 작성 초대 링크",
         secondaryCaption: secondaryToken ? "보기·저장용 링크" : undefined,
       };
@@ -931,64 +940,113 @@ export default function RollingPaperSlugPage({
       return {
         primaryToken: viewOnlyToken,
         secondaryToken: null,
+        primaryKind: "view" as const,
         primaryCaption: "보기·저장용 링크",
         secondaryCaption: undefined,
       };
     }
+    const rt = rollingToken?.trim() || null;
+    const primaryKind: "comment" | "view" =
+      detail?.canSave && !detail?.canComment ? "view" : "comment";
     return {
-      primaryToken: rollingToken?.trim() || null,
+      primaryToken: rt,
       secondaryToken: null,
-      primaryCaption: undefined as string | undefined,
+      primaryKind,
+      primaryCaption: rt
+        ? primaryKind === "view"
+          ? "보기·저장용 링크"
+          : undefined
+        : undefined,
       secondaryCaption: undefined as string | undefined,
     };
   }, [detail, rollingToken]);
 
-  const rollingShareUrl = useMemo(() => {
-    const raw = rollingPaperAbsoluteShareUrl(
-      slug,
-      rollingShareModalLinks.primaryToken,
-    );
-    return raw.trim() ? raw : null;
-  }, [slug, rollingShareModalLinks.primaryToken]);
+  /** 비소유자: 서버에서 단축 URL 발급 (`X-Rolling-Token`으로 권한 확인) */
+  useEffect(() => {
+    if (!isShareModalOpen || !slug.trim() || detail?.isOwner) return;
 
-  const rollingSharePathWithQs = useMemo(
-    () =>
-      rollingPaperSharePathWithToken(slug, rollingShareModalLinks.primaryToken),
-    [slug, rollingShareModalLinks.primaryToken],
-  );
+    const primaryTok = rollingShareModalLinks.primaryToken?.trim();
+    const secondaryTok = rollingShareModalLinks.secondaryToken?.trim();
+    const primaryKind = rollingShareModalLinks.primaryKind;
 
-  const rollingShareSecondaryAbsolute = useMemo(() => {
-    const t = rollingShareModalLinks.secondaryToken;
-    if (!t) return null;
-    const raw = rollingPaperAbsoluteShareUrl(slug, t);
-    return raw.trim() ? raw : null;
-  }, [slug, rollingShareModalLinks.secondaryToken]);
-
-  const rollingShareSecondaryPath = useMemo(
-    () =>
-      rollingShareModalLinks.secondaryToken
-        ? rollingPaperSharePathWithToken(slug, rollingShareModalLinks.secondaryToken)
-        : null,
-    [slug, rollingShareModalLinks.secondaryToken],
-  );
-
-  /**
-   * 공유 모달 — 댓글 탭·비소유자 공통: 미리보기·복사·Web Share 문자열.
-   * 소유자 댓글 탭: 단축 URL(API) 우선, 실패 시 전체 페이지 URL 폴백.
-   * 비소유자: `rollingShareUrl`(댓글 초대 토큰 우선).
-   */
-  const commentTabShareUrl = useMemo((): string | null => {
-    if (!detail?.isOwner) {
-      return rollingShareUrl;
+    if (!primaryTok) {
+      setVisitorSharePrimaryUrl(null);
+      setVisitorSharePrimaryError("지금은 공유할 초대 링크를 만들 수 없습니다.");
+      setVisitorShareSecondaryUrl(null);
+      setVisitorShareSecondaryError(null);
+      return;
     }
-    if (ownerCommentShareUrl?.trim()) {
-      return ownerCommentShareUrl.trim();
+
+    let cancelled = false;
+    setVisitorSharePrimaryUrl(null);
+    setVisitorSharePrimaryError(null);
+    setVisitorShareSecondaryUrl(null);
+    setVisitorShareSecondaryError(null);
+
+    const runPrimary =
+      primaryKind === "comment"
+        ? postRollingPaperShareCommentLink(slug, primaryTok)
+        : postRollingPaperShareViewLink(slug, primaryTok);
+
+    void runPrimary
+      .then((res) => {
+        const u = res.data?.shortUrl?.trim();
+        if (cancelled) return;
+        if (u) {
+          setVisitorSharePrimaryUrl(u);
+          setVisitorSharePrimaryError(null);
+        } else {
+          setVisitorSharePrimaryUrl(null);
+          setVisitorSharePrimaryError(
+            res.message?.trim() || "링크를 만들지 못했습니다.",
+          );
+        }
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const msg =
+          e instanceof Error ? e.message.trim() : "링크를 만들지 못했습니다.";
+        setVisitorSharePrimaryUrl(null);
+        setVisitorSharePrimaryError(msg || "링크를 만들지 못했습니다.");
+      });
+
+    if (secondaryTok) {
+      void postRollingPaperShareViewLink(slug, secondaryTok)
+        .then((res) => {
+          const u = res.data?.shortUrl?.trim();
+          if (cancelled) return;
+          if (u) {
+            setVisitorShareSecondaryUrl(u);
+            setVisitorShareSecondaryError(null);
+          } else {
+            setVisitorShareSecondaryUrl(null);
+            setVisitorShareSecondaryError(
+              res.message?.trim() || "보조 링크를 만들지 못했습니다.",
+            );
+          }
+        })
+        .catch((e: unknown) => {
+          if (cancelled) return;
+          const msg =
+            e instanceof Error
+              ? e.message.trim()
+              : "보조 링크를 만들지 못했습니다.";
+          setVisitorShareSecondaryUrl(null);
+          setVisitorShareSecondaryError(msg || "보조 링크를 만들지 못했습니다.");
+        });
     }
-    if (ownerCommentShareFailed) {
-      return rollingShareUrl;
-    }
-    return null;
-  }, [detail?.isOwner, ownerCommentShareUrl, ownerCommentShareFailed, rollingShareUrl]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isShareModalOpen,
+    detail?.isOwner,
+    slug,
+    rollingShareModalLinks.primaryToken,
+    rollingShareModalLinks.secondaryToken,
+    rollingShareModalLinks.primaryKind,
+  ]);
 
   const viewTabShareUrl = useMemo((): string | null => {
     if (!detail?.isOwner) return null;
@@ -1154,21 +1212,64 @@ export default function RollingPaperSlugPage({
     setDeleteConfirmOpen(false);
     setDeleteGuestPassword("");
     setDeleteError(null);
+    setGuestNickname("");
+    setGuestNicknameLoading(false);
   }, []);
 
-  /** 비회원: 본문만 채운 뒤 완료 → 닉네임·비밀번호 단계로 이동 */
-  const handleGuestComposeComplete = () => {
-    const trimmed = content.trim();
-    if (!trimmed) {
-      setFormError("내용을 입력해 주세요.");
+  const loadRandomGuestNickname = useCallback(() => {
+    setGuestNicknameLoading(true);
+    setFormError(null);
+    void getRandomNickname()
+      .then((raw) => {
+        const n = raw.trim().slice(0, GUEST_NICKNAME_MAX_LEN);
+        setGuestNickname(n);
+      })
+      .catch(() => {
+        setGuestNickname("");
+        setFormError("랜덤 닉네임을 불러오지 못했습니다. 다시 시도해 주세요.");
+      })
+      .finally(() => {
+        setGuestNicknameLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!modalOpen || modalMode !== "create" || createOverlayStep !== "guestCredentials") {
       return;
     }
-    if (trimmed.length > CONTENT_MAX) {
-      setFormError(`댓글은 ${CONTENT_MAX}자 이내입니다.`);
+    if (loggedInState) return;
+    if (guestNickname.trim()) return;
+    loadRandomGuestNickname();
+  }, [
+    modalOpen,
+    modalMode,
+    createOverlayStep,
+    loggedInState,
+    guestNickname,
+    loadRandomGuestNickname,
+  ]);
+
+  /** 비회원: 닉네임·비밀번호 입력 후 본문 단계로 */
+  const handleGuestCredentialsNext = () => {
+    if (guestNicknameLoading) {
+      setFormError("닉네임을 불러오는 중입니다.");
+      return;
+    }
+    const nick = guestNickname.trim();
+    if (!nick) {
+      setFormError("닉네임을 입력해 주세요. (비회원)");
+      return;
+    }
+    if (nick.length > GUEST_NICKNAME_MAX_LEN) {
+      setFormError(`닉네임은 ${GUEST_NICKNAME_MAX_LEN}자 이내입니다.`);
+      return;
+    }
+    if (!guestPassword.trim()) {
+      setFormError("비밀번호를 입력해 주세요. (비회원)");
       return;
     }
     setFormError(null);
-    setCreateOverlayStep("guestCredentials");
+    setCreateOverlayStep("compose");
   };
 
   const handleSubmit = async () => {
@@ -1652,7 +1753,11 @@ export default function RollingPaperSlugPage({
                   type="button"
                   className="w-full shrink-0 border-0 bg-transparent p-0 outline-none transition hover:opacity-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                   aria-label={`포스트잇 ${activeSlot + 1}번 — 탭하여 작성`}
-                  onClick={() => setCreateOverlayStep("compose")}
+                  onClick={() =>
+                    setCreateOverlayStep(
+                      loggedInState ? "compose" : "guestCredentials",
+                    )
+                  }
                 >
                   <RollingPaperPostitModalFrame
                     slotIndex={activeSlot}
@@ -1664,22 +1769,23 @@ export default function RollingPaperSlugPage({
                   <div className={`${ROLLING_OVERLAY_GUEST_CARD_CLASS} w-full`}>
                     <label className="flex flex-col gap-1">
                       <span className="text-[11px] font-medium text-slate-700">
-                        닉네임 (필수, 최대 {GUEST_NICKNAME_MAX_LEN}자)
+                        닉네임
                       </span>
                       <input
                         type="text"
                         value={guestNickname}
-                        onChange={(e) =>
-                          setGuestNickname(
-                            e.target.value.slice(0, GUEST_NICKNAME_MAX_LEN),
-                          )
+                        readOnly
+                        disabled={guestNicknameLoading}
+                        className={`${ROLLING_OVERLAY_INPUT_TEXT_CLASS} cursor-not-allowed bg-slate-100/90 text-slate-800`}
+                        placeholder={
+                          guestNicknameLoading ? "닉네임 불러오는 중…" : "닉네임"
                         }
-                        maxLength={GUEST_NICKNAME_MAX_LEN}
-                        className={ROLLING_OVERLAY_INPUT_TEXT_CLASS}
-                        placeholder="친구"
-                        autoComplete="nickname"
-                        autoFocus
+                        autoComplete="off"
+                        aria-readonly="true"
                       />
+                      <span className="text-[10px] leading-snug text-slate-500">
+                        서버에서 정한 랜덤 닉네임이며, 수정할 수 없어요.
+                      </span>
                     </label>
                     <label className="flex flex-col gap-1">
                       <span className="text-[11px] font-medium text-slate-700">
@@ -1692,6 +1798,8 @@ export default function RollingPaperSlugPage({
                         className={ROLLING_OVERLAY_INPUT_CLASS}
                         placeholder="메시지 수정 시 필요해요"
                         autoComplete="new-password"
+                        disabled={guestNicknameLoading || !guestNickname.trim()}
+                        autoFocus={!guestNicknameLoading && Boolean(guestNickname.trim())}
                       />
                     </label>
                   </div>
@@ -1702,13 +1810,25 @@ export default function RollingPaperSlugPage({
                     </p>
                   ) : null}
 
+                  {!guestNicknameLoading && !guestNickname.trim() ? (
+                    <button
+                      type="button"
+                      className="w-full shrink-0 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-[12px] font-medium text-white/95 transition hover:bg-white/15"
+                      onClick={() => loadRandomGuestNickname()}
+                    >
+                      닉네임 다시 받기
+                    </button>
+                  ) : null}
+
                   <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
                     <button
                       type="button"
                       className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
                       onClick={() => {
                         setFormError(null);
-                        setCreateOverlayStep("compose");
+                        setGuestNickname("");
+                        setGuestNicknameLoading(false);
+                        setCreateOverlayStep("postit");
                       }}
                       disabled={submitting}
                     >
@@ -1717,10 +1837,14 @@ export default function RollingPaperSlugPage({
                     <button
                       type="button"
                       className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                      onClick={() => void handleSubmit()}
-                      disabled={submitting}
+                      onClick={() => handleGuestCredentialsNext()}
+                      disabled={
+                        submitting ||
+                        guestNicknameLoading ||
+                        !guestNickname.trim()
+                      }
                     >
-                      {submitting ? "전송 중…" : "등록"}
+                      다음
                     </button>
                   </div>
                 </>
@@ -1766,31 +1890,23 @@ export default function RollingPaperSlugPage({
                       <button
                         type="button"
                         className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                        onClick={() => closeModal()}
+                        onClick={() => {
+                          setFormError(null);
+                          setCreateOverlayStep("guestCredentials");
+                        }}
                         disabled={submitting}
                       >
-                        취소
+                        이전
                       </button>
                     )}
-                    {loggedInState ? (
-                      <button
-                        type="button"
-                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                        onClick={() => void handleSubmit()}
-                        disabled={submitting}
-                      >
-                        {submitting ? "전송 중…" : "등록"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                        onClick={() => handleGuestComposeComplete()}
-                        disabled={submitting}
-                      >
-                        완료
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                      onClick={() => void handleSubmit()}
+                      disabled={submitting}
+                    >
+                      {submitting ? "전송 중…" : "등록"}
+                    </button>
                   </div>
                 </>
               )
@@ -2157,9 +2273,14 @@ export default function RollingPaperSlugPage({
                 ? "댓글 작성용 단축 링크예요. 공개일(기준일)까지 접속 후 작성할 수 있어요."
                 : "받는 사람만 저장·열람할 링크예요. 이 링크로는 댓글을 작성할 수 없어요."
           }
-          absoluteUrl={detail?.isOwner ? commentTabShareUrl : rollingShareUrl}
+          absoluteUrl={
+            detail?.isOwner ? ownerCommentShareUrl : visitorSharePrimaryUrl
+          }
           linkHref={
-            detail?.isOwner ? commentTabShareUrl : rollingSharePathWithQs || null
+            detail?.isOwner ? ownerCommentShareUrl : visitorSharePrimaryUrl
+          }
+          sharePanelError={
+            detail?.isOwner ? null : visitorSharePrimaryError
           }
           rollingPaperOwnerTabs={
             detail?.isOwner
@@ -2167,8 +2288,9 @@ export default function RollingPaperSlugPage({
                   activeTab: shareTab,
                   onTabChange: setShareTab,
                   comment: {
-                    absoluteUrl: commentTabShareUrl,
-                    linkHref: commentTabShareUrl,
+                    absoluteUrl: ownerCommentShareUrl,
+                    linkHref: ownerCommentShareUrl,
+                    error: ownerCommentShareError,
                   },
                   view: {
                     absoluteUrl: viewTabShareUrl,
@@ -2180,10 +2302,13 @@ export default function RollingPaperSlugPage({
               : undefined
           }
           secondaryAbsoluteUrl={
-            detail?.isOwner ? undefined : rollingShareSecondaryAbsolute
+            detail?.isOwner ? undefined : visitorShareSecondaryUrl
           }
           secondaryLinkHref={
-            detail?.isOwner ? undefined : rollingShareSecondaryPath
+            detail?.isOwner ? undefined : visitorShareSecondaryUrl
+          }
+          secondaryPanelError={
+            detail?.isOwner ? undefined : visitorShareSecondaryError
           }
           primaryLinkCaption={
             detail?.isOwner ? undefined : rollingShareModalLinks.primaryCaption

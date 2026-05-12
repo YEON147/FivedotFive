@@ -162,6 +162,38 @@ body,
 }
 
 /**
+ * `/` 게스트 랜딩: 뷰포트가 앱 최소폭보다 좁을 때 가로 스크롤·캔버스 치우침 방지
+ */
+html:has(.home-guest-landing-shell),
+html:has(.home-guest-landing-shell) body {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+/**
+ * 게스트 전체 화면 셸 — 기본은 세로 스크롤 허용, 충분한 높이의 데스크톱만 스크롤 제거
+ */
+.home-guest-landing-shell {
+  min-height: 100dvh;
+  max-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+@media (min-width: 1024px) and (min-height: 720px) {
+  .home-guest-landing-shell {
+    overflow-y: hidden;
+  }
+
+  .main-landing-page-main {
+    overflow-y: hidden;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+  }
+}
+
+/**
  * 메인 랜딩 (`/` 게스트 셸 — `MainLandingContent`)
  * 다른 페이지는 컴포넌트 옆 `.css` 없이 Tailwind만 쓰므로, 이 화면 전용 규칙은 여기만 둡니다.
  */
@@ -209,8 +241,9 @@ body,
 /**
  * 메인 랜딩 중앙 히어로 이미지 — 가로가 길수록 작게.
  * min-aspect-ratio 구간별 Tailwind를 쓰면 비율 경계에서 max-height가 단계적으로 바뀌어 덜컥거림 → 연속 보간.
+ * 스포트라이트 슬롯용 이미지는 `.main-landing-spotlight-hero-img`로 별도 규칙(슬롯 높이 contain).
  */
-.main-landing-hero-img {
+.main-landing-hero-img:not(.main-landing-spotlight-hero-img) {
   height: auto;
   width: 100%;
   max-width: min(92vw, 720px);
@@ -227,9 +260,78 @@ body,
 }
 
 /**
+ * 스포트라이트 히어로 — 슬롯 높이를 고정해 이미지 비율이 바뀌어도 위·아래 블록이 밀리지 않게 함.
+ */
+.main-landing-spotlight-hero-frame {
+  --ml-spotlight-slot: min(33dvh, 70vw, 308px);
+  width: 100%;
+  max-width: min(92vw, 720px);
+  height: var(--ml-spotlight-slot);
+  min-height: var(--ml-spotlight-slot);
+  max-height: var(--ml-spotlight-slot);
+  display: flex;
+  /* stretch: 자식이 슬롯 높이를 갖게 해 img의 max-height:100%가 유효해짐 (center면 콘텐츠 높이만 잡혀 잘림) */
+  align-items: stretch;
+  justify-content: center;
+  flex-shrink: 0;
+  /* drop-shadow는 박스 밖으로 그려짐 — hidden이면 글로우·하단이 잘림 */
+  overflow: visible;
+}
+
+.main-landing-spotlight-hero-frame > * {
+  min-height: 0;
+  max-height: 100%;
+}
+
+.main-landing-spotlight-hero-frame .main-landing-spotlight-hero-img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+  flex-shrink: 1;
+  filter: drop-shadow(0 22px 40px rgba(255, 255, 255, 0.5)) drop-shadow(0 10px 24px rgba(255, 255, 255, 0.28));
+}
+
+/* Apple 터치(WebKit) 페인트 경로: img의 filter는 사각으로 잘리기 쉬움 → 라디얼 레이어만 사용 */
+.main-landing-spotlight-hero-frame .main-landing-hero-stack--paint .main-landing-spotlight-hero-img {
+  filter: none;
+}
+
+/**
+ * 좁은 모바일(폴드바깥·344px 등) — 상단 여백
+ */
+@media (max-width: 380px) and (max-height: 900px) {
+  .main-landing-inner {
+    padding-top: max(1.75rem, calc(env(safe-area-inset-top, 0px) + 1.125rem)) !important;
+  }
+}
+
+/**
+ * 데스크톱 — 한 뷰포트 안에 랜딩 전체가 들어가도록 히어로 슬롯·이미지 상한 축소
+ */
+@media (min-width: 1024px) and (min-height: 640px) {
+  .main-landing-inner .main-landing-spotlight-hero-frame {
+    --ml-spotlight-slot: min(34dvh, 380px, calc(100dvh - 17rem));
+    height: var(--ml-spotlight-slot);
+    min-height: var(--ml-spotlight-slot);
+    max-height: var(--ml-spotlight-slot);
+  }
+
+  .main-landing-inner .main-landing-steps {
+    margin-top: 0.5rem;
+  }
+
+  .main-landing-inner .main-landing-cta {
+    margin-top: 0.75rem;
+  }
+}
+
+/**
  * 오쩜오 히어로 그림자
- * - 비 Apple 터치: 래퍼 `filter` drop-shadow — `MainLandingContent` 인라인(흰색 글로우).
- * - iPhone/iPad WebKit: filter가 사각으로 잘리는 경우 → 라디얼 레이어.
+ * - 비 Apple 터치: `.main-landing-spotlight-hero-img`에 흰색 drop-shadow.
+ * - Apple 터치: 위 img filter 끔 → `.main-landing-hero-shadow-layer` 라디얼만(사각 클리핑 회피).
  */
 .main-landing-hero-stack--paint .main-landing-hero-shadow-layer {
   position: absolute;
@@ -282,9 +384,11 @@ body,
   );
 }
 
-@media (max-height: 720px) {
+@media (max-height: 720px) and (max-width: 768px) {
   .main-landing-inner {
-    justify-content: flex-start;
+    /* center 폴백 후 safe center(지원 브라우저): 짧은 모바일에서도 가능하면 세로 중앙, 넘치면 상단 정렬 */
+    justify-content: center;
+    justify-content: safe center;
   }
 
   .main-landing-inner .main-landing-wordmark-float {
@@ -302,8 +406,11 @@ body,
     line-height: 1.45;
   }
 
-  .main-landing-inner .main-landing-hero-img {
-    max-height: min(34dvh, 80vw, 260px);
+  .main-landing-inner .main-landing-spotlight-hero-frame {
+    --ml-spotlight-slot: min(27dvh, 64vw, 252px);
+    height: var(--ml-spotlight-slot);
+    min-height: var(--ml-spotlight-slot);
+    max-height: var(--ml-spotlight-slot);
   }
 
   .main-landing-inner .main-landing-steps {
@@ -344,9 +451,30 @@ body,
   }
 }
 
-@media (max-height: 600px) {
-  .main-landing-inner .main-landing-hero-img {
-    max-height: min(30dvh, 76vw, 220px);
+@media (max-height: 720px) and (min-width: 769px) {
+  .main-landing-inner {
+    justify-content: center;
+  }
+
+  .main-landing-inner .main-landing-spotlight-hero-frame {
+    --ml-spotlight-slot: min(19dvh, 168px, calc(100dvh - 13rem));
+    height: var(--ml-spotlight-slot);
+    min-height: var(--ml-spotlight-slot);
+    max-height: var(--ml-spotlight-slot);
+  }
+
+  .main-landing-inner .main-landing-wordmark-float .main-landing-wordmark-img,
+  .main-landing-inner .main-landing-wordmark-float img {
+    width: min(26vw, 260px);
+  }
+}
+
+@media (max-height: 600px) and (max-width: 768px) {
+  .main-landing-inner .main-landing-spotlight-hero-frame {
+    --ml-spotlight-slot: min(25dvh, 60vw, 228px);
+    height: var(--ml-spotlight-slot);
+    min-height: var(--ml-spotlight-slot);
+    max-height: var(--ml-spotlight-slot);
   }
 
   .main-landing-inner .main-landing-wordmark-float .main-landing-wordmark-img,
@@ -355,9 +483,12 @@ body,
   }
 }
 
-@media (max-height: 520px) {
-  .main-landing-inner .main-landing-hero-img {
-    max-height: min(26dvh, 72vw, 190px);
+@media (max-height: 520px) and (max-width: 768px) {
+  .main-landing-inner .main-landing-spotlight-hero-frame {
+    --ml-spotlight-slot: min(22dvh, 56vw, 200px);
+    height: var(--ml-spotlight-slot);
+    min-height: var(--ml-spotlight-slot);
+    max-height: var(--ml-spotlight-slot);
   }
 
   .main-landing-inner .main-landing-wordmark-float .main-landing-wordmark-img,
