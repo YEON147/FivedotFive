@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useState } from "react";
 
 import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
+import { MainLandingSpotlightRotator } from "@/components/home/MainLandingSpotlightRotator";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 import { resolveLoggedInHomeHref } from "@/features/wishlist/resolve-logged-in-home";
 import { trackSignupButtonClick } from "@/lib/analytics/conversion";
@@ -65,11 +66,11 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
   };
 
   return (
-    <main className="wishlist-page-root relative flex min-h-[100dvh] flex-col overflow-y-auto">
+    <main className="wishlist-page-root main-landing-page-main relative box-border flex min-h-[100dvh] w-full min-w-0 max-w-[100vw] flex-col overflow-x-hidden overflow-y-auto lg:h-full lg:min-h-0 lg:max-h-full">
       <IntroDesignSparkles />
 
-      <div className="main-landing-inner relative z-[3] box-border flex min-h-[100dvh] flex-1 flex-col items-center justify-center px-6 pt-[calc(env(safe-area-inset-top,0px)+clamp(0.875rem,5vmin,1.75rem))] pb-[calc(env(safe-area-inset-bottom,0px)+clamp(1.125rem,4vmin,2rem))] sm:pt-[calc(env(safe-area-inset-top,0px)+clamp(1rem,3vmin,2.25rem))] sm:pb-[calc(env(safe-area-inset-bottom,0px)+clamp(1rem,3vmin,2.25rem))]">
-        <div className="main-landing-wordmark-float mb-4 flex w-full justify-center">
+      <div className="main-landing-inner relative z-[3] box-border flex w-full min-w-0 max-w-full min-h-[100dvh] flex-1 flex-col items-center justify-center pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[calc(env(safe-area-inset-top,0px)+clamp(1.25rem,6vmin,2.25rem))] pb-[calc(env(safe-area-inset-bottom,0px)+clamp(1.125rem,4vmin,2rem))] sm:px-6 sm:pt-[calc(env(safe-area-inset-top,0px)+clamp(1.125rem,5vmin,2.25rem))] sm:pb-[calc(env(safe-area-inset-bottom,0px)+clamp(1rem,3vmin,2.25rem))] lg:min-h-0 lg:h-full lg:max-h-full lg:flex-1 lg:justify-center lg:py-3 lg:pt-[calc(env(safe-area-inset-top,0px)+0.75rem)]">
+        <div className="main-landing-wordmark-float mb-3 flex w-full justify-center sm:mb-4 lg:mb-2">
           <Image
             src="/main/main3.png"
             alt=""
@@ -77,7 +78,7 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
             height={140}
             priority
             sizes="(max-width: 768px) 72vw, 300px"
-            className={`main-landing-wordmark-img h-auto w-[min(72vw,300px)] max-w-full object-contain ${
+            className={`main-landing-wordmark-img h-auto w-[min(72vw,300px)] max-w-full object-contain lg:w-[min(36vw,300px)] ${
               appleTouchPaintShadow
                 ? "shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
                 : "drop-shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
@@ -85,98 +86,13 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
           />
         </div>
 
-        <p className="mb-3 max-w-[min(22rem,92vw)] text-center text-[16px] font-light leading-relaxed tracking-tight text-[var(--color-text-primary)] drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
+        <p className="mb-2 max-w-[min(22rem,92vw)] text-center text-[16px] font-light leading-relaxed tracking-tight text-[#6e6e6e] drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] sm:mb-3 lg:mb-2 lg:text-[15px]">
           취향과 설렘이 담긴 작은 이야기
         </p>
 
-        <div
-          className={
-            appleTouchPaintShadow
-              ? "main-landing-hero-stack--paint relative inline-block max-w-full"
-              : "inline-block max-w-full"
-          }
-          style={
-            appleTouchPaintShadow
-              ? undefined
-              : {
-                  filter:
-                    "drop-shadow(0 22px 40px rgba(255, 255, 255, 0.5)) drop-shadow(0 10px 24px rgba(255, 255, 255, 0.28))",
-                }
-          }
-        >
-          {appleTouchPaintShadow ? (
-            <>
-              <span
-                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--diffuse"
-                aria-hidden
-              />
-              <span
-                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--mid"
-                aria-hidden
-              />
-              <span
-                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--core"
-                aria-hidden
-              />
-            </>
-          ) : null}
-          <Image
-            src="/main/main2.png"
-            alt="오쩜오"
-            width={900}
-            height={900}
-            priority
-            sizes="(max-width: 768px) 92vw, 720px"
-            className="main-landing-hero-img"
-          />
-        </div>
+        <MainLandingSpotlightRotator appleTouchPaintShadow={appleTouchPaintShadow} />
 
-        <section
-          className="main-landing-steps relative z-10 mt-3 w-full max-w-sm shrink-0"
-          aria-label="이용 방법"
-        >
-          <ol className="grid grid-cols-3 gap-2 sm:gap-3">
-            <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
-              <span
-                className="main-landing-step-num--blue mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
-                aria-hidden
-              >
-                1
-              </span>
-              <p className="text-[12px] font-normal leading-snug break-keep text-[var(--color-text-secondary)] sm:text-[14px] sm:leading-relaxed">
-                내가 원하는 것{" "}
-                <strong className="font-bold text-[var(--color-text-primary)]">위시리스트</strong>로
-                만들기
-              </p>
-            </li>
-            <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
-              <span
-                className="main-landing-step-num--coral mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
-                aria-hidden
-              >
-                2
-              </span>
-              <p className="text-[12px] font-normal leading-snug break-keep text-[var(--color-text-secondary)] sm:text-[14px] sm:leading-relaxed">
-                친구·가족과{" "}
-                <strong className="font-bold text-[var(--color-text-primary)]">링크 공유</strong>하기
-              </p>
-            </li>
-            <li className="flex min-w-0 flex-col items-center rounded-2xl bg-white/90 px-2 py-3.5 text-center shadow-[0_4px_16px_rgba(60,40,120,0.08)] ring-1 ring-[rgba(0,0,0,0.04)] sm:px-3 sm:py-4">
-              <span
-                className="main-landing-step-num--green mb-2 text-[2rem] font-extrabold leading-none sm:text-[2.25rem]"
-                aria-hidden
-              >
-                3
-              </span>
-              <p className="text-[12px] font-normal leading-snug break-keep text-[var(--color-text-secondary)] sm:text-[14px] sm:leading-relaxed">
-                스티커·댓글 주고 받으며{" "}
-                <strong className="font-bold text-[var(--color-text-primary)]">소통하기</strong>
-              </p>
-            </li>
-          </ol>
-        </section>
-
-        <div className="main-landing-cta relative z-10 mt-[clamp(1rem,4vmin,2rem)] flex w-full max-w-sm flex-col gap-3">
+        <div className="main-landing-cta relative z-10 mt-[clamp(0.75rem,3vmin,1.5rem)] flex w-full max-w-sm flex-col gap-2 sm:gap-3 lg:mt-3 lg:gap-2">
           {loggedIn ? (
             <>
               <button
@@ -206,7 +122,7 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
                 className={landingPrimaryBtn}
                 onClick={() => router.push(adminPublicWishlistHref())}
               >
-                위시리스트 구경가기
+                오쩜오 둘러보기
               </button>
               <div className="text-center">
                 <Link href="/login" className={landingMutedLink}>

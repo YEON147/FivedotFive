@@ -85,7 +85,7 @@ export default function Home() {
 
       {guestShellMounted ? (
         <div
-          className="fixed inset-0 z-[110] overflow-x-hidden overflow-y-auto"
+          className="home-guest-landing-shell fixed inset-0 z-[110] box-border w-full min-w-0 max-w-[100vw] overflow-x-hidden overflow-y-auto"
           style={{
             clipPath: guestClipExpanded ? "circle(150% at 50% 50%)" : "circle(0% at 50% 50%)",
             transition: `clip-path ${GUEST_REVEAL_CLIP_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,

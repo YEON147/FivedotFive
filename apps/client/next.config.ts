@@ -24,6 +24,8 @@ import type {
  *
  * ngrok 등 외부 접속: `apps/client/.env.local` 에 NEXT_PUBLIC_NGROK_URL (또는 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS).
  *
+ * `/_next/image` 원격 허용: **정적 `remotePatterns` 1줄**(동적 생성 없음). 필요 시 `domains`·패턴 확장.
+ *
  * 프론트 코드 점검: `fetch`·apiClient 경로는 항상 `/api/...` 로 시작하는지 확인
  * (`/boards/me` 절대 경로만 쓰면 브라우저는 동일 오리진에 두고 /api 가 빠질 수 있음)
  *
@@ -40,6 +42,19 @@ const backendOrigin =
  * NEXT_PUBLIC_ASSET_BASE_URL 을 쓰면 브라우저가 CDN에 직접 가므로 이 리라이트는 타지 않습니다.
  */
 const assetCdnOrigin = process.env.ASSET_CDN_REWRITE_TARGET?.replace(/\/$/, "");
+
+/** `lib/asset-url.ts` 기본 S3 가상 호스트 — `/_next/image` 원격 허용(정적 패턴 1줄) */
+const DEFAULT_ASSET_S3_IMAGE_HOST =
+  "five-dot-five.s3.ap-northeast-2.amazonaws.com";
+
+/** 동적 생성 없이 S3 버킷 호스트만 허용 (디버그·최소 설정) */
+const STATIC_ASSET_S3_REMOTE_PATTERNS: RemotePattern[] = [
+  {
+    protocol: "https",
+    hostname: DEFAULT_ASSET_S3_IMAGE_HOST,
+    pathname: "/**",
+  },
+];
 
 /**
  * `.env.local` — NEXT_PUBLIC_NGROK_URL = 터널 전체 URL (예: https://xxxx.ngrok-free.app)
@@ -77,36 +92,13 @@ const tunnelHostsFromEnv = [
 
 const extraAllowedDevOrigins = [...new Set(tunnelHostsFromEnv)];
 
-/** `next/image` 원격 최적화 — S3·CDN·로컬 에셋 서버 */
-function buildImageRemotePatterns(): RemotePattern[] {
-  const patterns: RemotePattern[] = [
-    { protocol: "https", hostname: "**.amazonaws.com", pathname: "/**" },
-    { protocol: "http", hostname: "localhost", pathname: "/**" },
-    { protocol: "http", hostname: "127.0.0.1", pathname: "/**" },
-  ];
-  const raw = process.env.NEXT_PUBLIC_ASSET_BASE_URL?.trim();
-  if (raw) {
-    try {
-      const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-      const u = new URL(withProto);
-      const protocol = u.protocol === "http:" ? "http" : "https";
-      patterns.push({
-        protocol,
-        hostname: u.hostname,
-        port: u.port || undefined,
-        pathname: "/**",
-      });
-    } catch {
-      /* noop */
-    }
-  }
-  return patterns;
-}
-
 /** Next 16+ `/_next/image` 로컬 `src` 허용 — `images.localPatterns` 미설정 시 거절됨 */
 const imageLocalPatterns: LocalPattern[] = [
   /** `public/default_icon.png` — 위시 기본 선물 썸네일(`next/image`) */
   { pathname: "/default_icon.png" },
+  { pathname: "/icons/**" },
+  { pathname: "/stickers/**" },
+  { pathname: "/wallpapers/**" },
   { pathname: "/rollingpaper/**" },
   { pathname: "/main/**" },
   { pathname: "/ranking/**" },
@@ -122,7 +114,13 @@ const nextConfig: NextConfig = {
     "172.26.1.182",
   ],
   images: {
-    remotePatterns: buildImageRemotePatterns(),
+    /**
+     * 디버그: `/_next/image` "url parameter is not allowed" 원인 분리.
+     * `remotePatterns`는 S3 호스트 **정적 1줄**만 (빈 배열 대신). `domains`는 동일 호스트 유지.
+     * 통과 확인 후 ngrok·CloudFront 등 패턴을 단계적으로 복구할 것.
+     */
+    domains: [DEFAULT_ASSET_S3_IMAGE_HOST],
+    remotePatterns: STATIC_ASSET_S3_REMOTE_PATTERNS,
     localPatterns: imageLocalPatterns,
     ...(process.env.NODE_ENV === "development"
       ? { minimumCacheTTL: 0 }
