@@ -11,6 +11,7 @@ import {
   use,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -27,10 +28,12 @@ import {
   type RollingPaperOwnerShareTabId,
 } from "@/components/common/ShareBoardLink";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
+import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "@/components/wishlist/WishlistSlots";
 import {
   createRollingPaperComment,
   DEFAULT_ROLLING_COMMENT_STICKER_KEY,
+  deleteRollingPaperComment,
   getRollingPaperComments,
   getRollingPaperDetail,
   postRollingPaperShareCommentLink,
@@ -477,6 +480,13 @@ const ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS = `${ROLLING_OVERLAY_PRIMARY_BT
 const ROLLING_OVERLAY_GHOST_BTN_CLASS =
   "rounded-full px-4 py-2 text-[13px] font-medium text-white/95 hover:bg-white/10";
 
+/**
+ * 오버레이 위험 버튼 — `ROLLING_OVERLAY_PRIMARY_BTN_CLASS` 와 동일 크기·형태,
+ * 삭제 확인 모달(`WishlistCenterDialog`)의 `삭제하기`와 동일한 빨간 솔리드 톤.
+ */
+const ROLLING_OVERLAY_DANGER_BTN_CLASS =
+  "rounded-full bg-red-500 px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:opacity-50";
+
 /** 상세 오버레이 — 읽기 전용 본문 (슬롯별 프레임 안 가운데 정렬) */
 function RollingPaperPostitModalFrame({
   slotIndex,
@@ -616,6 +626,8 @@ export default function RollingPaperSlugPage({
 }) {
   const { slug: slugParam } = use(params);
   const slug = slugParam?.trim() ?? "";
+  const editGateTitleId = useId();
+  const deleteDialogTitleId = useId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -657,10 +669,17 @@ export default function RollingPaperSlugPage({
   const [content, setContent] = useState("");
   const [guestNickname, setGuestNickname] = useState("");
   const [guestPassword, setGuestPassword] = useState("");
-  /** 비회원 수정 — `POST .../verify`로 받은 토큰(저장 시 PATCH 1회 소모) */
+  /** 비회원 수정 — 비밀번호 게이트 후 verifyToken으로 PATCH(1회 소모) */
+  const [editPasswordGateOpen, setEditPasswordGateOpen] = useState(false);
+  const [editGatePassword, setEditGatePassword] = useState("");
+  const [editGateError, setEditGateError] = useState<string | null>(null);
+  const [editGateLoading, setEditGateLoading] = useState(false);
   const [guestEditVerifyToken, setGuestEditVerifyToken] = useState<
     string | null
   >(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteGuestPassword, setDeleteGuestPassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -1064,7 +1083,7 @@ export default function RollingPaperSlugPage({
     setModalOpen(true);
   };
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setModalOpen(false);
     setModalMode("create");
     setViewModalStep("read");
@@ -1072,7 +1091,14 @@ export default function RollingPaperSlugPage({
     setFormError(null);
     setCreateOverlayStep("postit");
     setGuestEditVerifyToken(null);
-  };
+    setGuestPassword("");
+    setEditPasswordGateOpen(false);
+    setEditGatePassword("");
+    setEditGateError(null);
+    setDeleteConfirmOpen(false);
+    setDeleteGuestPassword("");
+    setDeleteError(null);
+  }, []);
 
   /** 비회원: 본문만 채운 뒤 완료 → 닉네임·비밀번호 단계로 이동 */
   const handleGuestComposeComplete = () => {
@@ -1244,6 +1270,7 @@ export default function RollingPaperSlugPage({
           slug,
           row.id,
           guestPassword.trim(),
+          rollingToken,
         );
       setGuestEditVerifyToken(verifyToken);
       setContent(
@@ -1263,13 +1290,133 @@ export default function RollingPaperSlugPage({
       ? slotComments[activeSlot]
       : undefined;
 
-  const canEditViewMessage = useMemo(() => {
+  /** 위시 공개 보드 `canModifySelectedComment` 와 동일 — 회원 댓글은 본인 JWT, 비회원은 세션 기록 + 로그인 중에는 게스트 댓글 수정 불가 */
+  const canModifyRollingMessage = useMemo(() => {
     if (modalMode !== "view" || activeSlot === null || !slug) return false;
     const row = slotComments[activeSlot];
     if (!row) return false;
-    if (Boolean(getAccessToken()?.trim()) && row.isUser) return true;
+    if (row.isUser) return true;
+    if (visitorMenuLoggedIn) return false;
     return canEditRollingPaperGuestComment(slug, row.id);
-  }, [modalMode, activeSlot, slotComments, slug]);
+  }, [modalMode, activeSlot, slotComments, slug, visitorMenuLoggedIn]);
+
+  const handleBeginEditFromRead = useCallback(() => {
+    if (activeSlot === null || !slug) return;
+    const row = slotComments[activeSlot];
+    if (!row) return;
+    setFormError(null);
+    if (row.isUser) {
+      setGuestEditVerifyToken(null);
+      setViewModalStep("edit");
+      setContent(typeof row.content === "string" ? row.content : "");
+      return;
+    }
+    setEditGatePassword("");
+    setEditGateError(null);
+    setEditPasswordGateOpen(true);
+  }, [activeSlot, slotComments, slug]);
+
+  const closeEditPasswordGate = useCallback(() => {
+    if (editGateLoading) return;
+    setEditGateError(null);
+    setEditGatePassword("");
+    setEditPasswordGateOpen(false);
+  }, [editGateLoading]);
+
+  const submitEditPasswordGate = useCallback(async () => {
+    if (activeSlot === null || !slug) return;
+    const row = slotComments[activeSlot];
+    if (!row) return;
+    const pwd = editGatePassword.trim();
+    if (!pwd) {
+      setEditGateError("비밀번호를 입력해 주세요.");
+      return;
+    }
+    setEditGateError(null);
+    setEditGateLoading(true);
+    try {
+      const { verifyToken, content: verifiedContent } =
+        await verifyRollingPaperGuestCommentPassword(
+          slug,
+          row.id,
+          pwd,
+          rollingToken,
+        );
+      setGuestEditVerifyToken(verifyToken);
+      setEditPasswordGateOpen(false);
+      setEditGatePassword("");
+      setContent(
+        typeof verifiedContent === "string" && verifiedContent.trim() !== ""
+          ? verifiedContent
+          : typeof row.content === "string"
+            ? row.content
+            : "",
+      );
+      setViewModalStep("edit");
+    } catch (e) {
+      setEditGateError(
+        e instanceof Error ? e.message : "비밀번호 확인에 실패했습니다.",
+      );
+    } finally {
+      setEditGateLoading(false);
+    }
+  }, [activeSlot, slotComments, slug, editGatePassword, rollingToken]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (activeSlot === null || !slug) return;
+    const row = slotComments[activeSlot];
+    if (!row) return;
+    setDeleteError(null);
+    const member = Boolean(getAccessToken()?.trim()) && row.isUser;
+    setSubmitting(true);
+    try {
+      if (member) {
+        await deleteRollingPaperComment(slug, row.id, {
+          mode: "member",
+          rollingToken,
+        });
+      } else {
+        const pwd = deleteGuestPassword.trim();
+        if (!pwd) {
+          setDeleteError("비밀번호를 입력해 주세요.");
+          setSubmitting(false);
+          return;
+        }
+        const { verifyToken } =
+          await verifyRollingPaperGuestCommentPassword(
+            slug,
+            row.id,
+            pwd,
+            rollingToken,
+          );
+        await deleteRollingPaperComment(slug, row.id, {
+          mode: "guest",
+          verifyToken,
+          rollingToken,
+        });
+      }
+      setDeleteConfirmOpen(false);
+      setDeleteGuestPassword("");
+      closeModal();
+      await loadBoard();
+      router.refresh();
+    } catch (e) {
+      setDeleteError(
+        e instanceof Error ? e.message : "삭제에 실패했습니다.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    activeSlot,
+    slotComments,
+    slug,
+    deleteGuestPassword,
+    rollingToken,
+    loadBoard,
+    router,
+    closeModal,
+  ]);
 
   const rollingDialogTitle = useMemo(() => {
     const labelSlot =
@@ -1369,143 +1516,76 @@ export default function RollingPaperSlugPage({
                       }
                     />
                   )}
-                  {canEditViewMessage ? (
-                    <button
-                      type="button"
-                      className={`shrink-0 ${ROLLING_OVERLAY_PRIMARY_BTN_CLASS}`}
-                      onClick={() => {
-                        setViewModalStep("edit");
-                        setGuestEditVerifyToken(null);
-                        if (viewRow.isUser) {
-                          setContent(
-                            typeof viewRow.content === "string"
-                              ? viewRow.content
-                              : "",
-                          );
-                        } else {
-                          setContent("");
-                        }
-                        setGuestPassword("");
-                        setFormError(null);
-                      }}
-                    >
-                      수정
-                    </button>
+                  {canModifyRollingMessage ? (
+                    <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_DANGER_BTN_CLASS}
+                        onClick={() => {
+                          setDeleteGuestPassword("");
+                          setDeleteError(null);
+                          setDeleteConfirmOpen(true);
+                        }}
+                      >
+                        삭제
+                      </button>
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                        onClick={handleBeginEditFromRead}
+                      >
+                        수정
+                      </button>
+                    </div>
                   ) : null}
                 </>
               ) : (
                 <>
-                  {viewRow && !viewRow.isUser && !guestEditVerifyToken ? (
-                    <>
-                      <div className={ROLLING_OVERLAY_GUEST_CARD_CLASS}>
-                        <label className="flex flex-col gap-1">
-                          <span className="text-[11px] font-medium text-slate-700">
-                            비밀번호
-                          </span>
-                          <input
-                            type="password"
-                            value={guestPassword}
-                            onChange={(e) => setGuestPassword(e.target.value)}
-                            className={ROLLING_OVERLAY_INPUT_CLASS}
-                            placeholder="작성 시 설정한 비밀번호"
-                            autoComplete="current-password"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                void handleGuestEditVerifyLoad();
-                              }
-                            }}
-                          />
-                        </label>
-                      </div>
-
-                      {formError ? (
-                        <p className="text-[13px] text-red-200" role="alert">
-                          {formError}
-                        </p>
-                      ) : null}
-
-                      <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
-                        <button
-                          type="button"
-                          className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                          onClick={() => {
-                            setViewModalStep("read");
-                            setFormError(null);
-                            setGuestPassword("");
-                            setGuestEditVerifyToken(null);
-                          }}
-                          disabled={submitting}
-                        >
-                          취소
-                        </button>
-                        <button
-                          type="button"
-                          className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                          onClick={() => void handleGuestEditVerifyLoad()}
-                          disabled={submitting || !guestPassword.trim()}
-                        >
-                          {submitting ? "불러오는 중…" : "수정"}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <RollingPaperPostitShell
-                        slotIndex={activeSlot}
-                        fullTextScroll
-                      >
-                        <RollingPaperModalTextSlot>
-                          <RollingPaperPostitModalTextarea
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            placeholder="메시지를 수정해 보세요"
-                            autoFocus={
-                              Boolean(viewRow?.isUser) ||
-                              Boolean(guestEditVerifyToken)
-                            }
-                          />
-                        </RollingPaperModalTextSlot>
-                      </RollingPaperPostitShell>
-                      <span className="w-full text-right text-[11px] text-white/80">
-                        {content.trim().length}/{CONTENT_MAX}
-                      </span>
-
-                      {formError ? (
-                        <p className="text-[13px] text-red-200" role="alert">
-                          {formError}
-                        </p>
-                      ) : null}
-
-                      <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
-                        <button
-                          type="button"
-                          className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                          onClick={() => {
-                            setViewModalStep("read");
-                            setFormError(null);
-                            setGuestPassword("");
-                            setGuestEditVerifyToken(null);
-                          }}
-                          disabled={submitting}
-                        >
-                          취소
-                        </button>
-                        <button
-                          type="button"
-                          className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                          onClick={() => void handleViewEditSubmit()}
-                          disabled={
-                            submitting ||
-                            (Boolean(viewRow && !viewRow.isUser) &&
-                              !guestEditVerifyToken?.trim())
-                          }
-                        >
-                          {submitting ? "저장 중…" : "저장"}
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
+                    <RollingPaperModalTextSlot>
+                      <RollingPaperPostitModalTextarea
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        placeholder="메시지를 수정해 보세요"
+                        autoFocus
+                      />
+                    </RollingPaperModalTextSlot>
+                  </RollingPaperPostitShell>
+                  <span className="w-full text-right text-[11px] text-white/80">
+                    {content.trim().length}/{CONTENT_MAX}
+                  </span>
+                  {formError ? (
+                    <p className="text-[13px] text-red-200" role="alert">
+                      {formError}
+                    </p>
+                  ) : null}
+                  <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                      onClick={() => {
+                        setViewModalStep("read");
+                        setFormError(null);
+                        setGuestPassword("");
+                        setGuestEditVerifyToken(null);
+                      }}
+                      disabled={submitting}
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                      onClick={() => void handleViewEditSubmit()}
+                      disabled={
+                        submitting ||
+                        (Boolean(viewRow && !viewRow.isUser) &&
+                          !guestEditVerifyToken?.trim())
+                      }
+                    >
+                      {submitting ? "저장 중…" : "저장"}
+                    </button>
+                  </div>
                 </>
               )
             ) : null}
@@ -1961,6 +2041,116 @@ export default function RollingPaperSlugPage({
           navigatorShareTitle="롤링페이퍼"
         />
       ) : null}
+
+      <WishlistCenterDialog
+        variant="static"
+        open={editPasswordGateOpen}
+        onClose={closeEditPasswordGate}
+        title="메시지 수정하기"
+        titleId={editGateTitleId}
+        closeLabel="닫기"
+        backdropClassName="!z-[600] bg-black/45"
+        surfaceClassName="!z-[601]"
+      >
+        <div className="mt-5 flex flex-col gap-3">
+          <div className="text-left">
+            <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
+            <input
+              type="password"
+              value={editGatePassword}
+              onChange={(e) => setEditGatePassword(e.target.value)}
+              disabled={editGateLoading}
+              autoComplete="current-password"
+              placeholder="작성 시 입력한 비밀번호"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+            />
+          </div>
+          {editGateError ? (
+            <p className="text-center text-xs text-red-500">{editGateError}</p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={closeEditPasswordGate}
+              disabled={editGateLoading}
+              className="rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => void submitEditPasswordGate()}
+              disabled={editGateLoading}
+              className="rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6b52e0] disabled:opacity-40"
+            >
+              {editGateLoading ? "확인 중…" : "확인"}
+            </button>
+          </div>
+        </div>
+      </WishlistCenterDialog>
+
+      <WishlistCenterDialog
+        variant="static"
+        open={deleteConfirmOpen}
+        onClose={() => {
+          if (submitting) return;
+          setDeleteError(null);
+          setDeleteGuestPassword("");
+          setDeleteConfirmOpen(false);
+        }}
+        title="메시지를 삭제할까요?"
+        titleId={deleteDialogTitleId}
+        closeLabel="닫기"
+        backdropClassName="!z-[600] bg-black/45"
+        surfaceClassName="!z-[601]"
+        description="삭제 후에는 복구할 수 없습니다."
+      >
+        <div className="mt-5 flex flex-col gap-3">
+          {deleteConfirmOpen &&
+          activeSlot !== null &&
+          slotComments[activeSlot] &&
+          !slotComments[activeSlot]!.isUser ? (
+            <div className="text-left">
+              <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
+              <input
+                type="password"
+                value={deleteGuestPassword}
+                onChange={(e) => setDeleteGuestPassword(e.target.value)}
+                disabled={submitting}
+                autoComplete="current-password"
+                placeholder="작성 시 입력한 비밀번호"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+              />
+            </div>
+          ) : null}
+          {deleteError ? (
+            <p className="text-center text-xs text-red-500">{deleteError}</p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (submitting) return;
+                setDeleteError(null);
+                setDeleteGuestPassword("");
+                setDeleteConfirmOpen(false);
+              }}
+              disabled={submitting}
+              className="rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeleteConfirm()}
+              disabled={submitting}
+              className="rounded-[14px] bg-red-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:opacity-40"
+            >
+              {submitting ? "삭제 중…" : "삭제하기"}
+            </button>
+          </div>
+        </div>
+      </WishlistCenterDialog>
 
       {modalOpen && portalReady && typeof document !== "undefined"
         ? createPortal(rollingPaperOverlay, document.body)
