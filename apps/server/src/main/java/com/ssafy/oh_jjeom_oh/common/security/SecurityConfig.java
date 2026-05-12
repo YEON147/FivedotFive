@@ -39,7 +39,7 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .exceptionHandling(e -> e.authenticationEntryPoint(jwtAuthenticationEntryPoint))
@@ -54,11 +54,24 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/boards/**").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rankings/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/boards/*/comments").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/boards/*/comments/*/verify").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/boards/*/comments/*").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/boards/*/comments/*").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*/comments/*/sticker").permitAll()
                         // /api/boards/me 는 인증 필요 → 먼저 선언해서 아래 wildcard보다 우선 적용
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/me").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/me/**").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/boards/*").permitAll()
+                        // 롤링페이퍼: me/** 는 인증 필요, 단건 조회는 토큰 기반이므로 permitAll
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rolling-papers/me/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rolling-papers/*").permitAll()
+                        // 롤링페이퍼 댓글: 비회원 댓글 작성·수정·삭제 가능 → permitAll (토큰·비밀번호 검증은 서비스에서 처리)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rolling-papers/*/comments").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/rolling-papers/*/comments").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/rolling-papers/*/comments/*/verify").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/rolling-papers/*/comments/*").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/rolling-papers/*/comments/*").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth

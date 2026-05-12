@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { createAdminNotice } from "@/features/notice/api";
+import { logoutSession } from "@/features/login/api";
 import { getMyProfile } from "@/features/user/api";
 import { compressImagesForUpload } from "@/lib/images/compress-images-for-upload";
-import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
+import { getAccessToken } from "@/lib/api/token-store";
 import {
   APP_MAIN_COLUMN,
   APP_MAIN_SCROLL_BODY,
@@ -68,8 +69,8 @@ export default function NoticeWritePage() {
     };
   }, [router]);
 
-  const handleLogout = useCallback(() => {
-    clearAccessToken();
+  const handleLogout = useCallback(async () => {
+    await logoutSession();
     setIsSidebarOpen(false);
     router.push("/login");
   }, [router]);

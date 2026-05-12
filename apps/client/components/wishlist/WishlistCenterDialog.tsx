@@ -3,8 +3,14 @@
 import { X } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-const PANEL_SHELL =
-  "w-[min(340px,calc(100vw-2rem))] min-w-0 max-w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-[18px] border border-[var(--color-border)] px-5 pb-6 pt-4 shadow-[0_24px_60px_rgba(0,0,0,0.14)]";
+/** 본문이 길 때(예: 롤링 생성 — 받는 사람 이미지 그리드) 뷰포트 밖으로 잘리지 않도록 상한 + 내부 스크롤 */
+const PANEL_FRAME =
+  "flex min-h-0 w-[min(340px,calc(100vw-2rem))] max-h-[min(90dvh,calc(100dvh-2rem))] min-w-0 max-w-[min(340px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[18px] border border-[var(--color-border)] shadow-[0_24px_60px_rgba(0,0,0,0.14)]";
+
+const PANEL_HEADER_WRAP = "shrink-0 px-5 pt-4";
+
+const PANEL_BODY_SCROLL =
+  "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6";
 
 const PANEL_BG_DEFAULT = "bg-[var(--color-surface)]";
 /** `globals.css` — 페이지 오로라와 동일 */
@@ -28,6 +34,16 @@ type WishlistCenterDialogProps = {
   variant: "animated" | "static";
   /** `aurora` — 흰 패널 대신 서비스 페이지와 같은 연보라 오로라 배경 */
   panelTone?: "default" | "aurora";
+  /**
+   * `static` 전용 — 햄버거 메뉴(z-101)보다 위에 띄울 때.
+   * 기본은 딤 z-40 · 패널 z-41.
+   * `aboveDialogs` — 다른 중앙 모달(예: 목록) 위에 편집 모달을 겹칠 때.
+   */
+  staticStack?: "default" | "aboveMenu" | "aboveDialogs";
+  /** `static` 전용 — 전체 화면 딤 클래스 (기본 `bg-black/45`) */
+  backdropClassName?: string;
+  /** 패널에 추가로 붙는 클래스 — 반투명·블러 등 */
+  surfaceClassName?: string;
 };
 
 function DialogChrome({
@@ -89,9 +105,16 @@ export function WishlistCenterDialog({
   closeLabel = "닫기",
   variant,
   panelTone = "default",
+  staticStack = "default",
+  backdropClassName,
+  surfaceClassName,
 }: WishlistCenterDialogProps) {
   const panelBg = panelTone === "aurora" ? PANEL_BG_AURORA : PANEL_BG_DEFAULT;
-  const panelClassName = `${PANEL_SHELL} ${panelBg}`;
+  const panelClassName = `${PANEL_FRAME} ${panelBg}${surfaceClassName ? ` ${surfaceClassName}` : ""}`;
+  const staticBackdropZ =
+    staticStack === "aboveDialogs" ? "z-[120]" : staticStack === "aboveMenu" ? "z-[110]" : "z-[40]";
+  const staticPanelZ =
+    staticStack === "aboveDialogs" ? "z-[121]" : staticStack === "aboveMenu" ? "z-[111]" : "z-[41]";
 
   if (variant === "static") {
     if (!open) {
@@ -101,25 +124,27 @@ export function WishlistCenterDialog({
       <>
         <button
           type="button"
-          className="fixed inset-0 z-[40] cursor-default bg-black/45"
+          className={`fixed inset-0 ${staticBackdropZ} cursor-default ${backdropClassName ?? "bg-black/45"}`}
           aria-label="닫기"
           onClick={onClose}
         />
         <div
-          className={`fixed left-1/2 top-1/2 z-[41] -translate-x-1/2 -translate-y-1/2 ${panelClassName}`}
+          className={`fixed left-1/2 top-1/2 ${staticPanelZ} -translate-x-1/2 -translate-y-1/2 ${panelClassName}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
         >
-          <DialogChrome
-            title={title}
-            titleLeading={titleLeading}
-            titleId={titleId}
-            description={description}
-            onClose={onClose}
-            closeLabel={closeLabel}
-          />
-          {children}
+          <div className={PANEL_HEADER_WRAP}>
+            <DialogChrome
+              title={title}
+              titleLeading={titleLeading}
+              titleId={titleId}
+              description={description}
+              onClose={onClose}
+              closeLabel={closeLabel}
+            />
+          </div>
+          <div className={PANEL_BODY_SCROLL}>{children}</div>
         </div>
       </>
     );
@@ -137,15 +162,17 @@ export function WishlistCenterDialog({
       aria-modal={open}
       aria-labelledby={titleId}
     >
-      <DialogChrome
-        title={title}
-        titleLeading={titleLeading}
-        titleId={titleId}
-        description={description}
-        onClose={onClose}
-        closeLabel={closeLabel}
-      />
-      {children}
+      <div className={PANEL_HEADER_WRAP}>
+        <DialogChrome
+          title={title}
+          titleLeading={titleLeading}
+          titleId={titleId}
+          description={description}
+          onClose={onClose}
+          closeLabel={closeLabel}
+        />
+      </div>
+      <div className={PANEL_BODY_SCROLL}>{children}</div>
     </section>
   );
 }

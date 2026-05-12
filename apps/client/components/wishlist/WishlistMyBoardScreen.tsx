@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Export,
   Image as ImageIcon,
   PencilSimple,
   TextAlignJustify,
@@ -20,25 +19,23 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { clearAccessToken, getAccessToken } from "@/lib/api/token-store";
+import { logoutSession } from "@/features/login/api";
+import { getAccessToken } from "@/lib/api/token-store";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { BoardShareDialog, BoardShareFabButton } from "@/components/common/ShareBoardLink";
 import {
+  GiftIconGridSkeleton,
   GiftIconModalChromeSkeleton,
   StickerGridSkeleton,
   StickerSheetFixedViewport,
 } from "@/components/wishlist/asset-picker-skeletons";
-import { ModalLazyScrollRoot } from "@/components/wishlist/modal-lazy-scroll-root";
 import { ScrollLazyModalImage } from "@/components/wishlist/ScrollLazyModalImage";
-import {
-  GIFT_ICON_GRID_FIRST_SCREEN_CATALOG_COUNT,
-  STICKER_GRID_FIRST_SCREEN_STICKER_COUNT,
-} from "@/components/wishlist/sticker-sheet-layout";
+import { ModalLazyScrollRoot } from "@/components/wishlist/modal-lazy-scroll-root";
 import {
   UI_FOCUS_OUTLINE_VISIBLE,
   UI_FOCUS_RING_INSET_VISIBLE,
 } from "@/components/ui/focus-ring";
-import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
   DESIGN_HEIGHT,
   DESIGN_WIDTH,
@@ -48,9 +45,9 @@ import {
 } from "@/components/wishlist/WishlistSlots";
 import {
   deleteMyBoardBackground,
-  deleteMyWishItem,
-  getMyBoard,
   deleteMyBoardStickerSlot,
+  deleteMyWishItem,
+  getMyWishBoardDetail,
   patchMyWishItem,
   putMyBoardBackground,
   putMyBoardStickerSlot,
@@ -73,6 +70,7 @@ import {
 } from "@/features/wishlist/wishlist-session-cache";
 import { loginUrlWithCurrentPageAsNext } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
+import type { MyProfile } from "@/features/user/types";
 import { useMouseDragHorizontalScroll } from "@/hooks/use-mouse-drag-horizontal-scroll";
 import {
   fetchBackgroundAssets,
@@ -90,8 +88,10 @@ import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
-import { shouldUseNativeImg } from "@/lib/native-img";
-import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
+import {
+  getStickerFolderLabel,
+  orderStickerFoldersForTabs,
+} from "@/lib/sticker-folder-labels";
 import {
   loadGiftIconsWithSessionCache,
   loadStickerFolderWithSessionCache,
@@ -108,6 +108,8 @@ import {
 } from "@/lib/gift-icon-category";
 
 export type WishlistMyBoardScreenProps = {
+  /** `[slug]` 경로의 보드 — `/api/boards/{slug}/…` 편집용 호출에 사용 */
+  routeBoardSlug: string;
   /** `/wishlist/[slug]` 캐러셀 첫 슬라이드에 넣을 때 — 중첩 `<main>` 방지 등 */
   embeddedInSlugCarousel?: boolean;
   /** 바깥에 프로필 헤더가 있을 때 내부 타이틀 헤더 숨김 */
@@ -129,6 +131,15 @@ export type WishlistMyBoardScreenProps = {
    * `null`이면 시트 닫힘·저장 상태만 반영, 문자열은 시트 중 선택(빈 문자열=기본 배경).
    */
   onEmbeddedBackgroundDraftKeyChange?: (assetKey: string | null) => void;
+  /**
+   * `[slug]` 부모가 이미 `GET /api/users/me`로 받은 프로필 — 임베드 시 중복 `me` 호출 생략.
+   */
+  embeddedPrefetchedProfile?: MyProfile | null;
+  /**
+   * 부모가 `fetchStickerFolders(slug)` 결과를 넘김 — 임베드 시 동일 슬러그로 폴더 API 재호출 생략.
+   * `undefined`면(비임베드·레거시) 기존처럼 자식에서 조회.
+   */
+  embeddedStickerFoldersFromParent?: string[];
 };
 
 type GiftModalSpecial = "present" | null;
@@ -137,6 +148,11 @@ const WISHLIST_BOARD_BG_SIZES =
   "(max-width: 480px) min(420px, calc(100vw - 1.5rem)), min(372px, 100vw)";
 const BACKGROUND_PICKER_THUMB_SIZES = "96px";
 const GIFT_ICON_GRID_SIZES = "(max-width: 400px) 30vw, 120px";
+
+/**
+ * 그리드에서 첫 N개만 `eager` + `fetchPriority=high` — 나머지는 lazy(IO).
+ */
+const ASSET_CATALOG_VIEWPORT_PRELOAD_COUNT = 12;
 const STICKER_SHEET_CELL_SIZES = "(max-width: 360px) 16vw, 56px";
 
 /** ADMIN: 탭당 1회 — `/api/admin/assets/reset-sync` (에셋 DB 전체 재동기화) */
@@ -154,7 +170,6 @@ const FALLBACK_STICKER_FOLDER_IDS: readonly string[] = [
   "bubble",
   "cute",
   "dessert",
-  "toy",
 ];
 
 /** PUT/DELETE 직후 화면에 바로 반영 — 재조회 타이밍·`<Image>` 캐시로 배경이 늦게 바뀌는 현상 완화 */
@@ -263,94 +278,17 @@ function DefaultOptionButton({
   );
 }
 
-function ShareModalPanelBody({
-  boardSlug,
-  shareLinkCopyFeedback,
-  setShareLinkCopyFeedback,
-}: {
-  boardSlug: string | null;
-  shareLinkCopyFeedback: boolean;
-  setShareLinkCopyFeedback: (value: boolean) => void;
-}) {
-  return (
-    <>
-      <div className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
-        <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
-          {boardSlug ? (
-            <a
-              href={`/wishlist/${encodeURIComponent(boardSlug)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full text-[var(--color-text-primary)] underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF]"
-            >
-              {typeof window !== "undefined"
-                ? `${window.location.origin}/wishlist/${boardSlug}`
-                : `/wishlist/${boardSlug}`}
-            </a>
-          ) : (
-            "링크를 불러오는 중..."
-          )}
-        </div>
-        {shareLinkCopyFeedback ? (
-          <div className="pointer-events-auto absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-[14px] bg-white/95 [backface-visibility:hidden] backdrop-blur-xl">
-            <p
-              className="min-w-0 max-w-full px-2 text-center text-sm font-semibold text-slate-700"
-              role="status"
-              aria-live="polite"
-            >
-              클립보드에 복사되었습니다.
-            </p>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          disabled={!boardSlug}
-          onClick={async () => {
-            if (!boardSlug) {
-              return;
-            }
-            const url = `${window.location.origin}/wishlist/${encodeURIComponent(boardSlug)}`;
-            try {
-              await navigator.clipboard.writeText(url);
-              setShareLinkCopyFeedback(true);
-            } catch {
-              /* 클립보드 거부/비지원 */
-            }
-          }}
-          className="rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:opacity-50 disabled:active:scale-100"
-        >
-          링크 복사
-        </button>
-        <button
-          type="button"
-          disabled={!boardSlug}
-          onClick={() => {
-            if (!boardSlug || !navigator.share) return;
-            void navigator.share({
-              title: "내 위시리스트",
-              url: `${window.location.origin}/wishlist/${encodeURIComponent(boardSlug)}`,
-            });
-          }}
-          className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:opacity-40 disabled:active:scale-100"
-        >
-          공유하기
-        </button>
-      </div>
-    </>
-  );
-}
-
 export function WishlistMyBoardScreen({
+  routeBoardSlug,
   embeddedInSlugCarousel = false,
   omitInnerTitleHeader = false,
   onCarouselInteractionLockChange,
   embeddedCarouselVisualPage,
   onEmbeddedBoardSynced,
   onEmbeddedBackgroundDraftKeyChange,
-}: WishlistMyBoardScreenProps = {}) {
+  embeddedPrefetchedProfile = null,
+  embeddedStickerFoldersFromParent,
+}: WishlistMyBoardScreenProps) {
   const router = useRouter();
   const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(
     () => getWishlistPageSessionCache()?.bigCircleCount ?? 1,
@@ -388,8 +326,6 @@ export function WishlistMyBoardScreen({
   const [draftBackgroundAssetKey, setDraftBackgroundAssetKey] = useState<string | null>(null);
   const [isCompactBackgroundOpen, setIsCompactBackgroundOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  /** 공유 모달 – 링크 복사 성공 토스트(짧은 문구) */
-  const [shareLinkCopyFeedback, setShareLinkCopyFeedback] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarPortalReady, setSidebarPortalReady] = useState(false);
   const [boardSlug, setBoardSlug] = useState<string | null>(
@@ -441,6 +377,18 @@ export function WishlistMyBoardScreen({
   /** 슬러그 임베드 + 배경 낙관적 반영 시 부모에 넘길 `items`(직전 GET 기준) */
   const lastLoadedWishItemsRef = useRef<WishItemData[]>([]);
 
+  const wishlistShareLinkHref = useMemo(() => {
+    const s = boardSlug?.trim();
+    if (!s) return null;
+    return `/wishlist/${encodeURIComponent(s)}`;
+  }, [boardSlug]);
+
+  const wishlistShareAbsoluteUrl = useMemo(() => {
+    const s = boardSlug?.trim();
+    if (!s || typeof window === "undefined") return null;
+    return `${window.location.origin}/wishlist/${encodeURIComponent(s)}`;
+  }, [boardSlug]);
+
   const applyLoadedBoard = useCallback(
     (board: MyBoardData) => {
       const { items, assets, boardSlug } = board.data;
@@ -461,11 +409,28 @@ export function WishlistMyBoardScreen({
     [embeddedInSlugCarousel, onEmbeddedBoardSynced],
   );
 
+  const reloadMyBoardFromApi = useCallback(async (): Promise<MyBoardData> => {
+    const s = routeBoardSlug.trim();
+    if (!s) {
+      throw new Error("보드 슬러그가 없습니다.");
+    }
+    const board = await getMyWishBoardDetail(s);
+    applyLoadedBoard(board);
+    return board;
+  }, [routeBoardSlug, applyLoadedBoard]);
+
   useEffect(() => {
+    if (embeddedInSlugCarousel && embeddedStickerFoldersFromParent !== undefined) {
+      const fromParent = orderStickerFoldersForTabs(embeddedStickerFoldersFromParent);
+      setStickerFolderIds(
+        fromParent.length > 0 ? fromParent : [...FALLBACK_STICKER_FOLDER_IDS],
+      );
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       try {
-        const folders = await fetchStickerFolders(boardSlug);
+        const folders = orderStickerFoldersForTabs(await fetchStickerFolders(boardSlug));
         if (cancelled) return;
         setStickerFolderIds(
           folders.length > 0 ? folders : [...FALLBACK_STICKER_FOLDER_IDS],
@@ -480,11 +445,12 @@ export function WishlistMyBoardScreen({
     return () => {
       cancelled = true;
     };
-  }, [boardSlug]);
+  }, [boardSlug, embeddedInSlugCarousel, embeddedStickerFoldersFromParent]);
 
   const stickerModalTabs = useMemo(() => {
-    const ids =
-      stickerFolderIds.length > 0 ? stickerFolderIds : [...FALLBACK_STICKER_FOLDER_IDS];
+    const ids = orderStickerFoldersForTabs(
+      stickerFolderIds.length > 0 ? stickerFolderIds : [...FALLBACK_STICKER_FOLDER_IDS],
+    );
     return ids.map((id) => ({
       id,
       label: getStickerFolderLabel(id),
@@ -508,6 +474,14 @@ export function WishlistMyBoardScreen({
     }
 
     let cancelled = false;
+
+    const loadBoardSnapshot = async (): Promise<MyBoardData | null> => {
+      try {
+        return await reloadMyBoardFromApi();
+      } catch {
+        return null;
+      }
+    };
 
     const persistBoardSnapshot = (
       viewerNameForCache: string,
@@ -543,16 +517,24 @@ export function WishlistMyBoardScreen({
 
     const load = async () => {
       try {
-        const profileResult = await Promise.allSettled([getMyProfile()]).then(
-          (r) => r[0],
-        );
+        let profile: MyProfile | null = null;
+        if (embeddedInSlugCarousel && embeddedPrefetchedProfile != null) {
+          profile = embeddedPrefetchedProfile;
+        } else if (!embeddedInSlugCarousel) {
+          const profileResult = await Promise.allSettled([getMyProfile()]).then(
+            (r) => r[0],
+          );
+          if (profileResult.status === "fulfilled") {
+            profile = profileResult.value;
+          }
+        }
+        /** `embeddedInSlugCarousel && !embeddedPrefetchedProfile` — 부모 `sync` 직전 마운트 등: 추가 `me` 호출 안 함 */
 
         if (cancelled) {
           return;
         }
 
-        if (profileResult.status === "fulfilled") {
-          const profile = profileResult.value;
+        if (profile) {
           const displayName =
             profile.nickname?.trim() || profile.username?.trim() || "회원";
           setViewerName(displayName);
@@ -574,13 +556,18 @@ export function WishlistMyBoardScreen({
           if (!profile.hasWishBoard) {
             /**
              * 방금 POST /boards 직후에는 `hasWishBoard`가 아직 false인 경우가 있음.
-             * 이 상태로 두면 `getMyBoard`를 안 타고 메인 리다이렉트(useEffect)로 튕김 →
-             * 프로필과 무관하게 GET /boards/me로 실제 보드 존재를 한 번 확인한다.
+             * 프로필과 무관하게 상세 조회로 실제 보드 존재를 한 번 확인한다.
              */
             try {
-              const board = await getMyBoard();
+              const board = await loadBoardSnapshot();
               if (cancelled) return;
-              applyLoadedBoard(board);
+              if (!board) {
+                setHasMyBoard(false);
+                setAllWishSlotsEmpty(true);
+                setBoardAssets([]);
+                persistEmptySnapshot(displayName);
+                return;
+              }
               setHasMyBoard(true);
               persistBoardSnapshot(displayName, board);
             } catch {
@@ -595,11 +582,17 @@ export function WishlistMyBoardScreen({
           }
 
           try {
-            const board = await getMyBoard();
+            const board = await loadBoardSnapshot();
             if (cancelled) {
               return;
             }
-            applyLoadedBoard(board);
+            if (!board) {
+              setHasMyBoard(false);
+              setAllWishSlotsEmpty(true);
+              setBoardAssets([]);
+              persistEmptySnapshot(displayName);
+              return;
+            }
             setHasMyBoard(true);
             persistBoardSnapshot(displayName, board);
           } catch {
@@ -616,11 +609,19 @@ export function WishlistMyBoardScreen({
         setViewerIsAdmin(false);
 
         try {
-          const board = await getMyBoard();
+          const board = await loadBoardSnapshot();
           if (cancelled) {
             return;
           }
-          applyLoadedBoard(board);
+          if (!board) {
+            setHasMyBoard(false);
+            setAllWishSlotsEmpty(true);
+            setBoardAssets([]);
+            persistEmptySnapshot(
+              getWishlistPageSessionCache()?.viewerName ?? "회원",
+            );
+            return;
+          }
           setHasMyBoard(true);
           const fallbackName =
             getWishlistPageSessionCache()?.viewerName ?? "회원";
@@ -657,14 +658,25 @@ export function WishlistMyBoardScreen({
     return () => {
       cancelled = true;
     };
-  }, [router, applyLoadedBoard]);
+  }, [
+    router,
+    applyLoadedBoard,
+    reloadMyBoardFromApi,
+    embeddedInSlugCarousel,
+    embeddedPrefetchedProfile,
+  ]);
 
-  /** 보드 없음일 때 온보딩 UI는 메인(`/`)과 통합 — `/wishlist` 직진 시 메인으로 이동 */
+  /**
+   * 허브 전용(`/wishlist` 레거시 단독 화면).
+   * `[slug]`에 임베드된 경우 비공개 보드는 공개 GET이 안 되므로 잠깐 실패할 수 있는데,
+   * 그때 메인(`/`)으로 보내면 안 됨 — 소유 슬러그 페이지에 남김.
+   */
   useEffect(() => {
     if (!wishSlotsLoaded || hasMyBoard) return;
     if (!getAccessToken()) return;
+    if (embeddedInSlugCarousel) return;
     router.replace("/");
-  }, [wishSlotsLoaded, hasMyBoard, router]);
+  }, [wishSlotsLoaded, hasMyBoard, router, embeddedInSlugCarousel]);
 
   /** 메인에서 위시보드 생성 직후 진입 시 한 번만 꾸미기 모드로 연다 */
   useEffect(() => {
@@ -710,6 +722,17 @@ export function WishlistMyBoardScreen({
     };
   }, []);
 
+  /** 내 보드 확보 후 선물 아이콘 카탈로그를 미리 받아 두어 수정 모달이 가볍게 열리게 함 */
+  useEffect(() => {
+    const slug = boardSlug?.trim();
+    if (!slug || !hasMyBoard) {
+      return;
+    }
+    void loadGiftIconsWithSessionCache(slug).catch(() => {
+      /* 모달 열 때 재요청 — 프리패치 실패는 무시 */
+    });
+  }, [boardSlug, hasMyBoard]);
+
   /** 선물 슬롯 클릭으로 모달이 열릴 때 — `GET /api/assets/gift-icons?boardSlug=`(내 보드 slug) 로드 */
   useEffect(() => {
     if (!isGiftModalOpen) {
@@ -719,8 +742,9 @@ export function WishlistMyBoardScreen({
     let cancelled = false;
 
     const loadGiftIcons = async () => {
-      setGiftIconsLoading(true);
       setGiftIconsError(null);
+      setGiftIconsLoading(true);
+
       try {
         const list = await loadGiftIconsWithSessionCache(boardSlug);
         if (!cancelled) {
@@ -746,6 +770,7 @@ export function WishlistMyBoardScreen({
 
     return () => {
       cancelled = true;
+      setGiftIconsLoading(false);
     };
   }, [isGiftModalOpen, boardSlug]);
 
@@ -1013,20 +1038,6 @@ export function WishlistMyBoardScreen({
     }
   }, [isCompactBackgroundOpen, backgroundPickerStripScroll]);
 
-  useEffect(() => {
-    if (!isShareModalOpen) {
-      setShareLinkCopyFeedback(false);
-    }
-  }, [isShareModalOpen]);
-
-  useEffect(() => {
-    if (!shareLinkCopyFeedback) {
-      return;
-    }
-    const t = window.setTimeout(() => setShareLinkCopyFeedback(false), 2500);
-    return () => window.clearTimeout(t);
-  }, [shareLinkCopyFeedback]);
-
   const closeEditUi = () => {
     setIsBottomSheetOpen(false);
     setIsCompactBackgroundOpen(false);
@@ -1060,16 +1071,16 @@ export function WishlistMyBoardScreen({
     async (assetKey: string) => {
       const keyTrim = assetKey.trim();
       const slotId = stickerTargetSlotId;
-      if (slotId == null || !keyTrim) {
+      const apiSlug = routeBoardSlug.trim();
+      if (slotId == null || !keyTrim || !apiSlug) {
         return;
       }
 
       setStickerSlotSaving(true);
       setStickerSlotSaveError(null);
       try {
-        await putMyBoardStickerSlot(slotId, keyTrim);
-        const board = await getMyBoard();
-        applyLoadedBoard(board);
+        await putMyBoardStickerSlot(apiSlug, slotId, keyTrim);
+        await reloadMyBoardFromApi();
         setIsBottomSheetOpen(false);
         setStickerTargetSlotId(null);
         setStickerSlotSaveError(null);
@@ -1081,21 +1092,21 @@ export function WishlistMyBoardScreen({
         setStickerSlotSaving(false);
       }
     },
-    [stickerTargetSlotId, applyLoadedBoard],
+    [stickerTargetSlotId, reloadMyBoardFromApi, routeBoardSlug],
   );
 
   const removeStickerFromSlot = useCallback(async () => {
     const slotId = stickerTargetSlotId;
-    if (slotId == null) {
+    const apiSlug = routeBoardSlug.trim();
+    if (slotId == null || !apiSlug) {
       return;
     }
 
     setStickerSlotSaving(true);
     setStickerSlotSaveError(null);
     try {
-      await deleteMyBoardStickerSlot(slotId);
-      const board = await getMyBoard();
-      applyLoadedBoard(board);
+      await deleteMyBoardStickerSlot(apiSlug, slotId);
+      await reloadMyBoardFromApi();
       setIsBottomSheetOpen(false);
       setStickerTargetSlotId(null);
       setStickerSlotSaveError(null);
@@ -1106,7 +1117,7 @@ export function WishlistMyBoardScreen({
     } finally {
       setStickerSlotSaving(false);
     }
-  }, [stickerTargetSlotId, applyLoadedBoard]);
+  }, [stickerTargetSlotId, reloadMyBoardFromApi, routeBoardSlug]);
 
   /**
    * 배경 시트를 내릴 때만 서버에 반영합니다.
@@ -1130,12 +1141,17 @@ export function WishlistMyBoardScreen({
       return true;
     }
 
+    const apiSlug = routeBoardSlug.trim();
+    if (!apiSlug) {
+      return false;
+    }
+
     setBackgroundSaving(true);
     try {
       if (draft === "") {
-        await deleteMyBoardBackground();
+        await deleteMyBoardBackground(apiSlug);
       } else {
-        await putMyBoardBackground(draft);
+        await putMyBoardBackground(apiSlug, draft);
       }
       setBoardAssets((prev) => {
         const next = boardAssetsWithBackgroundKey(prev, draft);
@@ -1147,8 +1163,7 @@ export function WishlistMyBoardScreen({
         }
         return next;
       });
-      const board = await getMyBoard();
-      applyLoadedBoard(board);
+      await reloadMyBoardFromApi();
       setDraftBackgroundAssetKey(null);
       setIsCompactBackgroundOpen(false);
       return true;
@@ -1161,12 +1176,13 @@ export function WishlistMyBoardScreen({
       setBackgroundSaving(false);
     }
   }, [
-    applyLoadedBoard,
     boardAssets,
     draftBackgroundAssetKey,
     embeddedInSlugCarousel,
     isCompactBackgroundOpen,
     onEmbeddedBoardSynced,
+    reloadMyBoardFromApi,
+    routeBoardSlug,
   ]);
 
   const toggleSidebar = () => {
@@ -1236,8 +1252,12 @@ export function WishlistMyBoardScreen({
     }
 
     const slotIndexApi = idx0 + 1;
+    const apiSlug = routeBoardSlug.trim();
+    if (!apiSlug) {
+      return;
+    }
 
-    let patchBody: Parameters<typeof patchMyWishItem>[1];
+    let patchBody: Parameters<typeof patchMyWishItem>[2];
     let nextIconKeyForLocal: string;
 
     if (giftModalSpecial === "present") {
@@ -1265,11 +1285,10 @@ export function WishlistMyBoardScreen({
     setGiftModalSaveError(null);
 
     try {
-      await patchMyWishItem(slotIndexApi, patchBody);
+      await patchMyWishItem(apiSlug, slotIndexApi, patchBody);
 
       try {
-        const board = await getMyBoard();
-        applyLoadedBoard(board);
+        await reloadMyBoardFromApi();
         setHasMyBoard(true);
       } catch {
         setWishTexts((prev) => {
@@ -1319,17 +1338,16 @@ export function WishlistMyBoardScreen({
     setGiftModalDeleting(true);
     setGiftModalSaveError(null);
 
+    const apiSlugReset = routeBoardSlug.trim();
+    if (!apiSlugReset) {
+      setGiftModalDeleting(false);
+      return;
+    }
+
     try {
-      await deleteMyWishItem(giftModalSlotIndex + 1);
-      const board = await getMyBoard();
-      const { items, assets, boardSlug } = board.data;
-      setBoardSlug(boardSlug);
-      setBoardAssets(assets);
-      const derived = deriveWishSlotState(items);
-      setAllWishSlotsEmpty(derived.allWishSlotsEmpty);
-      setWishTexts(derived.wishTexts);
-      setWishGiftIconKeys(derived.wishGiftIconKeys);
-      setBigCircleCount(derived.bigCircleCount);
+      await deleteMyWishItem(apiSlugReset, giftModalSlotIndex + 1);
+      const board = await reloadMyBoardFromApi();
+      const derived = deriveWishSlotState(board.data.items);
       if (derived.allWishSlotsEmpty) {
         setIsDecorateMode(false);
       }
@@ -1555,8 +1573,8 @@ export function WishlistMyBoardScreen({
     wishTexts,
   ]);
 
-  const handleLogout = () => {
-    clearAccessToken();
+  const handleLogout = async () => {
+    await logoutSession();
     clearWishlistPageSessionCache();
     setIsSidebarOpen(false);
     router.push("/login");
@@ -1720,25 +1738,15 @@ export function WishlistMyBoardScreen({
                 >
               {!embeddedInSlugCarousel && boardBackgroundDisplayUrl ? (
                 <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
-                  {shouldUseNativeImg(boardBackgroundDisplayUrl) ? (
-                    <img
-                      key={effectiveBackgroundSelectionKey || "default"}
-                      src={boardBackgroundDisplayUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      fetchPriority="high"
-                    />
-                  ) : (
-                    <Image
-                      key={effectiveBackgroundSelectionKey || "default"}
-                      src={boardBackgroundDisplayUrl}
-                      alt=""
-                      fill
-                      sizes={WISHLIST_BOARD_BG_SIZES}
-                      className="object-cover"
-                      priority
-                    />
-                  )}
+                  <Image
+                    key={effectiveBackgroundSelectionKey || "default"}
+                    src={boardBackgroundDisplayUrl}
+                    alt=""
+                    fill
+                    sizes={WISHLIST_BOARD_BG_SIZES}
+                    className="object-cover"
+                    priority
+                  />
                 </div>
               ) : null}
 
@@ -1880,14 +1888,10 @@ export function WishlistMyBoardScreen({
                   <PencilSimple size={23} weight="bold" />
                 </button>
 
-                <button
-                  type="button"
+                <BoardShareFabButton
                   onClick={() => setIsShareModalOpen(true)}
-                  className="pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-body text-white shadow-lg"
-                  aria-label="위시리스트 공유"
-                >
-                  <Export size={23} weight="bold" />
-                </button>
+                  ariaLabel="위시리스트 공유"
+                />
               </div>
                 </div>
               </div>
@@ -1988,22 +1992,13 @@ export function WishlistMyBoardScreen({
                         : "ring-slate-200/80 group-focus-visible:ring-2 group-focus-visible:ring-inset group-focus-visible:ring-[#7B61FF]"
                     }`}
                   >
-                    {shouldUseNativeImg(src) ? (
-                      <img
-                        src={src}
-                        alt={label}
-                        className="absolute inset-0 h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <Image
-                        src={src}
-                        alt={label}
-                        fill
-                        sizes={BACKGROUND_PICKER_THUMB_SIZES}
-                        className="object-cover"
-                      />
-                    )}
+                    <Image
+                      src={src}
+                      alt={label}
+                      fill
+                      sizes={BACKGROUND_PICKER_THUMB_SIZES}
+                      className="object-cover"
+                    />
                   </div>
                 </button>
               );
@@ -2012,43 +2007,30 @@ export function WishlistMyBoardScreen({
         </div>
       </section>
 
-      {sidebarPortalReady && embeddedInSlugCarousel
-        ? createPortal(
-            <WishlistCenterDialog
-              variant="static"
-              open={isShareModalOpen}
-              onClose={() => setIsShareModalOpen(false)}
-              title="공유하기"
-              titleId="wishlist-share-dialog-title"
-              closeLabel="공유 창 닫기"
-              description="위시리스트 링크를 복사하거나 공유할 수 있어요."
-            >
-              <ShareModalPanelBody
-                boardSlug={boardSlug}
-                shareLinkCopyFeedback={shareLinkCopyFeedback}
-                setShareLinkCopyFeedback={setShareLinkCopyFeedback}
-              />
-            </WishlistCenterDialog>,
-            document.body,
-          )
-        : null}
-      {!embeddedInSlugCarousel ? (
-        <WishlistCenterDialog
-          variant="animated"
+      {embeddedInSlugCarousel ? (
+        <BoardShareDialog
+          presentation="carousel-portal"
+          portalReady={sidebarPortalReady}
           open={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
-          title="공유하기"
           titleId="wishlist-share-dialog-title"
-          closeLabel="공유 창 닫기"
           description="위시리스트 링크를 복사하거나 공유할 수 있어요."
-        >
-          <ShareModalPanelBody
-            boardSlug={boardSlug}
-            shareLinkCopyFeedback={shareLinkCopyFeedback}
-            setShareLinkCopyFeedback={setShareLinkCopyFeedback}
-          />
-        </WishlistCenterDialog>
-      ) : null}
+          absoluteUrl={wishlistShareAbsoluteUrl}
+          linkHref={wishlistShareLinkHref}
+          navigatorShareTitle="내 위시리스트"
+        />
+      ) : (
+        <BoardShareDialog
+          presentation="page"
+          open={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          titleId="wishlist-share-dialog-title"
+          description="위시리스트 링크를 복사하거나 공유할 수 있어요."
+          absoluteUrl={wishlistShareAbsoluteUrl}
+          linkHref={wishlistShareLinkHref}
+          navigatorShareTitle="내 위시리스트"
+        />
+      )}
 
       {sidebarPortalReady && isGiftModalOpen
         ? createPortal(
@@ -2060,7 +2042,7 @@ export function WishlistMyBoardScreen({
                 onClick={closeGiftModal}
               />
               <div
-                className="relative z-10 flex max-h-[min(90dvh,640px)] w-full max-w-[380px] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.22)]"
+                className="relative z-10 flex h-[min(90dvh,640px)] w-full max-w-[380px] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.22)]"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="gift-modal-title"
@@ -2133,7 +2115,7 @@ export function WishlistMyBoardScreen({
 
                   <p className="mt-5 shrink-0 text-sm font-medium text-slate-800">위시 아이콘</p>
 
-                  <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-inner">
+                  <div className="mt-3 flex min-h-[min(36dvh,260px)] flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-inner">
                     {giftIconsLoading ? (
                       <GiftIconModalChromeSkeleton />
                     ) : giftIconsError ? null : (
@@ -2219,9 +2201,9 @@ export function WishlistMyBoardScreen({
                         ) : null}
                         <ModalLazyScrollRoot
                           key={`${giftIconModalTabEffective}${giftIconModalTabEffective === "travel" ? `-${giftIconTravelSubTabEffective}` : ""}`}
-                          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]"
+                          className="relative min-h-[min(28dvh,200px)] flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]"
                         >
-                          <div className="grid grid-cols-3 gap-2 content-start">
+                          <div className="relative z-0 grid grid-cols-3 gap-2 content-start">
                             <button
                               type="button"
                               onClick={() => {
@@ -2246,11 +2228,11 @@ export function WishlistMyBoardScreen({
                                 draggable={false}
                               />
                             </button>
-                            {filteredCatalogGiftIcons.map((icon, catalogIdx) => {
+                            {filteredCatalogGiftIcons.map((icon, iconIdx) => {
                               const src = getAssetImageUrl(icon.assetKey);
                               const selected = giftModalResolvedIconId === icon.id;
                               const eagerThumb =
-                                catalogIdx < GIFT_ICON_GRID_FIRST_SCREEN_CATALOG_COUNT;
+                                iconIdx < ASSET_CATALOG_VIEWPORT_PRELOAD_COUNT;
 
                               return (
                                 <button
@@ -2271,7 +2253,9 @@ export function WishlistMyBoardScreen({
                                   <ScrollLazyModalImage
                                     src={src}
                                     eager={eagerThumb}
-                                    useNativeImg={shouldUseNativeImg(src)}
+                                    highFetchPriority={eagerThumb}
+                                    softContentFade
+                                    useNativeImg={false}
                                     sizes={GIFT_ICON_GRID_SIZES}
                                     imgClassName="absolute inset-0 h-full w-full object-contain p-1"
                                   />
@@ -2390,8 +2374,27 @@ export function WishlistMyBoardScreen({
                     >
                       {stickerSheetLoading ? (
                         <StickerGridSkeleton />
-                      ) : (
+                      ) : stickerSheetList.length === 0 ? (
                         <>
+                          <div className="grid grid-cols-6 gap-1">
+                            <button
+                              type="button"
+                              disabled={
+                                stickerSlotSaving || stickerTargetSlotId == null
+                              }
+                              onClick={() => void removeStickerFromSlot()}
+                              className="flex aspect-square items-center justify-center overflow-hidden rounded-md border-2 border-slate-300 bg-white text-xl font-semibold text-slate-500 transition enabled:hover:border-red-400 enabled:hover:bg-red-50 enabled:hover:text-red-600 enabled:active:scale-[0.98] disabled:opacity-50"
+                              aria-label="이 슬롯에서 스티커 삭제"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          <p className="mt-2 px-1 text-center text-body-sm text-slate-500">
+                            이 탭에 표시할 스티커가 없습니다. 맨 앞 ×로 이 슬롯의 스티커를 지울 수
+                            있어요.
+                          </p>
+                        </>
+                      ) : (
                           <div className="grid grid-cols-6 gap-1">
                             <button
                               type="button"
@@ -2407,7 +2410,7 @@ export function WishlistMyBoardScreen({
                             {stickerSheetList.map((sticker, stickerIdx) => {
                               const stickerSrc = getAssetImageUrl(sticker.assetKey);
                               const eagerThumb =
-                                stickerIdx < STICKER_GRID_FIRST_SCREEN_STICKER_COUNT;
+                                stickerIdx < ASSET_CATALOG_VIEWPORT_PRELOAD_COUNT;
 
                               return (
                                 <button
@@ -2425,7 +2428,9 @@ export function WishlistMyBoardScreen({
                                   <ScrollLazyModalImage
                                     src={stickerSrc}
                                     eager={eagerThumb}
-                                    useNativeImg={shouldUseNativeImg(stickerSrc)}
+                                    highFetchPriority={eagerThumb}
+                                    softContentFade
+                                    useNativeImg={false}
                                     sizes={STICKER_SHEET_CELL_SIZES}
                                     imgClassName="absolute inset-0 h-full w-full object-contain p-0.5"
                                   />
@@ -2433,13 +2438,6 @@ export function WishlistMyBoardScreen({
                               );
                             })}
                           </div>
-                          {stickerSheetList.length === 0 ? (
-                            <p className="mt-2 px-1 text-center text-body-sm text-slate-500">
-                              이 탭에 표시할 스티커가 없습니다. 맨 앞 ×로 이 슬롯의 스티커를 지울 수
-                              있어요.
-                            </p>
-                          ) : null}
-                        </>
                       )}
                     </StickerSheetFixedViewport>
                   )}

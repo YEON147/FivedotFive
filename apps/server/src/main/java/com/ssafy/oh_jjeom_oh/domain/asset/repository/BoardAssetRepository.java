@@ -19,6 +19,11 @@ public interface BoardAssetRepository extends JpaRepository<BoardAsset, Long> {
 
     Optional<BoardAsset> findByBoardAndAssetTypeAndSlotIndex(WishBoard board, AssetType assetType, Integer slotIndex);
 
+    // 위시보드 단건 삭제 시 사용
+    @Modifying(clearAutomatically = true)
+    @Query("delete from BoardAsset ba where ba.board = :board")
+    void deleteByBoard(@Param("board") WishBoard board);
+
     @Modifying(clearAutomatically = true)
     @Query("delete from BoardAsset ba where ba.board.id = (select b.id from WishBoard b where b.user.id = :userId)")
     void deleteByUserId(@Param("userId") Long userId);

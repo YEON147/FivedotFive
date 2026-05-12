@@ -40,6 +40,11 @@ public enum ErrorCode {
     BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "위시보드를 찾을 수 없습니다."),
     BOARD_SLUG_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 슬러그의 위시보드를 찾을 수 없습니다."),
     BOARD_PRIVATE(HttpStatus.FORBIDDEN, "비공개 위시보드입니다."),
+    BOARD_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "위시보드는 최대 5개까지 생성할 수 있습니다."),
+    BOARD_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 위시보드에 대한 권한이 없습니다."),
+    BOARD_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다."),
+    BOARD_CANNOT_SAVE_OWN(HttpStatus.BAD_REQUEST, "본인의 위시보드는 저장할 수 없습니다."),
+    BOARD_ALREADY_SAVED(HttpStatus.CONFLICT, "이미 저장한 위시보드입니다."),
 
     // 위시 아이템
     INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "슬롯 번호는 1~3 사이여야 합니다."),
@@ -60,12 +65,35 @@ public enum ErrorCode {
     COMMENT_STICKER_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 댓글에 선물 아이콘이 없습니다."),
     COMMENT_SLOT_CONFLICT(HttpStatus.CONFLICT, "해당 슬롯에는 이미 댓글이 존재합니다."),
     COMMENT_INVALID_SLOT_INDEX(HttpStatus.BAD_REQUEST, "댓글 슬롯 번호는 0~5 사이여야 합니다."),
+    COMMENT_GUEST_REQUIRED(HttpStatus.BAD_REQUEST, "비로그인 댓글 작성 시 닉네임과 비밀번호가 필요합니다."),
+    COMMENT_WRONG_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다."),
+    COMMENT_VERIFY_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "인증 토큰이 유효하지 않거나 만료되었습니다."),
 
     // 공유 링크
     SHARE_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, "유효하지 않거나 만료된 공유 링크입니다."),
+    BOARD_SHARE_FORBIDDEN(HttpStatus.FORBIDDEN, "본인의 보드만 공유할 수 있습니다."),
+
+    // 롤링페이퍼
+    ROLLING_PAPER_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼를 찾을 수 없습니다."),
+    ROLLING_PAPER_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 롤링페이퍼에 대한 권한이 없습니다."),
+    ROLLING_PAPER_SAVE_FORBIDDEN(HttpStatus.FORBIDDEN, "저장 권한이 없습니다."),
+    ROLLING_PAPER_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다."),
+    ROLLING_PAPER_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "롤링페이퍼는 최대 5개까지 생성할 수 있습니다."),
+    ROLLING_PAPER_CANNOT_SAVE_OWN(HttpStatus.BAD_REQUEST, "본인의 롤링페이퍼는 저장할 수 없습니다."),
+
+    // 롤링페이퍼 댓글
+    RP_COMMENT_SENDER_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "비회원 댓글에는 닉네임이 필요합니다."),
+    RP_COMMENT_PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "비회원 댓글에는 비밀번호가 필요합니다."),
+    RP_COMMENT_WRONG_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다."),
 
     // 공지사항
-    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다.");
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다."),
+
+    // 파일 업로드
+    UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 파일 형식입니다."),
+    FILE_REQUIRED(HttpStatus.BAD_REQUEST, "업로드할 이미지 파일이 필요합니다."),
+    S3_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S3 파일 업로드에 실패했습니다."),
+    AI_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI 캐릭터 생성에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;

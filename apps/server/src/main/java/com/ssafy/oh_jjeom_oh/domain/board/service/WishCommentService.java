@@ -5,10 +5,12 @@ import com.ssafy.oh_jjeom_oh.common.exception.ErrorCode;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentCreateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentStickerUpdateRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentUpdateRequest;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.request.CommentVerifyRequest;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentCreateResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentStickerResponse;
+import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentVerifyResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
@@ -17,19 +19,22 @@ import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -39,26 +44,30 @@ public class WishCommentService {
     private static final long RATE_LIMIT_MILLIS = 10_000L; // 10초
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    private static final String VERIFY_TOKEN_PREFIX = "comment:verify:";
+    private static final long VERIFY_TOKEN_TTL_MINUTES = 5L;
+
     private final WishBoardRepository wishBoardRepository;
     private final WishCommentRepository wishCommentRepository;
     private final UserRepository userRepository;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final RedisTemplate<String, String> redisTemplate;
     private final Clock clock;
 
-    /** 댓글 내용 전체 공개 시각 (KST 기준, 서버가 KST로 실행됨을 전제) */
-    @Value("${comment.reveal-at}")
-    private LocalDateTime revealAt;
-
-    // userId -> 마지막 댓글 작성 시각 (ms)
-    private final Map<Long, Long> lastCommentTimeMap = new ConcurrentHashMap<>();
+    // 레이트 리밋 키 -> 마지막 댓글 작성 시각 (ms)
+    // 로그인 사용자: "user:{userId}", 비로그인 사용자: "guest:{guestNickname}"
+    private final Map<String, Long> lastCommentTimeMap = new ConcurrentHashMap<>();
 
     // GET /api/boards/{slug}/comments?page=0&size=6
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
         WishBoard board = getBoardBySlug(slug);
 
-        // 어드민/구단 보드이거나 공개 시각이 지난 경우 마스킹 해제
+        // 어드민/구단 보드이거나 isCommentPublic=true이거나 targetDate(기념일)가 지난 경우 댓글 마스킹 해제
         Role boardOwnerRole = board.getUser().getRole();
         boolean isAlwaysRevealed = boardOwnerRole == Role.ADMIN || boardOwnerRole == Role.TEAM;
-        boolean revealed = isAlwaysRevealed || !clock.instant().isBefore(revealAt.atZone(KST).toInstant());
+        LocalDate today = clock.instant().atZone(KST).toLocalDate();
+        boolean passedTargetDate = board.getTargetDate() != null && !today.isBefore(board.getTargetDate());
+        boolean revealed = isAlwaysRevealed || board.getIsCommentPublic() || passedTargetDate;
 
         Page<WishComment> commentPage =
                 wishCommentRepository.findByWishBoardOrderBySlotIndexAsc(board, PageRequest.of(page, size));
@@ -75,9 +84,22 @@ public class WishCommentService {
     // POST /api/boards/{slug}/comments
     @Transactional
     public CommentCreateResponse createComment(Long userId, String slug, CommentCreateRequest request) {
-        // 10초 rate limit
+        boolean isGuest = (userId == null);
+
+        // 비회원 필수 파라미터 검증
+        if (isGuest) {
+            if (request.getGuestNickname() == null || request.getGuestNickname().isBlank()
+                    || request.getGuestPassword() == null || request.getGuestPassword().isBlank()) {
+                throw new CustomException(ErrorCode.COMMENT_GUEST_REQUIRED);
+            }
+        }
+
+        // 10초 rate limit (로그인: "user:{id}", 비로그인: "guest:{닉네임}")
+        String rateLimitKey = isGuest
+                ? "guest:" + request.getGuestNickname()
+                : "user:" + userId;
         long now = System.currentTimeMillis();
-        Long last = lastCommentTimeMap.get(userId);
+        Long last = lastCommentTimeMap.get(rateLimitKey);
         if (last != null && now - last < RATE_LIMIT_MILLIS) {
             throw new CustomException(ErrorCode.COMMENT_RATE_LIMIT);
         }
@@ -95,41 +117,79 @@ public class WishCommentService {
             throw new CustomException(ErrorCode.COMMENT_SLOT_CONFLICT);
         }
 
-        User sender = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        WishComment comment = WishComment.builder()
-                .wishBoard(board)
-                .user(sender)
-                .senderName(sender.getNickname()) // 작성 시점 닉네임 스냅샷
-                .isUser(true)
-                .content(request.getContent())
-                .stickerKey(request.getStickerKey())
-                .slotIndex(request.getSlotIndex())
-                .build();
+        WishComment comment;
+        if (isGuest) {
+            comment = WishComment.builder()
+                    .wishBoard(board)
+                    .user(null)
+                    .senderName(request.getGuestNickname())
+                    .isUser(false)
+                    .content(request.getContent())
+                    .stickerKey(request.getStickerKey())
+                    .slotIndex(request.getSlotIndex())
+                    .guestPassword(passwordEncoder.encode(request.getGuestPassword()))
+                    .build();
+        } else {
+            User sender = userRepository.findById(userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+            comment = WishComment.builder()
+                    .wishBoard(board)
+                    .user(sender)
+                    .senderName(sender.getNickname()) // 작성 시점 닉네임 스냅샷
+                    .isUser(true)
+                    .content(request.getContent())
+                    .stickerKey(request.getStickerKey())
+                    .slotIndex(request.getSlotIndex())
+                    .build();
+        }
 
         // existsBy 체크와 save 사이의 동시성 레이스 컨디션을 방어
         // DB Unique 제약 위반 시 500 대신 409로 변환
         try {
             WishComment saved = wishCommentRepository.saveAndFlush(comment);
-            lastCommentTimeMap.put(userId, now);
+            lastCommentTimeMap.put(rateLimitKey, now);
             return CommentCreateResponse.of(saved);
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.COMMENT_SLOT_CONFLICT);
         }
     }
 
+    // POST /api/boards/{slug}/comments/{commentId}/verify
+    public CommentVerifyResponse verifyPassword(String slug, Long commentId, CommentVerifyRequest request) {
+        WishComment comment = getCommentByIdAndSlug(commentId, slug);
+
+        if (comment.getUser() != null) {
+            throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
+        }
+
+        if (request.getGuestPassword() == null || request.getGuestPassword().isBlank()
+                || comment.getGuestPassword() == null
+                || !passwordEncoder.matches(request.getGuestPassword(), comment.getGuestPassword())) {
+            throw new CustomException(ErrorCode.COMMENT_WRONG_PASSWORD);
+        }
+
+        String verifyToken = UUID.randomUUID().toString();
+        redisTemplate.opsForValue().set(
+                VERIFY_TOKEN_PREFIX + verifyToken,
+                String.valueOf(commentId),
+                VERIFY_TOKEN_TTL_MINUTES,
+                TimeUnit.MINUTES
+        );
+        return new CommentVerifyResponse(verifyToken, comment.getContent());
+    }
+
     // PATCH /api/boards/{slug}/comments/{commentId}
     @Transactional
     public void updateComment(Long userId, String slug, Long commentId, CommentUpdateRequest request) {
-        WishComment comment = getCommentAndValidateOwner(commentId, userId, slug);
+        WishComment comment = getCommentAndValidateOwnerOrGuest(
+                commentId, slug, userId, request.getVerifyToken());
         comment.updateContent(request.getContent());
     }
 
     // DELETE /api/boards/{slug}/comments/{commentId}
     @Transactional
-    public void deleteComment(Long userId, String slug, Long commentId) {
-        WishComment comment = getCommentAndValidateOwner(commentId, userId, slug);
+    public void deleteComment(Long userId, String slug, Long commentId, String verifyToken) {
+        WishComment comment = getCommentAndValidateOwnerOrGuest(commentId, slug, userId, verifyToken);
         comment.softDelete();
     }
 
@@ -175,20 +235,49 @@ public class WishCommentService {
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
     }
 
-    private WishComment getCommentAndValidateOwner(Long commentId, Long userId, String slug) {
+    /** 회원/비회원 모두 사용 - 댓글 수정·삭제용 */
+    private WishComment getCommentAndValidateOwnerOrGuest(Long commentId, String slug,
+                                                           Long userId, String verifyToken) {
         WishComment comment = wishCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
-        // slug와 실제 보드가 일치하는지 검증
         if (!comment.getWishBoard().getBoardSlug().equals(slug)) {
             throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
         }
 
-        // 작성자 검증
+        // 회원 댓글
+        if (comment.getUser() != null) {
+            if (userId == null || !comment.getUser().getId().equals(userId)) {
+                throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
+            }
+            return comment;
+        }
+
+        // 비회원 댓글 - verifyToken으로 검증 (1회성)
+        if (verifyToken == null || verifyToken.isBlank()) {
+            throw new CustomException(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID);
+        }
+        String key = VERIFY_TOKEN_PREFIX + verifyToken;
+        String stored = redisTemplate.opsForValue().get(key);
+        if (stored == null || !stored.equals(String.valueOf(commentId))) {
+            throw new CustomException(ErrorCode.COMMENT_VERIFY_TOKEN_INVALID);
+        }
+        redisTemplate.delete(key);
+        return comment;
+    }
+
+    /** 회원 전용 - 스티커 설정·삭제용 */
+    private WishComment getCommentAndValidateOwner(Long commentId, Long userId, String slug) {
+        WishComment comment = wishCommentRepository.findById(commentId)
+                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
+
+        if (!comment.getWishBoard().getBoardSlug().equals(slug)) {
+            throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
         if (comment.getUser() == null || !comment.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
         }
-
         return comment;
     }
 }

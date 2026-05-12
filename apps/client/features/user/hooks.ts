@@ -10,7 +10,7 @@ import {
   searchSchoolsForMyPage,
   updateMyProfile,
 } from "@/features/user/api";
-import { clearAccessToken } from "@/lib/api/token-store";
+import { logoutSession } from "@/features/login/api";
 import { devError } from "@/lib/dev-log";
 import { deriveBandFromGrade } from "@/lib/constants/signup";
 import type {
@@ -540,7 +540,7 @@ export function useMyPageForm() {
       });
 
       if (response.success) {
-        clearAccessToken();
+        await logoutSession();
         router.push("/login");
         return;
       }

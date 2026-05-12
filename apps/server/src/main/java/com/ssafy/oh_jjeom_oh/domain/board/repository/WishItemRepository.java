@@ -18,6 +18,11 @@ public interface WishItemRepository extends JpaRepository<WishItem, Long> {
 
     boolean existsByBoardAndSlotIndex(WishBoard board, Integer slotIndex);
 
+    // 위시보드 단건 삭제 시 사용
+    @Modifying
+    @Query("delete from WishItem i where i.board = :board")
+    void deleteByBoard(@Param("board") WishBoard board);
+
     @Modifying
     @Query("delete from WishItem i where i.board.id = (select b.id from WishBoard b where b.user.id = :userId)")
     void deleteByUserId(@Param("userId") Long userId);

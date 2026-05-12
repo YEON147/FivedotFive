@@ -24,7 +24,10 @@ export const GIFT_ICON_CATEGORY_LABELS: Record<GiftIconCategoryId, string> = {
  * 구버전 `icons/icon-100.png` 등은 `null` (「전체」에만 노출)
  */
 export function giftIconCategoryFromAssetKey(assetKey: string): GiftIconCategoryId | null {
-  const norm = assetKey.replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase();
+  const norm = String(assetKey ?? "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .toLowerCase();
   const trimmed = norm.startsWith("assets/") ? norm.slice("assets/".length) : norm;
   if (!trimmed.startsWith("icons/")) {
     return null;
@@ -74,7 +77,10 @@ export type GiftIconTravelSubTabId =
  * `icons/travel/travel-01.png`(폴더 없음)·알 수 없는 하위 폴더 → `null` (「기타」에서 표시)
  */
 export function giftIconTravelRegionFromAssetKey(assetKey: string): GiftIconTravelRegionId | null {
-  const norm = assetKey.replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase();
+  const norm = String(assetKey ?? "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .toLowerCase();
   const trimmed = norm.startsWith("assets/") ? norm.slice("assets/".length) : norm;
   if (!trimmed.startsWith("icons/")) {
     return null;

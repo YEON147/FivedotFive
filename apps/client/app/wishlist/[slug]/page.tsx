@@ -22,36 +22,63 @@ import {
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { WishlistMyBoardScreen } from "@/components/wishlist/WishlistMyBoardScreen";
-import { CommentPopup, type CommentStickerTab } from "@/components/wishlist/CommentPopup";
+import {
+  CommentPopup,
+  type CommentCreateGuestFields,
+  type CommentStickerTab,
+} from "@/components/wishlist/CommentPopup";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import {
-  DESIGN_HEIGHT,
-  DESIGN_WIDTH,
   GiftSlots,
   STICKER_SLOT_IMAGE_MASKED,
   StickerSlots,
 } from "@/components/wishlist/WishlistSlots";
+import {
+  PUBLIC_BOARD_INNER,
+  PUBLIC_BOARD_PAGE_CENTER_CLASS,
+  PUBLIC_BOARD_PAGE_COLUMN_CLASS,
+  PUBLIC_BOARD_PAGE_MAIN_CLASS,
+  PUBLIC_BOARD_PAGE_Z10_CLASS,
+  PUBLIC_WISHLIST_BOARD_FRAME,
+  PUBLIC_WISHLIST_BOARD_WRAP,
+  publicBoardAspectRatioStyle,
+} from "@/lib/constants/public-board-shell";
+import { logoutSession } from "@/features/login/api";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
+import type { MyProfile } from "@/features/user/types";
 import {
   createComment,
   deleteComment,
   getComments,
-  getMyBoard,
   getPublicBoard,
   updateComment,
+  verifyGuestCommentPassword,
 } from "@/features/wishlist/api";
+import { isLoggedInOwnerOfBoardSlug } from "@/features/wishlist/resolve-logged-in-home";
 import {
   resolveBoardBackgroundAssetKey,
   resolveBoardBackgroundImageUrl,
 } from "@/features/wishlist/board-background";
 import { getAssetImageUrl } from "@/lib/asset-url";
 import {
+  getKstStartOfLocalDateMs,
+  inferWishBoardCommentsRevealed,
+} from "@/features/wishlist/comment-reveal-at";
+import {
+  isMaskedOthersWishComment,
+  isSoftDeletedWishComment,
+} from "@/features/wishlist/comment-display";
+import {
   computeCommentSheetCount,
   normalizeCommentsToSlotGrid,
   resolveGlobalSlotIndexForCreate,
 } from "@/features/wishlist/comment-slot-layout";
+import {
+  canEditGuestWishComment,
+  rememberGuestWishComment,
+} from "@/features/wishlist/guest-comment-session";
 import {
   compactGiftAssetKeysToLayoutSlots,
   compactGiftTextsToLayoutSlots,
@@ -71,11 +98,7 @@ import {
   fetchStickersByFolder,
   type StickerAssetDto,
 } from "@/lib/api/assets";
-import {
-  ACCESS_TOKEN_STORAGE_KEY,
-  clearAccessToken,
-  getAccessToken,
-} from "@/lib/api/token-store";
+import { ACCESS_TOKEN_STORAGE_KEY, getAccessToken } from "@/lib/api/token-store";
 import {
   PAGE_HEADER_BACK_BUTTON,
   PAGE_HEADER_LEADING_CLUSTER,
@@ -83,7 +106,10 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 import { shouldUseNativeImg } from "@/lib/native-img";
-import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
+import {
+  getStickerFolderLabel,
+  orderStickerFoldersForTabs,
+} from "@/lib/sticker-folder-labels";
 
 /** 공개 보드 프레임 배경 — 최대 폭 372px·모바일 100vw 근사 */
 const PUBLIC_BOARD_BG_SIZES =
@@ -147,23 +173,6 @@ function isCommentListLastPageFullByShape(p: CommentListPayload): boolean {
 }
 
 type PopupMode = "view" | "write" | "edit";
-
-/**
- * `app/wishlist/page.tsx` 꾸미기·보드 영역과 동일 (`WISHLIST_BOARD_PAGE_WRAP`) — 흰 카드 셸 없음.
- */
-const PUBLIC_WISHLIST_BOARD_WRAP =
-  "relative flex h-full min-h-0 max-h-full w-full max-w-[min(420px,calc(100vw-1.5rem))] flex-1 flex-col overflow-visible bg-transparent";
-
-/**
- * 공개 보드 한 장 — `app/wishlist/page.tsx` 꾸미기 보드(`WISHLIST_BOARD_FRAME_BASE` + decorate)와 동일.
- * 배경 에셋이 없을 때도 오로라(`wishlist-board-frame--decorate`)가 깔림.
- */
-const PUBLIC_WISHLIST_BOARD_FRAME =
-  "relative isolate overflow-visible rounded-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 wishlist-board-frame--decorate mx-auto w-full max-w-[372px] max-h-[min(680px,100%)] shrink-0 ring-violet-200/55";
-
-/** 배경 이미지는 위 레이어 — 없을 때는 바깥 프레임 오로라만 보임 */
-const PUBLIC_BOARD_INNER =
-  "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
 
 function PublicBoardProfileHeader({
   ownerName,
@@ -444,9 +453,25 @@ export default function PublicWishlistPage({
   /** 내 보드 + 배경 시트 열림 — 저장 전 미리보기 키(`null`이면 `boardAssets`만 사용) */
   const [embeddedBgDraftKey, setEmbeddedBgDraftKey] = useState<string | null>(null);
   const [ownerName, setOwnerName] = useState("");
+  const [boardRevealMeta, setBoardRevealMeta] = useState<{
+    targetDate: string;
+    commentsRevealed: boolean;
+  } | null>(null);
+
+  const wishCommentRevealAtMs = useMemo(() => {
+    if (!boardRevealMeta || boardRevealMeta.commentsRevealed) return undefined;
+    const ms = getKstStartOfLocalDateMs(boardRevealMeta.targetDate);
+    return Number.isFinite(ms) ? ms : undefined;
+  }, [boardRevealMeta]);
 
   const [commentCache, setCommentCache] = useState<Record<number, (CommentData | null)[]>>({});
   const [loadingPages, setLoadingPages] = useState<Set<number>>(new Set());
+  /** `fetchCommentPage`가 state 클로저에 묶이면 콜백 참조가 매 응답마다 바뀌고, 그걸 deps로 둔 초기화 이펙트가 캐시를 비우며 `comments?page=0` 무한 호출됨 */
+  const commentCacheRef = useRef(commentCache);
+  const loadingPagesRef = useRef(loadingPages);
+  commentCacheRef.current = commentCache;
+  loadingPagesRef.current = loadingPages;
+
   const [commentTotalPages, setCommentTotalPages] = useState(1);
 
   const [currentVisualPage, setCurrentVisualPage] = useState(0);
@@ -479,8 +504,12 @@ export default function PublicWishlistPage({
 
   /** 이전 캐러셀 페이지 — 0→댓글 이동 시 공개 보드 재조회용 */
   const prevVisualPageRef = useRef(0);
+  /** 소유 확정 등으로 이펙트만 재실행될 때 댓글 캐시를 비우지 않음 → `comments?page=0` 이중 호출 방지 */
+  const boardBootstrapSlugRef = useRef<string | null>(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  /** `syncVisitorSession`에서 한 번 받아 임베드 에디터에 넘겨 `/api/users/me` 중복 호출 방지 */
+  const [visitorProfile, setVisitorProfile] = useState<MyProfile | null>(null);
   const [visitorMenuLoggedIn, setVisitorMenuLoggedIn] = useState(false);
   /** 로그인 후 내 보드 slug — `undefined`: 아직 조회 전, `null`: 보드 없음·조회 실패 */
   const [myBoardSlug, setMyBoardSlug] = useState<string | null | undefined>(undefined);
@@ -488,6 +517,8 @@ export default function PublicWishlistPage({
   const [ownBoardWriteNoticeOpen, setOwnBoardWriteNoticeOpen] = useState(false);
 
   const [apiStickerFolders, setApiStickerFolders] = useState<string[]>([]);
+  /** 폴더 API 완료 전엔 댓글 스티커를 `…/stickers`로 먼저 열었다가 첫 폴더로 다시 부르는 이중 호출이 남 */
+  const [stickerFoldersFetchDone, setStickerFoldersFetchDone] = useState(false);
   /** `""`: 폴더 목록 수신 전 — `all` 탭 없음, 수신 후 첫 폴더로 맞춤 */
   const [commentStickerFolderId, setCommentStickerFolderId] = useState("");
   const [commentStickerSheet, setCommentStickerSheet] = useState<StickerAssetDto[]>([]);
@@ -499,20 +530,24 @@ export default function PublicWishlistPage({
     const token = getAccessToken()?.trim();
     if (!token) {
       setVisitorMenuLoggedIn(false);
+      setVisitorProfile(null);
       return;
     }
     try {
-      await getMyProfile();
+      const profile = await getMyProfile();
+      setVisitorProfile(profile);
       setVisitorMenuLoggedIn(true);
     } catch {
+      setVisitorProfile(null);
       // 401 등으로 토큰이 비워지면 false, 일시적 네트워크 오류는 토큰 기준 유지
       setVisitorMenuLoggedIn(!!getAccessToken()?.trim());
     }
   }, []);
 
+  /** 슬러그 바뀔 때마다 `me` 부르지 않음 — 포커스·storage·mount에서만 동기화 */
   useEffect(() => {
     void syncVisitorSession();
-  }, [slug, syncVisitorSession]);
+  }, [syncVisitorSession]);
 
   useEffect(() => {
     const onFocus = () => void syncVisitorSession();
@@ -541,22 +576,22 @@ export default function PublicWishlistPage({
       setMyBoardSlug(undefined);
       return;
     }
+    setMyBoardSlug(undefined);
     let cancelled = false;
-    void getMyBoard()
-      .then((board) => {
+    void (async () => {
+      try {
+        const isOwner = await isLoggedInOwnerOfBoardSlug(slug);
         if (!cancelled) {
-          setMyBoardSlug(board.data.boardSlug?.trim() || null);
+          setMyBoardSlug(isOwner ? slug.trim() : null);
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMyBoardSlug(null);
-        }
-      });
+      } catch {
+        if (!cancelled) setMyBoardSlug(null);
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [visitorMenuLoggedIn]);
+  }, [visitorMenuLoggedIn, slug]);
 
   const isViewingOwnBoard = useMemo(() => {
     if (!visitorMenuLoggedIn || myBoardSlug === undefined || myBoardSlug === null) {
@@ -573,7 +608,8 @@ export default function PublicWishlistPage({
 
   /**
    * 타인 보드에서만 빈 댓글 칸 표시.
-   * 내 보드 여부는 `getMyBoard` 후에만 확정되므로, 슬러그 로딩 중(`undefined`)에는
+   * 내 보드 여부는 `GET /api/me/boards-all`·`/api/boards/me` 기반 소유 확인 후에만 확정되므로,
+   * 슬러그 로딩 중(`undefined`)에는
    * 예전처럼 빈 칸을 숨기면 타인 보드에서도 댓글 작성 UI가 안 뜸 → 숨김은
    * 「로그인 + 슬러그 확정 + 내 보드」일 때만.
    */
@@ -582,6 +618,20 @@ export default function PublicWishlistPage({
       !(visitorMenuLoggedIn && myBoardSlug !== undefined && isViewingOwnBoard),
     [visitorMenuLoggedIn, myBoardSlug, isViewingOwnBoard],
   );
+
+  /** 수정·삭제: 회원 본인 또는 이 세션에서 작성한 비회원 댓글 */
+  const canModifySelectedComment = useMemo(() => {
+    if (!selectedComment) return false;
+    if (selectedComment.isUser) return true;
+    if (visitorMenuLoggedIn) return false;
+    if (
+      isMaskedOthersWishComment(selectedComment) ||
+      isSoftDeletedWishComment(selectedComment)
+    ) {
+      return false;
+    }
+    return canEditGuestWishComment(slug, selectedComment.id);
+  }, [selectedComment, visitorMenuLoggedIn, slug]);
 
   const loadPublicBoard = useCallback(() => {
     return getPublicBoard(slug)
@@ -593,6 +643,10 @@ export default function PublicWishlistPage({
           data.data.username?.trim() ||
           "회원";
         setOwnerName(display);
+        setBoardRevealMeta({
+          targetDate: data.data.targetDate,
+          commentsRevealed: inferWishBoardCommentsRevealed(data.data),
+        });
       })
       .catch(() => {});
   }, [slug]);
@@ -616,18 +670,26 @@ export default function PublicWishlistPage({
     setIsSidebarOpen((open) => !open);
   };
 
-  const handleVisitorLogout = useCallback(() => {
-    clearAccessToken();
+  const handleVisitorLogout = useCallback(async () => {
+    await logoutSession();
     clearWishlistPageSessionCache();
     setVisitorMenuLoggedIn(false);
+    setVisitorProfile(null);
     setIsSidebarOpen(false);
     router.push("/login");
   }, [router]);
 
   useEffect(() => {
+    setStickerFoldersFetchDone(false);
     void fetchStickerFolders(slug)
-      .then((folders) => setApiStickerFolders(folders))
-      .catch(() => setApiStickerFolders([]));
+      .then((folders) => {
+        setApiStickerFolders(orderStickerFoldersForTabs(folders));
+        setStickerFoldersFetchDone(true);
+      })
+      .catch(() => {
+        setApiStickerFolders([]);
+        setStickerFoldersFetchDone(true);
+      });
   }, [slug]);
 
   useEffect(() => {
@@ -646,6 +708,10 @@ export default function PublicWishlistPage({
   }, [apiStickerFolders]);
 
   useEffect(() => {
+    if (!stickerFoldersFetchDone) {
+      setCommentStickersLoading(true);
+      return;
+    }
     let cancelled = false;
     setCommentStickersLoading(true);
     setCommentStickersError(null);
@@ -681,7 +747,12 @@ export default function PublicWishlistPage({
     return () => {
       cancelled = true;
     };
-  }, [commentStickerFolderId, slug, apiStickerFolders]);
+  }, [
+    commentStickerFolderId,
+    slug,
+    apiStickerFolders,
+    stickerFoldersFetchDone,
+  ]);
 
   useEffect(() => {
     if (selectedSlot !== null && popupMode === "write" && apiStickerFolders.length > 0) {
@@ -713,52 +784,87 @@ export default function PublicWishlistPage({
     [commentStickerSheet],
   );
 
-  const fetchCommentPage = useCallback(
-    async (commentPageIdx: number) => {
-      if (commentCache[commentPageIdx] !== undefined || loadingPages.has(commentPageIdx)) return;
+  const fetchCommentPage = useCallback(async (commentPageIdx: number) => {
+    if (
+      commentCacheRef.current[commentPageIdx] !== undefined ||
+      loadingPagesRef.current.has(commentPageIdx)
+    ) {
+      return;
+    }
 
-      setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
-      try {
-        const data = await getComments(slug, commentPageIdx);
-        setCommentCache((prev) => ({
-          ...prev,
-          [commentPageIdx]: normalizeCommentsToSlotGrid(data.data.comments, commentPageIdx),
-        }));
-        setCommentTotalPages(safeCommentSheetCountFromPayload(data.data));
-      } finally {
-        setLoadingPages((prev) => {
-          const next = new Set(prev);
-          next.delete(commentPageIdx);
-          return next;
-        });
-      }
-    },
-    [slug, commentCache, loadingPages],
-  );
+    setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
+    try {
+      const data = await getComments(slug, commentPageIdx);
+      setCommentCache((prev) => ({
+        ...prev,
+        [commentPageIdx]: normalizeCommentsToSlotGrid(data.data.comments, commentPageIdx),
+      }));
+      setCommentTotalPages(safeCommentSheetCountFromPayload(data.data));
+    } finally {
+      setLoadingPages((prev) => {
+        const next = new Set(prev);
+        next.delete(commentPageIdx);
+        return next;
+      });
+    }
+  }, [slug]);
 
   useEffect(() => {
-    setCommentCache({});
-    setCommentTotalPages(1);
-    setCurrentVisualPage(0);
-    prevVisualPageRef.current = 0;
-    setLoadingPages(new Set());
-    setPopupCommentPage(null);
-    setSelectedSlot(null);
-    setSelectedComment(null);
+    const slugChanged = boardBootstrapSlugRef.current !== slug;
+    if (slugChanged) {
+      boardBootstrapSlugRef.current = slug;
+      setCommentCache({});
+      setCommentTotalPages(1);
+      setCurrentVisualPage(0);
+      prevVisualPageRef.current = 0;
+      setLoadingPages(new Set());
+      setPopupCommentPage(null);
+      setSelectedSlot(null);
+      setSelectedComment(null);
+    }
 
-    void loadPublicBoard();
+    const hasToken = Boolean(getAccessToken()?.trim());
+    /** 로그인 + 소유 확정 전에는 공개 보드·댓글 로드를 미룸 — 소유자에게는 에디터 `GET …/list`와 겹치는 GET `/boards/{slug}` 제거 */
+    if (hasToken && visitorMenuLoggedIn && myBoardSlug === undefined) {
+      return;
+    }
+
+    const skipPublicBoard =
+      hasToken && visitorMenuLoggedIn && isViewingOwnBoard;
+
+    if (!skipPublicBoard) {
+      void loadPublicBoard();
+    }
     void fetchCommentPage(0);
-  }, [slug, loadPublicBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    slug,
+    loadPublicBoard,
+    fetchCommentPage,
+    visitorMenuLoggedIn,
+    myBoardSlug,
+    isViewingOwnBoard,
+  ]);
+
+  /** 소유자 보드는 초기 `loadPublicBoard`를 생략하므로 헤더·댓글 면 표시용 이름을 프로필에서 채움 */
+  useEffect(() => {
+    if (!isViewingOwnBoard || !visitorProfile) return;
+    const display =
+      visitorProfile.nickname?.trim() ||
+      visitorProfile.username?.trim() ||
+      "회원";
+    setOwnerName(display);
+  }, [isViewingOwnBoard, visitorProfile]);
 
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === "visible") {
-        void loadPublicBoard();
-      }
+      if (document.visibilityState !== "visible") return;
+      const hasToken = Boolean(getAccessToken()?.trim());
+      if (hasToken && isViewingOwnBoard) return;
+      void loadPublicBoard();
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, [loadPublicBoard]);
+  }, [loadPublicBoard, isViewingOwnBoard]);
 
   useEffect(() => {
     if (currentVisualPage === 0) return;
@@ -881,25 +987,21 @@ export default function PublicWishlistPage({
         setPopupMode("view");
         return;
       }
-      if (!visitorMenuLoggedIn) {
-        setGuestAuthModalOpen(true);
-        return;
-      }
-
-      let boardSlug = myBoardSlug;
-      if (boardSlug === undefined) {
+      let boardSlugResolved = myBoardSlug;
+      if (boardSlugResolved === undefined && visitorMenuLoggedIn) {
         try {
-          const board = await getMyBoard();
-          boardSlug = board.data.boardSlug?.trim() ?? null;
-          setMyBoardSlug(boardSlug);
+          const ok = await isLoggedInOwnerOfBoardSlug(slug);
+          const resolved = ok ? slug.trim() : null;
+          boardSlugResolved = resolved;
+          setMyBoardSlug(resolved);
         } catch {
-          boardSlug = null;
+          boardSlugResolved = null;
           setMyBoardSlug(null);
         }
       }
 
       const viewingOwnBoardResolved =
-        boardSlug != null && boardSlug === slug.trim();
+        boardSlugResolved != null && boardSlugResolved === slug.trim();
       if (viewingOwnBoardResolved) {
         setOwnBoardWriteNoticeOpen(true);
         return;
@@ -939,7 +1041,11 @@ export default function PublicWishlistPage({
     }
   };
 
-  const handleCreate = async (content: string, stickerKey: string) => {
+  const handleCreate = async (
+    content: string,
+    stickerKey: string,
+    guest?: CommentCreateGuestFields,
+  ) => {
     if (popupCommentPage === null || selectedSlot === null || isViewingOwnBoard) {
       return;
     }
@@ -955,7 +1061,20 @@ export default function PublicWishlistPage({
       wroteOnPage,
       inPageSlot,
     );
-    await createComment(slug, content, stickerKey, globalSlotIndex);
+    const created = await createComment(slug, {
+      content,
+      stickerKey,
+      slotIndex: globalSlotIndex,
+      ...(visitorMenuLoggedIn
+        ? {}
+        : {
+            guestNickname: guest?.guestNickname ?? "",
+            guestPassword: guest?.guestPassword ?? "",
+          }),
+    });
+    if (!visitorMenuLoggedIn && created.data?.id != null) {
+      rememberGuestWishComment(slug, created.data.id);
+    }
     const payload = await refreshCommentPage(wroteOnPage);
     handleClosePopup();
 
@@ -971,14 +1090,32 @@ export default function PublicWishlistPage({
     }, 0);
   };
 
-  const handleUpdate = async (commentId: number, content: string) => {
-    await updateComment(slug, commentId, content);
+  const handleUpdate = async (
+    commentId: number,
+    content: string,
+    guestMeta?: { verifyToken: string },
+  ) => {
+    const vt = guestMeta?.verifyToken?.trim();
+    if (vt) {
+      await updateComment(slug, commentId, { content, verifyToken: vt });
+    } else {
+      await updateComment(slug, commentId, { content });
+    }
     if (popupCommentPage !== null) await refreshCommentPage(popupCommentPage);
     handleClosePopup();
   };
 
-  const handleDelete = async (commentId: number) => {
-    await deleteComment(slug, commentId);
+  const handleDelete = async (commentId: number, guestPassword?: string) => {
+    if (guestPassword !== undefined) {
+      const verifyToken = await verifyGuestCommentPassword(
+        slug,
+        commentId,
+        guestPassword,
+      );
+      await deleteComment(slug, commentId, { verifyToken });
+    } else {
+      await deleteComment(slug, commentId);
+    }
     if (popupCommentPage !== null) await refreshCommentPage(popupCommentPage);
     handleClosePopup();
   };
@@ -1001,23 +1138,18 @@ export default function PublicWishlistPage({
   }, [embeddedBgDraftKey, boardAssets]);
 
   return (
-    <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col overflow-visible px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
+    <main className={PUBLIC_BOARD_PAGE_MAIN_CLASS}>
       {selectedSlot !== null ? (
         <div className="fixed inset-0 z-20 bg-black/40" onClick={handleClosePopup} />
       ) : null}
 
-      <div className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-visible transition-all duration-300 ease-out">
+      <div className={PUBLIC_BOARD_PAGE_Z10_CLASS}>
         <section className={`${PUBLIC_WISHLIST_BOARD_WRAP} mx-auto min-h-0 w-full`}>
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-visible p-0">
+          <div className={PUBLIC_BOARD_PAGE_COLUMN_CLASS}>
             {/** `app/wishlist/page.tsx` 꾸미기 보드 래퍼와 동일 패딩 */}
             {/** `app/wishlist/page.tsx` 꾸미기 보드 래퍼와 동일: 세로 가운데 + 가로 중앙 */}
-            <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-visible px-1 pb-1 pt-2 sm:px-2 sm:pb-2 sm:pt-3">
-              <div
-                className={PUBLIC_WISHLIST_BOARD_FRAME}
-                style={{
-                  aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
-                }}
-              >
+            <div className={PUBLIC_BOARD_PAGE_CENTER_CLASS}>
+              <div className={PUBLIC_WISHLIST_BOARD_FRAME} style={publicBoardAspectRatioStyle()}>
                 {boardBackgroundUrl ? (
                   <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
                     {shouldUseNativeImg(boardBackgroundUrl) ? (
@@ -1060,6 +1192,7 @@ export default function PublicWishlistPage({
                     <div className="relative flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center overflow-x-clip overflow-y-visible p-0">
                       {isViewingOwnBoard ? (
                         <WishlistMyBoardScreen
+                          routeBoardSlug={slug}
                           embeddedInSlugCarousel
                           omitInnerTitleHeader
                           onCarouselInteractionLockChange={setEditorCarouselLocked}
@@ -1068,6 +1201,8 @@ export default function PublicWishlistPage({
                           onEmbeddedBackgroundDraftKeyChange={
                             handleEmbeddedBackgroundDraftKeyChange
                           }
+                          embeddedPrefetchedProfile={visitorProfile}
+                          embeddedStickerFoldersFromParent={apiStickerFolders}
                         />
                       ) : (
                         <MainBoardPage
@@ -1227,6 +1362,10 @@ export default function PublicWishlistPage({
         <CommentPopup
           mode={popupMode}
           comment={selectedComment}
+          boardSlug={slug}
+          commentRevealAtMs={wishCommentRevealAtMs}
+          commentAsLoggedInUser={visitorMenuLoggedIn}
+          canModifyComment={canModifySelectedComment}
           stickerOptions={commentStickerOptions}
           stickerTabs={commentStickerTabs}
           stickerFolderId={commentStickerFolderId}

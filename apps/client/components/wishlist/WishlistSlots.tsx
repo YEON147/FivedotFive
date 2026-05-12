@@ -2,8 +2,6 @@
 
 import Image from "next/image";
 
-import { shouldUseNativeImg } from "@/lib/native-img";
-
 type BaseSlot = {
   id: number;
   top: number;
@@ -224,21 +222,13 @@ function SlotBubble({
               : "inset-0 overflow-visible"
           }`}
         >
-          {shouldUseNativeImg(slot.imageSrc ?? "") ? (
-            <img
-              src={slot.imageSrc ?? ""}
-              alt={slot.imageAlt ?? `${kind} ${slot.id}`}
-              className="absolute inset-0 h-full w-full object-contain object-center p-[1%]"
-            />
-          ) : (
-            <Image
-              src={slot.imageSrc ?? ""}
-              alt={slot.imageAlt ?? `${kind} ${slot.id}`}
-              fill
-              sizes={slotSizesHint}
-              className="object-contain object-center p-[1%]"
-            />
-          )}
+          <Image
+            src={slot.imageSrc ?? ""}
+            alt={slot.imageAlt ?? `${kind} ${slot.id}`}
+            fill
+            sizes={slotSizesHint}
+            className="object-contain object-center p-[1%]"
+          />
         </span>
       ) : isStickerMasked ? (
         <span

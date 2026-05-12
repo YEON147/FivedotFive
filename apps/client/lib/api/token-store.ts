@@ -23,19 +23,31 @@ export function getAccessToken(): string | null {
 export function setAccessToken(token: string) {
   accessTokenMemory = token;
 
-  if (!canUseStorage()) {
-    return;
+  if (canUseStorage()) {
+    window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
   }
 
-  window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+  if (typeof window !== "undefined") {
+    queueMicrotask(() => {
+      void import("@/lib/api/client").then((m) => {
+        m.scheduleProactiveAccessTokenRefresh();
+      });
+    });
+  }
 }
 
 export function clearAccessToken() {
   accessTokenMemory = null;
 
-  if (!canUseStorage()) {
-    return;
+  if (canUseStorage()) {
+    window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   }
 
-  window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  if (typeof window !== "undefined") {
+    queueMicrotask(() => {
+      void import("@/lib/api/client").then((m) => {
+        m.cancelProactiveAccessTokenRefresh();
+      });
+    });
+  }
 }

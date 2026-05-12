@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
-import type { RemotePattern } from "next/dist/shared/lib/image-config";
+import type {
+  LocalPattern,
+  RemotePattern,
+} from "next/dist/shared/lib/image-config";
 
 /**
  * API 프록시: 위에서부터 첫 매칭이 적용됩니다.
@@ -23,6 +26,9 @@ import type { RemotePattern } from "next/dist/shared/lib/image-config";
  *
  * 프론트 코드 점검: `fetch`·apiClient 경로는 항상 `/api/...` 로 시작하는지 확인
  * (`/boards/me` 절대 경로만 쓰면 브라우저는 동일 오리진에 두고 /api 가 빠질 수 있음)
+ *
+ * 단축 공유 링크 `FRONTEND_URL/share/{code}` 는 Spring `GET /share/{code}`(302)에서 처리.
+ * 동일 오리진으로 노출되므로 여기서 백엔드로 넘깁니다.
  */
 const backendOrigin =
   process.env.BACKEND_REWRITE_TARGET?.replace(/\/$/, "") ||
@@ -97,6 +103,15 @@ function buildImageRemotePatterns(): RemotePattern[] {
   return patterns;
 }
 
+/** Next 16+ `/_next/image` 로컬 `src` 허용 — `images.localPatterns` 미설정 시 거절됨 */
+const imageLocalPatterns: LocalPattern[] = [
+  /** `public/default_icon.png` — 위시 기본 선물 썸네일(`next/image`) */
+  { pathname: "/default_icon.png" },
+  { pathname: "/rollingpaper/**" },
+  { pathname: "/main/**" },
+  { pathname: "/ranking/**" },
+];
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
     ...extraAllowedDevOrigins,
@@ -108,6 +123,10 @@ const nextConfig: NextConfig = {
   ],
   images: {
     remotePatterns: buildImageRemotePatterns(),
+    localPatterns: imageLocalPatterns,
+    ...(process.env.NODE_ENV === "development"
+      ? { minimumCacheTTL: 0 }
+      : {}),
   },
   async rewrites() {
     const assetRewrites = assetCdnOrigin
@@ -129,6 +148,10 @@ const nextConfig: NextConfig = {
 
     return [
       ...assetRewrites,
+      {
+        source: "/share/:path*",
+        destination: `${backendOrigin}/share/:path*`,
+      },
       {
         source: "/boards/:path*",
         destination: `${backendOrigin}/api/boards/:path*`,

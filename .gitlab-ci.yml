@@ -15,6 +15,8 @@ build_backend:
     - |
       if [ "$CI_COMMIT_BRANCH" == "master" ]; then
         IMAGE_TAG="prod"
+      elif [ "$CI_COMMIT_BRANCH" == "master-hotfix" ]; then
+        IMAGE_TAG="hotfix"
       else
         IMAGE_TAG="dev"
       fi
@@ -23,6 +25,7 @@ build_backend:
   only:
     - develop 
     - master
+    - master-hotfix
 
 build_frontend:
   stage: build
@@ -38,6 +41,8 @@ build_frontend:
     - |
       if [ "$CI_COMMIT_BRANCH" == "master" ]; then
         export IMAGE_TAG="prod"
+      elif [ "$CI_COMMIT_BRANCH" == "master-hotfix" ]; then
+        export IMAGE_TAG="hotfix"
       else
         export IMAGE_TAG="dev"
       fi
@@ -56,12 +61,14 @@ build_frontend:
   only:
     - develop
     - master
+    - master-hotfix
 
 deploy_staging:
   stage: deploy
-  tags:
-    - laptop
+  # tags:
+  #   - laptop
   script:
+    - echo "현재 스테이징 서버(노트북) 공간 부족으로 수동 배포 모드로 전환합니다."
     - echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin
     - cd infra
     - export GHCR_USER=$GHCR_USER
@@ -80,10 +87,21 @@ deploy_staging:
     - docker compose up -d postgres redis
     - export SERVER_IMAGE_TAG=dev
     - export CLIENT_IMAGE_TAG=dev
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "master-hotfix" ]; then
+        export SERVER_IMAGE_TAG=hotfix
+        export CLIENT_IMAGE_TAG=hotfix
+      else
+        export SERVER_IMAGE_TAG=dev
+        export CLIENT_IMAGE_TAG=dev
+      fi
+    - export GMS_KEY=$GMS_KEY
     - docker compose pull client backend-blue
     - docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --force-recreate client backend-blue caddy
+  when: manual
   only:
     - develop
+    - master-hotfix
 
 deploy_production:
   stage: deploy
@@ -117,6 +135,7 @@ deploy_production:
         export ADMIN2_USERNAME=$ADMIN2_USERNAME &&
         export ADMIN2_PASSWORD=$ADMIN2_PASSWORD && 
         export MAIL_PASSWORD=$MAIL_PASSWORD &&
+        export GMS_KEY=$GMS_KEY &&
         export AWS_REGION=ap-northeast-2 &&
         export S3_BUCKET=five-dot-five &&
         chmod +x deploy.sh &&

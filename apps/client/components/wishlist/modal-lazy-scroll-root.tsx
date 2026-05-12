@@ -30,9 +30,12 @@ export function useModalLazyScrollRegister(): ModalLazyScrollRegister | null {
 export function ModalLazyScrollRoot({
   children,
   className = "",
+  /** 뷰포트 밖 셀도 미리 교차로 처리해 위→아래 순차 로딩 느낌을 줄임 */
+  rootMargin = "180px 0px",
 }: {
   children: ReactNode;
   className?: string;
+  rootMargin?: string;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const ioRef = useRef<IntersectionObserver | null>(null);
@@ -63,7 +66,7 @@ export function ModalLazyScrollRoot({
       },
       {
         root,
-        rootMargin: "180px 0px",
+        rootMargin,
         threshold: 0,
       },
     );
@@ -81,7 +84,7 @@ export function ModalLazyScrollRoot({
       handlersRef.current.clear();
       pendingRef.current = [];
     };
-  }, []);
+  }, [rootMargin]);
 
   const register = useCallback<ModalLazyScrollRegister>(
     (element, onIntersect) => {
