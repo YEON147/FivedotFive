@@ -556,15 +556,17 @@ function displayNameFromSlug(slug: string): string {
   }
 }
 
-/** 브라우저 기준 전체 URL — `token`이 있으면 `?token=` 부착 */
+/** 브라우저 기준 전체 URL — `token`이 있으면 `?token=` 부착 (SSR 시 `window` 없음 → 상대 경로만) */
 function rollingPaperAbsoluteShareUrl(slug: string, token: string | null): string {
   const s = slug?.trim();
   if (!s) return "";
-  const origin = window.location.origin;
   const path = `/rolling-paper/${encodeURIComponent(s)}`;
   const t = token?.trim();
-  if (t) return `${origin}${path}?token=${encodeURIComponent(t)}`;
-  return `${origin}${path}`;
+  const qs = t ? `?token=${encodeURIComponent(t)}` : "";
+  if (typeof window === "undefined") {
+    return `${path}${qs}`;
+  }
+  return `${window.location.origin}${path}${qs}`;
 }
 
 function rollingPaperSharePathWithToken(slug: string, token: string | null): string {
