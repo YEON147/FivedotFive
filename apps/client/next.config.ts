@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
-import type { LocalPattern } from "next/dist/shared/lib/image-config";
+import type {
+  LocalPattern,
+  RemotePattern,
+} from "next/dist/shared/lib/image-config";
 
 /**
  * API 프록시: 위에서부터 첫 매칭이 적용됩니다.
@@ -21,7 +24,7 @@ import type { LocalPattern } from "next/dist/shared/lib/image-config";
  *
  * ngrok 등 외부 접속: `apps/client/.env.local` 에 NEXT_PUBLIC_NGROK_URL (또는 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS).
  *
- * `/_next/image` 원격 허용: **임시로 `images.domains` 최소만 사용**(동적 remotePatterns 제거 — 디버그용). 정상화 후 패턴 복구.
+ * `/_next/image` 원격 허용: **정적 `remotePatterns` 1줄**(동적 생성 없음). 필요 시 `domains`·패턴 확장.
  *
  * 프론트 코드 점검: `fetch`·apiClient 경로는 항상 `/api/...` 로 시작하는지 확인
  * (`/boards/me` 절대 경로만 쓰면 브라우저는 동일 오리진에 두고 /api 가 빠질 수 있음)
@@ -40,9 +43,18 @@ const backendOrigin =
  */
 const assetCdnOrigin = process.env.ASSET_CDN_REWRITE_TARGET?.replace(/\/$/, "");
 
-/** `lib/asset-url.ts` 기본 S3 가상 호스트 — `images.domains` (`/_next/image` 원격 허용, 디버그 최소 설정) */
+/** `lib/asset-url.ts` 기본 S3 가상 호스트 — `/_next/image` 원격 허용(정적 패턴 1줄) */
 const DEFAULT_ASSET_S3_IMAGE_HOST =
   "five-dot-five.s3.ap-northeast-2.amazonaws.com";
+
+/** 동적 생성 없이 S3 버킷 호스트만 허용 (디버그·최소 설정) */
+const STATIC_ASSET_S3_REMOTE_PATTERNS: RemotePattern[] = [
+  {
+    protocol: "https",
+    hostname: DEFAULT_ASSET_S3_IMAGE_HOST,
+    pathname: "/**",
+  },
+];
 
 /**
  * `.env.local` — NEXT_PUBLIC_NGROK_URL = 터널 전체 URL (예: https://xxxx.ngrok-free.app)
@@ -104,11 +116,11 @@ const nextConfig: NextConfig = {
   images: {
     /**
      * 디버그: `/_next/image` "url parameter is not allowed" 원인 분리.
-     * 동적 `buildImageRemotePatterns`·dedupe·env 병합 제거 — S3는 `domains` 정확 일치만 허용.
-     * 통과 확인 후 `remotePatterns` 등 이전 설정을 단계적으로 복구할 것.
+     * `remotePatterns`는 S3 호스트 **정적 1줄**만 (빈 배열 대신). `domains`는 동일 호스트 유지.
+     * 통과 확인 후 ngrok·CloudFront 등 패턴을 단계적으로 복구할 것.
      */
     domains: [DEFAULT_ASSET_S3_IMAGE_HOST],
-    remotePatterns: [],
+    remotePatterns: STATIC_ASSET_S3_REMOTE_PATTERNS,
     localPatterns: imageLocalPatterns,
     ...(process.env.NODE_ENV === "development"
       ? { minimumCacheTTL: 0 }
