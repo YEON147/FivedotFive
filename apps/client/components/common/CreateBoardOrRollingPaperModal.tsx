@@ -24,6 +24,8 @@ import { getAssetImageUrl } from "@/lib/asset-url";
 
 /** 서버 WishBoardCreateRequest·RollingPaperCreateRequest title @Size(max = 8) */
 const PAGE_TITLE_MAX = 8;
+/** RollingPaperCreateRequest·RollingPaperUpdateRequest recipientName @Size(max = 100) */
+const ROLLING_RECIPIENT_NAME_MAX = 100;
 
 type CreateKind = "wish" | "rolling";
 
@@ -52,6 +54,7 @@ export function CreateBoardOrRollingPaperModal({
   const [wishCommentPublic, setWishCommentPublic] = useState(true);
 
   const [rpTitle, setRpTitle] = useState("");
+  const [rpRecipientName, setRpRecipientName] = useState("");
   const [rpTargetDate, setRpTargetDate] = useState("");
   /** 롤링 isCommentPublic — 백엔드 스케줄러·코멘트 페이지 로직과 동일 개념 */
   const [rpCommentPublic, setRpCommentPublic] = useState(true);
@@ -72,6 +75,7 @@ export function CreateBoardOrRollingPaperModal({
     setWishBoardPublic(true);
     setWishCommentPublic(true);
     setRpTitle("");
+    setRpRecipientName("");
     setRpTargetDate("");
     setRpCommentPublic(true);
     setRecipientImageKey(null);
@@ -175,6 +179,11 @@ export function CreateBoardOrRollingPaperModal({
       setErrorMessage(`제목은 ${PAGE_TITLE_MAX}자 이하로 입력해 주세요.`);
       return;
     }
+    const recipientTrim = rpRecipientName.trim();
+    if (recipientTrim.length > ROLLING_RECIPIENT_NAME_MAX) {
+      setErrorMessage(`받는 사람은 ${ROLLING_RECIPIENT_NAME_MAX}자 이하로 입력해 주세요.`);
+      return;
+    }
     if (!rd) {
       setErrorMessage("댓글 공개 기준일을 선택해 주세요.");
       return;
@@ -185,6 +194,7 @@ export function CreateBoardOrRollingPaperModal({
       const ik = recipientImageKey?.trim();
       const res = await createRollingPaper({
         title: rt,
+        recipientName: recipientTrim || undefined,
         targetDate: rd,
         imageKey: ik || undefined,
         isCommentPublic: rpCommentPublic,
@@ -207,10 +217,10 @@ export function CreateBoardOrRollingPaperModal({
       titleId={titleId}
       variant="static"
       staticStack="aboveMenu"
-      description={<span>종류를 고르고 폼을 채워 주세요.</span>}
       closeLabel="닫기"
+      surfaceClassName="!h-[min(34rem,calc(88dvh-6rem))] !min-h-[min(34rem,calc(88dvh-6rem))]"
     >
-      <form className="mt-5 flex flex-col gap-4" onSubmit={handleSubmit}>
+      <form className="mt-5 flex min-h-full flex-col gap-4" onSubmit={handleSubmit}>
         <fieldset>
           <legend className="sr-only">생성 종류</legend>
           <div
@@ -288,6 +298,13 @@ export function CreateBoardOrRollingPaperModal({
               value={rpTitle}
               onChange={(ev) => setRpTitle(ev.target.value)}
               maxLength={PAGE_TITLE_MAX}
+            />
+            <TextField
+              label="받는 사람"
+              placeholder="이름을 입력해 주세요"
+              value={rpRecipientName}
+              onChange={(ev) => setRpRecipientName(ev.target.value)}
+              maxLength={ROLLING_RECIPIENT_NAME_MAX}
             />
             <TextField
               label="공개 기준일"

@@ -61,7 +61,7 @@ export function BoardVisibilityTogglePanel({
   disabled,
 }: {
   title: string;
-  description: string;
+  description?: string;
   checked: boolean;
   onCheckedChange: (next: boolean) => void;
   ariaLabel: string;
@@ -88,7 +88,9 @@ export function BoardVisibilityTogglePanel({
           />
         </div>
       </div>
-      <p className="mt-2 text-[12px] leading-snug text-slate-500">{description}</p>
+      {description?.trim() ? (
+        <p className="mt-2 text-[12px] leading-snug text-slate-500">{description}</p>
+      ) : null}
     </div>
   );
 }
