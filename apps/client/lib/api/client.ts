@@ -24,6 +24,96 @@ type ApiMessage = {
 
 let refreshPromise: Promise<string> | null = null;
 
+/** 액세스 JWT `exp`(초) — 서명 검증 없이 만료 시각만 읽음(선제 리프레시 스케줄용) */
+function decodeJwtExpMs(accessToken: string): number | null {
+  try {
+    const parts = accessToken.split(".");
+    if (parts.length < 2) return null;
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const pad = payload.length % 4;
+    const padded = pad ? payload + "=".repeat(4 - pad) : payload;
+    const json = JSON.parse(atob(padded)) as { exp?: unknown };
+    if (typeof json.exp !== "number") return null;
+    return json.exp * 1000;
+  } catch {
+    return null;
+  }
+}
+
+/** 만료 전 이 시간(ms)에 `POST /api/auth/refresh` 시도 */
+const PROACTIVE_REFRESH_BEFORE_EXPIRY_MS = 180_000;
+
+/** 탭 복귀 시 남은 시간이 이 값(ms) 이하면 즉시 리프레시 */
+const VISIBILITY_REFRESH_IF_REMAINING_MS = 120_000;
+
+let proactiveRefreshTimer: number | null = null;
+
+export function cancelProactiveAccessTokenRefresh(): void {
+  if (typeof window === "undefined") return;
+  if (proactiveRefreshTimer !== null) {
+    window.clearTimeout(proactiveRefreshTimer);
+    proactiveRefreshTimer = null;
+  }
+}
+
+/**
+ * 로그인·재발급 직후 호출 — 액세스 만료 직전에 백그라운드로 refresh 쿠키를 사용해 갱신합니다.
+ * (만료 후 첫 API에서만 갱신하면 그 요청이 401로 실패하는 체감이 생길 수 있음)
+ */
+export function scheduleProactiveAccessTokenRefresh(): void {
+  if (typeof window === "undefined") return;
+  cancelProactiveAccessTokenRefresh();
+
+  const token = getAccessToken()?.trim();
+  if (!token) return;
+
+  const expMs = decodeJwtExpMs(token);
+  if (!expMs) return;
+
+  const remaining = expMs - Date.now();
+
+  const chainNext = () => {
+    scheduleProactiveAccessTokenRefresh();
+  };
+
+  if (remaining <= PROACTIVE_REFRESH_BEFORE_EXPIRY_MS) {
+    void getRefreshedTokenSingleFlight()
+      .then(chainNext)
+      .catch(() => {
+        /* 리프레시 쿠키 없음·만료 등 — 다음 API에서 reactive refresh 또는 로그아웃 */
+      });
+    return;
+  }
+
+  const delay = Math.max(
+    5_000,
+    remaining - PROACTIVE_REFRESH_BEFORE_EXPIRY_MS,
+  );
+  proactiveRefreshTimer = window.setTimeout(() => {
+    proactiveRefreshTimer = null;
+    void getRefreshedTokenSingleFlight()
+      .then(chainNext)
+      .catch(() => {});
+  }, delay);
+}
+
+/** 백그라운드 탭 복귀 등 — 곧 만료되면 한 번 갱신 */
+export function kickProactiveTokenRefreshIfNeeded(): void {
+  if (typeof window === "undefined") return;
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+    return;
+  }
+  const token = getAccessToken()?.trim();
+  if (!token) return;
+  const expMs = decodeJwtExpMs(token);
+  if (!expMs) return;
+  if (expMs - Date.now() > VISIBILITY_REFRESH_IF_REMAINING_MS) return;
+
+  void getRefreshedTokenSingleFlight()
+    .then(() => scheduleProactiveAccessTokenRefresh())
+    .catch(() => {});
+}
+
 function toPath(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.href;
@@ -148,6 +238,7 @@ function shouldAttemptRefresh(response: Response, data: unknown): boolean {
 }
 
 function runSessionExpiredFlow() {
+  cancelProactiveAccessTokenRefresh();
   clearAccessToken();
 
   if (typeof window === "undefined") return;

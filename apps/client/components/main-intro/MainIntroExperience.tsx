@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 import "@/components/main-intro/intro-gift-motion.css";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
+import { isAppleTouchDevice } from "@/lib/device/is-apple-touch";
 
 /**
  * 전체 흔들림 길이(ms). 늘리면 좌우·몸통 모두 느려짐.
@@ -57,8 +58,8 @@ type GiftPhase = "shake" | "burst" | "gone";
 export function MainIntroExperience() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [giftPhase, setGiftPhase] = useState<GiftPhase>("shake");
-  /** iPhone/iPad 등 Apple 터치 기기만 true — 여기선 img에 drop-shadow(filter) 대신 레이어 그림자 사용 */
-  const [iosStyleGiftShadow, setIosStyleGiftShadow] = useState(false);
+  /** Apple 터치 WebKit: filter+transform에서 그림자 사각 clipping → 레이어 그림자 */
+  const [appleTouchPaintShadow, setAppleTouchPaintShadow] = useState(false);
 
   /** `/` 이탈·언마운트 후에도 타이머가 울리면 컨페티가 다른 라우트에 남지 않도록 */
   const introAliveRef = useRef(true);
@@ -72,11 +73,7 @@ export function MainIntroExperience() {
   }, []);
 
   useLayoutEffect(() => {
-    const ua = navigator.userAgent;
-    const appleTouch =
-      /iPad|iPhone|iPod/.test(ua) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    setIosStyleGiftShadow(appleTouch);
+    setAppleTouchPaintShadow(isAppleTouchDevice());
   }, []);
 
   useEffect(() => {
@@ -121,8 +118,8 @@ export function MainIntroExperience() {
 
   /** `intro-gift-motion.css`·부모 transform 합성 — next/image 기본 래퍼와 충돌해 애니가 죽을 수 있어 `<img>` 유지 */
   const giftMotionImg = (
-    <div className={iosStyleGiftShadow ? "intro-gift-stack intro-gift-stack--paint" : "intro-gift-stack"}>
-      {iosStyleGiftShadow ? (
+    <div className={appleTouchPaintShadow ? "intro-gift-stack intro-gift-stack--paint" : "intro-gift-stack"}>
+      {appleTouchPaintShadow ? (
         <>
           <span className="intro-gift-shadow-layer intro-gift-shadow-layer--diffuse" aria-hidden />
           <span className="intro-gift-shadow-layer intro-gift-shadow-layer--mid" aria-hidden />
@@ -138,7 +135,7 @@ export function MainIntroExperience() {
         fetchPriority="high"
         draggable={false}
         className={
-          iosStyleGiftShadow
+          appleTouchPaintShadow
             ? introGiftMotionImgBaseClass
             : `${introGiftMotionImgBaseClass} drop-shadow-[0_28px_56px_rgba(70,45,140,0.3)]`
         }
