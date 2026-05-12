@@ -55,6 +55,7 @@ import {
   rememberRollingPaperGuestComment,
 } from "@/features/rolling-paper/guest-comment-session";
 import { loginUrlForPath } from "@/features/login/post-login-destination";
+import { getRandomNickname } from "@/features/signup/api";
 import { getMyProfile } from "@/features/user/api";
 import {
   ACCESS_TOKEN_STORAGE_KEY,
@@ -686,7 +687,7 @@ export default function RollingPaperSlugPage({
   const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
-  /** 작성 오버레이: 포스트잇 → 본문 입력 →(비회원) 닉네임·비밀번호 */
+  /** 작성 오버레이: 포스트잇 →(비회원) 닉네임·비밀번호 → 본문 / 회원은 포스트잇 → 본문 */
   const [createOverlayStep, setCreateOverlayStep] = useState<
     "postit" | "compose" | "guestCredentials"
   >("postit");
@@ -698,6 +699,7 @@ export default function RollingPaperSlugPage({
   const [content, setContent] = useState("");
   const [guestNickname, setGuestNickname] = useState("");
   const [guestPassword, setGuestPassword] = useState("");
+  const [guestNicknameLoading, setGuestNicknameLoading] = useState(false);
   /** 비회원 수정 — 비밀번호 게이트 후 verifyToken으로 PATCH(1회 소모) */
   const [editPasswordGateOpen, setEditPasswordGateOpen] = useState(false);
   const [editGatePassword, setEditGatePassword] = useState("");
@@ -1154,21 +1156,64 @@ export default function RollingPaperSlugPage({
     setDeleteConfirmOpen(false);
     setDeleteGuestPassword("");
     setDeleteError(null);
+    setGuestNickname("");
+    setGuestNicknameLoading(false);
   }, []);
 
-  /** 비회원: 본문만 채운 뒤 완료 → 닉네임·비밀번호 단계로 이동 */
-  const handleGuestComposeComplete = () => {
-    const trimmed = content.trim();
-    if (!trimmed) {
-      setFormError("내용을 입력해 주세요.");
+  const loadRandomGuestNickname = useCallback(() => {
+    setGuestNicknameLoading(true);
+    setFormError(null);
+    void getRandomNickname()
+      .then((raw) => {
+        const n = raw.trim().slice(0, GUEST_NICKNAME_MAX_LEN);
+        setGuestNickname(n);
+      })
+      .catch(() => {
+        setGuestNickname("");
+        setFormError("랜덤 닉네임을 불러오지 못했습니다. 다시 시도해 주세요.");
+      })
+      .finally(() => {
+        setGuestNicknameLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!modalOpen || modalMode !== "create" || createOverlayStep !== "guestCredentials") {
       return;
     }
-    if (trimmed.length > CONTENT_MAX) {
-      setFormError(`댓글은 ${CONTENT_MAX}자 이내입니다.`);
+    if (loggedInState) return;
+    if (guestNickname.trim()) return;
+    loadRandomGuestNickname();
+  }, [
+    modalOpen,
+    modalMode,
+    createOverlayStep,
+    loggedInState,
+    guestNickname,
+    loadRandomGuestNickname,
+  ]);
+
+  /** 비회원: 닉네임·비밀번호 입력 후 본문 단계로 */
+  const handleGuestCredentialsNext = () => {
+    if (guestNicknameLoading) {
+      setFormError("닉네임을 불러오는 중입니다.");
+      return;
+    }
+    const nick = guestNickname.trim();
+    if (!nick) {
+      setFormError("닉네임을 입력해 주세요. (비회원)");
+      return;
+    }
+    if (nick.length > GUEST_NICKNAME_MAX_LEN) {
+      setFormError(`닉네임은 ${GUEST_NICKNAME_MAX_LEN}자 이내입니다.`);
+      return;
+    }
+    if (!guestPassword.trim()) {
+      setFormError("비밀번호를 입력해 주세요. (비회원)");
       return;
     }
     setFormError(null);
-    setCreateOverlayStep("guestCredentials");
+    setCreateOverlayStep("compose");
   };
 
   const handleSubmit = async () => {
@@ -1652,7 +1697,11 @@ export default function RollingPaperSlugPage({
                   type="button"
                   className="w-full shrink-0 border-0 bg-transparent p-0 outline-none transition hover:opacity-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                   aria-label={`포스트잇 ${activeSlot + 1}번 — 탭하여 작성`}
-                  onClick={() => setCreateOverlayStep("compose")}
+                  onClick={() =>
+                    setCreateOverlayStep(
+                      loggedInState ? "compose" : "guestCredentials",
+                    )
+                  }
                 >
                   <RollingPaperPostitModalFrame
                     slotIndex={activeSlot}
@@ -1664,22 +1713,23 @@ export default function RollingPaperSlugPage({
                   <div className={`${ROLLING_OVERLAY_GUEST_CARD_CLASS} w-full`}>
                     <label className="flex flex-col gap-1">
                       <span className="text-[11px] font-medium text-slate-700">
-                        닉네임 (필수, 최대 {GUEST_NICKNAME_MAX_LEN}자)
+                        닉네임
                       </span>
                       <input
                         type="text"
                         value={guestNickname}
-                        onChange={(e) =>
-                          setGuestNickname(
-                            e.target.value.slice(0, GUEST_NICKNAME_MAX_LEN),
-                          )
+                        readOnly
+                        disabled={guestNicknameLoading}
+                        className={`${ROLLING_OVERLAY_INPUT_TEXT_CLASS} cursor-not-allowed bg-slate-100/90 text-slate-800`}
+                        placeholder={
+                          guestNicknameLoading ? "닉네임 불러오는 중…" : "닉네임"
                         }
-                        maxLength={GUEST_NICKNAME_MAX_LEN}
-                        className={ROLLING_OVERLAY_INPUT_TEXT_CLASS}
-                        placeholder="친구"
-                        autoComplete="nickname"
-                        autoFocus
+                        autoComplete="off"
+                        aria-readonly="true"
                       />
+                      <span className="text-[10px] leading-snug text-slate-500">
+                        서버에서 정한 랜덤 닉네임이며, 수정할 수 없어요.
+                      </span>
                     </label>
                     <label className="flex flex-col gap-1">
                       <span className="text-[11px] font-medium text-slate-700">
@@ -1692,6 +1742,8 @@ export default function RollingPaperSlugPage({
                         className={ROLLING_OVERLAY_INPUT_CLASS}
                         placeholder="메시지 수정 시 필요해요"
                         autoComplete="new-password"
+                        disabled={guestNicknameLoading || !guestNickname.trim()}
+                        autoFocus={!guestNicknameLoading && Boolean(guestNickname.trim())}
                       />
                     </label>
                   </div>
@@ -1702,13 +1754,25 @@ export default function RollingPaperSlugPage({
                     </p>
                   ) : null}
 
+                  {!guestNicknameLoading && !guestNickname.trim() ? (
+                    <button
+                      type="button"
+                      className="w-full shrink-0 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-[12px] font-medium text-white/95 transition hover:bg-white/15"
+                      onClick={() => loadRandomGuestNickname()}
+                    >
+                      닉네임 다시 받기
+                    </button>
+                  ) : null}
+
                   <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
                     <button
                       type="button"
                       className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
                       onClick={() => {
                         setFormError(null);
-                        setCreateOverlayStep("compose");
+                        setGuestNickname("");
+                        setGuestNicknameLoading(false);
+                        setCreateOverlayStep("postit");
                       }}
                       disabled={submitting}
                     >
@@ -1717,10 +1781,14 @@ export default function RollingPaperSlugPage({
                     <button
                       type="button"
                       className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                      onClick={() => void handleSubmit()}
-                      disabled={submitting}
+                      onClick={() => handleGuestCredentialsNext()}
+                      disabled={
+                        submitting ||
+                        guestNicknameLoading ||
+                        !guestNickname.trim()
+                      }
                     >
-                      {submitting ? "전송 중…" : "등록"}
+                      다음
                     </button>
                   </div>
                 </>
@@ -1766,31 +1834,23 @@ export default function RollingPaperSlugPage({
                       <button
                         type="button"
                         className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                        onClick={() => closeModal()}
+                        onClick={() => {
+                          setFormError(null);
+                          setCreateOverlayStep("guestCredentials");
+                        }}
                         disabled={submitting}
                       >
-                        취소
+                        이전
                       </button>
                     )}
-                    {loggedInState ? (
-                      <button
-                        type="button"
-                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                        onClick={() => void handleSubmit()}
-                        disabled={submitting}
-                      >
-                        {submitting ? "전송 중…" : "등록"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                        onClick={() => handleGuestComposeComplete()}
-                        disabled={submitting}
-                      >
-                        완료
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                      onClick={() => void handleSubmit()}
+                      disabled={submitting}
+                    >
+                      {submitting ? "전송 중…" : "등록"}
+                    </button>
                   </div>
                 </>
               )
