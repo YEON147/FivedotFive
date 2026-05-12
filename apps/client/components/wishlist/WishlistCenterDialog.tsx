@@ -3,8 +3,14 @@
 import { X } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-const PANEL_SHELL =
-  "w-[min(340px,calc(100vw-2rem))] min-w-0 max-w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-[18px] border border-[var(--color-border)] px-5 pb-6 pt-4 shadow-[0_24px_60px_rgba(0,0,0,0.14)]";
+/** 본문이 길 때(예: 롤링 생성 — 받는 사람 이미지 그리드) 뷰포트 밖으로 잘리지 않도록 상한 + 내부 스크롤 */
+const PANEL_FRAME =
+  "flex min-h-0 w-[min(340px,calc(100vw-2rem))] max-h-[min(90dvh,calc(100dvh-2rem))] min-w-0 max-w-[min(340px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[18px] border border-[var(--color-border)] shadow-[0_24px_60px_rgba(0,0,0,0.14)]";
+
+const PANEL_HEADER_WRAP = "shrink-0 px-5 pt-4";
+
+const PANEL_BODY_SCROLL =
+  "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6";
 
 const PANEL_BG_DEFAULT = "bg-[var(--color-surface)]";
 /** `globals.css` — 페이지 오로라와 동일 */
@@ -104,7 +110,7 @@ export function WishlistCenterDialog({
   surfaceClassName,
 }: WishlistCenterDialogProps) {
   const panelBg = panelTone === "aurora" ? PANEL_BG_AURORA : PANEL_BG_DEFAULT;
-  const panelClassName = `${PANEL_SHELL} ${panelBg}${surfaceClassName ? ` ${surfaceClassName}` : ""}`;
+  const panelClassName = `${PANEL_FRAME} ${panelBg}${surfaceClassName ? ` ${surfaceClassName}` : ""}`;
   const staticBackdropZ =
     staticStack === "aboveDialogs" ? "z-[120]" : staticStack === "aboveMenu" ? "z-[110]" : "z-[40]";
   const staticPanelZ =
@@ -128,15 +134,17 @@ export function WishlistCenterDialog({
           aria-modal="true"
           aria-labelledby={titleId}
         >
-          <DialogChrome
-            title={title}
-            titleLeading={titleLeading}
-            titleId={titleId}
-            description={description}
-            onClose={onClose}
-            closeLabel={closeLabel}
-          />
-          {children}
+          <div className={PANEL_HEADER_WRAP}>
+            <DialogChrome
+              title={title}
+              titleLeading={titleLeading}
+              titleId={titleId}
+              description={description}
+              onClose={onClose}
+              closeLabel={closeLabel}
+            />
+          </div>
+          <div className={PANEL_BODY_SCROLL}>{children}</div>
         </div>
       </>
     );
@@ -154,15 +162,17 @@ export function WishlistCenterDialog({
       aria-modal={open}
       aria-labelledby={titleId}
     >
-      <DialogChrome
-        title={title}
-        titleLeading={titleLeading}
-        titleId={titleId}
-        description={description}
-        onClose={onClose}
-        closeLabel={closeLabel}
-      />
-      {children}
+      <div className={PANEL_HEADER_WRAP}>
+        <DialogChrome
+          title={title}
+          titleLeading={titleLeading}
+          titleId={titleId}
+          description={description}
+          onClose={onClose}
+          closeLabel={closeLabel}
+        />
+      </div>
+      <div className={PANEL_BODY_SCROLL}>{children}</div>
     </section>
   );
 }

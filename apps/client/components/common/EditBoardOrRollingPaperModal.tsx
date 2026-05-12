@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
+import {
+  BoardVisibilityTogglePanel,
+  ROLLING_COMMENT_VISIBILITY_HELP,
+  WISH_BOARD_VISIBILITY_HELP,
+  WISH_COMMENT_VISIBILITY_HELP,
+} from "@/components/common/BoardVisibilityTogglePanel";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import { TextField } from "@/components/ui/TextField";
 import {
@@ -18,43 +24,6 @@ const RECIPIENT_MAX = 100;
 
 const RECIPIENT_IMAGE_ACCEPT =
   "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
-
-/** 변경 가능한 공개 설정 — 비활성 `종류` 블록(bg-subtle)과 구분 */
-const EDITABLE_SETTING_PANEL_CLASS =
-  "rounded-xl border border-slate-200/70 bg-[var(--color-surface)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]";
-
-function SettingsToggle({
-  checked,
-  onCheckedChange,
-  ariaLabel,
-  disabled,
-}: {
-  checked: boolean;
-  onCheckedChange: (next: boolean) => void;
-  ariaLabel: string;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={ariaLabel}
-      disabled={disabled}
-      onClick={() => onCheckedChange(!checked)}
-      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors [-webkit-tap-highlight-color:transparent] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF] disabled:pointer-events-none disabled:opacity-45 touch-manipulation ${
-        checked ? "bg-[#7B61FF]" : "bg-slate-300"
-      }`}
-    >
-      <span
-        className={`pointer-events-none absolute left-0.5 top-1/2 size-5 -translate-y-1/2 rounded-full bg-white shadow-sm ring-1 ring-slate-900/10 transition-transform duration-200 ease-out ${
-          checked ? "translate-x-[24px]" : "translate-x-0"
-        }`}
-        aria-hidden
-      />
-    </button>
-  );
-}
 
 export type EditBoardOrRollingPaperModalProps = {
   open: boolean;
@@ -306,9 +275,12 @@ export function EditBoardOrRollingPaperModal({
           <div
             role="radiogroup"
             aria-labelledby={kindGroupId}
-            className="flex flex-col gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 opacity-95"
+            className="flex flex-col gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3"
           >
-            <span id={kindGroupId} className="text-sm font-semibold text-slate-800">
+            <span
+              id={kindGroupId}
+              className="text-sm font-semibold text-slate-800"
+            >
               종류 (변경 불가)
             </span>
             <label className="flex cursor-not-allowed items-center gap-2.5 text-[15px] text-[var(--color-text-primary)]">
@@ -356,27 +328,14 @@ export function EditBoardOrRollingPaperModal({
               value={targetDate}
               onChange={(ev) => setTargetDate(ev.target.value)}
             />
-            <div className={EDITABLE_SETTING_PANEL_CLASS}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="min-w-0 flex-1 text-sm font-semibold text-slate-800">
-                  댓글 공개
-                </p>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="whitespace-nowrap text-[12px] font-medium text-slate-400" aria-hidden>
-                    {rollingCommentPublic ? "공개" : "비공개"}
-                  </span>
-                  <SettingsToggle
-                    checked={rollingCommentPublic}
-                    onCheckedChange={setRollingCommentPublic}
-                    ariaLabel="롤링페이퍼 댓글 공개"
-                  />
-                </div>
-              </div>
-              <div className="mt-2 space-y-1 text-[12px] leading-snug text-[var(--color-text-secondary)]">
-                <p>비공개면 기준일까지 댓글은</p>
-                <p>비공개로 유지됩니다.</p>
-              </div>
-            </div>
+            <BoardVisibilityTogglePanel
+              title="댓글 공개"
+              description={ROLLING_COMMENT_VISIBILITY_HELP}
+              checked={rollingCommentPublic}
+              onCheckedChange={setRollingCommentPublic}
+              ariaLabel="롤링페이퍼 댓글 공개"
+              disabled={submitting}
+            />
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-slate-800">
                 캐릭터 사진
@@ -436,46 +395,22 @@ export function EditBoardOrRollingPaperModal({
               value={targetDate}
               onChange={(ev) => setTargetDate(ev.target.value)}
             />
-            <div className={EDITABLE_SETTING_PANEL_CLASS}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="min-w-0 flex-1 text-sm font-semibold text-slate-800">
-                  보드 공개
-                </p>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="whitespace-nowrap text-[12px] font-medium text-slate-400" aria-hidden>
-                    {isPublic ? "공개" : "비공개"}
-                  </span>
-                  <SettingsToggle
-                    checked={isPublic}
-                    onCheckedChange={setIsPublic}
-                    ariaLabel="위시보드 공개"
-                  />
-                </div>
-              </div>
-              <div className="mt-2 space-y-1 text-[12px] leading-snug text-[var(--color-text-secondary)]">
-                <p>비공개 시 공유 링크로도 다른 사람이 볼 수 없어요.</p>
-              </div>
-            </div>
-            <div className={EDITABLE_SETTING_PANEL_CLASS}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="min-w-0 flex-1 text-sm font-semibold text-slate-800">
-                  댓글 공개
-                </p>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="whitespace-nowrap text-[12px] font-medium text-slate-400" aria-hidden>
-                    {wishCommentPublic ? "공개" : "비공개"}
-                  </span>
-                  <SettingsToggle
-                    checked={wishCommentPublic}
-                    onCheckedChange={setWishCommentPublic}
-                    ariaLabel="위시보드 댓글 공개"
-                  />
-                </div>
-              </div>
-              <div className="mt-2 space-y-1 text-[12px] leading-snug text-[var(--color-text-secondary)]">
-                <p>공개 전 작성된 댓글 표시 여부부를 설정해요.</p>
-              </div>
-            </div>
+            <BoardVisibilityTogglePanel
+              title="보드 공개"
+              description={WISH_BOARD_VISIBILITY_HELP}
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+              ariaLabel="위시보드 공개"
+              disabled={submitting}
+            />
+            <BoardVisibilityTogglePanel
+              title="댓글 공개"
+              description={WISH_COMMENT_VISIBILITY_HELP}
+              checked={wishCommentPublic}
+              onCheckedChange={setWishCommentPublic}
+              ariaLabel="위시보드 댓글 공개"
+              disabled={submitting}
+            />
           </div>
         )}
 
