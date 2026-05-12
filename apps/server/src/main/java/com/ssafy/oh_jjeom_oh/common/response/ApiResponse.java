@@ -14,18 +14,23 @@ public class ApiResponse<T> {
 
     private boolean success;
     private String message;
+    private String errorCode;
     private T data;
 
     public static <T> ApiResponse<T> success(SuccessMessage message, T data) {
-        return new ApiResponse<>(true, message.getMessage(), data);
+        return new ApiResponse<>(true, message.getMessage(), null, data);
     }
 
     public static <T> ApiResponse<T> success(SuccessMessage message) {
-        return new ApiResponse<>(true, message.getMessage(), null);
+        return new ApiResponse<>(true, message.getMessage(), null, null);
     }
 
     public static <T> ApiResponse<T> fail(String message) {
-        return new ApiResponse<>(false, message, null);
+        return new ApiResponse<>(false, message, null, null);
+    }
+
+    public static <T> ApiResponse<T> fail(String message, String errorCode) {
+        return new ApiResponse<>(false, message, errorCode, null);
     }
 
 }
