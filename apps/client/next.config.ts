@@ -1,8 +1,5 @@
 import type { NextConfig } from "next";
-import type {
-  LocalPattern,
-  RemotePattern,
-} from "next/dist/shared/lib/image-config";
+import type { LocalPattern } from "next/dist/shared/lib/image-config";
 
 /**
  * API 프록시: 위에서부터 첫 매칭이 적용됩니다.
@@ -23,7 +20,8 @@ import type {
  * 설정 후 `next dev` 재시작 필요.
  *
  * ngrok 등 외부 접속: `apps/client/.env.local` 에 NEXT_PUBLIC_NGROK_URL (또는 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS).
- * `/_next/image` 허용 호스트: 위 변수들 + NEXT_PUBLIC_SITE_URL + NEXT_PUBLIC_IMAGE_REMOTE_HOSTS(쉼표) — `buildImageRemotePatterns` 참고.
+ *
+ * `/_next/image` 원격 허용: **임시로 `images.domains` 최소만 사용**(동적 remotePatterns 제거 — 디버그용). 정상화 후 패턴 복구.
  *
  * 프론트 코드 점검: `fetch`·apiClient 경로는 항상 `/api/...` 로 시작하는지 확인
  * (`/boards/me` 절대 경로만 쓰면 브라우저는 동일 오리진에 두고 /api 가 빠질 수 있음)
@@ -42,7 +40,7 @@ const backendOrigin =
  */
 const assetCdnOrigin = process.env.ASSET_CDN_REWRITE_TARGET?.replace(/\/$/, "");
 
-/** `lib/asset-url.ts` 기본 S3와 동일 가상 호스트 — `remotePatterns`·`images.domains` 명시용 */
+/** `lib/asset-url.ts` 기본 S3 가상 호스트 — `images.domains` (`/_next/image` 원격 허용, 디버그 최소 설정) */
 const DEFAULT_ASSET_S3_IMAGE_HOST =
   "five-dot-five.s3.ap-northeast-2.amazonaws.com";
 
@@ -82,115 +80,6 @@ const tunnelHostsFromEnv = [
 
 const extraAllowedDevOrigins = [...new Set(tunnelHostsFromEnv)];
 
-function hostnameFromSiteUrl(url: string | undefined): string {
-  const u = url?.trim();
-  if (!u) return "";
-  try {
-    return new URL(
-      /^https?:\/\//i.test(u) ? u : `https://${u}`,
-    ).hostname;
-  } catch {
-    return "";
-  }
-}
-
-/** 스테이징·배포 프론트 오리진 — 상대 에셋이 `/_next/image?url=https://(이 호스트)/icons/...` 로 잡힐 때 허용 */
-const siteHostFromEnv = hostnameFromSiteUrl(
-  process.env.NEXT_PUBLIC_SITE_URL,
-);
-
-/**
- * 쉼표 구분 호스트 또는 전체 URL.
- * CI/테스트에서 ngrok·스테이징 도메인을 빌드 타임에 넣을 때 사용.
- */
-function imageRemoteHostsFromEnvList(raw: string | undefined): string[] {
-  if (!raw?.trim()) return [];
-  return raw
-    .split(",")
-    .map((s) => {
-      const t = s.trim();
-      if (!t) return "";
-      return devOriginHostFromEnvEntry(t);
-    })
-    .filter(Boolean);
-}
-
-const imageRemoteHostsExtra = [
-  ...new Set(imageRemoteHostsFromEnvList(process.env.NEXT_PUBLIC_IMAGE_REMOTE_HOSTS)),
-];
-
-function dedupeRemotePatterns(patterns: RemotePattern[]): RemotePattern[] {
-  const seen = new Set<string>();
-  const out: RemotePattern[] = [];
-  for (const p of patterns) {
-    const key = `${p.protocol ?? ""}|${p.hostname}|${p.port ?? ""}|${p.pathname ?? ""}|${p.search ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(p);
-  }
-  return out;
-}
-
-/**
- * `next/image` 원격 최적화 — S3·CDN·터널·배포 호스트.
- *
- * - production에서 `getAssetImageUrl`이 `/icons/...`만 주면 `url`에 **현재 사이트 호스트**가 들어가므로,
- *   ngrok·스테이징 도메인은 `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_IMAGE_REMOTE_HOSTS` /
- *   `NEXT_PUBLIC_NGROK_URL`·`NEXT_PUBLIC_ALLOWED_DEV_ORIGINS` 로 여기에 포함되게 합니다.
- * - S3 가상 호스트(`*.s3.*.amazonaws.com`)는 `**.amazonaws.com` 보조용으로 명시합니다.
- * - 기본 에셋 버킷 호스트는 와일드카드와 별도로 **한 줄 명시**(배포 환경 이슈 대비).
- */
-function buildImageRemotePatterns(): RemotePattern[] {
-  const patterns: RemotePattern[] = [
-    {
-      protocol: "https",
-      hostname: DEFAULT_ASSET_S3_IMAGE_HOST,
-      pathname: "/**",
-    },
-    { protocol: "https", hostname: "**.amazonaws.com", pathname: "/**" },
-    { protocol: "https", hostname: "*.s3.*.amazonaws.com", pathname: "/**" },
-    { protocol: "https", hostname: "**.cloudfront.net", pathname: "/**" },
-    { protocol: "https", hostname: "**.ngrok-free.app", pathname: "/**" },
-    { protocol: "https", hostname: "**.ngrok.io", pathname: "/**" },
-    { protocol: "https", hostname: "**.ngrok.app", pathname: "/**" },
-    { protocol: "http", hostname: "localhost", pathname: "/**" },
-    { protocol: "http", hostname: "127.0.0.1", pathname: "/**" },
-  ];
-
-  const raw = process.env.NEXT_PUBLIC_ASSET_BASE_URL?.trim();
-  if (raw) {
-    try {
-      const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-      const u = new URL(withProto);
-      const protocol = u.protocol === "http:" ? "http" : "https";
-      patterns.push({
-        protocol,
-        hostname: u.hostname,
-        port: u.port || undefined,
-        pathname: "/**",
-      });
-    } catch {
-      /* noop */
-    }
-  }
-
-  const extraHosts = [
-    siteHostFromEnv,
-    ...extraAllowedDevOrigins,
-    ...imageRemoteHostsExtra,
-  ].filter(Boolean);
-
-  for (const h of new Set(extraHosts)) {
-    patterns.push({
-      protocol: "https",
-      hostname: h,
-      pathname: "/**",
-    });
-  }
-
-  return dedupeRemotePatterns(patterns);
-}
-
 /** Next 16+ `/_next/image` 로컬 `src` 허용 — `images.localPatterns` 미설정 시 거절됨 */
 const imageLocalPatterns: LocalPattern[] = [
   /** `public/default_icon.png` — 위시 기본 선물 썸네일(`next/image`) */
@@ -213,9 +102,13 @@ const nextConfig: NextConfig = {
     "172.26.1.182",
   ],
   images: {
-    /** @deprecated Next 권장은 remotePatterns 단독 — 일부 배포에서만 허용 목록이 잡히는 경우 호환 */
+    /**
+     * 디버그: `/_next/image` "url parameter is not allowed" 원인 분리.
+     * 동적 `buildImageRemotePatterns`·dedupe·env 병합 제거 — S3는 `domains` 정확 일치만 허용.
+     * 통과 확인 후 `remotePatterns` 등 이전 설정을 단계적으로 복구할 것.
+     */
     domains: [DEFAULT_ASSET_S3_IMAGE_HOST],
-    remotePatterns: buildImageRemotePatterns(),
+    remotePatterns: [],
     localPatterns: imageLocalPatterns,
     ...(process.env.NODE_ENV === "development"
       ? { minimumCacheTTL: 0 }
