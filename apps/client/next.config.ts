@@ -42,6 +42,10 @@ const backendOrigin =
  */
 const assetCdnOrigin = process.env.ASSET_CDN_REWRITE_TARGET?.replace(/\/$/, "");
 
+/** `lib/asset-url.ts` 기본 S3와 동일 가상 호스트 — `remotePatterns`·`images.domains` 명시용 */
+const DEFAULT_ASSET_S3_IMAGE_HOST =
+  "five-dot-five.s3.ap-northeast-2.amazonaws.com";
+
 /**
  * `.env.local` — NEXT_PUBLIC_NGROK_URL = 터널 전체 URL (예: https://xxxx.ngrok-free.app)
  * 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS (쉼표, 호스트 또는 URL)
@@ -134,9 +138,15 @@ function dedupeRemotePatterns(patterns: RemotePattern[]): RemotePattern[] {
  *   ngrok·스테이징 도메인은 `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_IMAGE_REMOTE_HOSTS` /
  *   `NEXT_PUBLIC_NGROK_URL`·`NEXT_PUBLIC_ALLOWED_DEV_ORIGINS` 로 여기에 포함되게 합니다.
  * - S3 가상 호스트(`*.s3.*.amazonaws.com`)는 `**.amazonaws.com` 보조용으로 명시합니다.
+ * - 기본 에셋 버킷 호스트는 와일드카드와 별도로 **한 줄 명시**(배포 환경 이슈 대비).
  */
 function buildImageRemotePatterns(): RemotePattern[] {
   const patterns: RemotePattern[] = [
+    {
+      protocol: "https",
+      hostname: DEFAULT_ASSET_S3_IMAGE_HOST,
+      pathname: "/**",
+    },
     { protocol: "https", hostname: "**.amazonaws.com", pathname: "/**" },
     { protocol: "https", hostname: "*.s3.*.amazonaws.com", pathname: "/**" },
     { protocol: "https", hostname: "**.cloudfront.net", pathname: "/**" },
@@ -203,6 +213,8 @@ const nextConfig: NextConfig = {
     "172.26.1.182",
   ],
   images: {
+    /** @deprecated Next 권장은 remotePatterns 단독 — 일부 배포에서만 허용 목록이 잡히는 경우 호환 */
+    domains: [DEFAULT_ASSET_S3_IMAGE_HOST],
     remotePatterns: buildImageRemotePatterns(),
     localPatterns: imageLocalPatterns,
     ...(process.env.NODE_ENV === "development"
