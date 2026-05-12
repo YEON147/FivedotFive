@@ -102,20 +102,19 @@ export function GiftIconGridSkeleton() {
 }
 
 /**
- * 로드 완료 후와 동일 레이아웃: 탭 줄(h-11) + `flex-1 overflow-y-auto p-3` 그리드 영역.
- * 높이를 별도로 두지 않아 전환 시 딸깍 거리지 않음.
+ * 로드 완료 후와 동일 레이아웃: 탭 줄(h-11) + 스크롤 그리드 영역(최소 높이로 모달 찌그러짐 방지).
  */
 export function GiftIconModalChromeSkeleton() {
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="scrollbar-x-none flex h-11 shrink-0 cursor-default gap-1 overflow-hidden border-b border-slate-100 px-2 pb-2 pt-2 select-none">
         <div className="h-7 w-16 shrink-0 animate-pulse rounded-full bg-slate-100" aria-hidden />
         <div className="h-7 w-14 shrink-0 animate-pulse rounded-full bg-slate-100" aria-hidden />
         <div className="h-7 w-20 shrink-0 animate-pulse rounded-full bg-slate-100" aria-hidden />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]">
+      <div className="min-h-[min(28dvh,200px)] flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]">
         <GiftIconGridSkeleton />
       </div>
-    </>
+    </div>
   );
 }
