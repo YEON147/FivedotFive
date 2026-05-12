@@ -129,7 +129,7 @@ export function ScrollLazyModalImage({
         <>
           {overlayVisible ? (
             <span
-              className="absolute inset-0 z-[1] rounded-[inherit] bg-slate-100/95 transition-opacity duration-150 ease-out motion-reduce:transition-none"
+              className="absolute inset-0 z-[5] rounded-[inherit] bg-slate-100/95 transition-opacity duration-150 ease-out motion-reduce:transition-none"
               aria-hidden
             />
           ) : null}
@@ -155,10 +155,18 @@ export function ScrollLazyModalImage({
                   priority={eager}
                   fetchPriority={highFetchPriority && eager ? "high" : undefined}
                   className={imgClassName}
-                  onLoadingComplete={() => {
-                    if (hideUntilFullyDecoded) {
-                      setPaintReady(true);
+                  onLoadingComplete={(img: HTMLImageElement) => {
+                    if (!hideUntilFullyDecoded) {
+                      return;
                     }
+                    void (async () => {
+                      try {
+                        await img.decode();
+                      } catch {
+                        /* ignore */
+                      }
+                      setPaintReady(true);
+                    })();
                   }}
                   onError={finishDecodeGate}
                 />
