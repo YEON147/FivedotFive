@@ -3,6 +3,7 @@
 import {
   CaretLeftIcon,
   CaretRightIcon,
+  GearSixIcon,
   TextAlignJustify,
 } from "@phosphor-icons/react";
 import Image from "next/image";
@@ -11,6 +12,7 @@ import {
   use,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -21,16 +23,19 @@ import {
 import { createPortal } from "react-dom";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { EditBoardOrRollingPaperModal } from "@/components/common/EditBoardOrRollingPaperModal";
 import {
   BoardShareDialog,
   BoardShareFabButton,
   type RollingPaperOwnerShareTabId,
 } from "@/components/common/ShareBoardLink";
 import { PublicWishlistVisitorMenu } from "@/components/wishlist/PublicWishlistVisitorMenu";
+import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "@/components/wishlist/WishlistSlots";
 import {
   createRollingPaperComment,
   DEFAULT_ROLLING_COMMENT_STICKER_KEY,
+  deleteRollingPaperComment,
   getRollingPaperComments,
   getRollingPaperDetail,
   postRollingPaperShareCommentLink,
@@ -62,6 +67,9 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
+import type { MyBoardListEntry } from "@/features/wishlist/types";
+import { getAssetImageUrl } from "@/lib/asset-url";
+import { shouldUseNativeImg } from "@/lib/native-img";
 import { RollingPaperBubbleLayer } from "@/components/rolling-paper/RollingPaperBubbleLayer";
 import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
 import { isMaskedOthersWishComment } from "@/features/wishlist/comment-display";
@@ -99,22 +107,31 @@ const ROLLING_PAPER_BOARD_INNER =
 const COLLAGE_BG = "bg-[#f4f2ec]";
 
 /**
- * `public/rollingpaper/*.png` 교체·삭제 후에도 예전 그림이 보이면 대개 캐시 때문입니다.
- * `.env.local`에 `NEXT_PUBLIC_ROLLING_ASSET_VERSION=2` 처럼 숫자만 올리면 URL이 바뀌어 브라우저·`/_next/image` 캐시를 함께 비웁니다.
+ * `rollingpaper-01.png` 폴라로이드 창에 맞춘 사진 영역(상·좌우·하 여백) — `imageKey` 없으면 미사용.
+ */
+const ROLLING_POLAROID_PHOTO_INSET =
+  "pointer-events-none absolute inset-[19%_8.5%_30%_8.5%] overflow-hidden rounded-[1.5%]";
+
+/**
+ * 액자 안 — 별도 배경 없음. `object-contain` 여백은 투명(뒤 레이어가 비침).
+ * 사진: `scale`+작은 `rotate`로 회전 시 모서리 클립 완화.
+ */
+const ROLLING_POLAROID_PHOTO_INNER = "relative block h-full w-full";
+
+const ROLLING_POLAROID_PHOTO_IMG =
+  "pointer-events-none h-full w-full origin-center scale-[0.98] rotate-[1.75deg] object-contain object-center";
+const ROLLING_POLAROID_PHOTO_IMG_FILL =
+  "pointer-events-none origin-center scale-[0.98] rotate-[1.75deg] object-contain object-center";
+/** 소유자 폴라로이드 사진 영역 탭 — inset은 위와 동일, 포인터 허용 */
+const ROLLING_POLAROID_PHOTO_BUTTON_INSET =
+  "absolute inset-[19%_8.5%_30%_8.5%] z-[15] overflow-hidden rounded-[1.5%] border-0 bg-transparent p-0 shadow-none outline-none ring-0 transition hover:ring-2 hover:ring-violet-400/45 focus-visible:ring-2 focus-visible:ring-violet-400/80 active:bg-black/[0.06]";
+
+/**
+ * `public/rollingpaper/*.png` 교체 후 캐시가 남으면 `.env`의 `NEXT_PUBLIC_ROLLING_ASSET_VERSION`만 올리세요.
+ * 다른 화면과 같이 `src`는 `/rollingpaper/...` 고정, `next/image` 기본 최적화만 사용 — 버전은 `key`로만 반영합니다.
  */
 const ROLLING_ASSET_VERSION =
   process.env.NEXT_PUBLIC_ROLLING_ASSET_VERSION?.trim() || "1";
-
-function rollingPaperImageSrc(basePath: string): string {
-  const sep = basePath.includes("?") ? "&" : "?";
-  return `${basePath}${sep}v=${ROLLING_ASSET_VERSION}`;
-}
-
-/** 개발 중 `/_next/image` 디스크 캐시로 옛 PNG가 남는 경우 완화 */
-const rollingPaperImageDevProps =
-  process.env.NODE_ENV === "development"
-    ? ({ unoptimized: true } as const)
-    : ({} as const);
 
 type CollagePiece =
   | {
@@ -275,13 +292,13 @@ function RollingPaperPostitShell({
         style={{ aspectRatio: `${aw} / ${ah}` }}
       >
         <Image
-          src={rollingPaperImageSrc(asset.src)}
+          key={`${asset.src}@${ROLLING_ASSET_VERSION}`}
+          src={asset.src}
           alt={asset.alt}
           fill
           className="pointer-events-none object-contain"
           sizes="300px"
           priority
-          {...rollingPaperImageDevProps}
         />
         <div className={frameClass}>{children}</div>
       </div>
@@ -477,6 +494,13 @@ const ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS = `${ROLLING_OVERLAY_PRIMARY_BT
 const ROLLING_OVERLAY_GHOST_BTN_CLASS =
   "rounded-full px-4 py-2 text-[13px] font-medium text-white/95 hover:bg-white/10";
 
+/**
+ * 오버레이 위험 버튼 — `ROLLING_OVERLAY_PRIMARY_BTN_CLASS` 와 동일 크기·형태,
+ * 삭제 확인 모달(`WishlistCenterDialog`)의 `삭제하기`와 동일한 빨간 솔리드 톤.
+ */
+const ROLLING_OVERLAY_DANGER_BTN_CLASS =
+  "rounded-full bg-red-500 px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:opacity-50";
+
 /** 상세 오버레이 — 읽기 전용 본문 (슬롯별 프레임 안 가운데 정렬) */
 function RollingPaperPostitModalFrame({
   slotIndex,
@@ -546,15 +570,30 @@ function displayNameFromSlug(slug: string): string {
   }
 }
 
-/** 브라우저 기준 전체 URL — `token`이 있으면 `?token=` 부착 */
+function rollingDetailToEditBoardEntry(d: RollingPaperDetailPayload): MyBoardListEntry {
+  return {
+    type: "ROLLING_PAPER",
+    slug: d.slug,
+    title: d.title ?? null,
+    createdAt: d.createdAt,
+    targetDate: d.targetDate ?? null,
+    recipientName: d.recipientName ?? null,
+    imageKey: d.imageKey ?? null,
+    isCommentPublic: d.isCommentPublic,
+  };
+}
+
+/** 브라우저 기준 전체 URL — `token`이 있으면 `?token=` 부착 (SSR 시 `window` 없음 → 상대 경로만) */
 function rollingPaperAbsoluteShareUrl(slug: string, token: string | null): string {
   const s = slug?.trim();
   if (!s) return "";
-  const origin = window.location.origin;
   const path = `/rolling-paper/${encodeURIComponent(s)}`;
   const t = token?.trim();
-  if (t) return `${origin}${path}?token=${encodeURIComponent(t)}`;
-  return `${origin}${path}`;
+  const qs = t ? `?token=${encodeURIComponent(t)}` : "";
+  if (typeof window === "undefined") {
+    return `${path}${qs}`;
+  }
+  return `${window.location.origin}${path}${qs}`;
 }
 
 function rollingPaperSharePathWithToken(slug: string, token: string | null): string {
@@ -616,6 +655,8 @@ export default function RollingPaperSlugPage({
 }) {
   const { slug: slugParam } = use(params);
   const slug = slugParam?.trim() ?? "";
+  const editGateTitleId = useId();
+  const deleteDialogTitleId = useId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -657,10 +698,17 @@ export default function RollingPaperSlugPage({
   const [content, setContent] = useState("");
   const [guestNickname, setGuestNickname] = useState("");
   const [guestPassword, setGuestPassword] = useState("");
-  /** 비회원 수정 — `POST .../verify`로 받은 토큰(저장 시 PATCH 1회 소모) */
+  /** 비회원 수정 — 비밀번호 게이트 후 verifyToken으로 PATCH(1회 소모) */
+  const [editPasswordGateOpen, setEditPasswordGateOpen] = useState(false);
+  const [editGatePassword, setEditGatePassword] = useState("");
+  const [editGateError, setEditGateError] = useState<string | null>(null);
+  const [editGateLoading, setEditGateLoading] = useState(false);
   const [guestEditVerifyToken, setGuestEditVerifyToken] = useState<
     string | null
   >(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteGuestPassword, setDeleteGuestPassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -669,6 +717,10 @@ export default function RollingPaperSlugPage({
   );
 
   const [portalReady, setPortalReady] = useState(false);
+  /** 소유자: `photoOnly` — 폴라로이드 사진만, `full` — 제목·이름·일자 등 페이지 설정 */
+  const [rollingOwnerEditModal, setRollingOwnerEditModal] = useState<
+    null | "full" | "photoOnly"
+  >(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
@@ -839,6 +891,20 @@ export default function RollingPaperSlugPage({
     return displayNameFromSlug(slug);
   }, [detail?.recipientName, slug]);
 
+  const rollingSettingsBoardEntry = useMemo((): MyBoardListEntry | null => {
+    if (!detail?.isOwner) return null;
+    return rollingDetailToEditBoardEntry(detail);
+  }, [
+    detail?.isOwner,
+    detail?.slug,
+    detail?.title,
+    detail?.createdAt,
+    detail?.targetDate,
+    detail?.recipientName,
+    detail?.imageKey,
+    detail?.isCommentPublic,
+  ]);
+
   /**
    * 공유 모달 주소 — 댓글 작성 가능 토큰 우선(`commentToken` → 세션에서 댓글 가능할 때 URL의 `token`).
    * 보기 전용(`viewToken`)은 주소와 다를 때만 보조 링크로 둡니다.
@@ -966,30 +1032,39 @@ export default function RollingPaperSlugPage({
     [commentsPaging],
   );
 
-  const loadBoard = useCallback(async () => {
-    if (!slug) return;
-    /** 이펙트 직후 동기 setState 연쇄 렌더 유발 방지 — `react-hooks/set-state-in-effect` */
-    await Promise.resolve();
-    setLoading(true);
-    setLoadError(null);
-    setDetailForbidden(false);
-    try {
-      const detailRes = await getRollingPaperDetail(slug, rollingToken);
-      setDetail(detailRes.data);
-      setVisibleBoardPage(0);
-      await loadCommentsPage(0);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "불러오지 못했습니다.";
-      if (isRollingPaperForbiddenMessage(msg)) {
-        setDetailForbidden(true);
-        setDetail(null);
-      } else {
-        setLoadError(msg);
+  const loadBoard = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!slug) return;
+      const silent = opts?.silent === true;
+      if (!silent) {
+        await Promise.resolve();
+        setLoading(true);
+        setLoadError(null);
+        setDetailForbidden(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [slug, rollingToken, loadCommentsPage]);
+      try {
+        const detailRes = await getRollingPaperDetail(slug, rollingToken);
+        setDetail(detailRes.data);
+        if (!silent) {
+          setVisibleBoardPage(0);
+          await loadCommentsPage(0);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "불러오지 못했습니다.";
+        if (isRollingPaperForbiddenMessage(msg)) {
+          setDetailForbidden(true);
+          setDetail(null);
+        } else {
+          setLoadError(msg);
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [slug, rollingToken, loadCommentsPage],
+  );
 
   useEffect(() => {
     void loadBoard();
@@ -1064,7 +1139,7 @@ export default function RollingPaperSlugPage({
     setModalOpen(true);
   };
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setModalOpen(false);
     setModalMode("create");
     setViewModalStep("read");
@@ -1072,7 +1147,14 @@ export default function RollingPaperSlugPage({
     setFormError(null);
     setCreateOverlayStep("postit");
     setGuestEditVerifyToken(null);
-  };
+    setGuestPassword("");
+    setEditPasswordGateOpen(false);
+    setEditGatePassword("");
+    setEditGateError(null);
+    setDeleteConfirmOpen(false);
+    setDeleteGuestPassword("");
+    setDeleteError(null);
+  }, []);
 
   /** 비회원: 본문만 채운 뒤 완료 → 닉네임·비밀번호 단계로 이동 */
   const handleGuestComposeComplete = () => {
@@ -1244,6 +1326,7 @@ export default function RollingPaperSlugPage({
           slug,
           row.id,
           guestPassword.trim(),
+          rollingToken,
         );
       setGuestEditVerifyToken(verifyToken);
       setContent(
@@ -1263,13 +1346,133 @@ export default function RollingPaperSlugPage({
       ? slotComments[activeSlot]
       : undefined;
 
-  const canEditViewMessage = useMemo(() => {
+  /** 위시 공개 보드 `canModifySelectedComment` 와 동일 — 회원 댓글은 본인 JWT, 비회원은 세션 기록 + 로그인 중에는 게스트 댓글 수정 불가 */
+  const canModifyRollingMessage = useMemo(() => {
     if (modalMode !== "view" || activeSlot === null || !slug) return false;
     const row = slotComments[activeSlot];
     if (!row) return false;
-    if (Boolean(getAccessToken()?.trim()) && row.isUser) return true;
+    if (row.isUser) return true;
+    if (visitorMenuLoggedIn) return false;
     return canEditRollingPaperGuestComment(slug, row.id);
-  }, [modalMode, activeSlot, slotComments, slug]);
+  }, [modalMode, activeSlot, slotComments, slug, visitorMenuLoggedIn]);
+
+  const handleBeginEditFromRead = useCallback(() => {
+    if (activeSlot === null || !slug) return;
+    const row = slotComments[activeSlot];
+    if (!row) return;
+    setFormError(null);
+    if (row.isUser) {
+      setGuestEditVerifyToken(null);
+      setViewModalStep("edit");
+      setContent(typeof row.content === "string" ? row.content : "");
+      return;
+    }
+    setEditGatePassword("");
+    setEditGateError(null);
+    setEditPasswordGateOpen(true);
+  }, [activeSlot, slotComments, slug]);
+
+  const closeEditPasswordGate = useCallback(() => {
+    if (editGateLoading) return;
+    setEditGateError(null);
+    setEditGatePassword("");
+    setEditPasswordGateOpen(false);
+  }, [editGateLoading]);
+
+  const submitEditPasswordGate = useCallback(async () => {
+    if (activeSlot === null || !slug) return;
+    const row = slotComments[activeSlot];
+    if (!row) return;
+    const pwd = editGatePassword.trim();
+    if (!pwd) {
+      setEditGateError("비밀번호를 입력해 주세요.");
+      return;
+    }
+    setEditGateError(null);
+    setEditGateLoading(true);
+    try {
+      const { verifyToken, content: verifiedContent } =
+        await verifyRollingPaperGuestCommentPassword(
+          slug,
+          row.id,
+          pwd,
+          rollingToken,
+        );
+      setGuestEditVerifyToken(verifyToken);
+      setEditPasswordGateOpen(false);
+      setEditGatePassword("");
+      setContent(
+        typeof verifiedContent === "string" && verifiedContent.trim() !== ""
+          ? verifiedContent
+          : typeof row.content === "string"
+            ? row.content
+            : "",
+      );
+      setViewModalStep("edit");
+    } catch (e) {
+      setEditGateError(
+        e instanceof Error ? e.message : "비밀번호 확인에 실패했습니다.",
+      );
+    } finally {
+      setEditGateLoading(false);
+    }
+  }, [activeSlot, slotComments, slug, editGatePassword, rollingToken]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (activeSlot === null || !slug) return;
+    const row = slotComments[activeSlot];
+    if (!row) return;
+    setDeleteError(null);
+    const member = Boolean(getAccessToken()?.trim()) && row.isUser;
+    setSubmitting(true);
+    try {
+      if (member) {
+        await deleteRollingPaperComment(slug, row.id, {
+          mode: "member",
+          rollingToken,
+        });
+      } else {
+        const pwd = deleteGuestPassword.trim();
+        if (!pwd) {
+          setDeleteError("비밀번호를 입력해 주세요.");
+          setSubmitting(false);
+          return;
+        }
+        const { verifyToken } =
+          await verifyRollingPaperGuestCommentPassword(
+            slug,
+            row.id,
+            pwd,
+            rollingToken,
+          );
+        await deleteRollingPaperComment(slug, row.id, {
+          mode: "guest",
+          verifyToken,
+          rollingToken,
+        });
+      }
+      setDeleteConfirmOpen(false);
+      setDeleteGuestPassword("");
+      closeModal();
+      await loadBoard();
+      router.refresh();
+    } catch (e) {
+      setDeleteError(
+        e instanceof Error ? e.message : "삭제에 실패했습니다.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    activeSlot,
+    slotComments,
+    slug,
+    deleteGuestPassword,
+    rollingToken,
+    loadBoard,
+    router,
+    closeModal,
+  ]);
 
   const rollingDialogTitle = useMemo(() => {
     const labelSlot =
@@ -1369,143 +1572,76 @@ export default function RollingPaperSlugPage({
                       }
                     />
                   )}
-                  {canEditViewMessage ? (
-                    <button
-                      type="button"
-                      className={`shrink-0 ${ROLLING_OVERLAY_PRIMARY_BTN_CLASS}`}
-                      onClick={() => {
-                        setViewModalStep("edit");
-                        setGuestEditVerifyToken(null);
-                        if (viewRow.isUser) {
-                          setContent(
-                            typeof viewRow.content === "string"
-                              ? viewRow.content
-                              : "",
-                          );
-                        } else {
-                          setContent("");
-                        }
-                        setGuestPassword("");
-                        setFormError(null);
-                      }}
-                    >
-                      수정
-                    </button>
+                  {canModifyRollingMessage ? (
+                    <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_DANGER_BTN_CLASS}
+                        onClick={() => {
+                          setDeleteGuestPassword("");
+                          setDeleteError(null);
+                          setDeleteConfirmOpen(true);
+                        }}
+                      >
+                        삭제
+                      </button>
+                      <button
+                        type="button"
+                        className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                        onClick={handleBeginEditFromRead}
+                      >
+                        수정
+                      </button>
+                    </div>
                   ) : null}
                 </>
               ) : (
                 <>
-                  {viewRow && !viewRow.isUser && !guestEditVerifyToken ? (
-                    <>
-                      <div className={ROLLING_OVERLAY_GUEST_CARD_CLASS}>
-                        <label className="flex flex-col gap-1">
-                          <span className="text-[11px] font-medium text-slate-700">
-                            비밀번호
-                          </span>
-                          <input
-                            type="password"
-                            value={guestPassword}
-                            onChange={(e) => setGuestPassword(e.target.value)}
-                            className={ROLLING_OVERLAY_INPUT_CLASS}
-                            placeholder="작성 시 설정한 비밀번호"
-                            autoComplete="current-password"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                void handleGuestEditVerifyLoad();
-                              }
-                            }}
-                          />
-                        </label>
-                      </div>
-
-                      {formError ? (
-                        <p className="text-[13px] text-red-200" role="alert">
-                          {formError}
-                        </p>
-                      ) : null}
-
-                      <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
-                        <button
-                          type="button"
-                          className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                          onClick={() => {
-                            setViewModalStep("read");
-                            setFormError(null);
-                            setGuestPassword("");
-                            setGuestEditVerifyToken(null);
-                          }}
-                          disabled={submitting}
-                        >
-                          취소
-                        </button>
-                        <button
-                          type="button"
-                          className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                          onClick={() => void handleGuestEditVerifyLoad()}
-                          disabled={submitting || !guestPassword.trim()}
-                        >
-                          {submitting ? "불러오는 중…" : "수정"}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <RollingPaperPostitShell
-                        slotIndex={activeSlot}
-                        fullTextScroll
-                      >
-                        <RollingPaperModalTextSlot>
-                          <RollingPaperPostitModalTextarea
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            placeholder="메시지를 수정해 보세요"
-                            autoFocus={
-                              Boolean(viewRow?.isUser) ||
-                              Boolean(guestEditVerifyToken)
-                            }
-                          />
-                        </RollingPaperModalTextSlot>
-                      </RollingPaperPostitShell>
-                      <span className="w-full text-right text-[11px] text-white/80">
-                        {content.trim().length}/{CONTENT_MAX}
-                      </span>
-
-                      {formError ? (
-                        <p className="text-[13px] text-red-200" role="alert">
-                          {formError}
-                        </p>
-                      ) : null}
-
-                      <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
-                        <button
-                          type="button"
-                          className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
-                          onClick={() => {
-                            setViewModalStep("read");
-                            setFormError(null);
-                            setGuestPassword("");
-                            setGuestEditVerifyToken(null);
-                          }}
-                          disabled={submitting}
-                        >
-                          취소
-                        </button>
-                        <button
-                          type="button"
-                          className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
-                          onClick={() => void handleViewEditSubmit()}
-                          disabled={
-                            submitting ||
-                            (Boolean(viewRow && !viewRow.isUser) &&
-                              !guestEditVerifyToken?.trim())
-                          }
-                        >
-                          {submitting ? "저장 중…" : "저장"}
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
+                    <RollingPaperModalTextSlot>
+                      <RollingPaperPostitModalTextarea
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        placeholder="메시지를 수정해 보세요"
+                        autoFocus
+                      />
+                    </RollingPaperModalTextSlot>
+                  </RollingPaperPostitShell>
+                  <span className="w-full text-right text-[11px] text-white/80">
+                    {content.trim().length}/{CONTENT_MAX}
+                  </span>
+                  {formError ? (
+                    <p className="text-[13px] text-red-200" role="alert">
+                      {formError}
+                    </p>
+                  ) : null}
+                  <div className="flex w-full flex-wrap justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_GHOST_BTN_CLASS}
+                      onClick={() => {
+                        setViewModalStep("read");
+                        setFormError(null);
+                        setGuestPassword("");
+                        setGuestEditVerifyToken(null);
+                      }}
+                      disabled={submitting}
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      className={ROLLING_OVERLAY_PRIMARY_BTN_DISABLED_CLASS}
+                      onClick={() => void handleViewEditSubmit()}
+                      disabled={
+                        submitting ||
+                        (Boolean(viewRow && !viewRow.isUser) &&
+                          !guestEditVerifyToken?.trim())
+                      }
+                    >
+                      {submitting ? "저장 중…" : "저장"}
+                    </button>
+                  </div>
                 </>
               )
             ) : null}
@@ -1738,22 +1874,104 @@ export default function RollingPaperSlugPage({
                         {COLLAGE_PIECES.map((piece) => {
                           const [aw, ah] = piece.aspect;
                           if (piece.kind === "polaroid") {
+                            const polaroidPhotoKey = detail?.imageKey?.trim();
+                            const polaroidPhotoSrc = polaroidPhotoKey
+                              ? getAssetImageUrl(polaroidPhotoKey)
+                              : "";
+                            const ownerPolaroid = detail?.isOwner === true;
                             return (
                               <div
                                 key={piece.src}
-                                className={`pointer-events-none absolute ${piece.className}`}
+                                className={`absolute ${piece.className} ${
+                                  ownerPolaroid ? "" : "pointer-events-none"
+                                }`}
                                 style={{ aspectRatio: `${aw} / ${ah}` }}
                               >
                                 <div className="relative h-full w-full">
                                   <Image
-                                    src={rollingPaperImageSrc(piece.src)}
+                                    key={`${piece.src}@${ROLLING_ASSET_VERSION}`}
+                                    src={piece.src}
                                     alt={piece.alt}
                                     fill
-                                    className="object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
+                                    className="pointer-events-none relative z-[1] object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                     sizes="(max-width: 420px) 50vw, 220px"
                                     priority
-                                    {...rollingPaperImageDevProps}
                                   />
+                                  {ownerPolaroid ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="absolute right-[4%] top-[11%] z-[26] flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white hover:ring-violet-300/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80"
+                                        aria-label="페이지 설정"
+                                        onClick={(ev) => {
+                                          ev.stopPropagation();
+                                          setRollingOwnerEditModal("full");
+                                        }}
+                                      >
+                                        <GearSixIcon size={17} weight="bold" aria-hidden />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={`${ROLLING_POLAROID_PHOTO_BUTTON_INSET} cursor-pointer`}
+                                        aria-label={
+                                          polaroidPhotoSrc
+                                            ? "받는 사람 사진 바꾸기"
+                                            : "받는 사람 사진 추가"
+                                        }
+                                        onClick={() =>
+                                          setRollingOwnerEditModal("photoOnly")
+                                        }
+                                      >
+                                        <span className={ROLLING_POLAROID_PHOTO_INNER}>
+                                          {polaroidPhotoSrc ? (
+                                            shouldUseNativeImg(polaroidPhotoSrc) ? (
+                                              /* eslint-disable-next-line @next/next/no-img-element -- CDN·S3 풀 URL */
+                                              <img
+                                                src={polaroidPhotoSrc}
+                                                alt=""
+                                                className={ROLLING_POLAROID_PHOTO_IMG}
+                                              />
+                                            ) : (
+                                              <Image
+                                                key={`${polaroidPhotoKey}@${ROLLING_ASSET_VERSION}`}
+                                                src={polaroidPhotoSrc}
+                                                alt=""
+                                                fill
+                                                className={ROLLING_POLAROID_PHOTO_IMG_FILL}
+                                                sizes="(max-width: 420px) 42vw, 180px"
+                                              />
+                                            )
+                                          ) : (
+                                            <span className="pointer-events-none flex h-full w-full items-center justify-center bg-white/55 text-[11px] font-medium leading-tight text-slate-600 ring-1 ring-inset ring-slate-300/70">
+                                              사진 추가
+                                            </span>
+                                          )}
+                                        </span>
+                                      </button>
+                                    </>
+                                  ) : polaroidPhotoSrc ? (
+                                      <div className={`${ROLLING_POLAROID_PHOTO_INSET} z-[2]`}>
+                                      <div className={ROLLING_POLAROID_PHOTO_INNER}>
+                                        {shouldUseNativeImg(polaroidPhotoSrc) ? (
+                                          /* eslint-disable-next-line @next/next/no-img-element -- CDN·S3 풀 URL */
+                                          <img
+                                            src={polaroidPhotoSrc}
+                                            alt=""
+                                            className={ROLLING_POLAROID_PHOTO_IMG}
+                                          />
+                                        ) : (
+                                          <Image
+                                            key={`${polaroidPhotoKey}@${ROLLING_ASSET_VERSION}`}
+                                            src={polaroidPhotoSrc}
+                                            alt=""
+                                            fill
+                                            className={ROLLING_POLAROID_PHOTO_IMG_FILL}
+                                            sizes="(max-width: 420px) 42vw, 180px"
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : null}
                                 </div>
                               </div>
                             );
@@ -1783,13 +2001,13 @@ export default function RollingPaperSlugPage({
                             >
                               <div className="relative h-full w-full">
                                 <Image
-                                  src={rollingPaperImageSrc(piece.src)}
+                                  key={`${piece.src}@${ROLLING_ASSET_VERSION}`}
+                                  src={piece.src}
                                   alt={piece.alt}
                                   fill
                                   className="pointer-events-none object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                   sizes="(max-width: 420px) 50vw, 220px"
                                   priority={slotIdx === 1}
-                                  {...rollingPaperImageDevProps}
                                 />
 
                                 {text ? (
@@ -1912,6 +2130,21 @@ export default function RollingPaperSlugPage({
       )}
     </main>
 
+      {rollingSettingsBoardEntry ? (
+        <EditBoardOrRollingPaperModal
+          open={rollingOwnerEditModal !== null}
+          onClose={() => setRollingOwnerEditModal(null)}
+          entry={rollingSettingsBoardEntry}
+          rollingPhotoOnly={rollingOwnerEditModal === "photoOnly"}
+          onSaved={(rolling) => {
+            if (rolling) {
+              setDetail((prev) => (prev ? { ...prev, ...rolling } : prev));
+            }
+            void loadBoard({ silent: true });
+          }}
+        />
+      ) : null}
+
       {showRollingPaperShareEntry ? (
         <BoardShareDialog
           presentation="page"
@@ -1961,6 +2194,116 @@ export default function RollingPaperSlugPage({
           navigatorShareTitle="롤링페이퍼"
         />
       ) : null}
+
+      <WishlistCenterDialog
+        variant="static"
+        open={editPasswordGateOpen}
+        onClose={closeEditPasswordGate}
+        title="메시지 수정하기"
+        titleId={editGateTitleId}
+        closeLabel="닫기"
+        backdropClassName="!z-[600] bg-black/45"
+        surfaceClassName="!z-[601]"
+      >
+        <div className="mt-5 flex flex-col gap-3">
+          <div className="text-left">
+            <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
+            <input
+              type="password"
+              value={editGatePassword}
+              onChange={(e) => setEditGatePassword(e.target.value)}
+              disabled={editGateLoading}
+              autoComplete="current-password"
+              placeholder="작성 시 입력한 비밀번호"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+            />
+          </div>
+          {editGateError ? (
+            <p className="text-center text-xs text-red-500">{editGateError}</p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={closeEditPasswordGate}
+              disabled={editGateLoading}
+              className="rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => void submitEditPasswordGate()}
+              disabled={editGateLoading}
+              className="rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6b52e0] disabled:opacity-40"
+            >
+              {editGateLoading ? "확인 중…" : "확인"}
+            </button>
+          </div>
+        </div>
+      </WishlistCenterDialog>
+
+      <WishlistCenterDialog
+        variant="static"
+        open={deleteConfirmOpen}
+        onClose={() => {
+          if (submitting) return;
+          setDeleteError(null);
+          setDeleteGuestPassword("");
+          setDeleteConfirmOpen(false);
+        }}
+        title="메시지를 삭제할까요?"
+        titleId={deleteDialogTitleId}
+        closeLabel="닫기"
+        backdropClassName="!z-[600] bg-black/45"
+        surfaceClassName="!z-[601]"
+        description="삭제 후에는 복구할 수 없습니다."
+      >
+        <div className="mt-5 flex flex-col gap-3">
+          {deleteConfirmOpen &&
+          activeSlot !== null &&
+          slotComments[activeSlot] &&
+          !slotComments[activeSlot]!.isUser ? (
+            <div className="text-left">
+              <p className="mb-2 text-xs font-semibold text-slate-500">비밀번호 *</p>
+              <input
+                type="password"
+                value={deleteGuestPassword}
+                onChange={(e) => setDeleteGuestPassword(e.target.value)}
+                disabled={submitting}
+                autoComplete="current-password"
+                placeholder="작성 시 입력한 비밀번호"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#7B61FF] focus:bg-white disabled:opacity-40"
+              />
+            </div>
+          ) : null}
+          {deleteError ? (
+            <p className="text-center text-xs text-red-500">{deleteError}</p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (submitting) return;
+                setDeleteError(null);
+                setDeleteGuestPassword("");
+                setDeleteConfirmOpen(false);
+              }}
+              disabled={submitting}
+              className="rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeleteConfirm()}
+              disabled={submitting}
+              className="rounded-[14px] bg-red-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:opacity-40"
+            >
+              {submitting ? "삭제 중…" : "삭제하기"}
+            </button>
+          </div>
+        </div>
+      </WishlistCenterDialog>
 
       {modalOpen && portalReady && typeof document !== "undefined"
         ? createPortal(rollingPaperOverlay, document.body)

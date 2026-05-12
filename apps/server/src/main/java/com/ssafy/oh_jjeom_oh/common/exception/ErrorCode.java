@@ -84,7 +84,7 @@ public enum ErrorCode {
     // 롤링페이퍼 댓글
     RP_COMMENT_SENDER_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "비회원 댓글에는 닉네임이 필요합니다."),
     RP_COMMENT_PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "비회원 댓글에는 비밀번호가 필요합니다."),
-    RP_COMMENT_WRONG_PASSWORD(HttpStatus.FORBIDDEN, "댓글 비밀번호가 올바르지 않습니다."),
+    RP_COMMENT_WRONG_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다."),
 
     // 공지사항
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다."),

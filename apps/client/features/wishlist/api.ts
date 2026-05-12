@@ -477,9 +477,11 @@ export function formatCreateBoardLimitError(message: string): string {
   return message;
 }
 
-/** POST /api/rolling-papers — RollingPaperCreateRequest (제목·기준일, imageKey·isCommentPublic; recipientName은 서버 선택) */
+/** POST /api/rolling-papers — RollingPaperCreateRequest (제목·받는 사람·기준일, imageKey·isCommentPublic) */
 export type CreateRollingPaperBody = {
   title: string;
+  /** 받는 사람 이름 — 서버 `@Size(max = 100)`, 비우면 생략 */
+  recipientName?: string | null;
   targetDate: string;
   imageKey?: string | null;
   /** 댓글 즉시 공개 여부 · 서버 기본 false와 맞추려면 명시 전달 권장 */
@@ -505,6 +507,10 @@ export async function createRollingPaper(
     targetDate: body.targetDate.trim(),
     isCommentPublic: body.isCommentPublic,
   };
+  const rn = body.recipientName?.trim();
+  if (rn) {
+    payload.recipientName = rn;
+  }
   const ik = body.imageKey?.trim();
   if (ik) {
     payload.imageKey = ik;

@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
-import type { RemotePattern } from "next/dist/shared/lib/image-config";
+import type {
+  LocalPattern,
+  RemotePattern,
+} from "next/dist/shared/lib/image-config";
 
 /**
  * API 프록시: 위에서부터 첫 매칭이 적용됩니다.
@@ -100,6 +103,13 @@ function buildImageRemotePatterns(): RemotePattern[] {
   return patterns;
 }
 
+/** Next 16+ `/_next/image` 로컬 `src` 허용 — `images.localPatterns` 미설정 시 거절됨 */
+const imageLocalPatterns: LocalPattern[] = [
+  { pathname: "/rollingpaper/**" },
+  { pathname: "/main/**" },
+  { pathname: "/ranking/**" },
+];
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
     ...extraAllowedDevOrigins,
@@ -111,6 +121,7 @@ const nextConfig: NextConfig = {
   ],
   images: {
     remotePatterns: buildImageRemotePatterns(),
+    localPatterns: imageLocalPatterns,
     ...(process.env.NODE_ENV === "development"
       ? { minimumCacheTTL: 0 }
       : {}),
