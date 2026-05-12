@@ -15,6 +15,7 @@ export type RollingPaperOwnerShareTabsConfig = {
   comment: {
     absoluteUrl: string | null;
     linkHref: string | null;
+    error?: string | null;
   };
   view: {
     absoluteUrl: string | null;
@@ -36,6 +37,7 @@ export function ShareLinkModalPanel({
   secondaryLinkHref = null,
   primaryLinkCaption,
   secondaryLinkCaption,
+  secondaryErrorMessage = null,
 }: {
   dialogOpen: boolean;
   /** 클립보드·Web Share용 전체 URL — 없으면 로딩 문구 */
@@ -55,6 +57,8 @@ export function ShareLinkModalPanel({
   primaryLinkCaption?: string;
   /** 보조 링크 위 짧은 설명 */
   secondaryLinkCaption?: string;
+  /** 보조 링크 발급 실패 등 */
+  secondaryErrorMessage?: string | null;
 }) {
   const [copyFeedback, setCopyFeedback] = useState(false);
 
@@ -74,9 +78,14 @@ export function ShareLinkModalPanel({
 
   const displayText = absoluteUrl || linkHref;
   const err = errorMessage?.trim();
+  const secondaryErr = secondaryErrorMessage?.trim();
   const secondaryDisplay = secondaryAbsoluteUrl || secondaryLinkHref;
-  const hasSecondary =
+  const hasSecondaryLink =
     Boolean(secondaryAbsoluteUrl?.trim()) && Boolean(secondaryLinkHref?.trim());
+  const hasSecondaryBlock =
+    hasSecondaryLink ||
+    Boolean(secondaryErr) ||
+    Boolean(secondaryLinkCaption?.trim());
 
   return (
     <>
@@ -155,7 +164,7 @@ export function ShareLinkModalPanel({
         </button>
       </div>
 
-      {hasSecondary ? (
+      {hasSecondaryBlock ? (
         <div className="mt-6 w-full min-w-0 border-t border-[var(--color-border)] pt-5">
           {secondaryLinkCaption ? (
             <p className="text-left text-[12px] font-medium leading-snug text-slate-600">
@@ -164,19 +173,26 @@ export function ShareLinkModalPanel({
           ) : null}
           <div className="relative mt-2 w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[var(--color-border)]">
             <div className="min-w-0 break-words break-all bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
-              <a
-                href={secondaryLinkHref!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-[var(--color-text-primary)] underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF]"
-              >
-                {secondaryDisplay}
-              </a>
+              {secondaryErr ? (
+                <span className="text-[#c02626]">{secondaryErr}</span>
+              ) : hasSecondaryLink ? (
+                <a
+                  href={secondaryLinkHref!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-[var(--color-text-primary)] underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF]"
+                >
+                  {secondaryDisplay}
+                </a>
+              ) : secondaryLinkCaption?.trim() ? (
+                "링크를 불러오는 중..."
+              ) : null}
             </div>
           </div>
           <button
             type="button"
-            className="mt-3 w-full rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] font-semibold text-[var(--color-text-primary)] transition-[transform,filter] active:scale-[0.99] active:brightness-95"
+            disabled={!secondaryAbsoluteUrl?.trim()}
+            className="mt-3 w-full rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] font-semibold text-[var(--color-text-primary)] transition-[transform,filter] active:scale-[0.99] active:brightness-95 disabled:opacity-50"
             onClick={async () => {
               if (!secondaryAbsoluteUrl) return;
               try {
@@ -218,6 +234,10 @@ type BoardShareDialogProps = {
   closeLabel?: string;
   description?: string;
   navigatorShareTitle?: string;
+  /** 탭 없음(방문자 공유 등) — 링크 패널 오류 문구 */
+  sharePanelError?: string | null;
+  /** 보조 링크 영역만의 오류(예: 저장용 단축 URL 발급 실패) */
+  secondaryPanelError?: string | null;
 };
 
 /**
@@ -253,6 +273,8 @@ export function BoardShareDialog({
   closeLabel = "공유 창 닫기",
   description,
   navigatorShareTitle,
+  sharePanelError = null,
+  secondaryPanelError = null,
 }: BoardShareDialogProps) {
   const genId = useId();
   const titleId = titleIdProp ?? genId;
@@ -274,9 +296,11 @@ export function BoardShareDialog({
         ? tabs.comment.linkHref
         : tabs.view.linkHref;
   const panelError =
-    tabs != null && activeTab === "view"
-      ? tabs.view.error
-      : null;
+    tabs != null
+      ? activeTab === "comment"
+        ? tabs.comment.error ?? null
+        : tabs.view.error ?? null
+      : sharePanelError ?? null;
   const panelHint =
     tabs != null && activeTab === "view"
       ? tabs.view.absoluteUrl && !tabs.view.error
@@ -339,6 +363,7 @@ export function BoardShareDialog({
         hint={panelHint}
         secondaryAbsoluteUrl={secondaryAbsoluteUrl}
         secondaryLinkHref={secondaryLinkHref}
+        secondaryErrorMessage={secondaryPanelError}
         primaryLinkCaption={primaryLinkCaption}
         secondaryLinkCaption={secondaryLinkCaption}
       />
