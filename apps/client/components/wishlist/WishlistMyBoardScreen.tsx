@@ -25,16 +25,12 @@ import { getAccessToken } from "@/lib/api/token-store";
 import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { BoardShareDialog, BoardShareFabButton } from "@/components/common/ShareBoardLink";
 import {
+  GiftIconGridSkeleton,
   GiftIconModalChromeSkeleton,
   StickerGridSkeleton,
   StickerSheetFixedViewport,
 } from "@/components/wishlist/asset-picker-skeletons";
-import { ModalLazyScrollRoot } from "@/components/wishlist/modal-lazy-scroll-root";
 import { ScrollLazyModalImage } from "@/components/wishlist/ScrollLazyModalImage";
-import {
-  GIFT_ICON_GRID_FIRST_SCREEN_CATALOG_COUNT,
-  STICKER_GRID_FIRST_SCREEN_STICKER_COUNT,
-} from "@/components/wishlist/sticker-sheet-layout";
 import {
   UI_FOCUS_OUTLINE_VISIBLE,
   UI_FOCUS_RING_INSET_VISIBLE,
@@ -92,7 +88,10 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 import { shouldUseNativeImg } from "@/lib/native-img";
-import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
+import {
+  getStickerFolderLabel,
+  orderStickerFoldersForTabs,
+} from "@/lib/sticker-folder-labels";
 import {
   loadGiftIconsWithSessionCache,
   loadStickerFolderWithSessionCache,
@@ -166,7 +165,6 @@ const FALLBACK_STICKER_FOLDER_IDS: readonly string[] = [
   "bubble",
   "cute",
   "dessert",
-  "toy",
 ];
 
 /** PUT/DELETE 직후 화면에 바로 반영 — 재조회 타이밍·`<Image>` 캐시로 배경이 늦게 바뀌는 현상 완화 */
@@ -304,6 +302,13 @@ export function WishlistMyBoardScreen({
   const [giftIcons, setGiftIcons] = useState<GiftIconDto[]>([]);
   const [giftIconsLoading, setGiftIconsLoading] = useState(false);
   const [giftIconsError, setGiftIconsError] = useState<string | null>(null);
+  /** 탭·지역 바뀔 때 썸네일 전부 디코딩 후 그리드 표시(위→아래 순차 등장 방지) */
+  const [giftCatalogRasterReady, setGiftCatalogRasterReady] = useState(true);
+  /** 프리로드 완료 뒤 스켈레톤 레이어 페이드아웃·언마운트(깜빡임 완화) */
+  const [giftCatalogSkeletonFadeDone, setGiftCatalogSkeletonFadeDone] =
+    useState(false);
+  /** 그리드 래스터 준비 후 짧은 등장 트랜지션 */
+  const [giftCatalogGridEntered, setGiftCatalogGridEntered] = useState(false);
   const [giftIconModalTab, setGiftIconModalTab] =
     useState<GiftIconModalTabId>("travel");
   /** 여행 카테고리 선택 시 — 도시별 서브탭 */
@@ -357,6 +362,8 @@ export function WishlistMyBoardScreen({
   const [stickerSheetList, setStickerSheetList] = useState<StickerAssetDto[]>([]);
   const [stickerSheetLoading, setStickerSheetLoading] = useState(false);
   const [stickerSheetError, setStickerSheetError] = useState<string | null>(null);
+  /** 현재 탭 썸네일 전부 디코딩 후 그리드 표시(위→아래 순차 로딩 완화) */
+  const [stickerSheetRasterReady, setStickerSheetRasterReady] = useState(true);
   const [stickerSlotSaving, setStickerSlotSaving] = useState(false);
   const [stickerSlotSaveError, setStickerSlotSaveError] = useState<string | null>(null);
   /** `GET /api/assets/stickers/folders?boardSlug=` — 구단 보드면 야구 폴더 포함 목록 */
@@ -418,17 +425,16 @@ export function WishlistMyBoardScreen({
 
   useEffect(() => {
     if (embeddedInSlugCarousel && embeddedStickerFoldersFromParent !== undefined) {
+      const fromParent = orderStickerFoldersForTabs(embeddedStickerFoldersFromParent);
       setStickerFolderIds(
-        embeddedStickerFoldersFromParent.length > 0
-          ? embeddedStickerFoldersFromParent
-          : [...FALLBACK_STICKER_FOLDER_IDS],
+        fromParent.length > 0 ? fromParent : [...FALLBACK_STICKER_FOLDER_IDS],
       );
       return;
     }
     let cancelled = false;
     const load = async () => {
       try {
-        const folders = await fetchStickerFolders(boardSlug);
+        const folders = orderStickerFoldersForTabs(await fetchStickerFolders(boardSlug));
         if (cancelled) return;
         setStickerFolderIds(
           folders.length > 0 ? folders : [...FALLBACK_STICKER_FOLDER_IDS],
@@ -446,8 +452,9 @@ export function WishlistMyBoardScreen({
   }, [boardSlug, embeddedInSlugCarousel, embeddedStickerFoldersFromParent]);
 
   const stickerModalTabs = useMemo(() => {
-    const ids =
-      stickerFolderIds.length > 0 ? stickerFolderIds : [...FALLBACK_STICKER_FOLDER_IDS];
+    const ids = orderStickerFoldersForTabs(
+      stickerFolderIds.length > 0 ? stickerFolderIds : [...FALLBACK_STICKER_FOLDER_IDS],
+    );
     return ids.map((id) => ({
       id,
       label: getStickerFolderLabel(id),
@@ -719,6 +726,17 @@ export function WishlistMyBoardScreen({
     };
   }, []);
 
+  /** 내 보드 확보 후 선물 아이콘 카탈로그를 미리 받아 두어 수정 모달이 가볍게 열리게 함 */
+  useEffect(() => {
+    const slug = boardSlug?.trim();
+    if (!slug || !hasMyBoard) {
+      return;
+    }
+    void loadGiftIconsWithSessionCache(slug).catch(() => {
+      /* 모달 열 때 재요청 — 프리패치 실패는 무시 */
+    });
+  }, [boardSlug, hasMyBoard]);
+
   /** 선물 슬롯 클릭으로 모달이 열릴 때 — `GET /api/assets/gift-icons?boardSlug=`(내 보드 slug) 로드 */
   useEffect(() => {
     if (!isGiftModalOpen) {
@@ -726,10 +744,16 @@ export function WishlistMyBoardScreen({
     }
 
     let cancelled = false;
+    let loadingDelayTimer: ReturnType<typeof setTimeout> | null = null;
 
     const loadGiftIcons = async () => {
-      setGiftIconsLoading(true);
       setGiftIconsError(null);
+      loadingDelayTimer = setTimeout(() => {
+        if (!cancelled) {
+          setGiftIconsLoading(true);
+        }
+      }, 100);
+
       try {
         const list = await loadGiftIconsWithSessionCache(boardSlug);
         if (!cancelled) {
@@ -745,6 +769,10 @@ export function WishlistMyBoardScreen({
           );
         }
       } finally {
+        if (loadingDelayTimer != null) {
+          clearTimeout(loadingDelayTimer);
+          loadingDelayTimer = null;
+        }
         if (!cancelled) {
           setGiftIconsLoading(false);
         }
@@ -755,6 +783,10 @@ export function WishlistMyBoardScreen({
 
     return () => {
       cancelled = true;
+      if (loadingDelayTimer != null) {
+        clearTimeout(loadingDelayTimer);
+      }
+      setGiftIconsLoading(false);
     };
   }, [isGiftModalOpen, boardSlug]);
 
@@ -902,6 +934,101 @@ export function WishlistMyBoardScreen({
     giftIconTravelSubTabEffective,
   ]);
 
+  /** 탭·여행 서브탭·아이콘 목록이 바뀔 때마다 래스터 프리로드 키 */
+  const giftCatalogPreloadKey = useMemo(
+    () =>
+      `${giftIconModalTabEffective}|${
+        giftIconModalTabEffective === "travel"
+          ? giftIconTravelSubTabEffective
+          : "-"
+      }|${filteredCatalogGiftIcons.map((i) => i.id).join(",")}`,
+    [
+      giftIconModalTabEffective,
+      giftIconTravelSubTabEffective,
+      filteredCatalogGiftIcons,
+    ],
+  );
+
+  useEffect(() => {
+    if (!isGiftModalOpen) {
+      return;
+    }
+    if (filteredCatalogGiftIcons.length === 0) {
+      setGiftCatalogRasterReady(true);
+      return;
+    }
+    setGiftCatalogRasterReady(false);
+    let cancelled = false;
+
+    const preloadOne = (url: string) =>
+      new Promise<void>((resolve) => {
+        const trimmed = url.trim();
+        if (!trimmed) {
+          resolve();
+          return;
+        }
+        const im = new window.Image();
+        im.onload = () => {
+          void im.decode().then(resolve).catch(() => resolve());
+        };
+        im.onerror = () => resolve();
+        im.src = trimmed;
+      });
+
+    void Promise.all(
+      filteredCatalogGiftIcons.map((icon) =>
+        preloadOne(getAssetImageUrl(icon.assetKey)),
+      ),
+    ).then(() => {
+      if (!cancelled) {
+        setGiftCatalogRasterReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isGiftModalOpen, giftCatalogPreloadKey]);
+
+  useEffect(() => {
+    queueMicrotask(() => setGiftCatalogSkeletonFadeDone(false));
+  }, [giftCatalogPreloadKey]);
+
+  useEffect(() => {
+    if (!giftCatalogRasterReady) {
+      return;
+    }
+    if (filteredCatalogGiftIcons.length === 0) {
+      setGiftCatalogSkeletonFadeDone(true);
+      return;
+    }
+    const t = window.setTimeout(() => setGiftCatalogSkeletonFadeDone(true), 380);
+    return () => window.clearTimeout(t);
+  }, [
+    giftCatalogRasterReady,
+    giftCatalogPreloadKey,
+    filteredCatalogGiftIcons.length,
+  ]);
+
+  useEffect(() => {
+    if (!giftCatalogRasterReady) {
+      setGiftCatalogGridEntered(false);
+      return;
+    }
+    if (filteredCatalogGiftIcons.length === 0) {
+      setGiftCatalogGridEntered(true);
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setGiftCatalogGridEntered(true));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [
+    giftCatalogRasterReady,
+    giftCatalogPreloadKey,
+    filteredCatalogGiftIcons.length,
+  ]);
+
   /** 목록 최초 로드 후 — 저장된 키가 카탈로그 첫 항목과 같으면 「기본 선물」로 표시 */
   useEffect(() => {
     if (!isGiftModalOpen || giftModalMode !== "edit") {
@@ -975,6 +1102,7 @@ export function WishlistMyBoardScreen({
     let cancelled = false;
 
     const run = async () => {
+      setStickerSheetRasterReady(false);
       setStickerSheetLoading(true);
       setStickerSheetError(null);
       try {
@@ -1007,6 +1135,60 @@ export function WishlistMyBoardScreen({
       cancelled = true;
     };
   }, [isBottomSheetOpen, stickerModalTabEffective, boardSlug]);
+
+  const stickerSheetPreloadKey = useMemo(
+    () =>
+      `${stickerModalTabEffective}|${stickerSheetList
+        .map((s) => `${s.id}:${s.assetKey}`)
+        .join(",")}`,
+    [stickerModalTabEffective, stickerSheetList],
+  );
+
+  useEffect(() => {
+    if (!isBottomSheetOpen) {
+      setStickerSheetRasterReady(true);
+      return;
+    }
+    if (stickerSheetLoading) {
+      return;
+    }
+    if (stickerSheetList.length === 0) {
+      setStickerSheetRasterReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    setStickerSheetRasterReady(false);
+
+    const preloadOne = (url: string) =>
+      new Promise<void>((resolve) => {
+        const trimmed = url.trim();
+        if (!trimmed) {
+          resolve();
+          return;
+        }
+        const im = new window.Image();
+        im.onload = () => {
+          void im.decode().then(resolve).catch(() => resolve());
+        };
+        im.onerror = () => resolve();
+        im.src = trimmed;
+      });
+
+    void Promise.all(
+      stickerSheetList.map((s) =>
+        preloadOne(getAssetImageUrl(s.assetKey)),
+      ),
+    ).then(() => {
+      if (!cancelled) {
+        setStickerSheetRasterReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isBottomSheetOpen, stickerSheetLoading, stickerSheetPreloadKey]);
 
   useEffect(() => {
     if (!isBottomSheetOpen) {
@@ -2045,7 +2227,7 @@ export function WishlistMyBoardScreen({
                 onClick={closeGiftModal}
               />
               <div
-                className="relative z-10 flex max-h-[min(90dvh,640px)] w-full max-w-[380px] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.22)]"
+                className="relative z-10 flex h-[min(90dvh,640px)] w-full max-w-[380px] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.22)]"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="gift-modal-title"
@@ -2118,7 +2300,7 @@ export function WishlistMyBoardScreen({
 
                   <p className="mt-5 shrink-0 text-sm font-medium text-slate-800">위시 아이콘</p>
 
-                  <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-inner">
+                  <div className="mt-3 flex min-h-[min(36dvh,260px)] flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-inner">
                     {giftIconsLoading ? (
                       <GiftIconModalChromeSkeleton />
                     ) : giftIconsError ? null : (
@@ -2202,11 +2384,37 @@ export function WishlistMyBoardScreen({
                             })}
                           </div>
                         ) : null}
-                        <ModalLazyScrollRoot
+                        <div
                           key={`${giftIconModalTabEffective}${giftIconModalTabEffective === "travel" ? `-${giftIconTravelSubTabEffective}` : ""}`}
-                          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]"
+                          className="relative min-h-[min(28dvh,200px)] flex-1 overflow-y-auto overscroll-y-contain p-3 [-webkit-overflow-scrolling:touch]"
                         >
-                          <div className="grid grid-cols-3 gap-2 content-start">
+                          {filteredCatalogGiftIcons.length > 0 &&
+                          !(
+                            giftCatalogRasterReady &&
+                            giftCatalogSkeletonFadeDone
+                          ) ? (
+                            <div
+                              className={`pointer-events-none absolute inset-0 z-10 flex justify-center bg-white/90 p-3 transition-opacity duration-300 ease-out motion-reduce:transition-none ${
+                                giftCatalogRasterReady
+                                  ? "opacity-0"
+                                  : "opacity-100"
+                              }`}
+                              aria-busy={!giftCatalogRasterReady}
+                              aria-label="선물 아이콘 불러오는 중"
+                            >
+                              <div className="w-full max-w-[360px]">
+                                <GiftIconGridSkeleton />
+                              </div>
+                            </div>
+                          ) : null}
+                          {giftCatalogRasterReady ? (
+                          <div
+                            className={`relative z-0 grid grid-cols-3 gap-2 content-start transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none ${
+                              giftCatalogGridEntered
+                                ? "translate-y-0 opacity-100"
+                                : "translate-y-0.5 opacity-0"
+                            }`}
+                          >
                             <button
                               type="button"
                               onClick={() => {
@@ -2231,11 +2439,9 @@ export function WishlistMyBoardScreen({
                                 draggable={false}
                               />
                             </button>
-                            {filteredCatalogGiftIcons.map((icon, catalogIdx) => {
+                            {filteredCatalogGiftIcons.map((icon) => {
                               const src = getAssetImageUrl(icon.assetKey);
                               const selected = giftModalResolvedIconId === icon.id;
-                              const eagerThumb =
-                                catalogIdx < GIFT_ICON_GRID_FIRST_SCREEN_CATALOG_COUNT;
 
                               return (
                                 <button
@@ -2255,7 +2461,9 @@ export function WishlistMyBoardScreen({
                                 >
                                   <ScrollLazyModalImage
                                     src={src}
-                                    eager={eagerThumb}
+                                    eager
+                                    highFetchPriority
+                                    softContentFade
                                     useNativeImg={shouldUseNativeImg(src)}
                                     sizes={GIFT_ICON_GRID_SIZES}
                                     imgClassName="absolute inset-0 h-full w-full object-contain p-1"
@@ -2264,6 +2472,7 @@ export function WishlistMyBoardScreen({
                               );
                             })}
                           </div>
+                          ) : null}
 
                           {giftIcons.length === 0 ? (
                             <p className="mt-2 text-center text-body-sm text-slate-500">
@@ -2275,7 +2484,7 @@ export function WishlistMyBoardScreen({
                               이 카테고리에 표시할 아이콘이 없습니다. 다른 카테고리를 선택해 보세요.
                             </p>
                           ) : null}
-                        </ModalLazyScrollRoot>
+                        </div>
                       </>
                     )}
                   </div>
@@ -2371,11 +2580,10 @@ export function WishlistMyBoardScreen({
                     <StickerSheetFixedViewport
                       key={stickerModalTabEffective}
                       scrollable
-                      lazyScrollImages
                     >
                       {stickerSheetLoading ? (
                         <StickerGridSkeleton />
-                      ) : (
+                      ) : stickerSheetList.length === 0 ? (
                         <>
                           <div className="grid grid-cols-6 gap-1">
                             <button
@@ -2389,10 +2597,38 @@ export function WishlistMyBoardScreen({
                             >
                               ×
                             </button>
-                            {stickerSheetList.map((sticker, stickerIdx) => {
+                          </div>
+                          <p className="mt-2 px-1 text-center text-body-sm text-slate-500">
+                            이 탭에 표시할 스티커가 없습니다. 맨 앞 ×로 이 슬롯의 스티커를 지울 수
+                            있어요.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="relative min-h-0">
+                          {!stickerSheetRasterReady ? (
+                            <div
+                              className="pointer-events-none absolute inset-0 z-10 flex justify-center bg-white/90 p-0.5"
+                              aria-busy="true"
+                              aria-label="스티커 썸네일 준비 중"
+                            >
+                              <StickerGridSkeleton />
+                            </div>
+                          ) : null}
+                          {stickerSheetRasterReady ? (
+                          <div className="grid grid-cols-6 gap-1">
+                            <button
+                              type="button"
+                              disabled={
+                                stickerSlotSaving || stickerTargetSlotId == null
+                              }
+                              onClick={() => void removeStickerFromSlot()}
+                              className="flex aspect-square items-center justify-center overflow-hidden rounded-md border-2 border-slate-300 bg-white text-xl font-semibold text-slate-500 transition enabled:hover:border-red-400 enabled:hover:bg-red-50 enabled:hover:text-red-600 enabled:active:scale-[0.98] disabled:opacity-50"
+                              aria-label="이 슬롯에서 스티커 삭제"
+                            >
+                              ×
+                            </button>
+                            {stickerSheetList.map((sticker) => {
                               const stickerSrc = getAssetImageUrl(sticker.assetKey);
-                              const eagerThumb =
-                                stickerIdx < STICKER_GRID_FIRST_SCREEN_STICKER_COUNT;
 
                               return (
                                 <button
@@ -2409,7 +2645,9 @@ export function WishlistMyBoardScreen({
                                 >
                                   <ScrollLazyModalImage
                                     src={stickerSrc}
-                                    eager={eagerThumb}
+                                    eager
+                                    highFetchPriority
+                                    softContentFade
                                     useNativeImg={shouldUseNativeImg(stickerSrc)}
                                     sizes={STICKER_SHEET_CELL_SIZES}
                                     imgClassName="absolute inset-0 h-full w-full object-contain p-0.5"
@@ -2418,13 +2656,8 @@ export function WishlistMyBoardScreen({
                               );
                             })}
                           </div>
-                          {stickerSheetList.length === 0 ? (
-                            <p className="mt-2 px-1 text-center text-body-sm text-slate-500">
-                              이 탭에 표시할 스티커가 없습니다. 맨 앞 ×로 이 슬롯의 스티커를 지울 수
-                              있어요.
-                            </p>
                           ) : null}
-                        </>
+                        </div>
                       )}
                     </StickerSheetFixedViewport>
                   )}
