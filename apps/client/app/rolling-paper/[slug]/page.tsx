@@ -3,6 +3,7 @@
 import {
   CaretLeftIcon,
   CaretRightIcon,
+  GearSixIcon,
   TextAlignJustify,
 } from "@phosphor-icons/react";
 import Image from "next/image";
@@ -22,6 +23,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { EditBoardOrRollingPaperModal } from "@/components/common/EditBoardOrRollingPaperModal";
 import {
   BoardShareDialog,
   BoardShareFabButton,
@@ -65,6 +67,9 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
+import type { MyBoardListEntry } from "@/features/wishlist/types";
+import { getAssetImageUrl } from "@/lib/asset-url";
+import { shouldUseNativeImg } from "@/lib/native-img";
 import { RollingPaperBubbleLayer } from "@/components/rolling-paper/RollingPaperBubbleLayer";
 import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
 import { isMaskedOthersWishComment } from "@/features/wishlist/comment-display";
@@ -100,6 +105,26 @@ const ROLLING_PAPER_BOARD_INNER =
   "relative h-full w-full min-h-0 min-w-0 overflow-visible bg-transparent";
 
 const COLLAGE_BG = "bg-[#f4f2ec]";
+
+/**
+ * `rollingpaper-01.png` 폴라로이드 창에 맞춘 사진 영역(상·좌우·하 여백) — `imageKey` 없으면 미사용.
+ */
+const ROLLING_POLAROID_PHOTO_INSET =
+  "pointer-events-none absolute inset-[19%_8.5%_30%_8.5%] overflow-hidden rounded-[1.5%]";
+
+/**
+ * 액자 안 — 별도 배경 없음. `object-contain` 여백은 투명(뒤 레이어가 비침).
+ * 사진: `scale`+작은 `rotate`로 회전 시 모서리 클립 완화.
+ */
+const ROLLING_POLAROID_PHOTO_INNER = "relative block h-full w-full";
+
+const ROLLING_POLAROID_PHOTO_IMG =
+  "pointer-events-none h-full w-full origin-center scale-[0.98] rotate-[1.75deg] object-contain object-center";
+const ROLLING_POLAROID_PHOTO_IMG_FILL =
+  "pointer-events-none origin-center scale-[0.98] rotate-[1.75deg] object-contain object-center";
+/** 소유자 폴라로이드 사진 영역 탭 — inset은 위와 동일, 포인터 허용 */
+const ROLLING_POLAROID_PHOTO_BUTTON_INSET =
+  "absolute inset-[19%_8.5%_30%_8.5%] z-[15] overflow-hidden rounded-[1.5%] border-0 bg-transparent p-0 shadow-none outline-none ring-0 transition hover:ring-2 hover:ring-violet-400/45 focus-visible:ring-2 focus-visible:ring-violet-400/80 active:bg-black/[0.06]";
 
 /**
  * `public/rollingpaper/*.png` 교체 후 캐시가 남으면 `.env`의 `NEXT_PUBLIC_ROLLING_ASSET_VERSION`만 올리세요.
@@ -545,6 +570,19 @@ function displayNameFromSlug(slug: string): string {
   }
 }
 
+function rollingDetailToEditBoardEntry(d: RollingPaperDetailPayload): MyBoardListEntry {
+  return {
+    type: "ROLLING_PAPER",
+    slug: d.slug,
+    title: d.title ?? null,
+    createdAt: d.createdAt,
+    targetDate: d.targetDate ?? null,
+    recipientName: d.recipientName ?? null,
+    imageKey: d.imageKey ?? null,
+    isCommentPublic: d.isCommentPublic,
+  };
+}
+
 /** 브라우저 기준 전체 URL — `token`이 있으면 `?token=` 부착 (SSR 시 `window` 없음 → 상대 경로만) */
 function rollingPaperAbsoluteShareUrl(slug: string, token: string | null): string {
   const s = slug?.trim();
@@ -679,6 +717,10 @@ export default function RollingPaperSlugPage({
   );
 
   const [portalReady, setPortalReady] = useState(false);
+  /** 소유자: `photoOnly` — 폴라로이드 사진만, `full` — 제목·이름·일자 등 페이지 설정 */
+  const [rollingOwnerEditModal, setRollingOwnerEditModal] = useState<
+    null | "full" | "photoOnly"
+  >(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
@@ -849,6 +891,20 @@ export default function RollingPaperSlugPage({
     return displayNameFromSlug(slug);
   }, [detail?.recipientName, slug]);
 
+  const rollingSettingsBoardEntry = useMemo((): MyBoardListEntry | null => {
+    if (!detail?.isOwner) return null;
+    return rollingDetailToEditBoardEntry(detail);
+  }, [
+    detail?.isOwner,
+    detail?.slug,
+    detail?.title,
+    detail?.createdAt,
+    detail?.targetDate,
+    detail?.recipientName,
+    detail?.imageKey,
+    detail?.isCommentPublic,
+  ]);
+
   /**
    * 공유 모달 주소 — 댓글 작성 가능 토큰 우선(`commentToken` → 세션에서 댓글 가능할 때 URL의 `token`).
    * 보기 전용(`viewToken`)은 주소와 다를 때만 보조 링크로 둡니다.
@@ -976,30 +1032,39 @@ export default function RollingPaperSlugPage({
     [commentsPaging],
   );
 
-  const loadBoard = useCallback(async () => {
-    if (!slug) return;
-    /** 이펙트 직후 동기 setState 연쇄 렌더 유발 방지 — `react-hooks/set-state-in-effect` */
-    await Promise.resolve();
-    setLoading(true);
-    setLoadError(null);
-    setDetailForbidden(false);
-    try {
-      const detailRes = await getRollingPaperDetail(slug, rollingToken);
-      setDetail(detailRes.data);
-      setVisibleBoardPage(0);
-      await loadCommentsPage(0);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "불러오지 못했습니다.";
-      if (isRollingPaperForbiddenMessage(msg)) {
-        setDetailForbidden(true);
-        setDetail(null);
-      } else {
-        setLoadError(msg);
+  const loadBoard = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!slug) return;
+      const silent = opts?.silent === true;
+      if (!silent) {
+        await Promise.resolve();
+        setLoading(true);
+        setLoadError(null);
+        setDetailForbidden(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [slug, rollingToken, loadCommentsPage]);
+      try {
+        const detailRes = await getRollingPaperDetail(slug, rollingToken);
+        setDetail(detailRes.data);
+        if (!silent) {
+          setVisibleBoardPage(0);
+          await loadCommentsPage(0);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "불러오지 못했습니다.";
+        if (isRollingPaperForbiddenMessage(msg)) {
+          setDetailForbidden(true);
+          setDetail(null);
+        } else {
+          setLoadError(msg);
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [slug, rollingToken, loadCommentsPage],
+  );
 
   useEffect(() => {
     void loadBoard();
@@ -1809,10 +1874,17 @@ export default function RollingPaperSlugPage({
                         {COLLAGE_PIECES.map((piece) => {
                           const [aw, ah] = piece.aspect;
                           if (piece.kind === "polaroid") {
+                            const polaroidPhotoKey = detail?.imageKey?.trim();
+                            const polaroidPhotoSrc = polaroidPhotoKey
+                              ? getAssetImageUrl(polaroidPhotoKey)
+                              : "";
+                            const ownerPolaroid = detail?.isOwner === true;
                             return (
                               <div
                                 key={piece.src}
-                                className={`pointer-events-none absolute ${piece.className}`}
+                                className={`absolute ${piece.className} ${
+                                  ownerPolaroid ? "" : "pointer-events-none"
+                                }`}
                                 style={{ aspectRatio: `${aw} / ${ah}` }}
                               >
                                 <div className="relative h-full w-full">
@@ -1821,10 +1893,85 @@ export default function RollingPaperSlugPage({
                                     src={piece.src}
                                     alt={piece.alt}
                                     fill
-                                    className="object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
+                                    className="pointer-events-none relative z-[1] object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                     sizes="(max-width: 420px) 50vw, 220px"
                                     priority
                                   />
+                                  {ownerPolaroid ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="absolute right-[4%] top-[11%] z-[26] flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white hover:ring-violet-300/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80"
+                                        aria-label="페이지 설정"
+                                        onClick={(ev) => {
+                                          ev.stopPropagation();
+                                          setRollingOwnerEditModal("full");
+                                        }}
+                                      >
+                                        <GearSixIcon size={17} weight="bold" aria-hidden />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={`${ROLLING_POLAROID_PHOTO_BUTTON_INSET} cursor-pointer`}
+                                        aria-label={
+                                          polaroidPhotoSrc
+                                            ? "받는 사람 사진 바꾸기"
+                                            : "받는 사람 사진 추가"
+                                        }
+                                        onClick={() =>
+                                          setRollingOwnerEditModal("photoOnly")
+                                        }
+                                      >
+                                        <span className={ROLLING_POLAROID_PHOTO_INNER}>
+                                          {polaroidPhotoSrc ? (
+                                            shouldUseNativeImg(polaroidPhotoSrc) ? (
+                                              /* eslint-disable-next-line @next/next/no-img-element -- CDN·S3 풀 URL */
+                                              <img
+                                                src={polaroidPhotoSrc}
+                                                alt=""
+                                                className={ROLLING_POLAROID_PHOTO_IMG}
+                                              />
+                                            ) : (
+                                              <Image
+                                                key={`${polaroidPhotoKey}@${ROLLING_ASSET_VERSION}`}
+                                                src={polaroidPhotoSrc}
+                                                alt=""
+                                                fill
+                                                className={ROLLING_POLAROID_PHOTO_IMG_FILL}
+                                                sizes="(max-width: 420px) 42vw, 180px"
+                                              />
+                                            )
+                                          ) : (
+                                            <span className="pointer-events-none flex h-full w-full items-center justify-center bg-white/55 text-[11px] font-medium leading-tight text-slate-600 ring-1 ring-inset ring-slate-300/70">
+                                              사진 추가
+                                            </span>
+                                          )}
+                                        </span>
+                                      </button>
+                                    </>
+                                  ) : polaroidPhotoSrc ? (
+                                      <div className={`${ROLLING_POLAROID_PHOTO_INSET} z-[2]`}>
+                                      <div className={ROLLING_POLAROID_PHOTO_INNER}>
+                                        {shouldUseNativeImg(polaroidPhotoSrc) ? (
+                                          /* eslint-disable-next-line @next/next/no-img-element -- CDN·S3 풀 URL */
+                                          <img
+                                            src={polaroidPhotoSrc}
+                                            alt=""
+                                            className={ROLLING_POLAROID_PHOTO_IMG}
+                                          />
+                                        ) : (
+                                          <Image
+                                            key={`${polaroidPhotoKey}@${ROLLING_ASSET_VERSION}`}
+                                            src={polaroidPhotoSrc}
+                                            alt=""
+                                            fill
+                                            className={ROLLING_POLAROID_PHOTO_IMG_FILL}
+                                            sizes="(max-width: 420px) 42vw, 180px"
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : null}
                                 </div>
                               </div>
                             );
@@ -1982,6 +2129,21 @@ export default function RollingPaperSlugPage({
         />
       )}
     </main>
+
+      {rollingSettingsBoardEntry ? (
+        <EditBoardOrRollingPaperModal
+          open={rollingOwnerEditModal !== null}
+          onClose={() => setRollingOwnerEditModal(null)}
+          entry={rollingSettingsBoardEntry}
+          rollingPhotoOnly={rollingOwnerEditModal === "photoOnly"}
+          onSaved={(rolling) => {
+            if (rolling) {
+              setDetail((prev) => (prev ? { ...prev, ...rolling } : prev));
+            }
+            void loadBoard({ silent: true });
+          }}
+        />
+      ) : null}
 
       {showRollingPaperShareEntry ? (
         <BoardShareDialog
