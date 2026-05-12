@@ -117,9 +117,9 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_NGROK_URL=${NEXT_PUBLIC_NGROK_URL}
-      - NEXT_PUBLIC_SITE_URL=https://fivedotfive.co.kr
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
       - NEXT_PUBLIC_IMAGE_REMOTE_HOSTS=five-dot-five.s3.ap-northeast-2.amazonaws.com
-      - NEXT_PUBLIC_ASSET_BASE_URL=https://five-dot-five.s3.ap-northeast-2.amazonaws.com
+      - NEXT_PUBLIC_ASSET_BASE_URL=${NEXT_PUBLIC_ASSET_BASE_URL}
     networks:
       - oh-jjeom-oh-net
     restart: always
