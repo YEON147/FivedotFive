@@ -3,11 +3,16 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** `page.tsx` 의 `NEXT_PUBLIC_ROLLING_ASSET_VERSION` 과 동일 — PNG 교체 시 올려 `key`로 캐시 무효화 */
+/** `app/rolling-paper/[slug]/page.tsx` 와 동일 버전 — `src`는 `/rollingpaper/...` 고정, 캐시 무효화는 `key`로만 */
 const ROLLING_BUBBLE_ASSET_VERSION =
   process.env.NEXT_PUBLIC_ROLLING_ASSET_VERSION?.trim() || "1";
 
 const ROLLING_BUBBLE_IMAGE_SRC = "/rollingpaper/bubble2.png";
+
+const bubbleImageDevProps =
+  process.env.NODE_ENV === "development"
+    ? ({ unoptimized: true } as const)
+    : ({} as const);
 
 type BubbleKind = "intro" | "visitor";
 
@@ -244,6 +249,7 @@ function BubbleItem({
           fill
           className="pointer-events-none origin-center scale-[1.14] object-contain"
           sizes="48px"
+          {...bubbleImageDevProps}
         />
         <span
           className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[11px] font-extrabold tracking-tight text-slate-900 drop-shadow-[0_0.5px_0.5px_rgba(255,255,255,0.55)] sm:text-[12px]"
