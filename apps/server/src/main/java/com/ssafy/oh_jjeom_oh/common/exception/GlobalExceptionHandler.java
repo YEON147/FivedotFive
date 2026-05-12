@@ -35,7 +35,7 @@ public class GlobalExceptionHandler {
     protected ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e) {
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
-                .body(ApiResponse.fail(e.getErrorCode().getMessage()));
+                .body(ApiResponse.fail(e.getErrorCode().getMessage(), e.getErrorCode().name()));
     }
 
     // 3. 기타 런타임 예외
