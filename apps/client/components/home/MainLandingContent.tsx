@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useState } from "react";
 
-import "@/components/home/main-landing-wordmark-float.css";
 import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
 import { IntroDesignSparkles } from "@/components/main-intro/IntroDesignSparkles";
 import { resolveLoggedInHomeHref } from "@/features/wishlist/resolve-logged-in-home";
 import { trackSignupButtonClick } from "@/lib/analytics/conversion";
 import { touchTrafficAttribution, trackWishlistCtaClick } from "@/lib/analytics/wishlistCta";
 import { adminPublicWishlistHref } from "@/lib/admin-landing";
+import { isAppleTouchDevice } from "@/lib/device/is-apple-touch";
 
 const landingPrimaryBtn =
   "inline-flex min-h-[3.25rem] w-full cursor-pointer items-center justify-center rounded-[18px] bg-[var(--color-primary-main)] px-7 text-[16px] font-extrabold leading-none text-white transition-[transform,background-color] duration-200 hover:bg-[var(--color-primary-pressed)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-main)] disabled:pointer-events-none disabled:opacity-60";
@@ -32,19 +32,15 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
   const [entryNavPending, setEntryNavPending] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
-  /** iOS WebKit: 히어로 로고에 filter drop-shadow 시 사각 clipping → 레이어 그림자 사용 */
-  const [iosStyleHeroShadow, setIosStyleHeroShadow] = useState(false);
+  /** Apple 터치 WebKit: filter drop-shadow가 사각으로 잘림 → 레이어 그림자(워드마크·중앙 히어로) */
+  const [appleTouchPaintShadow, setAppleTouchPaintShadow] = useState(false);
 
   useEffect(() => {
     touchTrafficAttribution();
   }, []);
 
   useLayoutEffect(() => {
-    const ua = navigator.userAgent;
-    const appleTouch =
-      /iPad|iPhone|iPod/.test(ua) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    setIosStyleHeroShadow(appleTouch);
+    setAppleTouchPaintShadow(isAppleTouchDevice());
   }, []);
 
   const handleGoToMyBoards = async () => {
@@ -82,7 +78,7 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
             priority
             sizes="(max-width: 768px) 72vw, 300px"
             className={`main-landing-wordmark-img h-auto w-[min(72vw,300px)] max-w-full object-contain ${
-              iosStyleHeroShadow
+              appleTouchPaintShadow
                 ? "shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
                 : "drop-shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
             }`}
@@ -94,12 +90,36 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
         </p>
 
         <div
-          className="inline-block max-w-full"
-          style={{
-            filter:
-              "drop-shadow(0 22px 40px rgba(123, 97, 255, 0.22)) drop-shadow(0 10px 24px rgba(60, 45, 110, 0.1))",
-          }}
+          className={
+            appleTouchPaintShadow
+              ? "main-landing-hero-stack--paint relative inline-block max-w-full"
+              : "inline-block max-w-full"
+          }
+          style={
+            appleTouchPaintShadow
+              ? undefined
+              : {
+                  filter:
+                    "drop-shadow(0 22px 40px rgba(255, 255, 255, 0.5)) drop-shadow(0 10px 24px rgba(255, 255, 255, 0.28))",
+                }
+          }
         >
+          {appleTouchPaintShadow ? (
+            <>
+              <span
+                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--diffuse"
+                aria-hidden
+              />
+              <span
+                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--mid"
+                aria-hidden
+              />
+              <span
+                className="main-landing-hero-shadow-layer main-landing-hero-shadow-layer--core"
+                aria-hidden
+              />
+            </>
+          ) : null}
           <Image
             src="/main/main2.png"
             alt="오쩜오"
@@ -107,7 +127,7 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
             height={900}
             priority
             sizes="(max-width: 768px) 92vw, 720px"
-            className="h-auto max-h-[min(58dvh,92vw)] w-full max-w-[min(92vw,720px)] object-contain"
+            className="main-landing-hero-img"
           />
         </div>
 
