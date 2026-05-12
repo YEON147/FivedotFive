@@ -23,6 +23,7 @@ import type {
  * 설정 후 `next dev` 재시작 필요.
  *
  * ngrok 등 외부 접속: `apps/client/.env.local` 에 NEXT_PUBLIC_NGROK_URL (또는 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS).
+ * `/_next/image` 허용 호스트: 위 변수들 + NEXT_PUBLIC_SITE_URL + NEXT_PUBLIC_IMAGE_REMOTE_HOSTS(쉼표) — `buildImageRemotePatterns` 참고.
  *
  * 프론트 코드 점검: `fetch`·apiClient 경로는 항상 `/api/...` 로 시작하는지 확인
  * (`/boards/me` 절대 경로만 쓰면 브라우저는 동일 오리진에 두고 /api 가 빠질 수 있음)
@@ -77,13 +78,75 @@ const tunnelHostsFromEnv = [
 
 const extraAllowedDevOrigins = [...new Set(tunnelHostsFromEnv)];
 
-/** `next/image` 원격 최적화 — S3·CDN·로컬 에셋 서버 */
+function hostnameFromSiteUrl(url: string | undefined): string {
+  const u = url?.trim();
+  if (!u) return "";
+  try {
+    return new URL(
+      /^https?:\/\//i.test(u) ? u : `https://${u}`,
+    ).hostname;
+  } catch {
+    return "";
+  }
+}
+
+/** 스테이징·배포 프론트 오리진 — 상대 에셋이 `/_next/image?url=https://(이 호스트)/icons/...` 로 잡힐 때 허용 */
+const siteHostFromEnv = hostnameFromSiteUrl(
+  process.env.NEXT_PUBLIC_SITE_URL,
+);
+
+/**
+ * 쉼표 구분 호스트 또는 전체 URL.
+ * CI/테스트에서 ngrok·스테이징 도메인을 빌드 타임에 넣을 때 사용.
+ */
+function imageRemoteHostsFromEnvList(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
+  return raw
+    .split(",")
+    .map((s) => {
+      const t = s.trim();
+      if (!t) return "";
+      return devOriginHostFromEnvEntry(t);
+    })
+    .filter(Boolean);
+}
+
+const imageRemoteHostsExtra = [
+  ...new Set(imageRemoteHostsFromEnvList(process.env.NEXT_PUBLIC_IMAGE_REMOTE_HOSTS)),
+];
+
+function dedupeRemotePatterns(patterns: RemotePattern[]): RemotePattern[] {
+  const seen = new Set<string>();
+  const out: RemotePattern[] = [];
+  for (const p of patterns) {
+    const key = `${p.protocol ?? ""}|${p.hostname}|${p.port ?? ""}|${p.pathname ?? ""}|${p.search ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out;
+}
+
+/**
+ * `next/image` 원격 최적화 — S3·CDN·터널·배포 호스트.
+ *
+ * - production에서 `getAssetImageUrl`이 `/icons/...`만 주면 `url`에 **현재 사이트 호스트**가 들어가므로,
+ *   ngrok·스테이징 도메인은 `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_IMAGE_REMOTE_HOSTS` /
+ *   `NEXT_PUBLIC_NGROK_URL`·`NEXT_PUBLIC_ALLOWED_DEV_ORIGINS` 로 여기에 포함되게 합니다.
+ * - S3 가상 호스트(`*.s3.*.amazonaws.com`)는 `**.amazonaws.com` 보조용으로 명시합니다.
+ */
 function buildImageRemotePatterns(): RemotePattern[] {
   const patterns: RemotePattern[] = [
     { protocol: "https", hostname: "**.amazonaws.com", pathname: "/**" },
+    { protocol: "https", hostname: "*.s3.*.amazonaws.com", pathname: "/**" },
+    { protocol: "https", hostname: "**.cloudfront.net", pathname: "/**" },
+    { protocol: "https", hostname: "**.ngrok-free.app", pathname: "/**" },
+    { protocol: "https", hostname: "**.ngrok.io", pathname: "/**" },
+    { protocol: "https", hostname: "**.ngrok.app", pathname: "/**" },
     { protocol: "http", hostname: "localhost", pathname: "/**" },
     { protocol: "http", hostname: "127.0.0.1", pathname: "/**" },
   ];
+
   const raw = process.env.NEXT_PUBLIC_ASSET_BASE_URL?.trim();
   if (raw) {
     try {
@@ -100,13 +163,31 @@ function buildImageRemotePatterns(): RemotePattern[] {
       /* noop */
     }
   }
-  return patterns;
+
+  const extraHosts = [
+    siteHostFromEnv,
+    ...extraAllowedDevOrigins,
+    ...imageRemoteHostsExtra,
+  ].filter(Boolean);
+
+  for (const h of new Set(extraHosts)) {
+    patterns.push({
+      protocol: "https",
+      hostname: h,
+      pathname: "/**",
+    });
+  }
+
+  return dedupeRemotePatterns(patterns);
 }
 
 /** Next 16+ `/_next/image` 로컬 `src` 허용 — `images.localPatterns` 미설정 시 거절됨 */
 const imageLocalPatterns: LocalPattern[] = [
   /** `public/default_icon.png` — 위시 기본 선물 썸네일(`next/image`) */
   { pathname: "/default_icon.png" },
+  { pathname: "/icons/**" },
+  { pathname: "/stickers/**" },
+  { pathname: "/wallpapers/**" },
   { pathname: "/rollingpaper/**" },
   { pathname: "/main/**" },
   { pathname: "/ranking/**" },
