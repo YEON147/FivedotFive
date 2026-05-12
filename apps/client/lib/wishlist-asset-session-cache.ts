@@ -1,6 +1,7 @@
 import {
   fetchGiftIcons,
   fetchStickersByFolder,
+  sanitizeGiftIconDtos,
   type GiftIconDto,
   type StickerAssetDto,
 } from "@/lib/api/assets";
@@ -34,7 +35,11 @@ function parseIdAssetKeyRows(raw: string): StickerAssetDto[] | null {
       if (!Number.isFinite(id) || typeof assetKey !== "string") {
         return null;
       }
-      out.push({ id, assetKey });
+      const trimmed = assetKey.trim();
+      if (!trimmed) {
+        continue;
+      }
+      out.push({ id, assetKey: trimmed });
     }
     return out;
   } catch {
@@ -196,14 +201,19 @@ export function loadGiftIconsWithSessionCache(
 
   const mem = giftIconsMemory.get(runKey);
   if (mem) {
-    return Promise.resolve(mem);
+    const clean = sanitizeGiftIconDtos(mem);
+    if (clean.length !== mem.length) {
+      giftIconsMemory.set(runKey, clean);
+    }
+    return Promise.resolve(clean);
   }
 
   if (typeof window !== "undefined") {
     const fromSs = readGiftIconsSessionCache(boardSlug);
     if (fromSs != null) {
-      giftIconsMemory.set(runKey, fromSs);
-      return Promise.resolve(fromSs);
+      const clean = sanitizeGiftIconDtos(fromSs);
+      giftIconsMemory.set(runKey, clean);
+      return Promise.resolve(clean);
     }
   }
 

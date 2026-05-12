@@ -28,10 +28,11 @@ export function ScrollLazyModalImage({
   const [loaded, setLoaded] = useState(eager);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  const safeSrc = (src ?? "").trim();
   const effectiveLoaded = eager || loaded || register == null;
 
   useLayoutEffect(() => {
-    if (eager || loaded || register == null) {
+    if (!safeSrc || eager || loaded || register == null) {
       return;
     }
     const el = wrapRef.current;
@@ -39,21 +40,26 @@ export function ScrollLazyModalImage({
       return;
     }
     return register(el, () => setLoaded(true));
-  }, [eager, loaded, register, src]);
+  }, [eager, loaded, register, safeSrc]);
 
   return (
     <div ref={wrapRef} className="absolute inset-0">
-      {effectiveLoaded ? (
+      {!safeSrc ? (
+        <span
+          className="absolute inset-0 rounded-[inherit] bg-slate-100/95"
+          aria-hidden
+        />
+      ) : effectiveLoaded ? (
         useNativeImg ? (
           <img
-            src={src}
+            src={safeSrc}
             alt=""
             className={imgClassName}
             decoding="async"
           />
         ) : (
           <Image
-            src={src}
+            src={safeSrc}
             alt=""
             fill
             sizes={sizes}

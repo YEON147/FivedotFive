@@ -92,7 +92,10 @@ import {
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
 import { shouldUseNativeImg } from "@/lib/native-img";
-import { getStickerFolderLabel } from "@/lib/sticker-folder-labels";
+import {
+  getStickerFolderLabel,
+  orderStickerFoldersForTabs,
+} from "@/lib/sticker-folder-labels";
 import {
   loadGiftIconsWithSessionCache,
   loadStickerFolderWithSessionCache,
@@ -166,7 +169,6 @@ const FALLBACK_STICKER_FOLDER_IDS: readonly string[] = [
   "bubble",
   "cute",
   "dessert",
-  "toy",
 ];
 
 /** PUT/DELETE 직후 화면에 바로 반영 — 재조회 타이밍·`<Image>` 캐시로 배경이 늦게 바뀌는 현상 완화 */
@@ -418,17 +420,16 @@ export function WishlistMyBoardScreen({
 
   useEffect(() => {
     if (embeddedInSlugCarousel && embeddedStickerFoldersFromParent !== undefined) {
+      const fromParent = orderStickerFoldersForTabs(embeddedStickerFoldersFromParent);
       setStickerFolderIds(
-        embeddedStickerFoldersFromParent.length > 0
-          ? embeddedStickerFoldersFromParent
-          : [...FALLBACK_STICKER_FOLDER_IDS],
+        fromParent.length > 0 ? fromParent : [...FALLBACK_STICKER_FOLDER_IDS],
       );
       return;
     }
     let cancelled = false;
     const load = async () => {
       try {
-        const folders = await fetchStickerFolders(boardSlug);
+        const folders = orderStickerFoldersForTabs(await fetchStickerFolders(boardSlug));
         if (cancelled) return;
         setStickerFolderIds(
           folders.length > 0 ? folders : [...FALLBACK_STICKER_FOLDER_IDS],
@@ -446,8 +447,9 @@ export function WishlistMyBoardScreen({
   }, [boardSlug, embeddedInSlugCarousel, embeddedStickerFoldersFromParent]);
 
   const stickerModalTabs = useMemo(() => {
-    const ids =
-      stickerFolderIds.length > 0 ? stickerFolderIds : [...FALLBACK_STICKER_FOLDER_IDS];
+    const ids = orderStickerFoldersForTabs(
+      stickerFolderIds.length > 0 ? stickerFolderIds : [...FALLBACK_STICKER_FOLDER_IDS],
+    );
     return ids.map((id) => ({
       id,
       label: getStickerFolderLabel(id),

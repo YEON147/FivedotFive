@@ -105,6 +105,8 @@ function buildImageRemotePatterns(): RemotePattern[] {
 
 /** Next 16+ `/_next/image` 로컬 `src` 허용 — `images.localPatterns` 미설정 시 거절됨 */
 const imageLocalPatterns: LocalPattern[] = [
+  /** `public/default_icon.png` — 위시 기본 선물 썸네일(`next/image`) */
+  { pathname: "/default_icon.png" },
   { pathname: "/rollingpaper/**" },
   { pathname: "/main/**" },
   { pathname: "/ranking/**" },
