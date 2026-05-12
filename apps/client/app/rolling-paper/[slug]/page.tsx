@@ -102,22 +102,11 @@ const ROLLING_PAPER_BOARD_INNER =
 const COLLAGE_BG = "bg-[#f4f2ec]";
 
 /**
- * `public/rollingpaper/*.png` 교체·삭제 후에도 예전 그림이 보이면 대개 캐시 때문입니다.
- * `.env.local`에 `NEXT_PUBLIC_ROLLING_ASSET_VERSION=2` 처럼 숫자만 올리면 URL이 바뀌어 브라우저·`/_next/image` 캐시를 함께 비웁니다.
+ * `public/rollingpaper/*.png` 교체 후 캐시가 남으면 `.env`의 `NEXT_PUBLIC_ROLLING_ASSET_VERSION`만 올리세요.
+ * 다른 화면과 같이 `src`는 `/rollingpaper/...` 고정, `next/image` 기본 최적화만 사용 — 버전은 `key`로만 반영합니다.
  */
 const ROLLING_ASSET_VERSION =
   process.env.NEXT_PUBLIC_ROLLING_ASSET_VERSION?.trim() || "1";
-
-function rollingPaperImageSrc(basePath: string): string {
-  const sep = basePath.includes("?") ? "&" : "?";
-  return `${basePath}${sep}v=${ROLLING_ASSET_VERSION}`;
-}
-
-/** 개발 중 `/_next/image` 디스크 캐시로 옛 PNG가 남는 경우 완화 */
-const rollingPaperImageDevProps =
-  process.env.NODE_ENV === "development"
-    ? ({ unoptimized: true } as const)
-    : ({} as const);
 
 type CollagePiece =
   | {
@@ -278,13 +267,13 @@ function RollingPaperPostitShell({
         style={{ aspectRatio: `${aw} / ${ah}` }}
       >
         <Image
-          src={rollingPaperImageSrc(asset.src)}
+          key={`${asset.src}@${ROLLING_ASSET_VERSION}`}
+          src={asset.src}
           alt={asset.alt}
           fill
           className="pointer-events-none object-contain"
           sizes="300px"
           priority
-          {...rollingPaperImageDevProps}
         />
         <div className={frameClass}>{children}</div>
       </div>
@@ -1828,13 +1817,13 @@ export default function RollingPaperSlugPage({
                               >
                                 <div className="relative h-full w-full">
                                   <Image
-                                    src={rollingPaperImageSrc(piece.src)}
+                                    key={`${piece.src}@${ROLLING_ASSET_VERSION}`}
+                                    src={piece.src}
                                     alt={piece.alt}
                                     fill
                                     className="object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                     sizes="(max-width: 420px) 50vw, 220px"
                                     priority
-                                    {...rollingPaperImageDevProps}
                                   />
                                 </div>
                               </div>
@@ -1865,13 +1854,13 @@ export default function RollingPaperSlugPage({
                             >
                               <div className="relative h-full w-full">
                                 <Image
-                                  src={rollingPaperImageSrc(piece.src)}
+                                  key={`${piece.src}@${ROLLING_ASSET_VERSION}`}
+                                  src={piece.src}
                                   alt={piece.alt}
                                   fill
                                   className="pointer-events-none object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                   sizes="(max-width: 420px) 50vw, 220px"
                                   priority={slotIdx === 1}
-                                  {...rollingPaperImageDevProps}
                                 />
 
                                 {text ? (

@@ -3,18 +3,11 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** `app/rolling-paper/[slug]/page.tsx` 의 포스트잇 에셋과 동일 — 캐시 무효화 */
+/** `page.tsx` 의 `NEXT_PUBLIC_ROLLING_ASSET_VERSION` 과 동일 — PNG 교체 시 올려 `key`로 캐시 무효화 */
 const ROLLING_BUBBLE_ASSET_VERSION =
   process.env.NEXT_PUBLIC_ROLLING_ASSET_VERSION?.trim() || "1";
 
-function rollingBubbleImageSrc(): string {
-  return `/rollingpaper/bubble2.png?v=${ROLLING_BUBBLE_ASSET_VERSION}`;
-}
-
-const bubbleImageDevProps =
-  process.env.NODE_ENV === "development"
-    ? ({ unoptimized: true } as const)
-    : ({} as const);
+const ROLLING_BUBBLE_IMAGE_SRC = "/rollingpaper/bubble2.png";
 
 type BubbleKind = "intro" | "visitor";
 
@@ -245,12 +238,12 @@ function BubbleItem({
     >
       <span className="relative block h-full w-full shrink-0 overflow-hidden rounded-full">
         <Image
-          src={rollingBubbleImageSrc()}
+          key={`${bubble.id}-bubble-${ROLLING_BUBBLE_ASSET_VERSION}`}
+          src={ROLLING_BUBBLE_IMAGE_SRC}
           alt=""
           fill
           className="pointer-events-none origin-center scale-[1.14] object-contain"
           sizes="48px"
-          {...bubbleImageDevProps}
         />
         <span
           className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[11px] font-extrabold tracking-tight text-slate-900 drop-shadow-[0_0.5px_0.5px_rgba(255,255,255,0.55)] sm:text-[12px]"
