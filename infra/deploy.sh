@@ -34,7 +34,7 @@ SERVER_IMAGE_TAG=$SERVER_IMAGE_TAG CLIENT_IMAGE_TAG=$CLIENT_IMAGE_TAG docker com
 
 # 3. 헬스 체크 (새 서버가 뜰 때까지 대기)
 echo ">>> 헬스 체크 시작 (http://localhost:$TARGET_PORT/api/health)..."
-for retry_count in {1..20}
+for retry_count in {1..40}
 do
   RESPONSE=$(curl -s http://localhost:$TARGET_PORT/api/health)
   UP_COUNT=$(echo $RESPONSE | grep 'UP' | wc -l)
@@ -43,7 +43,7 @@ do
       echo ">>> 신규 서버 헬스체크 성공!"
       break
   else
-      echo ">>> 헬스 체크 중... (${retry_count}/20)"
+      echo ">>> 헬스 체크 중... (${retry_count}/40)"
   fi
   sleep 5
 done
