@@ -412,6 +412,16 @@ export async function deleteRollingPaper(slug: string): Promise<void> {
   });
 }
 
+/** DELETE /api/rolling-papers/saved/{slug} — 저장한 본인만 */
+export async function deleteSavedRollingPaper(slug: string): Promise<void> {
+  await apiClient(`/api/rolling-papers/saved/${encodeBoardSlug(slug)}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 /** POST /api/boards — 201 CREATED, 한도 초과 시 409(CONFLICT) 등 */
 export type CreateBoardApiResponse = {
   success: boolean;
