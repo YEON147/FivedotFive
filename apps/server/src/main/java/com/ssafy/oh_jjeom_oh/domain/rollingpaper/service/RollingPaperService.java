@@ -177,6 +177,26 @@ public class RollingPaperService {
         rollingPaperRepository.delete(paper);
     }
 
+    // DELETE /api/rolling-papers/saved/{slug} - 저장된 복사본 삭제 (저장한 본인만)
+    @Transactional
+    public void deleteSavedRollingPaper(Long userId, String slug) {
+        RollingPaper paper = rollingPaperRepository.findBySlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
+
+        if (!paper.getIsSavedCopy()) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+        }
+
+        boolean isSaver = paper.getSavedByUser() != null
+                && paper.getSavedByUser().getId().equals(userId);
+        if (!isSaver) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_DELETE_FORBIDDEN);
+        }
+
+        rollingPaperCommentRepository.deleteByRollingPaper(paper);
+        rollingPaperRepository.delete(paper);
+    }
+
     // GET /api/rolling-papers/me/list - 내 롤링페이퍼 목록 (원본만, 최신순)
     public List<RollingPaperSummaryResponse> getMyRollingPapers(Long userId) {
         return rollingPaperRepository
