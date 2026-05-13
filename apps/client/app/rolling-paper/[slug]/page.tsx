@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  BookmarkSimple,
   CaretLeftIcon,
   CaretRightIcon,
+  CircleNotch,
   GearSixIcon,
   TextAlignJustify,
 } from "@phosphor-icons/react";
@@ -23,6 +25,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { RollingPaperSaveLoginModalBody } from "@/components/common/RollingPaperSaveLoginModalBody";
 import { EditBoardOrRollingPaperModal } from "@/components/common/EditBoardOrRollingPaperModal";
 import {
   BoardShareDialog,
@@ -38,6 +41,7 @@ import {
   deleteRollingPaperComment,
   getRollingPaperComments,
   getRollingPaperDetail,
+  postRollingPaperSave,
   postRollingPaperShareCommentLink,
   postRollingPaperShareViewLink,
   updateRollingPaperComment,
@@ -54,7 +58,10 @@ import {
   canEditRollingPaperGuestComment,
   rememberRollingPaperGuestComment,
 } from "@/features/rolling-paper/guest-comment-session";
-import { loginUrlForPath } from "@/features/login/post-login-destination";
+import {
+  loginUrlForPath,
+  sanitizeInternalReturnPath,
+} from "@/features/login/post-login-destination";
 import { getRandomNickname } from "@/features/signup/api";
 import { getMyProfile } from "@/features/user/api";
 import {
@@ -636,6 +643,8 @@ export default function RollingPaperSlugPage({
   const slug = slugParam?.trim() ?? "";
   const editGateTitleId = useId();
   const deleteDialogTitleId = useId();
+  const viewerSaveHintTitleId = useId();
+  const rollingSaveLoginTitleId = useId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -644,6 +653,14 @@ export default function RollingPaperSlugPage({
   const loginHrefWithReturn = useMemo(() => {
     const qs = searchParams.toString();
     return loginUrlForPath(`${pathname}${qs ? `?${qs}` : ""}`);
+  }, [pathname, searchParams]);
+
+  /** 저장용 로그인 모달 — 로그인 페이지 `next`와 동일한 값 */
+  const rollingLoginNextParam = useMemo(() => {
+    const qs = searchParams.toString();
+    return sanitizeInternalReturnPath(
+      `${pathname}${qs ? `?${qs}` : ""}`.trim(),
+    );
   }, [pathname, searchParams]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -702,6 +719,11 @@ export default function RollingPaperSlugPage({
     null | "full" | "photoOnly"
   >(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  /** 보기·저장용 링크 최초 진입 시 1회 안내 */
+  const [viewerSaveHintOpen, setViewerSaveHintOpen] = useState(false);
+  const [rollingSaveToBoardBusy, setRollingSaveToBoardBusy] = useState(false);
+  const [rollingSaveLoginModalOpen, setRollingSaveLoginModalOpen] =
+    useState(false);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
   const [ownerCommentShareError, setOwnerCommentShareError] = useState<string | null>(
@@ -821,6 +843,12 @@ export default function RollingPaperSlugPage({
       setVisitorMenuLoggedIn(!!getAccessToken()?.trim());
     }
   }, []);
+
+  const handleRollingSaveLoginSuccess = useCallback(() => {
+    setRollingSaveLoginModalOpen(false);
+    setLoggedInState(true);
+    void syncVisitorSession();
+  }, [syncVisitorSession]);
 
   useEffect(() => {
     void syncVisitorSession();
@@ -1154,6 +1182,88 @@ export default function RollingPaperSlugPage({
   const showRollingPaperShareEntry = Boolean(
     detail && (detail.isOwner === true || canComment),
   );
+
+  /** 보기·저장용 링크로만 들어온 방문자 — 현재 주소를 파일로 남길 수 있게 함 */
+  const showRollingPaperViewerSaveFab = Boolean(
+    detail &&
+      detail.isOwner !== true &&
+      !canComment &&
+      detail.canSave !== false &&
+      !loading &&
+      !loadError &&
+      !detailForbidden,
+  );
+
+  const viewerSaveHintStorageKey = useMemo(
+    () =>
+      `rollingPaper:viewerSaveHint:v1:${encodeURIComponent(slug)}:${encodeURIComponent(rollingToken ?? "")}`,
+    [slug, rollingToken],
+  );
+
+  const viewerSaveHintTargetDateLabel = useMemo(() => {
+    const td = detail?.targetDate?.trim();
+    if (!td || !/^\d{4}-\d{2}-\d{2}$/.test(td)) {
+      return null as string | null;
+    }
+    const targetNoon = new Date(`${td}T12:00:00+09:00`);
+    if (Number.isNaN(targetNoon.getTime())) {
+      return null;
+    }
+    return targetNoon.toLocaleDateString("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, [detail?.targetDate]);
+
+  const closeViewerSaveHint = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(viewerSaveHintStorageKey, "1");
+      } catch {
+        /* 사생활 보호 모드 등 */
+      }
+    }
+    setViewerSaveHintOpen(false);
+  }, [viewerSaveHintStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!showRollingPaperViewerSaveFab) return;
+    try {
+      if (window.localStorage.getItem(viewerSaveHintStorageKey)) return;
+    } catch {
+      return;
+    }
+    setViewerSaveHintOpen(true);
+  }, [showRollingPaperViewerSaveFab, viewerSaveHintStorageKey]);
+
+  const saveRollingPaperToMyBoard = useCallback(async () => {
+    if (!slug.trim()) return;
+    if (!getAccessToken()?.trim()) {
+      setRollingSaveLoginModalOpen(true);
+      return;
+    }
+    setRollingSaveToBoardBusy(true);
+    try {
+      const res = await postRollingPaperSave(slug, rollingToken);
+      const newSlug = res.data?.slug?.trim();
+      if (!newSlug) {
+        throw new Error(
+          res.message?.trim() || "저장 응답에 슬러그가 없습니다.",
+        );
+      }
+      clearWishlistPageSessionCache();
+      router.push(`/rolling-paper/${encodeURIComponent(newSlug)}`);
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message.trim() : "저장에 실패했습니다.";
+      window.alert(msg || "저장에 실패했습니다.");
+    } finally {
+      setRollingSaveToBoardBusy(false);
+    }
+  }, [slug, rollingToken, router]);
 
   /** 포스트잇에 메시지가 올라간 개수 — 첫 방문 시 물방울 개수와 동일 */
   const filledMessageCount = useMemo(() => {
@@ -1978,12 +2088,6 @@ export default function RollingPaperSlugPage({
                     </div>
                   ) : (
                     <>
-                      {detail && !canComment ? (
-                        <div className="mx-2 mb-2 rounded-[12px] bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-950 ring-1 ring-amber-200/80">
-                          이 링크로는 댓글을 작성할 수 없습니다. (보기 전용 링크)
-                        </div>
-                      ) : null}
-
                       <div
                         className={`relative mx-2 mb-1 mt-0 min-h-0 flex-1 overflow-visible rounded-[14px] ${COLLAGE_BG} shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]`}
                       >
@@ -2211,6 +2315,40 @@ export default function RollingPaperSlugPage({
                           />
                         </div>
                       ) : null}
+                      {showRollingPaperViewerSaveFab ? (
+                        <div
+                          className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end transition-opacity duration-200 ${
+                            modalOpen ? "opacity-0" : "opacity-100"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            disabled={rollingSaveToBoardBusy}
+                            onClick={() => void saveRollingPaperToMyBoard()}
+                            className="pointer-events-auto flex size-[42px] min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
+                            aria-label={
+                              rollingSaveToBoardBusy
+                                ? "내 보드에 저장 중"
+                                : "내 보드에 롤링페이퍼 저장"
+                            }
+                          >
+                            {rollingSaveToBoardBusy ? (
+                              <CircleNotch
+                                className="animate-spin"
+                                size={23}
+                                weight="bold"
+                                aria-hidden
+                              />
+                            ) : (
+                              <BookmarkSimple
+                                size={23}
+                                weight="bold"
+                                aria-hidden
+                              />
+                            )}
+                          </button>
+                        </div>
+                      ) : null}
                     </>
                   )}
                   </div>
@@ -2319,6 +2457,73 @@ export default function RollingPaperSlugPage({
           navigatorShareTitle="롤링페이퍼"
         />
       ) : null}
+
+      <WishlistCenterDialog
+        variant="static"
+        open={viewerSaveHintOpen}
+        onClose={closeViewerSaveHint}
+        title="링크 저장 안내"
+        titleId={viewerSaveHintTitleId}
+        closeLabel="안내 닫기"
+        description={
+          <span className="sr-only">
+            우측 하단 저장 아이콘으로 내 보드에 롤링페이퍼를 저장할 수 있으며, 보드
+            공개일 당일 하루 동안만 저장이 가능하며 이후에는 조회 및 저장이 불가합니다.
+          </span>
+        }
+      >
+        <div className="mt-4 flex flex-col gap-3 text-left text-sm leading-relaxed text-slate-700">
+          <p>
+            우측 하단의{" "}
+            <span className="font-semibold text-slate-900">저장</span> 아이콘으로
+            내 보드에 롤링페이퍼를 저장할 수 있어요.
+          </p>
+          {viewerSaveHintTargetDateLabel ? (
+            <p>
+              보드 공개일은{" "}
+              <span className="font-semibold text-slate-900">
+                {viewerSaveHintTargetDateLabel}
+              </span>
+              입니다. 해당일 하루 동안만 내 보드에 저장이 가능합니다. 이후에는 조회
+              및 저장이 불가합니다.
+            </p>
+          ) : (
+            <p>
+              보드 공개일 당일 하루 동안만 저장이 가능합니다. 이후에는 조회 및 저장이
+              불가합니다.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={closeViewerSaveHint}
+            className="mt-1 w-full rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6b52e0] active:scale-[0.99]"
+          >
+            확인
+          </button>
+        </div>
+      </WishlistCenterDialog>
+
+      <WishlistCenterDialog
+        variant="static"
+        staticStack="aboveDialogs"
+        open={rollingSaveLoginModalOpen}
+        onClose={() => setRollingSaveLoginModalOpen(false)}
+        title="로그인"
+        titleId={rollingSaveLoginTitleId}
+        closeLabel="닫기"
+        description={
+          <p className="text-left text-[13px] leading-snug text-slate-600">
+            내 보드에 롤링페이퍼를 저장하려면 로그인해 주세요.
+          </p>
+        }
+      >
+        <div className="mt-1">
+          <RollingPaperSaveLoginModalBody
+            nextParam={rollingLoginNextParam}
+            onLoginSuccess={handleRollingSaveLoginSuccess}
+          />
+        </div>
+      </WishlistCenterDialog>
 
       <WishlistCenterDialog
         variant="static"

@@ -1,12 +1,13 @@
 "use client";
 
-import { Bell, Gift, ListBullets, PlusCircle, SignOut, Trophy, User, X } from "@phosphor-icons/react";
+import { Archive, Bell, Gift, ListBullets, PlusCircle, SignOut, Trophy, User, X } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { CreateBoardOrRollingPaperModal } from "@/components/common/CreateBoardOrRollingPaperModal";
 import { MyBoardsListModal } from "@/components/common/MyBoardsListModal";
+import { SavedRollingPapersListModal } from "@/components/common/SavedRollingPapersListModal";
 import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
 import {
   SIDE_MENU_ICON_WRAP_PRIMARY,
@@ -49,6 +50,7 @@ export function AppSideMenu({
   const router = useRouter();
   const mounted = useClientMounted();
   const [listOpen, setListOpen] = useState(false);
+  const [savedRollingOpen, setSavedRollingOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
@@ -126,6 +128,15 @@ export function AppSideMenu({
             </SideMenuButtonRow>
             <SideMenuButtonRow
               onClick={() => {
+                setSavedRollingOpen(true);
+                onClose();
+              }}
+              icon={<Archive {...ICON_20} />}
+            >
+              저장한 롤링페이퍼
+            </SideMenuButtonRow>
+            <SideMenuButtonRow
+              onClick={() => {
                 setCreateOpen(true);
                 onClose();
               }}
@@ -157,6 +168,10 @@ export function AppSideMenu({
       </aside>
 
       <MyBoardsListModal open={listOpen} onClose={() => setListOpen(false)} />
+      <SavedRollingPapersListModal
+        open={savedRollingOpen}
+        onClose={() => setSavedRollingOpen(false)}
+      />
       <CreateBoardOrRollingPaperModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </>,
     document.body,
