@@ -9,7 +9,7 @@ import {
   getMySavedRollingPapers,
   type SavedRollingPaperItem,
 } from "@/features/rolling-paper/api";
-import { deleteRollingPaper } from "@/features/wishlist/api";
+import { deleteSavedRollingPaper } from "@/features/wishlist/api";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import { WishlistCenterDialog } from "@/components/wishlist/WishlistCenterDialog";
 
@@ -99,7 +99,7 @@ export function SavedRollingPapersListModal({
       setDeletingSlug(slug);
       setError(null);
       try {
-        await deleteRollingPaper(slug);
+        await deleteSavedRollingPaper(slug);
         clearWishlistPageSessionCache();
         await reload(true);
       } catch (e) {
