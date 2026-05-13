@@ -34,8 +34,14 @@ public class SsafyDataInitializer implements ApplicationRunner {
     private static final String SHARED_PASSWORD = "SsafyDj26";
     private static final LocalDate TARGET_DATE   = LocalDate.of(2026, 5, 15);
 
+    private static final String PROFILE_IMAGE_PREFIX = "rolling-papers/ssafy-profile/";
+
     private record ClassInfo(String username, String nickname, String teamTag,
-                             String slug, String title, String recipientName) {}
+                             String slug, String title, String recipientName) {
+        String imageKey() {
+            return PROFILE_IMAGE_PREFIX + username + ".png";
+        }
+    }
 
     private static final List<ClassInfo> SSAFY_CLASSES = List.of(
             // 15기 대전 반별 계정
@@ -94,13 +100,11 @@ public class SsafyDataInitializer implements ApplicationRunner {
     private void ensureRollingPaper(User user, ClassInfo info) {
         rollingPaperRepository.findBySlug(info.slug()).ifPresentOrElse(
                 paper -> {
-                    // recipient_name이 다르면 보정
-                    if (!info.recipientName().equals(paper.getRecipientName())) {
-                        log.info("[SsafyInit] recipient_name 보정: slug={}, {} → {}",
-                                info.slug(), paper.getRecipientName(), info.recipientName());
-                        paper.updateRecipientName(info.recipientName());
+                    if (!info.imageKey().equals(paper.getImageKey())) {
+                        log.info("[SsafyInit] 롤링페이퍼 image_key 보정: slug={}", info.slug());
+                        paper.updateImageKey(info.imageKey());
                     } else {
-                        log.debug("[SsafyInit] 롤링페이퍼 이미 존재: slug={}", info.slug());
+                        log.debug("[SsafyInit] 롤링페이퍼 이미 존재 (skip): slug={}", info.slug());
                     }
                 },
                 () -> {
@@ -117,6 +121,7 @@ public class SsafyDataInitializer implements ApplicationRunner {
                             .slug(info.slug())
                             .title(info.title())
                             .recipientName(info.recipientName())
+                            .imageKey(info.imageKey())
                             .targetDate(TARGET_DATE)
                             .isCommentPublic(false)
                             .commentToken(commentToken)
