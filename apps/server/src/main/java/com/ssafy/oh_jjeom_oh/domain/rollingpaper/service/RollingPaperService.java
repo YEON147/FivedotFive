@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -133,7 +134,8 @@ public class RollingPaperService {
         }
 
         boolean canComment = isOwner || commentTokenMatch;
-        boolean canSave    = isOwner || viewTokenMatch;
+        // viewToken 접근자는 targetDate 당일 이후에만 저장 가능 (명세: "수신자 + 공개일 당일")
+        boolean canSave    = isOwner || (viewTokenMatch && !LocalDate.now().isBefore(paper.getTargetDate()));
 
         return RollingPaperDetailResponse.of(paper, isOwner, canComment, canSave);
     }
