@@ -41,29 +41,31 @@ export function LoginForm({
         void onSubmit();
       }}
     >
-      <TextField
-        id="username"
-        name="username"
-        autoComplete="username"
-        label="아이디"
-        value={values.username}
-        placeholder="아이디를 입력해주세요"
-        error={errors.username}
-        onChange={(event) => onChange("username", event.target.value)}
-      />
+      <div className="mt-4 flex flex-col gap-3">
+        <TextField
+          id="username"
+          name="username"
+          autoComplete="username"
+          label="아이디"
+          value={values.username}
+          placeholder="아이디를 입력해주세요"
+          error={errors.username}
+          onChange={(event) => onChange("username", event.target.value)}
+        />
 
-      <TextField
-        id="password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
-        label="비밀번호"
-        value={values.password}
-        placeholder="비밀번호를 입력해주세요"
-        error={errors.password}
-        filledMinLength={8}
-        onChange={(event) => onChange("password", event.target.value)}
-      />
+        <TextField
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          label="비밀번호"
+          value={values.password}
+          placeholder="비밀번호를 입력해주세요"
+          error={errors.password}
+          filledMinLength={8}
+          onChange={(event) => onChange("password", event.target.value)}
+        />
+      </div>
 
       {submitMessage ? (
         <div

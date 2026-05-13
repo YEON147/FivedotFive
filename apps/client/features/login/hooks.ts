@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { setAccessToken } from "@/lib/api/token-store";
 import { login } from "@/features/login/api";
 import { resolvePostLoginDestination } from "@/features/login/post-login-destination";
@@ -37,8 +37,20 @@ function toLoginRequest(values: LoginFormValues): LoginRequest {
   };
 }
 
-export function useLoginForm(nextParam?: string | null) {
+export type UseLoginFormOptions = {
+  /** 액세스 토큰 저장 직후, `router.replace` 전에 호출(동일 URL 복귀 시 부모 UI 동기화 등) */
+  onSuccess?: () => void;
+};
+
+export function useLoginForm(
+  nextParam?: string | null,
+  options?: UseLoginFormOptions,
+) {
   const router = useRouter();
+  const onSuccessRef = useRef(options?.onSuccess);
+  useLayoutEffect(() => {
+    onSuccessRef.current = options?.onSuccess;
+  });
   const [values, setValues] = useState<LoginFormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,14 +106,18 @@ export function useLoginForm(nextParam?: string | null) {
         setAccessToken(response.data.accessToken);
       }
 
-      setSubmitMessage(response.message ?? "로그인 되었습니다.");
-      setSubmitSuccess(true);
-
       const destination = resolvePostLoginDestination(
         nextParam ?? null,
         response.data?.hasWishBoard,
       );
       router.replace(destination);
+
+      if (onSuccessRef.current) {
+        onSuccessRef.current();
+      } else {
+        setSubmitMessage(response.message ?? "로그인 되었습니다.");
+        setSubmitSuccess(true);
+      }
     } catch (error) {
       const message =
         error instanceof Error

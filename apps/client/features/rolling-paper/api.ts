@@ -172,9 +172,59 @@ export async function postRollingPaperShareViewLink(
   );
 }
 
+/** POST /api/rolling-papers/{slug}/save — JWT 필수, view 링크 수신 시 `X-Rolling-Token` */
+export type RollingPaperSavePayload = {
+  slug: string;
+  source: "CREATED" | "RECEIVED" | string;
+  savedAt: string;
+};
+
+export type RollingPaperSaveResponse = {
+  success?: boolean;
+  message?: string;
+  data: RollingPaperSavePayload;
+};
+
+export async function postRollingPaperSave(
+  slug: string,
+  rollingToken?: string | null,
+): Promise<RollingPaperSaveResponse> {
+  const enc = encodeRollingSlug(slug);
+  return apiClient<RollingPaperSaveResponse>(
+    `/api/rolling-papers/${enc}/save`,
+    {
+      method: "POST",
+      headers: mergeRollingPaperHeaders(rollingToken, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({}),
+    },
+  );
+}
+
 /** GET /api/rolling-papers/me/list — 로그인 회원만 */
 export async function getMyRollingPapersList(): Promise<RollingPaperMyListData> {
   return apiClient<RollingPaperMyListData>("/api/rolling-papers/me/list");
+}
+
+/** GET /api/rolling-papers/me/saved — 저장·복사본 목록 (CREATED / RECEIVED) */
+export type SavedRollingPaperItem = {
+  slug: string;
+  title: string;
+  source: "CREATED" | "RECEIVED" | string;
+  savedAt: string;
+};
+
+export type RollingPaperMySavedData = {
+  success?: boolean;
+  message?: string;
+  data?: {
+    saved?: SavedRollingPaperItem[];
+  };
+};
+
+export async function getMySavedRollingPapers(): Promise<RollingPaperMySavedData> {
+  return apiClient<RollingPaperMySavedData>("/api/rolling-papers/me/saved");
 }
 
 /** GET /api/rolling-papers/{slug}/comments */
