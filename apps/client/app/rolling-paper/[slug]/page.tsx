@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  BookmarkSimple,
   CaretLeftIcon,
   CaretRightIcon,
+  CircleNotch,
   GearSixIcon,
   TextAlignJustify,
 } from "@phosphor-icons/react";
@@ -23,6 +25,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { RollingPaperSaveLoginModalBody } from "@/components/common/RollingPaperSaveLoginModalBody";
 import { EditBoardOrRollingPaperModal } from "@/components/common/EditBoardOrRollingPaperModal";
 import {
   BoardShareDialog,
@@ -55,7 +58,10 @@ import {
   canEditRollingPaperGuestComment,
   rememberRollingPaperGuestComment,
 } from "@/features/rolling-paper/guest-comment-session";
-import { loginUrlForPath } from "@/features/login/post-login-destination";
+import {
+  loginUrlForPath,
+  sanitizeInternalReturnPath,
+} from "@/features/login/post-login-destination";
 import { getRandomNickname } from "@/features/signup/api";
 import { getMyProfile } from "@/features/user/api";
 import {
@@ -638,6 +644,7 @@ export default function RollingPaperSlugPage({
   const editGateTitleId = useId();
   const deleteDialogTitleId = useId();
   const viewerSaveHintTitleId = useId();
+  const rollingSaveLoginTitleId = useId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -646,6 +653,14 @@ export default function RollingPaperSlugPage({
   const loginHrefWithReturn = useMemo(() => {
     const qs = searchParams.toString();
     return loginUrlForPath(`${pathname}${qs ? `?${qs}` : ""}`);
+  }, [pathname, searchParams]);
+
+  /** 저장용 로그인 모달 — 로그인 페이지 `next`와 동일한 값 */
+  const rollingLoginNextParam = useMemo(() => {
+    const qs = searchParams.toString();
+    return sanitizeInternalReturnPath(
+      `${pathname}${qs ? `?${qs}` : ""}`.trim(),
+    );
   }, [pathname, searchParams]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -707,6 +722,8 @@ export default function RollingPaperSlugPage({
   /** 보기·저장용 링크 최초 진입 시 1회 안내 */
   const [viewerSaveHintOpen, setViewerSaveHintOpen] = useState(false);
   const [rollingSaveToBoardBusy, setRollingSaveToBoardBusy] = useState(false);
+  const [rollingSaveLoginModalOpen, setRollingSaveLoginModalOpen] =
+    useState(false);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
   const [ownerCommentShareError, setOwnerCommentShareError] = useState<string | null>(
@@ -826,6 +843,12 @@ export default function RollingPaperSlugPage({
       setVisitorMenuLoggedIn(!!getAccessToken()?.trim());
     }
   }, []);
+
+  const handleRollingSaveLoginSuccess = useCallback(() => {
+    setRollingSaveLoginModalOpen(false);
+    setLoggedInState(true);
+    void syncVisitorSession();
+  }, [syncVisitorSession]);
 
   useEffect(() => {
     void syncVisitorSession();
@@ -1219,7 +1242,7 @@ export default function RollingPaperSlugPage({
   const saveRollingPaperToMyBoard = useCallback(async () => {
     if (!slug.trim()) return;
     if (!getAccessToken()?.trim()) {
-      router.push(loginHrefWithReturn);
+      setRollingSaveLoginModalOpen(true);
       return;
     }
     setRollingSaveToBoardBusy(true);
@@ -1240,7 +1263,7 @@ export default function RollingPaperSlugPage({
     } finally {
       setRollingSaveToBoardBusy(false);
     }
-  }, [slug, rollingToken, router, loginHrefWithReturn]);
+  }, [slug, rollingToken, router]);
 
   /** 포스트잇에 메시지가 올라간 개수 — 첫 방문 시 물방울 개수와 동일 */
   const filledMessageCount = useMemo(() => {
@@ -2302,10 +2325,27 @@ export default function RollingPaperSlugPage({
                             type="button"
                             disabled={rollingSaveToBoardBusy}
                             onClick={() => void saveRollingPaperToMyBoard()}
-                            className="pointer-events-auto inline-flex min-h-[44px] min-w-[5.5rem] items-center justify-center rounded-full bg-[#7B61FF] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:opacity-70"
-                            aria-label="내 보드에 롤링페이퍼 저장"
+                            className="pointer-events-auto flex size-[42px] min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
+                            aria-label={
+                              rollingSaveToBoardBusy
+                                ? "내 보드에 저장 중"
+                                : "내 보드에 롤링페이퍼 저장"
+                            }
                           >
-                            {rollingSaveToBoardBusy ? "저장 중…" : "저장"}
+                            {rollingSaveToBoardBusy ? (
+                              <CircleNotch
+                                className="animate-spin"
+                                size={23}
+                                weight="bold"
+                                aria-hidden
+                              />
+                            ) : (
+                              <BookmarkSimple
+                                size={23}
+                                weight="bold"
+                                aria-hidden
+                              />
+                            )}
                           </button>
                         </div>
                       ) : null}
@@ -2427,7 +2467,7 @@ export default function RollingPaperSlugPage({
         closeLabel="안내 닫기"
         description={
           <span className="sr-only">
-            우측 하단 저장 버튼으로 내 보드에 롤링페이퍼를 저장할 수 있으며, 보드
+            우측 하단 저장 아이콘으로 내 보드에 롤링페이퍼를 저장할 수 있으며, 보드
             공개일 당일 하루 동안만 저장이 가능하며 이후에는 조회 및 저장이 불가합니다.
           </span>
         }
@@ -2435,7 +2475,7 @@ export default function RollingPaperSlugPage({
         <div className="mt-4 flex flex-col gap-3 text-left text-sm leading-relaxed text-slate-700">
           <p>
             우측 하단의{" "}
-            <span className="font-semibold text-slate-900">저장</span> 버튼으로
+            <span className="font-semibold text-slate-900">저장</span> 아이콘으로
             내 보드에 롤링페이퍼를 저장할 수 있어요.
           </p>
           {viewerSaveHintTargetDateLabel ? (
@@ -2460,6 +2500,28 @@ export default function RollingPaperSlugPage({
           >
             확인
           </button>
+        </div>
+      </WishlistCenterDialog>
+
+      <WishlistCenterDialog
+        variant="static"
+        staticStack="aboveDialogs"
+        open={rollingSaveLoginModalOpen}
+        onClose={() => setRollingSaveLoginModalOpen(false)}
+        title="로그인"
+        titleId={rollingSaveLoginTitleId}
+        closeLabel="닫기"
+        description={
+          <p className="text-left text-[13px] leading-snug text-slate-600">
+            내 보드에 롤링페이퍼를 저장하려면 로그인해 주세요.
+          </p>
+        }
+      >
+        <div className="mt-1">
+          <RollingPaperSaveLoginModalBody
+            nextParam={rollingLoginNextParam}
+            onLoginSuccess={handleRollingSaveLoginSuccess}
+          />
         </div>
       </WishlistCenterDialog>
 

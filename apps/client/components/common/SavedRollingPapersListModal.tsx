@@ -183,27 +183,27 @@ export function SavedRollingPapersListModal({
                   <Link
                     href={`/rolling-paper/${encodeURIComponent(row.slug)}`}
                     onClick={onClose}
-                    className="flex min-h-[48px] min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-xl px-2 py-2 transition [-webkit-tap-highlight-color:transparent] [@media(pointer:coarse)]:bg-slate-50 [@media(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-slate-50 active:bg-slate-100/90 sm:min-h-[44px] sm:py-1.5 touch-manipulation"
+                    className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 transition [-webkit-tap-highlight-color:transparent] [@media(pointer:coarse)]:bg-slate-50 [@media(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-slate-50 active:bg-slate-100/90 sm:min-h-[44px] sm:py-1.5 touch-manipulation"
                   >
-                    <span className="flex min-w-0 items-start justify-between gap-2">
-                      <span className="min-w-0 flex-1 truncate text-[15px] font-medium leading-snug text-slate-900">
+                    <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+                      <span className="min-w-0 truncate text-[15px] font-medium leading-snug text-slate-900">
                         {row.title?.trim() ? row.title : "(제목 없음)"}
                       </span>
-                      <ArrowSquareOut
-                        className="pointer-events-none mt-0.5 shrink-0 text-slate-600"
-                        size={22}
-                        weight="bold"
-                        aria-hidden
-                      />
-                    </span>
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-slate-500">
-                      <span className="font-medium text-violet-700">
-                        {sourceLabel(String(row.source ?? ""))}
-                      </span>
-                      <span className="tabular-nums">
-                        {formatSavedAt(row.savedAt ?? "")}
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-slate-500">
+                        <span className="font-medium text-violet-700">
+                          {sourceLabel(String(row.source ?? ""))}
+                        </span>
+                        <span className="tabular-nums">
+                          {formatSavedAt(row.savedAt ?? "")}
+                        </span>
                       </span>
                     </span>
+                    <ArrowSquareOut
+                      className="pointer-events-none shrink-0 self-center text-slate-600"
+                      size={22}
+                      weight="bold"
+                      aria-hidden
+                    />
                   </Link>
                   <div className="flex shrink-0 items-center gap-1.5 pr-0.5 sm:gap-2">
                     <button
