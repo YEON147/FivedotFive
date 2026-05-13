@@ -121,8 +121,14 @@ public class RollingPaperService {
         RollingPaper paper = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
+        // 복사본은 저장한 본인만 조회 가능
         if (paper.getIsSavedCopy()) {
-            throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+            boolean isSaver = userId != null
+                    && paper.getSavedByUser() != null
+                    && paper.getSavedByUser().getId().equals(userId);
+            if (!isSaver) throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+            // 복사본은 canComment/canSave 모두 false (읽기 전용)
+            return RollingPaperDetailResponse.of(paper, false, false, false);
         }
 
         boolean isOwner = userId != null && paper.getUser().getId().equals(userId);
