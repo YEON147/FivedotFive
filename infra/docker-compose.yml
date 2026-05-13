@@ -37,7 +37,7 @@ services:
       - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
       - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
       - GMS_KEY=${GMS_KEY}
-      - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
+      - DB_URL=jdbc:postgresql://postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=oh-jjeom-oh-redis
@@ -64,7 +64,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
       - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
-      - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
+      - DB_URL=jdbc:postgresql://postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - GMS_KEY=${GMS_KEY}
@@ -93,7 +93,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
       - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
-      - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
+      - DB_URL=jdbc:postgresql://postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - GMS_KEY=${GMS_KEY}
