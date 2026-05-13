@@ -76,34 +76,43 @@ public class TeamDataInitializer implements ApplicationRunner {
     }
 
     /**
-     * 유저 기준으로 보드를 조회하여 slug / isPublic 을 보정합니다.
-     * 기존 방식(boardSlug=username 으로 조회)과 달리, 보드 slug 가 바뀐 경우에도 올바르게 교정합니다.
+     * 보드 slug / isPublic 을 보정합니다.
+     *
+     * 1. username 과 일치하는 slug 의 보드가 이미 있으면 → isPublic 만 보정하고 종료.
+     *    (보드가 2개인 경우 slug 충돌 없이 올바른 보드를 그대로 사용)
+     * 2. 없으면 유저의 첫 번째 보드를 찾아 slug 를 username 으로 교정.
+     * 3. 보드가 아예 없으면 새로 생성.
      */
     private void ensureBoard(User user, String username) {
-        wishBoardRepository.findFirstByUser(user).ifPresentOrElse(
+        // 1. 올바른 slug 의 보드가 이미 존재하는 경우
+        wishBoardRepository.findByBoardSlug(username).ifPresentOrElse(
                 board -> {
-                    boolean changed = false;
-                    if (!username.equals(board.getBoardSlug())) {
-                        log.info("[TeamInit] 구단 보드 slug 보정: [{}] → [{}]", board.getBoardSlug(), username);
-                        board.updateBoardSlug(username);
-                        changed = true;
-                    }
                     if (!Boolean.TRUE.equals(board.getIsPublic())) {
                         log.info("[TeamInit] 구단 보드 공개 보정: slug={}", username);
                         board.updateIsPublic(true);
-                        changed = true;
-                    }
-                    if (!changed) {
+                    } else {
                         log.debug("[TeamInit] 구단 보드 이상 없음: slug={}", username);
                     }
                 },
                 () -> {
-                    log.info("[TeamInit] 구단 보드 생성: slug={}", username);
-                    wishBoardRepository.save(WishBoard.builder()
-                            .user(user)
-                            .boardSlug(username)
-                            .isPublic(true)
-                            .build());
+                    // 2. slug 가 다른 보드가 있으면 교정, 없으면 생성
+                    wishBoardRepository.findFirstByUser(user).ifPresentOrElse(
+                            board -> {
+                                log.info("[TeamInit] 구단 보드 slug 보정: [{}] → [{}]", board.getBoardSlug(), username);
+                                board.updateBoardSlug(username);
+                                if (!Boolean.TRUE.equals(board.getIsPublic())) {
+                                    board.updateIsPublic(true);
+                                }
+                            },
+                            () -> {
+                                log.info("[TeamInit] 구단 보드 생성: slug={}", username);
+                                wishBoardRepository.save(WishBoard.builder()
+                                        .user(user)
+                                        .boardSlug(username)
+                                        .isPublic(true)
+                                        .build());
+                            }
+                    );
                 }
         );
     }

@@ -77,17 +77,169 @@ import {
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import type { MyBoardListEntry } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
-import { shouldUseNativeImg } from "@/lib/native-img";
 import { RollingPaperBubbleLayer } from "@/components/rolling-paper/RollingPaperBubbleLayer";
+import { RollingPaperPngSaveFabButton } from "@/components/rolling-paper/RollingPaperPngSaveFabButton";
 import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
 import { isMaskedOthersWishComment } from "@/features/wishlist/comment-display";
 import { getKstStartOfLocalDateMs } from "@/features/wishlist/comment-reveal-at";
+import { toPng } from "html-to-image";
 
 /**
  * 보드 한 장(면)당 포스트잇 개수 — UI 슬롯·전역 `slotIndex` 묶음·GET `/comments` 의 `size` 와 동일.
  * (위시 보드 슬롯 수와 별개 — 공통 상수로 두지 않음.)
  */
 const ROLLING_POSTIT_SLOT_COUNT = 4;
+
+/** 전체 PNG 저장 시 한 파일에 합칠 최대 면 수(메모리·모바일 안정) */
+const MAX_ROLLING_PNG_EXPORT_BOARDS = 20;
+
+/** 가로로 이어 붙인 최종 캔버스 한 변 상한(브라우저·GPU 한계 대비) */
+const MAX_ROLLING_EXPORT_CANVAS_EDGE = 16300;
+
+/** `next/image`·CDN URL이 쿼리 없이 캐시 키에만 남으면 서로 덮어씌워져 모든 이미지가 동일해짐 → `includeQueryParams` 필수 */
+async function waitForRollingCollageImages(
+  root: HTMLElement,
+  timeoutMs = 12000,
+): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll("img"));
+  for (const img of imgs) {
+    if (!img.complete || img.naturalWidth === 0) {
+      await new Promise<void>((resolve) => {
+        const done = () => resolve();
+        img.addEventListener("load", done, { once: true });
+        img.addEventListener("error", done, { once: true });
+        window.setTimeout(done, timeoutMs);
+      });
+    }
+    if (typeof img.decode === "function") {
+      try {
+        await img.decode();
+      } catch {
+        /* decode 실패해도 캡처는 진행 */
+      }
+    }
+  }
+}
+
+/** `/_next/image`·clone 맥락 없이 동일 오리진·절대 URL로 로드 */
+function rollingCollageAbsoluteSrc(src: string): string {
+  const t = (src ?? "").trim();
+  if (!t || /^data:/i.test(t)) return t;
+  if (/^https?:\/\//i.test(t)) return t;
+  if (typeof window === "undefined") return t;
+  try {
+    return new URL(t, window.location.href).href;
+  } catch {
+    return t;
+  }
+}
+
+/** `html-to-image` 등에서 `throw`/`reject` 형태가 `Error`가 아닐 때도 메시지 확보 */
+function messageFromUnknownCaptureError(err: unknown): string {
+  if (typeof err === "string" && err.trim()) return err.trim();
+  if (err instanceof Error && err.message.trim()) return err.message.trim();
+  if (typeof Event !== "undefined" && err instanceof Event) {
+    const ev = err;
+    let hint = "";
+    if (ev.target instanceof HTMLImageElement && ev.target.currentSrc) {
+      try {
+        const u = new URL(ev.target.currentSrc, window.location.href);
+        const path = u.pathname + u.search;
+        hint =
+          path.length > 96 ? ` (${path.slice(0, 96)}…)` : ` (${path})`;
+      } catch {
+        hint = "";
+      }
+    }
+    return `이미지·폰트 등 리소스를 불러오지 못했습니다${hint}`;
+  }
+  if (err && typeof err === "object") {
+    const o = err as Record<string, unknown>;
+    const n = typeof o.name === "string" ? o.name.trim() : "";
+    const m = typeof o.message === "string" ? o.message.trim() : "";
+    const line = [n, m].filter(Boolean).join(": ").trim();
+    if (line) return line;
+  }
+  const s = String(err).trim();
+  if (s && s !== "[object Object]" && s !== "[object Event]") return s;
+  return "";
+}
+
+/** `html-to-image`가 URL을 fetch할 때 — S3 등 **다른 오리진**은 `same-origin` 모드로는 요청 자체가 금지됨 */
+const ROLLING_PNG_FETCH_INIT: RequestInit = {
+  mode: "cors",
+  credentials: "omit",
+};
+
+async function captureRollingBoardToPng(
+  node: HTMLElement,
+  pixelRatio: number,
+): Promise<string> {
+  const filter = (domNode: HTMLElement) => {
+    const list = domNode?.classList;
+    if (!list || typeof list.contains !== "function") return true;
+    return !list.contains("rolling-png-exclude");
+  };
+  /** 기본 동작은 `img.onerror`에 `reject(Event)`가 연결되어 `[object Event]`로만 보임 → 빈칸 처리 후 진행 */
+  const onImageErrorHandler = () => {
+    /* swallow — 해당 리소스는 비어 보일 수 있음 */
+  };
+  const attempts: Parameters<typeof toPng>[1][] = [
+    {
+      pixelRatio,
+      cacheBust: true,
+      includeQueryParams: true,
+      backgroundColor: "#f4f2ec",
+      fetchRequestInit: ROLLING_PNG_FETCH_INIT,
+      filter,
+      onImageErrorHandler,
+    },
+    {
+      pixelRatio: 1,
+      cacheBust: true,
+      includeQueryParams: true,
+      backgroundColor: "#f4f2ec",
+      fetchRequestInit: ROLLING_PNG_FETCH_INIT,
+      filter,
+      onImageErrorHandler,
+    },
+    {
+      pixelRatio: 1,
+      cacheBust: true,
+      includeQueryParams: true,
+      backgroundColor: "#f4f2ec",
+      filter,
+      onImageErrorHandler,
+    },
+    {
+      pixelRatio: 1,
+      backgroundColor: "#f4f2ec",
+      filter,
+      onImageErrorHandler,
+    },
+    {
+      pixelRatio: 1,
+      backgroundColor: "#f4f2ec",
+      skipFonts: true,
+      filter,
+      onImageErrorHandler,
+    },
+  ];
+  let last: unknown;
+  for (const opts of attempts) {
+    try {
+      return await toPng(node, opts);
+    } catch (e) {
+      last = e;
+    }
+  }
+  const detail = messageFromUnknownCaptureError(last);
+  throw new Error(
+    detail
+      ? detail
+      : "캡처 단계에서 오류가 났습니다. 잠시 후 다시 시도해 주세요.",
+  );
+}
 
 const GUEST_NICKNAME_MAX_LEN = 8;
 
@@ -126,17 +278,13 @@ const ROLLING_POLAROID_PHOTO_INSET =
  */
 const ROLLING_POLAROID_PHOTO_INNER = "relative block h-full w-full";
 
-const ROLLING_POLAROID_PHOTO_IMG =
-  "pointer-events-none h-full w-full origin-center scale-[0.98] rotate-[1.75deg] object-contain object-center";
-const ROLLING_POLAROID_PHOTO_IMG_FILL =
-  "pointer-events-none origin-center scale-[0.98] rotate-[1.75deg] object-contain object-center";
 /** 소유자 폴라로이드 사진 영역 탭 — inset은 위와 동일, 포인터 허용 */
 const ROLLING_POLAROID_PHOTO_BUTTON_INSET =
   "absolute inset-[19%_8.5%_30%_8.5%] z-[15] overflow-hidden rounded-[1.5%] border-0 bg-transparent p-0 shadow-none outline-none ring-0 transition hover:ring-2 hover:ring-violet-400/45 focus-visible:ring-2 focus-visible:ring-violet-400/80 active:bg-black/[0.06]";
 
 /**
  * `public/rollingpaper/*.png` 교체 후 캐시가 남으면 `.env`의 `NEXT_PUBLIC_ROLLING_ASSET_VERSION`만 올리세요.
- * 다른 화면과 같이 `src`는 `/rollingpaper/...` 고정, `next/image` 기본 최적화만 사용 — 버전은 `key`로만 반영합니다.
+ * 폴라로이드 프레임·삽입 사진은 `<img>`+절대 URL, 포스트잇 배경은 `next/image` `unoptimized` — 버전은 `key`로만 반영합니다.
  */
 const ROLLING_ASSET_VERSION =
   process.env.NEXT_PUBLIC_ROLLING_ASSET_VERSION?.trim() || "1";
@@ -645,6 +793,7 @@ export default function RollingPaperSlugPage({
   const deleteDialogTitleId = useId();
   const viewerSaveHintTitleId = useId();
   const rollingSaveLoginTitleId = useId();
+  const rollingPngExportErrorTitleId = useId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -724,6 +873,9 @@ export default function RollingPaperSlugPage({
   const [rollingSaveToBoardBusy, setRollingSaveToBoardBusy] = useState(false);
   const [rollingSaveLoginModalOpen, setRollingSaveLoginModalOpen] =
     useState(false);
+  const [pngExportBusy, setPngExportBusy] = useState(false);
+  const [pngExportError, setPngExportError] = useState<string | null>(null);
+  const collageCaptureRef = useRef<HTMLDivElement>(null);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
   const [ownerCommentShareUrl, setOwnerCommentShareUrl] = useState<string | null>(null);
   const [ownerCommentShareError, setOwnerCommentShareError] = useState<string | null>(
@@ -1194,6 +1346,10 @@ export default function RollingPaperSlugPage({
       !detailForbidden,
   );
 
+  const showRollingPaperPngExportFab = Boolean(
+    detail && !loading && !loadError && !detailForbidden,
+  );
+
   const viewerSaveHintStorageKey = useMemo(
     () =>
       `rollingPaper:viewerSaveHint:v1:${encodeURIComponent(slug)}:${encodeURIComponent(rollingToken ?? "")}`,
@@ -1264,6 +1420,177 @@ export default function RollingPaperSlugPage({
       setRollingSaveToBoardBusy(false);
     }
   }, [slug, rollingToken, router]);
+
+  const exportRollingPaperFullPng = useCallback(async () => {
+    if (!showRollingPaperPngExportFab || pngExportBusy) return;
+    const root = collageCaptureRef.current;
+    if (!root || !slug.trim()) {
+      setPngExportError("화면을 불러온 뒤 다시 시도해 주세요.");
+      return;
+    }
+    const totalSheets = Math.max(1, boardsToRender);
+    const n = Math.min(totalSheets, MAX_ROLLING_PNG_EXPORT_BOARDS);
+    if (totalSheets > MAX_ROLLING_PNG_EXPORT_BOARDS) {
+      window.alert(
+        `면이 ${totalSheets}장입니다. 한 파일에는 최대 ${MAX_ROLLING_PNG_EXPORT_BOARDS}장까지 저장됩니다.`,
+      );
+    }
+    const savedPage = visibleBoardPage;
+    setPngExportBusy(true);
+    setPngExportError(null);
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+    const dataUrls: string[] = [];
+    try {
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      const dpr =
+        typeof window !== "undefined"
+          ? Math.min(2.5, Math.max(1, window.devicePixelRatio || 1))
+          : 2;
+      for (let p = 0; p < n; p++) {
+        setVisibleBoardPage(p);
+        await loadCommentsPage(p);
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+          });
+        });
+        await waitForRollingCollageImages(root);
+        try {
+          const dataUrl = await captureRollingBoardToPng(root, dpr);
+          dataUrls.push(dataUrl);
+        } catch (cap) {
+          const base =
+            cap instanceof Error
+              ? cap.message.trim()
+              : messageFromUnknownCaptureError(cap);
+          throw new Error(
+            base
+              ? `면 ${p + 1}: ${base}`
+              : `면 ${p + 1}: 캡처에 실패했습니다.`,
+          );
+        }
+      }
+
+      const imgs = await Promise.all(
+        dataUrls.map(
+          (src) =>
+            new Promise<HTMLImageElement>((resolve, reject) => {
+              const im = document.createElement("img");
+              im.decoding = "async";
+              im.onload = () => resolve(im);
+              im.onerror = () =>
+                reject(new Error("이미지 합치기에 실패했습니다."));
+              im.src = src;
+            }),
+        ),
+      );
+
+      for (let i = 0; i < imgs.length; i++) {
+        const im = imgs[i]!;
+        if (!im.naturalWidth || !im.naturalHeight) {
+          throw new Error(
+            `면 ${i + 1} 캡처 크기를 읽지 못했습니다. 잠시 후 다시 시도해 주세요.`,
+          );
+        }
+      }
+
+      const gapPx = 24;
+      const h = Math.max(...imgs.map((im) => im.naturalHeight || im.height));
+      const w =
+        imgs.reduce((acc, im) => acc + (im.naturalWidth || im.width), 0) +
+        gapPx * Math.max(0, imgs.length - 1);
+
+      const scale = Math.min(
+        1,
+        MAX_ROLLING_EXPORT_CANVAS_EDGE / w,
+        MAX_ROLLING_EXPORT_CANVAS_EDGE / h,
+      );
+      const outW = Math.max(1, Math.floor(w * scale));
+      const outH = Math.max(1, Math.floor(h * scale));
+      const gapScaled = Math.round(gapPx * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("이미지를 만들 수 없습니다.");
+      ctx.fillStyle = "#f4f2ec";
+      ctx.fillRect(0, 0, outW, outH);
+      let dx = 0;
+      for (const im of imgs) {
+        const ih = im.naturalHeight || im.height;
+        const iw = im.naturalWidth || im.width;
+        const dw = Math.max(1, Math.round(iw * scale));
+        const dh = Math.max(1, Math.round(ih * scale));
+        const dy = Math.round((outH - dh) / 2);
+        ctx.drawImage(im, 0, 0, iw, ih, dx, dy, dw, dh);
+        dx += dw + gapScaled;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("파일을 만들지 못했습니다."));
+              return;
+            }
+            try {
+              const safeSlug = slug.replace(/[^\w.-]+/g, "_").slice(0, 48);
+              const objectUrl = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = objectUrl;
+              a.download = `rolling-paper-${safeSlug || "board"}.png`;
+              a.rel = "noopener";
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(objectUrl);
+              resolve();
+            } catch (err) {
+              reject(
+                err instanceof Error ? err : new Error("다운로드에 실패했습니다."),
+              );
+            }
+          },
+          "image/png",
+        );
+      });
+    } catch (e) {
+      const fromErr =
+        e instanceof Error
+          ? e.message.trim()
+          : typeof e === "string"
+            ? e.trim()
+            : "";
+      const fallback =
+        typeof e === "object" && e !== null && "message" in e
+          ? String((e as { message?: unknown }).message ?? "").trim()
+          : "";
+      setPngExportError(
+        fromErr ||
+          fallback ||
+          String(e).trim() ||
+          "이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    } finally {
+      setVisibleBoardPage(savedPage);
+      await loadCommentsPage(savedPage);
+      setPngExportBusy(false);
+    }
+  }, [
+    showRollingPaperPngExportFab,
+    pngExportBusy,
+    slug,
+    boardsToRender,
+    visibleBoardPage,
+    loadCommentsPage,
+  ]);
 
   /** 포스트잇에 메시지가 올라간 개수 — 첫 방문 시 물방울 개수와 동일 */
   const filledMessageCount = useMemo(() => {
@@ -2030,9 +2357,9 @@ export default function RollingPaperSlugPage({
     <>
       <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col overflow-visible px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
       <div
-        className={`relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-x-hidden overscroll-contain transition-all duration-300 ease-out ${
-          modalOpen ? "overflow-y-hidden" : "overflow-y-auto"
-        }`}
+        className={`relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overscroll-contain transition-all duration-300 ease-out ${
+          pngExportBusy ? "overflow-x-visible" : "overflow-x-hidden"
+        } ${modalOpen ? "overflow-y-hidden" : "overflow-y-auto"}`}
       >
         <section className={`${ROLLING_PAPER_BOARD_WRAP} mx-auto min-h-0 w-full`}>
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-visible p-0">
@@ -2052,11 +2379,15 @@ export default function RollingPaperSlugPage({
                   <RollingPaperBubbleLayer
                     slug={slug}
                     messageCount={filledMessageCount}
-                    paused={modalOpen}
+                    paused={modalOpen || pngExportBusy}
                   />
                 ) : null}
 
-                <div className="absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden rounded-[18px]">
+                <div
+                  className={`absolute inset-0 z-10 flex min-h-0 flex-col rounded-[18px] ${
+                    pngExportBusy ? "overflow-visible" : "overflow-hidden"
+                  }`}
+                >
                   <div
                     className={`${ROLLING_PAPER_BOARD_INNER} relative flex h-full min-h-0 flex-1 flex-col`}
                   >
@@ -2089,8 +2420,14 @@ export default function RollingPaperSlugPage({
                   ) : (
                     <>
                       <div
-                        className={`relative mx-2 mb-1 mt-0 min-h-0 flex-1 overflow-visible rounded-[14px] ${COLLAGE_BG} shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]`}
+                        ref={collageCaptureRef}
+                        className={`relative mx-2 mb-1 mt-0 min-h-0 flex-1 overflow-visible rounded-[14px] ${COLLAGE_BG} shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] ${
+                          pngExportBusy
+                            ? "box-content w-full max-w-none px-2 py-1.5 sm:px-3 sm:py-2"
+                            : ""
+                        }`}
                       >
+                        <div className="relative h-full w-full min-h-0 overflow-visible">
                         {COLLAGE_PIECES.map((piece) => {
                           const [aw, ah] = piece.aspect;
                           if (piece.kind === "polaroid") {
@@ -2108,20 +2445,22 @@ export default function RollingPaperSlugPage({
                                 style={{ aspectRatio: `${aw} / ${ah}` }}
                               >
                                 <div className="relative h-full w-full">
-                                  <Image
+                                  {/* eslint-disable-next-line @next/next/no-img-element -- 폴라로이드 프레임만 fill Image 대신 고정 크기+절대 URL(캡처·모바일 안정) */}
+                                  <img
                                     key={`${piece.src}@${ROLLING_ASSET_VERSION}`}
-                                    src={piece.src}
+                                    src={rollingCollageAbsoluteSrc(piece.src)}
                                     alt={piece.alt}
-                                    fill
-                                    className="pointer-events-none relative z-[1] object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
-                                    sizes="(max-width: 420px) 50vw, 220px"
-                                    priority
+                                    width={aw}
+                                    height={ah}
+                                    decoding="async"
+                                    draggable={false}
+                                    className="pointer-events-none absolute inset-0 z-[1] h-full w-full object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                   />
                                   {ownerPolaroid ? (
                                     <>
                                       <button
                                         type="button"
-                                        className="absolute right-[4%] top-[11%] z-[26] flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white hover:ring-violet-300/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80"
+                                        className="rolling-png-exclude absolute right-[4%] top-[11%] z-[26] flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white hover:ring-violet-300/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80"
                                         aria-label="페이지 설정"
                                         onClick={(ev) => {
                                           ev.stopPropagation();
@@ -2144,23 +2483,16 @@ export default function RollingPaperSlugPage({
                                       >
                                         <span className={ROLLING_POLAROID_PHOTO_INNER}>
                                           {polaroidPhotoSrc ? (
-                                            shouldUseNativeImg(polaroidPhotoSrc) ? (
-                                              /* eslint-disable-next-line @next/next/no-img-element -- CDN·S3 풀 URL */
-                                              <img
-                                                src={polaroidPhotoSrc}
-                                                alt=""
-                                                className={ROLLING_POLAROID_PHOTO_IMG}
-                                              />
-                                            ) : (
-                                              <Image
-                                                key={`${polaroidPhotoKey}@${ROLLING_ASSET_VERSION}`}
-                                                src={polaroidPhotoSrc}
-                                                alt=""
-                                                fill
-                                                className={ROLLING_POLAROID_PHOTO_IMG_FILL}
-                                                sizes="(max-width: 420px) 42vw, 180px"
-                                              />
-                                            )
+                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                            <img
+                                              src={rollingCollageAbsoluteSrc(
+                                                polaroidPhotoSrc,
+                                              )}
+                                              alt=""
+                                              decoding="async"
+                                              draggable={false}
+                                              className="pointer-events-none absolute inset-0 h-full w-full object-contain object-center origin-center scale-[0.98] rotate-[1.75deg]"
+                                            />
                                           ) : (
                                             <span className="pointer-events-none flex h-full w-full items-center justify-center bg-white/55 text-[11px] font-medium leading-tight text-slate-600 ring-1 ring-inset ring-slate-300/70">
                                               사진 추가
@@ -2172,23 +2504,16 @@ export default function RollingPaperSlugPage({
                                   ) : polaroidPhotoSrc ? (
                                       <div className={`${ROLLING_POLAROID_PHOTO_INSET} z-[2]`}>
                                       <div className={ROLLING_POLAROID_PHOTO_INNER}>
-                                        {shouldUseNativeImg(polaroidPhotoSrc) ? (
-                                          /* eslint-disable-next-line @next/next/no-img-element -- CDN·S3 풀 URL */
-                                          <img
-                                            src={polaroidPhotoSrc}
-                                            alt=""
-                                            className={ROLLING_POLAROID_PHOTO_IMG}
-                                          />
-                                        ) : (
-                                          <Image
-                                            key={`${polaroidPhotoKey}@${ROLLING_ASSET_VERSION}`}
-                                            src={polaroidPhotoSrc}
-                                            alt=""
-                                            fill
-                                            className={ROLLING_POLAROID_PHOTO_IMG_FILL}
-                                            sizes="(max-width: 420px) 42vw, 180px"
-                                          />
-                                        )}
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={rollingCollageAbsoluteSrc(
+                                            polaroidPhotoSrc,
+                                          )}
+                                          alt=""
+                                          decoding="async"
+                                          draggable={false}
+                                          className="pointer-events-none absolute inset-0 h-full w-full object-contain object-center origin-center scale-[0.98] rotate-[1.75deg]"
+                                        />
                                       </div>
                                     </div>
                                   ) : null}
@@ -2225,9 +2550,10 @@ export default function RollingPaperSlugPage({
                                   src={piece.src}
                                   alt={piece.alt}
                                   fill
-                                  className="pointer-events-none object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
+                                  unoptimized
                                   sizes="(max-width: 420px) 50vw, 220px"
                                   priority={slotIdx === 1}
+                                  className="pointer-events-none object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                                 />
 
                                 {text ? (
@@ -2237,7 +2563,7 @@ export default function RollingPaperSlugPage({
                                   />
                                 ) : (
                                   <div
-                                    className={`pointer-events-none absolute ${modalPostitFrameInsetClass(slotIdx)} z-[5] flex min-h-0 flex-col items-center justify-center overflow-hidden ${postitBoardTextFramePaddingClass(slotIdx)}`}
+                                    className={`rolling-png-exclude pointer-events-none absolute ${modalPostitFrameInsetClass(slotIdx)} z-[5] flex min-h-0 flex-col items-center justify-center overflow-hidden ${postitBoardTextFramePaddingClass(slotIdx)}`}
                                   >
                                     <span
                                       className={`text-center text-[13px] leading-snug text-slate-400/90 sm:text-[14px] ${ROLLING_POSTIT_FONT_CLASS}`}
@@ -2254,14 +2580,14 @@ export default function RollingPaperSlugPage({
                                 {canComment && !occupied ? (
                                   <button
                                     type="button"
-                                    className="absolute inset-0 z-10 cursor-pointer rounded-sm bg-transparent transition hover:bg-black/[0.03] active:bg-black/[0.06]"
+                                    className="rolling-png-exclude absolute inset-0 z-10 cursor-pointer rounded-sm bg-transparent transition hover:bg-black/[0.03] active:bg-black/[0.06]"
                                     aria-label={`포스트잇 ${globalPostitNo}번에 메시지 작성`}
                                     onClick={() => openCreateModal(slotIdx)}
                                   />
                                 ) : occupied ? (
                                   <button
                                     type="button"
-                                    className="absolute inset-0 z-10 cursor-pointer rounded-sm bg-transparent transition hover:bg-black/[0.03] active:bg-black/[0.06]"
+                                    className="rolling-png-exclude absolute inset-0 z-10 cursor-pointer rounded-sm bg-transparent transition hover:bg-black/[0.03] active:bg-black/[0.06]"
                                     aria-label={`포스트잇 ${globalPostitNo}번 메시지 보기`}
                                     onClick={() => openViewModal(slotIdx)}
                                   />
@@ -2270,9 +2596,10 @@ export default function RollingPaperSlugPage({
                             </div>
                           );
                         })}
+                        </div>
 
                         <div
-                          className={`pointer-events-none absolute bottom-2 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 transition-opacity duration-200 sm:bottom-3 sm:gap-2.5 ${
+                          className={`rolling-png-exclude pointer-events-none absolute bottom-2 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 transition-opacity duration-200 sm:bottom-3 sm:gap-2.5 ${
                             modalOpen ? "opacity-0" : "opacity-100"
                           }`}
                         >
@@ -2303,55 +2630,75 @@ export default function RollingPaperSlugPage({
                         </div>
                       </div>
 
-                      {showRollingPaperShareEntry ? (
+                      {showRollingPaperPngExportFab ? (
                         <div
                           className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end gap-2.5 transition-opacity duration-200 ${
                             modalOpen ? "opacity-0" : "opacity-100"
                           }`}
                         >
-                          <BoardShareFabButton
-                            onClick={() => setIsShareModalOpen(true)}
-                            ariaLabel="롤링페이퍼 공유"
-                          />
-                        </div>
-                      ) : null}
-                      {showRollingPaperViewerSaveFab ? (
-                        <div
-                          className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end transition-opacity duration-200 ${
-                            modalOpen ? "opacity-0" : "opacity-100"
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            disabled={rollingSaveToBoardBusy}
-                            onClick={() => void saveRollingPaperToMyBoard()}
-                            className="pointer-events-auto flex size-[42px] min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
-                            aria-label={
-                              rollingSaveToBoardBusy
-                                ? "내 보드에 저장 중"
-                                : "내 보드에 롤링페이퍼 저장"
-                            }
-                          >
-                            {rollingSaveToBoardBusy ? (
-                              <CircleNotch
-                                className="animate-spin"
-                                size={23}
-                                weight="bold"
-                                aria-hidden
+                          <div className="flex flex-col items-end gap-2.5">
+                            <RollingPaperPngSaveFabButton
+                              busy={pngExportBusy}
+                              onClick={exportRollingPaperFullPng}
+                            />
+                            {showRollingPaperShareEntry ? (
+                              <BoardShareFabButton
+                                onClick={() => setIsShareModalOpen(true)}
+                                ariaLabel="롤링페이퍼 공유"
                               />
-                            ) : (
-                              <BookmarkSimple
-                                size={23}
-                                weight="bold"
-                                aria-hidden
-                              />
-                            )}
-                          </button>
+                            ) : null}
+                            {showRollingPaperViewerSaveFab ? (
+                              <button
+                                type="button"
+                                disabled={rollingSaveToBoardBusy}
+                                onClick={() => void saveRollingPaperToMyBoard()}
+                                className="pointer-events-auto flex size-[42px] min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
+                                aria-label={
+                                  rollingSaveToBoardBusy
+                                    ? "내 보드에 저장 중"
+                                    : "내 보드에 롤링페이퍼 저장"
+                                }
+                              >
+                                {rollingSaveToBoardBusy ? (
+                                  <CircleNotch
+                                    className="animate-spin"
+                                    size={23}
+                                    weight="bold"
+                                    aria-hidden
+                                  />
+                                ) : (
+                                  <BookmarkSimple
+                                    size={23}
+                                    weight="bold"
+                                    aria-hidden
+                                  />
+                                )}
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                       ) : null}
                     </>
                   )}
                   </div>
+                  {pngExportBusy ? (
+                    <div
+                      className="pointer-events-none absolute inset-0 z-[60] flex flex-col items-center justify-center gap-3 rounded-[18px] bg-slate-900/30 text-white backdrop-blur-[2px]"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                    >
+                      <CircleNotch
+                        className="animate-spin"
+                        size={36}
+                        weight="bold"
+                        aria-hidden
+                      />
+                      <p className="text-[13px] font-semibold text-white drop-shadow-sm">
+                        이미지 저장 중…
+                      </p>
+                    </div>
+                  ) : null}
 
                 </div>
 
@@ -2522,6 +2869,31 @@ export default function RollingPaperSlugPage({
             nextParam={rollingLoginNextParam}
             onLoginSuccess={handleRollingSaveLoginSuccess}
           />
+        </div>
+      </WishlistCenterDialog>
+
+      <WishlistCenterDialog
+        variant="static"
+        open={Boolean(pngExportError)}
+        onClose={() => setPngExportError(null)}
+        title="이미지 저장"
+        titleId={rollingPngExportErrorTitleId}
+        closeLabel="닫기"
+        description={
+          <span className="sr-only">롤링페이퍼 PNG 저장 중 오류가 났습니다.</span>
+        }
+      >
+        <div className="mt-4 flex flex-col gap-4">
+          <p className="text-left text-sm leading-relaxed text-slate-700">
+            {pngExportError}
+          </p>
+          <button
+            type="button"
+            onClick={() => setPngExportError(null)}
+            className="w-full rounded-[14px] bg-[#7B61FF] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6b52e0] active:scale-[0.99]"
+          >
+            확인
+          </button>
         </div>
       </WishlistCenterDialog>
 
