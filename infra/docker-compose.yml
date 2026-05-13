@@ -48,6 +48,7 @@ services:
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
       - AWS_REGION=${AWS_REGION:-ap-northeast-2}
       - S3_BUCKET=${S3_BUCKET:-five-dot-five}
+      - JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Seoul
     networks:
       - oh-jjeom-oh-net
   
@@ -76,6 +77,7 @@ services:
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
       - AWS_REGION=${AWS_REGION:-ap-northeast-2}
       - S3_BUCKET=${S3_BUCKET:-five-dot-five}
+      - JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Seoul
     networks:
       - oh-jjeom-oh-net
     restart: always
@@ -105,6 +107,7 @@ services:
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
       - AWS_REGION=${AWS_REGION:-ap-northeast-2}
       - S3_BUCKET=${S3_BUCKET:-five-dot-five}
+      - JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Seoul
     networks:
       - oh-jjeom-oh-net
     restart: always
