@@ -121,4 +121,14 @@ public class RollingPaperController {
         RollingPaperSavedListResponse data = rollingPaperService.getMySavedRollingPapers(userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.SAVED_ROLLING_PAPERS_FOUND, data));
     }
+
+    // DELETE /api/rolling-papers/saved/{slug} - 저장된 복사본 삭제 (저장한 본인만)
+    @DeleteMapping("/saved/{slug}")
+    public ResponseEntity<ApiResponse<Void>> deleteSavedRollingPaper(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String slug) {
+
+        rollingPaperService.deleteSavedRollingPaper(userPrincipal.getId(), slug);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.ROLLING_PAPER_DELETED));
+    }
 }

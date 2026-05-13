@@ -151,7 +151,15 @@ class RollingPaperServiceTest {
         @Test
         @DisplayName("viewToken 접근 - canComment=false, canSave=true")
         void viewTokenAccess() {
-            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
+            // targetDate가 오늘 이전인 별도 paper 사용 (canSave 날짜 조건 충족)
+            RollingPaper pastPaper = RollingPaper.builder()
+                    .user(owner).slug(SLUG)
+                    .title("생일 롤링페이퍼").recipientName("홍길동")
+                    .targetDate(LocalDate.of(2025, 1, 1))
+                    .commentToken(COMMENT_TOKEN).viewToken(VIEW_TOKEN)
+                    .build();
+            ReflectionTestUtils.setField(pastPaper, "id", 10L);
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(pastPaper));
 
             RollingPaperDetailResponse res = rollingPaperService.getRollingPaper(null, SLUG, VIEW_TOKEN);
 

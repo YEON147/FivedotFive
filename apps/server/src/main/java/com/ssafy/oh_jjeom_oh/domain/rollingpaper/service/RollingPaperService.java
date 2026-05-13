@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -120,8 +121,14 @@ public class RollingPaperService {
         RollingPaper paper = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
+        // 복사본은 저장한 본인만 조회 가능
         if (paper.getIsSavedCopy()) {
-            throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+            boolean isSaver = userId != null
+                    && paper.getSavedByUser() != null
+                    && paper.getSavedByUser().getId().equals(userId);
+            if (!isSaver) throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+            // 복사본은 canComment/canSave 모두 false (읽기 전용)
+            return RollingPaperDetailResponse.of(paper, false, false, false);
         }
 
         boolean isOwner = userId != null && paper.getUser().getId().equals(userId);
@@ -133,7 +140,8 @@ public class RollingPaperService {
         }
 
         boolean canComment = isOwner || commentTokenMatch;
-        boolean canSave    = isOwner || viewTokenMatch;
+        // viewToken 접근자는 targetDate 당일 이후에만 저장 가능 (명세: "수신자 + 공개일 당일")
+        boolean canSave    = isOwner || (viewTokenMatch && !LocalDate.now().isBefore(paper.getTargetDate()));
 
         return RollingPaperDetailResponse.of(paper, isOwner, canComment, canSave);
     }
@@ -162,6 +170,26 @@ public class RollingPaperService {
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
         if (!paper.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_DELETE_FORBIDDEN);
+        }
+
+        rollingPaperCommentRepository.deleteByRollingPaper(paper);
+        rollingPaperRepository.delete(paper);
+    }
+
+    // DELETE /api/rolling-papers/saved/{slug} - 저장된 복사본 삭제 (저장한 본인만)
+    @Transactional
+    public void deleteSavedRollingPaper(Long userId, String slug) {
+        RollingPaper paper = rollingPaperRepository.findBySlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
+
+        if (!paper.getIsSavedCopy()) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+        }
+
+        boolean isSaver = paper.getSavedByUser() != null
+                && paper.getSavedByUser().getId().equals(userId);
+        if (!isSaver) {
             throw new CustomException(ErrorCode.ROLLING_PAPER_DELETE_FORBIDDEN);
         }
 
