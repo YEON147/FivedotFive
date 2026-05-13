@@ -13,12 +13,12 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Map;
+import java.util.List;
 
 /**
- * 서버 시작 시 구단 계정의 role / team_tag / boardSlug / isPublic 을 자동으로 보정합니다.
- * - Flyway V9 마이그레이션으로 최초 설정되지만, 혹시라도 값이 변경되었을 경우 복구합니다.
- * - AdminDataInitializer(Order 기본값) 이후에 실행되도록 @Order(2) 지정합니다.
+ * 서버 시작 시 구단 계정의 role / teamTag / nickname / boardSlug / isPublic 을 보정합니다.
+ * 계정이 DB에 없으면 경고 로그만 남기고 skip 합니다.
+ * AdminDataInitializer(Order 기본값) 이후에 실행되도록 @Order(2) 지정합니다.
  */
 @Slf4j
 @Component
@@ -26,18 +26,19 @@ import java.util.Map;
 @Order(2)
 public class TeamDataInitializer implements ApplicationRunner {
 
-    // username → team_tag (stickers/baseball/{teamTag}/ 폴더명과 일치)
-    private static final Map<String, String> TEAM_ACCOUNTS = Map.of(
-            "lottegiants", "giants",
-            "ncdinos",     "dinos",
-            "samsung",     "lions",
-            "eagles",      "eagles",
-            "kiwoom",      "heroes",
-            "twins",       "twins",
-            "doosan",      "bears",
-            "kia",         "tigers",
-            "ssg",         "landers",
-            "wiz",         "wiz"
+    private record TeamInfo(String username, String nickname, String teamTag) {}
+
+    private static final List<TeamInfo> TEAM_ACCOUNTS = List.of(
+            new TeamInfo("lottegiants", "부산갈매기", "giants"),
+            new TeamInfo("ncdinos",     "창원공룡",   "dinos"),
+            new TeamInfo("samsung",     "대구사자",   "lions"),
+            new TeamInfo("eagles",      "대전독수리", "eagles"),
+            new TeamInfo("kiwoom",      "고척영웅",   "heroes"),
+            new TeamInfo("twins",       "서울쌍둥이", "twins"),
+            new TeamInfo("doosan",      "서울곰",     "bears"),
+            new TeamInfo("kia",         "광주호랑이", "tigers"),
+            new TeamInfo("ssg",         "인천코르소", "landers"),
+            new TeamInfo("wiz",         "수원마법사", "wiz")
     );
 
     private final UserRepository userRepository;
@@ -49,32 +50,51 @@ public class TeamDataInitializer implements ApplicationRunner {
         TEAM_ACCOUNTS.forEach(this::ensureTeamAccount);
     }
 
-    private void ensureTeamAccount(String username, String teamTag) {
-        userRepository.findByUsername(username).ifPresentOrElse(
-                user -> {
-                    boolean changed = false;
-                    if (user.getRole() != Role.TEAM || !teamTag.equals(user.getTeamTag())) {
-                        log.info("[TeamInit] 구단 계정 보정: username={} role={} teamTag={}", username, user.getRole(), user.getTeamTag());
-                        user.promoteToTeam(teamTag);
-                        changed = true;
-                    }
-                    ensureBoard(user, username, changed);
-                },
-                () -> log.warn("[TeamInit] 구단 계정을 찾을 수 없습니다: username={}", username)
-        );
+    private void ensureTeamAccount(TeamInfo info) {
+        userRepository.findByUsername(info.username())
+                .ifPresentOrElse(
+                        user -> {
+                            boolean changed = false;
+                            if (user.getRole() != Role.TEAM || !info.teamTag().equals(user.getTeamTag())) {
+                                log.info("[TeamInit] 구단 계정 role/teamTag 보정: username={}", info.username());
+                                user.promoteToTeam(info.teamTag());
+                                changed = true;
+                            }
+                            if (!info.nickname().equals(user.getNickname())) {
+                                log.info("[TeamInit] 구단 계정 nickname 보정: username={} [{}] → [{}]",
+                                        info.username(), user.getNickname(), info.nickname());
+                                user.updateNickname(info.nickname());
+                                changed = true;
+                            }
+                            if (!changed) {
+                                log.debug("[TeamInit] 구단 계정 이상 없음: username={}", info.username());
+                            }
+                            ensureBoard(user, info.username());
+                        },
+                        () -> log.warn("[TeamInit] 구단 계정 없음 (skip): username={}", info.username())
+                );
     }
 
-    private void ensureBoard(User user, String username, boolean userChanged) {
-        wishBoardRepository.findByBoardSlug(username).ifPresentOrElse(
+    /**
+     * 유저 기준으로 보드를 조회하여 slug / isPublic 을 보정합니다.
+     * 기존 방식(boardSlug=username 으로 조회)과 달리, 보드 slug 가 바뀐 경우에도 올바르게 교정합니다.
+     */
+    private void ensureBoard(User user, String username) {
+        wishBoardRepository.findFirstByUser(user).ifPresentOrElse(
                 board -> {
-                    boolean needUpdate = false;
+                    boolean changed = false;
+                    if (!username.equals(board.getBoardSlug())) {
+                        log.info("[TeamInit] 구단 보드 slug 보정: [{}] → [{}]", board.getBoardSlug(), username);
+                        board.updateBoardSlug(username);
+                        changed = true;
+                    }
                     if (!Boolean.TRUE.equals(board.getIsPublic())) {
                         log.info("[TeamInit] 구단 보드 공개 보정: slug={}", username);
                         board.updateIsPublic(true);
-                        needUpdate = true;
+                        changed = true;
                     }
-                    if (!needUpdate && !userChanged) {
-                        log.debug("[TeamInit] 구단 계정 이상 없음: username={}", username);
+                    if (!changed) {
+                        log.debug("[TeamInit] 구단 보드 이상 없음: slug={}", username);
                     }
                 },
                 () -> {

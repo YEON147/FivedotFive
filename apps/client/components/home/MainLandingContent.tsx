@@ -33,7 +33,7 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
   const [entryNavPending, setEntryNavPending] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
-  /** Apple 터치 WebKit: filter drop-shadow가 사각으로 잘림 → 레이어 그림자(워드마크·중앙 히어로) */
+  /** Apple 터치 WebKit: 스포트라이트 히어로 img의 filter+transform 합성 시 drop-shadow가 사각으로 잘리는 경우 → 라디얼 페인트 그림자 경로 */
   const [appleTouchPaintShadow, setAppleTouchPaintShadow] = useState(false);
 
   useEffect(() => {
@@ -78,11 +78,7 @@ export function MainLandingContent({ loggedIn }: MainLandingContentProps) {
             height={140}
             priority
             sizes="(max-width: 768px) 72vw, 300px"
-            className={`main-landing-wordmark-img h-auto w-[min(72vw,300px)] max-w-full object-contain lg:w-[min(36vw,300px)] ${
-              appleTouchPaintShadow
-                ? "shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
-                : "drop-shadow-[0_10px_28px_rgba(123,97,255,0.2)]"
-            }`}
+            className="main-landing-wordmark-img h-auto w-[min(72vw,300px)] max-w-full object-contain lg:w-[min(36vw,300px)]"
           />
         </div>
 

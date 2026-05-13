@@ -139,9 +139,15 @@ public class RollingPaperService {
             throw new CustomException(ErrorCode.ROLLING_PAPER_FORBIDDEN);
         }
 
+        // viewToken으로 접근한 경우 소유자라도 수신자 경험(저장 전용) 제공
+        // — 소유자가 본인 viewToken 링크를 테스트하거나 수신자에게 공유한 링크로 접근 시 동일하게 처리
+        if (viewTokenMatch) {
+            boolean canSave = !LocalDate.now().isBefore(paper.getTargetDate());
+            return RollingPaperDetailResponse.of(paper, false, false, canSave);
+        }
+
         boolean canComment = isOwner || commentTokenMatch;
-        // viewToken 접근자는 targetDate 당일 이후에만 저장 가능 (명세: "수신자 + 공개일 당일")
-        boolean canSave    = isOwner || (viewTokenMatch && !LocalDate.now().isBefore(paper.getTargetDate()));
+        boolean canSave    = isOwner;
 
         return RollingPaperDetailResponse.of(paper, isOwner, canComment, canSave);
     }
@@ -170,6 +176,26 @@ public class RollingPaperService {
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
         if (!paper.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_DELETE_FORBIDDEN);
+        }
+
+        rollingPaperCommentRepository.deleteByRollingPaper(paper);
+        rollingPaperRepository.delete(paper);
+    }
+
+    // DELETE /api/rolling-papers/saved/{slug} - 저장된 복사본 삭제 (저장한 본인만)
+    @Transactional
+    public void deleteSavedRollingPaper(Long userId, String slug) {
+        RollingPaper paper = rollingPaperRepository.findBySlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
+
+        if (!paper.getIsSavedCopy()) {
+            throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
+        }
+
+        boolean isSaver = paper.getSavedByUser() != null
+                && paper.getSavedByUser().getId().equals(userId);
+        if (!isSaver) {
             throw new CustomException(ErrorCode.ROLLING_PAPER_DELETE_FORBIDDEN);
         }
 

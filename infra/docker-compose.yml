@@ -3,14 +3,13 @@ services:
     image: postgres:16
     container_name: oh-jjeom-oh-postgres
     environment:
-      # POSTGRES_DB: oh_jjeom_oh
-      # POSTGRES_USER: ${DB_USERNAME}
-      # POSTGRES_PASSWORD: ${DB_PASSWORD}
-      - POSTGRES_HOST_AUTH_METHOD=trust
+      POSTGRES_DB: oh_jjeom_oh
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
-      - /var/lib/docker/volumes/2464f3d841fd3164a34ea991c1b861da8a746a4e1f49e59dbc333ae49866d009/_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - oh-jjeom-oh-net
 
@@ -37,7 +36,7 @@ services:
       - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
       - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
       - GMS_KEY=${GMS_KEY}
-      - DB_URL=jdbc:postgresql://postgres:5432/oh_jjeom_oh
+      - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=oh-jjeom-oh-redis
@@ -64,7 +63,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
       - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
-      - DB_URL=jdbc:postgresql://postgres:5432/oh_jjeom_oh
+      - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - GMS_KEY=${GMS_KEY}
@@ -93,7 +92,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN2_USERNAME=${ADMIN2_USERNAME} 
       - ADMIN2_PASSWORD=${ADMIN2_PASSWORD} 
-      - DB_URL=jdbc:postgresql://postgres:5432/oh_jjeom_oh
+      - DB_URL=jdbc:postgresql://oh-jjeom-oh-postgres:5432/oh_jjeom_oh
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - GMS_KEY=${GMS_KEY}
