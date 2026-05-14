@@ -8,6 +8,7 @@ import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
+import com.ssafy.oh_jjeom_oh.domain.share.repository.ShareLinkRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -36,6 +38,7 @@ public class BoardSoftDeleteScheduler {
     private final WishCommentRepository wishCommentRepository;
     private final RollingPaperRepository rollingPaperRepository;
     private final RollingPaperCommentRepository rollingPaperCommentRepository;
+    private final ShareLinkRepository shareLinkRepository;
     private final Clock clock;
 
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
@@ -61,5 +64,9 @@ public class BoardSoftDeleteScheduler {
 
         log.info("[BoardSoftDeleteScheduler] 위시보드 {}개, 롤링페이퍼 {}개 hard-delete 완료 (기준일: {})",
                 expiredBoards.size(), expiredPapers.size(), today);
+
+        LocalDateTime now = clock.instant().atZone(KST).toLocalDateTime();
+        int deletedLinks = shareLinkRepository.deleteAllExpiredBefore(now);
+        log.info("[BoardSoftDeleteScheduler] 만료된 공유링크 {}개 삭제 완료", deletedLinks);
     }
 }
