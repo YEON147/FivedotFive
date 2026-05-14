@@ -88,6 +88,7 @@ public class RollingPaperService {
     }
 
     // POST /api/rolling-papers/{slug}/share/comment - 댓글 작성용 단축 링크 재생성 (소유자)
+    @Transactional
     public RollingPaperShareLinkResponse generateCommentShareLink(Long userId, String slug) {
         RollingPaper paper = findOriginal(slug);
         requireOwner(userId, paper);
@@ -96,6 +97,7 @@ public class RollingPaperService {
     }
 
     // POST /api/rolling-papers/{slug}/share/view - 저장 전용 단축 링크 재생성 (소유자)
+    @Transactional
     public RollingPaperShareLinkResponse generateViewShareLink(Long userId, String slug) {
         RollingPaper paper = findOriginal(slug);
         requireOwner(userId, paper);
