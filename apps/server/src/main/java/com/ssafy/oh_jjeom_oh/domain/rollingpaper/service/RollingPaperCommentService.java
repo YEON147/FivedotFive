@@ -198,9 +198,12 @@ public class RollingPaperCommentService {
                 && paper.getUser().getId().equals(userId);
     }
 
-    /** 댓글 목록 조회 접근 권한: 소유자 | commentToken | viewToken */
+    /** 댓글 목록 조회 접근 권한: 소유자 | savedByUser(복사본) | commentToken | viewToken */
     private void validateReadAccess(RollingPaper paper, Long userId, String token) {
         if (isOwner(paper, userId)) return;
+        if (paper.getIsSavedCopy() && userId != null
+                && paper.getSavedByUser() != null
+                && paper.getSavedByUser().getId().equals(userId)) return;
         if (token != null
                 && (token.equals(paper.getCommentToken()) || token.equals(paper.getViewToken()))) {
             return;
