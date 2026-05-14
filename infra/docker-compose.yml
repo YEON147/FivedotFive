@@ -18,6 +18,8 @@ services:
     container_name: oh-jjeom-oh-redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - oh-jjeom-oh-net
 
@@ -133,3 +135,4 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:
