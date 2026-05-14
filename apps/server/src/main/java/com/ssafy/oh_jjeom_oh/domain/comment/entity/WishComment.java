@@ -29,7 +29,7 @@ public class WishComment {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "wish_list_id", nullable = false)
+    @JoinColumn(name = "wish_list_id")                      // nullable: 위시보드 삭제 시 SET NULL (댓글 보존)
     private WishBoard wishBoard;
 
     @ManyToOne(fetch = FetchType.LAZY)

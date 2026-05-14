@@ -28,7 +28,7 @@ public class RollingPaperComment {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rolling_paper_id", nullable = false)
+    @JoinColumn(name = "rolling_paper_id")                  // nullable: 롤링페이퍼 삭제 시 SET NULL (댓글 보존)
     private RollingPaper rollingPaper;
 
     @ManyToOne(fetch = FetchType.LAZY)

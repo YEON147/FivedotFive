@@ -4,9 +4,7 @@ import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
-import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
-import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
 import com.ssafy.oh_jjeom_oh.domain.share.repository.ShareLinkRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
@@ -27,6 +25,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,9 +36,7 @@ class BoardSoftDeleteSchedulerTest {
     @Mock WishBoardRepository wishBoardRepository;
     @Mock WishItemRepository wishItemRepository;
     @Mock BoardAssetRepository boardAssetRepository;
-    @Mock WishCommentRepository wishCommentRepository;
     @Mock RollingPaperRepository rollingPaperRepository;
-    @Mock RollingPaperCommentRepository rollingPaperCommentRepository;
     @Mock ShareLinkRepository shareLinkRepository;
     @Mock Clock clock;
 
@@ -51,7 +48,7 @@ class BoardSoftDeleteSchedulerTest {
     }
 
     @Test
-    @DisplayName("만료된 위시보드·롤링페이퍼 hard-delete 처리")
+    @DisplayName("만료된 위시보드 삭제 시 댓글은 직접 삭제하지 않음 (FK SET NULL 보존)")
     void hardDeleteExpiredBoards() {
         User user = buildUser();
 
@@ -72,11 +69,10 @@ class BoardSoftDeleteSchedulerTest {
 
         scheduler.softDeleteExpiredBoards();
 
-        verify(wishCommentRepository).deleteByWishBoard(expiredBoard);
+        // 댓글은 FK SET NULL로 보존되므로 직접 삭제하지 않음
         verify(wishItemRepository).deleteByBoard(expiredBoard);
         verify(boardAssetRepository).deleteByBoard(expiredBoard);
         verify(wishBoardRepository).delete(expiredBoard);
-        verify(rollingPaperCommentRepository).deleteByRollingPaper(expiredPaper);
         verify(rollingPaperRepository).delete(expiredPaper);
     }
 
