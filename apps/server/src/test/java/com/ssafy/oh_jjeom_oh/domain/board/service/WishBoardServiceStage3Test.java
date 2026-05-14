@@ -47,7 +47,6 @@ class WishBoardServiceStage3Test {
     @Mock private WishBoardRepository wishBoardRepository;
     @Mock private WishItemRepository wishItemRepository;
     @Mock private BoardAssetRepository boardAssetRepository;
-    @Mock private WishCommentRepository wishCommentRepository;
     @Mock private UserRepository userRepository;
 
     private User owner;
@@ -143,13 +142,13 @@ class WishBoardServiceStage3Test {
     class DeleteBoard {
 
         @Test
-        @DisplayName("삭제 성공 - 댓글/아이템/에셋/보드 순서로 삭제")
+        @DisplayName("삭제 성공 - 댓글 보존(SET NULL), 아이템/에셋/보드 순서로 삭제")
         void deleteBoard_success() {
             given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
 
             wishBoardService.deleteBoard(1L, "slug0000ab");
 
-            verify(wishCommentRepository).deleteByWishBoard(board);
+            // wish_comments.wish_list_id FK ON DELETE SET NULL → 댓글 직접 삭제 안 함 (랭킹 집계 보존)
             verify(wishItemRepository).deleteByBoard(board);
             verify(boardAssetRepository).deleteByBoard(board);
             verify(wishBoardRepository).delete(board);

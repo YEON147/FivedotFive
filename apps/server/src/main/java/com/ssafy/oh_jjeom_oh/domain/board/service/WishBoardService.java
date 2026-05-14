@@ -22,7 +22,6 @@ import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItem;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
-import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
@@ -48,7 +47,6 @@ public class WishBoardService {
     private final WishBoardRepository wishBoardRepository;
     private final WishItemRepository wishItemRepository;
     private final BoardAssetRepository boardAssetRepository;
-    private final WishCommentRepository wishCommentRepository;
     private final RollingPaperRepository rollingPaperRepository;
     private final UserRepository userRepository;
 
@@ -172,7 +170,7 @@ public class WishBoardService {
             throw new CustomException(ErrorCode.BOARD_DELETE_FORBIDDEN);
         }
 
-        wishCommentRepository.deleteByWishBoard(board);
+        // wish_comments.wish_list_id FK가 ON DELETE SET NULL이므로 댓글을 직접 삭제하지 않음 (랭킹 집계 보존)
         wishItemRepository.deleteByBoard(board);
         boardAssetRepository.deleteByBoard(board);
         wishBoardRepository.delete(board);

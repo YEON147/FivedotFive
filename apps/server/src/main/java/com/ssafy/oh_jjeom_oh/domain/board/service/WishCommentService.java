@@ -224,7 +224,8 @@ public class WishCommentService {
     private WishComment getCommentByIdAndSlug(Long commentId, String slug) {
         WishComment comment = wishCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
-        if (!comment.getWishBoard().getBoardSlug().equals(slug)) {
+        // wishBoard가 null이면 보드가 삭제된 상태 → 접근 불가
+        if (comment.getWishBoard() == null || !comment.getWishBoard().getBoardSlug().equals(slug)) {
             throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
         }
         return comment;
@@ -241,7 +242,8 @@ public class WishCommentService {
         WishComment comment = wishCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
-        if (!comment.getWishBoard().getBoardSlug().equals(slug)) {
+        // wishBoard가 null이면 보드가 삭제된 상태 → 접근 불가
+        if (comment.getWishBoard() == null || !comment.getWishBoard().getBoardSlug().equals(slug)) {
             throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
         }
 
@@ -271,7 +273,8 @@ public class WishCommentService {
         WishComment comment = wishCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
-        if (!comment.getWishBoard().getBoardSlug().equals(slug)) {
+        // wishBoard가 null이면 보드가 삭제된 상태 → 접근 불가
+        if (comment.getWishBoard() == null || !comment.getWishBoard().getBoardSlug().equals(slug)) {
             throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
         }
 

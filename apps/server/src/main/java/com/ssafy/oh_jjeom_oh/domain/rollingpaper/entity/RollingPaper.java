@@ -29,7 +29,7 @@ public class RollingPaper {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")                           // nullable: 회원 탈퇴 시 SET NULL (댓글 보존)
     private User user;                                      // 생성자
 
     @Column(nullable = false, length = 100)

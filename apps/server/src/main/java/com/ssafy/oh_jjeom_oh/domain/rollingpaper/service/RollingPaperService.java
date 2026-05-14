@@ -113,7 +113,8 @@ public class RollingPaperService {
     }
 
     private void requireOwner(Long userId, RollingPaper paper) {
-        if (!paper.getUser().getId().equals(userId)) {
+        // paper.getUser()가 null인 경우는 원본 소유자가 탈퇴한 상태 → 소유자 권한 없음
+        if (paper.getUser() == null || !paper.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.ROLLING_PAPER_FORBIDDEN);
         }
     }
@@ -133,7 +134,8 @@ public class RollingPaperService {
             return RollingPaperDetailResponse.of(paper, false, false, false);
         }
 
-        boolean isOwner = userId != null && paper.getUser().getId().equals(userId);
+        // paper.getUser()가 null인 경우는 원본 소유자가 탈퇴한 상태 → 소유자 판별 불가
+        boolean isOwner = userId != null && paper.getUser() != null && paper.getUser().getId().equals(userId);
         boolean commentTokenMatch = token != null && token.equals(paper.getCommentToken());
         boolean viewTokenMatch   = token != null && token.equals(paper.getViewToken());
 
@@ -160,7 +162,7 @@ public class RollingPaperService {
         RollingPaper paper = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
-        if (!paper.getUser().getId().equals(userId)) {
+        if (paper.getUser() == null || !paper.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.ROLLING_PAPER_FORBIDDEN);
         }
 
@@ -177,11 +179,11 @@ public class RollingPaperService {
         RollingPaper paper = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
-        if (!paper.getUser().getId().equals(userId)) {
+        if (paper.getUser() == null || !paper.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.ROLLING_PAPER_DELETE_FORBIDDEN);
         }
 
-        rollingPaperCommentRepository.deleteByRollingPaper(paper);
+        // rolling_paper_comments.rolling_paper_id FK가 SET NULL이므로 댓글을 직접 삭제하지 않음 (랭킹 집계 보존)
         rollingPaperRepository.delete(paper);
     }
 
@@ -225,7 +227,8 @@ public class RollingPaperService {
             throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
         }
 
-        boolean isOwner = original.getUser().getId().equals(userId);
+        // paper.getUser()가 null인 경우는 원본 소유자가 탈퇴한 상태 → 소유자가 아님으로 처리
+        boolean isOwner = original.getUser() != null && original.getUser().getId().equals(userId);
         String saveSource;
 
         if (isOwner) {

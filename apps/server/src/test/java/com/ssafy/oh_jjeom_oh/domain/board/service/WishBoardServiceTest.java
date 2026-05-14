@@ -50,7 +50,6 @@ class WishBoardServiceTest {
     @Mock private WishBoardRepository wishBoardRepository;
     @Mock private WishItemRepository wishItemRepository;
     @Mock private BoardAssetRepository boardAssetRepository;
-    @Mock private com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository wishCommentRepository;
     @Mock private com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository rollingPaperRepository;
     @Mock private UserRepository userRepository;
 
