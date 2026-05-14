@@ -124,6 +124,8 @@ public class RollingPaperService {
         RollingPaper paper = rollingPaperRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND));
 
+        int commentCount = (int) rollingPaperCommentRepository.countByRollingPaper(paper);
+
         // 복사본은 저장한 본인만 조회 가능
         if (paper.getIsSavedCopy()) {
             boolean isSaver = userId != null
@@ -131,7 +133,7 @@ public class RollingPaperService {
                     && paper.getSavedByUser().getId().equals(userId);
             if (!isSaver) throw new CustomException(ErrorCode.ROLLING_PAPER_NOT_FOUND);
             // 복사본은 canComment/canSave 모두 false (읽기 전용)
-            return RollingPaperDetailResponse.of(paper, false, false, false);
+            return RollingPaperDetailResponse.of(paper, false, false, false, commentCount);
         }
 
         // paper.getUser()가 null인 경우는 원본 소유자가 탈퇴한 상태 → 소유자 판별 불가
@@ -147,13 +149,13 @@ public class RollingPaperService {
         // — 소유자가 본인 viewToken 링크를 테스트하거나 수신자에게 공유한 링크로 접근 시 동일하게 처리
         if (viewTokenMatch) {
             boolean canSave = !LocalDate.now().isBefore(paper.getTargetDate());
-            return RollingPaperDetailResponse.of(paper, false, false, canSave);
+            return RollingPaperDetailResponse.of(paper, false, false, canSave, commentCount);
         }
 
         boolean canComment = isOwner || commentTokenMatch;
         boolean canSave    = isOwner;
 
-        return RollingPaperDetailResponse.of(paper, isOwner, canComment, canSave);
+        return RollingPaperDetailResponse.of(paper, isOwner, canComment, canSave, commentCount);
     }
 
     // PATCH /api/rolling-papers/{slug} - 롤링페이퍼 수정 (소유자)
