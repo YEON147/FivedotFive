@@ -32,7 +32,7 @@ import java.util.List;
 public class SsafyDataInitializer implements ApplicationRunner {
 
     private static final String SHARED_PASSWORD = "SsafyDj26";
-    private static final LocalDate TARGET_DATE   = LocalDate.of(2026, 5, 15);
+    private static final LocalDate TARGET_DATE   = LocalDate.of(2026, 5, 22);
 
     private static final String PROFILE_IMAGE_PREFIX = "rolling-papers/ssafy-profile/";
 
@@ -100,10 +100,19 @@ public class SsafyDataInitializer implements ApplicationRunner {
     private void ensureRollingPaper(User user, ClassInfo info) {
         rollingPaperRepository.findBySlug(info.slug()).ifPresentOrElse(
                 paper -> {
+                    boolean updated = false;
+
                     if (!info.imageKey().equals(paper.getImageKey())) {
                         log.info("[SsafyInit] 롤링페이퍼 image_key 보정: slug={}", info.slug());
                         paper.updateImageKey(info.imageKey());
-                    } else {
+                        updated = true;
+                    }
+                    if (!TARGET_DATE.equals(paper.getTargetDate())) {
+                        log.info("[SsafyInit] 롤링페이퍼 targetDate 보정: slug={}, {} -> {}", info.slug(), paper.getTargetDate(), TARGET_DATE);
+                        paper.updateTargetDate(TARGET_DATE);
+                        updated = true;
+                    }
+                    if (!updated) {
                         log.debug("[SsafyInit] 롤링페이퍼 이미 존재 (skip): slug={}", info.slug());
                     }
                 },

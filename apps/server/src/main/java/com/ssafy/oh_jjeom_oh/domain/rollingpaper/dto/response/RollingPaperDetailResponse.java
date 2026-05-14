@@ -34,12 +34,14 @@ public class RollingPaperDetailResponse {
 
     private final String commentToken;  // null if not owner
     private final String viewToken;     // null if not owner
+    private final int commentCount;
 
     private RollingPaperDetailResponse(String slug, String title, String recipientName,
                                         String imageKey, LocalDate targetDate, LocalDateTime createdAt,
                                         boolean isOwner, boolean canComment, boolean canSave,
                                         boolean isCommentPublic,
-                                        String commentToken, String viewToken) {
+                                        String commentToken, String viewToken,
+                                        int commentCount) {
         this.slug = slug;
         this.title = title;
         this.recipientName = recipientName;
@@ -52,12 +54,14 @@ public class RollingPaperDetailResponse {
         this.isCommentPublic = isCommentPublic;
         this.commentToken = commentToken;
         this.viewToken = viewToken;
+        this.commentCount = commentCount;
     }
 
     public static RollingPaperDetailResponse of(RollingPaper paper,
                                                  boolean isOwner,
                                                  boolean canComment,
-                                                 boolean canSave) {
+                                                 boolean canSave,
+                                                 int commentCount) {
         return new RollingPaperDetailResponse(
                 paper.getSlug(),
                 paper.getTitle(),
@@ -70,7 +74,8 @@ public class RollingPaperDetailResponse {
                 canSave,
                 paper.getIsCommentPublic(),
                 isOwner ? paper.getCommentToken() : null,
-                isOwner ? paper.getViewToken() : null
+                isOwner ? paper.getViewToken() : null,
+                commentCount
         );
     }
 }
