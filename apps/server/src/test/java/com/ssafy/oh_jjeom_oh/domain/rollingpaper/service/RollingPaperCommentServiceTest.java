@@ -152,6 +152,44 @@ class RollingPaperCommentServiceTest {
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                             .isEqualTo(ErrorCode.ROLLING_PAPER_FORBIDDEN));
         }
+
+        @Test
+        @DisplayName("저장된 복사본 - savedByUser 본인이면 조회 성공")
+        void savedCopy_savedByUser_success() {
+            RollingPaper savedCopy = RollingPaper.builder()
+                    .user(owner).slug(SLUG).title("복사본").recipientName("수신자")
+                    .targetDate(LocalDate.of(2099, 12, 31))
+                    .commentToken(null).viewToken(null)
+                    .isSavedCopy(true).savedByUser(other).build();
+            ReflectionTestUtils.setField(savedCopy, "id", 20L);
+
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(savedCopy));
+            given(commentRepository.findByRollingPaperOrderBySlotIndexAsc(any(), any()))
+                    .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 6), 0));
+
+            RollingPaperCommentListResponse result =
+                    service.getComments(SLUG, 0, 6, OTHER_ID, null);
+
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("저장된 복사본 - 저장자 아닌 타인 접근 시 403")
+        void savedCopy_otherUser_forbidden() {
+            RollingPaper savedCopy = RollingPaper.builder()
+                    .user(owner).slug(SLUG).title("복사본").recipientName("수신자")
+                    .targetDate(LocalDate.of(2099, 12, 31))
+                    .commentToken(null).viewToken(null)
+                    .isSavedCopy(true).savedByUser(other).build();
+            ReflectionTestUtils.setField(savedCopy, "id", 20L);
+
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(savedCopy));
+
+            assertThatThrownBy(() -> service.getComments(SLUG, 0, 6, 99L, null))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.ROLLING_PAPER_FORBIDDEN));
+        }
     }
 
     // ==================== createComment ====================
