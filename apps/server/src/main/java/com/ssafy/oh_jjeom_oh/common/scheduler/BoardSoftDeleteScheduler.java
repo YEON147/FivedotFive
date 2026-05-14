@@ -4,9 +4,7 @@ import com.ssafy.oh_jjeom_oh.domain.asset.repository.BoardAssetRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
-import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
-import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
 import com.ssafy.oh_jjeom_oh.domain.share.repository.ShareLinkRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,9 +33,7 @@ public class BoardSoftDeleteScheduler {
     private final WishBoardRepository wishBoardRepository;
     private final WishItemRepository wishItemRepository;
     private final BoardAssetRepository boardAssetRepository;
-    private final WishCommentRepository wishCommentRepository;
     private final RollingPaperRepository rollingPaperRepository;
-    private final RollingPaperCommentRepository rollingPaperCommentRepository;
     private final ShareLinkRepository shareLinkRepository;
     private final Clock clock;
 
@@ -49,7 +45,7 @@ public class BoardSoftDeleteScheduler {
         List<WishBoard> expiredBoards =
                 wishBoardRepository.findAllByTargetDateBeforeAndIsSavedCopyFalse(today);
         for (WishBoard board : expiredBoards) {
-            wishCommentRepository.deleteByWishBoard(board);
+            // wish_comments.wish_list_id FK가 SET NULL이므로 댓글을 직접 삭제하지 않음 (랭킹 집계 보존)
             wishItemRepository.deleteByBoard(board);
             boardAssetRepository.deleteByBoard(board);
             wishBoardRepository.delete(board);
@@ -58,7 +54,7 @@ public class BoardSoftDeleteScheduler {
         List<RollingPaper> expiredPapers =
                 rollingPaperRepository.findAllByTargetDateBeforeAndIsSavedCopyFalse(today);
         for (RollingPaper paper : expiredPapers) {
-            rollingPaperCommentRepository.deleteByRollingPaper(paper);
+            // rolling_paper_comments.rolling_paper_id FK가 SET NULL이므로 댓글을 직접 삭제하지 않음 (랭킹 집계 보존)
             rollingPaperRepository.delete(paper);
         }
 

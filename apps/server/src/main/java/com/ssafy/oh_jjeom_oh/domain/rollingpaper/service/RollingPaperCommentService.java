@@ -146,7 +146,8 @@ public class RollingPaperCommentService {
         RollingPaperComment comment = rollingPaperCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
-        if (!comment.getRollingPaper().getSlug().equals(slug)) {
+        // rollingPaper가 null이면 원본이 삭제된 상태 → 해당 댓글 접근 불가
+        if (comment.getRollingPaper() == null || !comment.getRollingPaper().getSlug().equals(slug)) {
             throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
         }
 
@@ -223,7 +224,8 @@ public class RollingPaperCommentService {
         RollingPaperComment comment = rollingPaperCommentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
-        if (!comment.getRollingPaper().getSlug().equals(slug)) {
+        // rollingPaper가 null이면 원본이 삭제된 상태 → 해당 댓글 접근 불가
+        if (comment.getRollingPaper() == null || !comment.getRollingPaper().getSlug().equals(slug)) {
             throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
         }
 

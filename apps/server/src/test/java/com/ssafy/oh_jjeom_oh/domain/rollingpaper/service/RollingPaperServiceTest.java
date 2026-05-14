@@ -189,6 +189,24 @@ class RollingPaperServiceTest {
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                             .isEqualTo(ErrorCode.ROLLING_PAPER_NOT_FOUND));
         }
+
+        @Test
+        @DisplayName("소유자 탈퇴(user=null)된 원본 - viewToken 접근 가능 (NPE 발생 안 함)")
+        void ownerWithdrawn_viewTokenStillWorks() {
+            RollingPaper orphanPaper = RollingPaper.builder()
+                    .user(null).slug(SLUG)
+                    .title("고아 롤링페이퍼").recipientName("친구")
+                    .targetDate(LocalDate.of(2025, 1, 1))
+                    .commentToken(COMMENT_TOKEN).viewToken(VIEW_TOKEN)
+                    .build();
+            ReflectionTestUtils.setField(orphanPaper, "id", 99L);
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(orphanPaper));
+
+            RollingPaperDetailResponse res = rollingPaperService.getRollingPaper(null, SLUG, VIEW_TOKEN);
+
+            assertThat(res.isOwner()).isFalse();
+            assertThat(res.isCanSave()).isTrue();
+        }
     }
 
     // ===================== updateRollingPaper =====================
@@ -228,13 +246,14 @@ class RollingPaperServiceTest {
     class Delete {
 
         @Test
-        @DisplayName("삭제 성공 - 댓글 먼저 삭제 후 롤링페이퍼 삭제")
+        @DisplayName("삭제 성공 - FK SET NULL로 댓글 보존 (직접 삭제 없음)")
         void success() {
             given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(paper));
 
             rollingPaperService.deleteRollingPaper(1L, SLUG);
 
-            verify(rollingPaperCommentRepository).deleteByRollingPaper(paper);
+            // rolling_paper_comments FK SET NULL로 처리 → 직접 삭제 안 함
+            verify(rollingPaperCommentRepository, never()).deleteByRollingPaper(any());
             verify(rollingPaperRepository).delete(paper);
         }
 
@@ -249,6 +268,22 @@ class RollingPaperServiceTest {
                             .isEqualTo(ErrorCode.ROLLING_PAPER_DELETE_FORBIDDEN));
 
             verify(rollingPaperRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("실패 - 소유자가 탈퇴하여 user가 null인 원본 삭제 시도")
+        void forbidden_nullUser() {
+            RollingPaper orphanPaper = RollingPaper.builder()
+                    .user(null).slug(SLUG).title("탈퇴된 소유자의 롤링페이퍼")
+                    .recipientName("친구").targetDate(LocalDate.of(2026, 12, 25))
+                    .commentToken(COMMENT_TOKEN).viewToken(VIEW_TOKEN).build();
+            ReflectionTestUtils.setField(orphanPaper, "id", 99L);
+            given(rollingPaperRepository.findBySlug(SLUG)).willReturn(Optional.of(orphanPaper));
+
+            assertThatThrownBy(() -> rollingPaperService.deleteRollingPaper(1L, SLUG))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.ROLLING_PAPER_DELETE_FORBIDDEN));
         }
     }
 
