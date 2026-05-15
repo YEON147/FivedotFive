@@ -1093,7 +1093,13 @@ export default function RollingPaperSlugPage({
    * 공유 모달 — API 단축 URL 발급에 쓸 토큰·엔드포인트 종류.
    * 댓글 초대(`commentToken` 또는 댓글 가능 시 URL `token`) / 보기·저장(`viewToken`) 분기.
    */
-  const rollingShareModalLinks = useMemo(() => {
+  const rollingShareModalLinks = useMemo((): {
+    primaryToken: string | null;
+    secondaryToken: string | null;
+    primaryKind: "comment" | "view";
+    primaryCaption: string | undefined;
+    secondaryCaption: string | undefined;
+  } => {
     const commentInviteToken =
       detail?.commentToken?.trim() ||
       (detail?.canComment ? rollingToken?.trim() || null : null);
