@@ -76,7 +76,7 @@ import {
   fetchBackgroundAssets,
   resolveBackgroundDisplayLabel,
   fetchStickerFolders,
-  postAdminAssetsResetSync,
+  ensureAdminAssetsResetSyncOnce,
   postAdminAssetsSync,
   type BackgroundAssetDto,
   type GiftIconDto,
@@ -154,9 +154,6 @@ const GIFT_ICON_GRID_SIZES = "(max-width: 400px) 30vw, 120px";
  */
 const ASSET_CATALOG_VIEWPORT_PRELOAD_COUNT = 12;
 const STICKER_SHEET_CELL_SIZES = "(max-width: 360px) 16vw, 56px";
-
-/** ADMIN: 탭당 1회 — `/api/admin/assets/reset-sync` (에셋 DB 전체 재동기화) */
-const SESSION_ADMIN_RESET_SYNC_KEY = "oh_jjeom_oh_admin_assets_reset_sync_once";
 
 /**
  * `GET /api/assets/stickers/folders?boardSlug=` 실패 시에만 사용하는 기본 폴더 id.
@@ -430,7 +427,10 @@ export function WishlistMyBoardScreen({
     let cancelled = false;
     const load = async () => {
       try {
-        const folders = orderStickerFoldersForTabs(await fetchStickerFolders());
+        const slugForFolders = boardSlug?.trim() || routeBoardSlug.trim();
+        const folders = orderStickerFoldersForTabs(
+          await fetchStickerFolders(slugForFolders || undefined),
+        );
         if (cancelled) return;
         setStickerFolderIds(
           folders.length > 0 ? folders : [...FALLBACK_STICKER_FOLDER_IDS],
@@ -445,7 +445,7 @@ export function WishlistMyBoardScreen({
     return () => {
       cancelled = true;
     };
-  }, [boardSlug, embeddedInSlugCarousel, embeddedStickerFoldersFromParent]);
+  }, [boardSlug, routeBoardSlug, embeddedInSlugCarousel, embeddedStickerFoldersFromParent]);
 
   const stickerModalTabs = useMemo(() => {
     const ids = orderStickerFoldersForTabs(
@@ -540,17 +540,8 @@ export function WishlistMyBoardScreen({
           setViewerName(displayName);
           setViewerIsAdmin(profile.role === "ADMIN");
 
-          if (
-            profile.role === "ADMIN" &&
-            typeof window !== "undefined" &&
-            sessionStorage.getItem(SESSION_ADMIN_RESET_SYNC_KEY) !== "1"
-          ) {
-            try {
-              await postAdminAssetsResetSync();
-              sessionStorage.setItem(SESSION_ADMIN_RESET_SYNC_KEY, "1");
-            } catch {
-              /* 401/403/500 — 일반 유저·일시 오류 시 보드 로드는 계속 */
-            }
+          if (profile.role === "ADMIN" && typeof window !== "undefined") {
+            await ensureAdminAssetsResetSyncOnce();
           }
 
           if (!profile.hasWishBoard) {
@@ -957,7 +948,9 @@ export function WishlistMyBoardScreen({
       setBackgroundsLoading(true);
       setBackgroundsError(null);
       try {
-        const list = await fetchBackgroundAssets();
+        const bgSlug =
+          boardSlug?.trim() || routeBoardSlug.trim() || undefined;
+        const list = await fetchBackgroundAssets(bgSlug);
         if (!cancelled) {
           setBackgroundAssets(list);
         }
@@ -980,7 +973,7 @@ export function WishlistMyBoardScreen({
     return () => {
       cancelled = true;
     };
-  }, [isCompactBackgroundOpen, boardSlug]);
+  }, [isCompactBackgroundOpen, boardSlug, routeBoardSlug]);
 
   /** 스티커 바텀시트: 폴더별 API 조회(세션 캐시 1회) */
   useEffect(() => {

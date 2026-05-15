@@ -4,8 +4,13 @@
  * 값은 ISO 8601 권장: `2026-05-05T08:00:00+09:00`
  */
 /** `yyyy-MM-dd` 기념일 0시(KST) — 서버 `LocalDate` + KST 기준일 비교와 동일 */
-export function getKstStartOfLocalDateMs(isoDateYYYYMMDD: string): number {
-  const day = isoDateYYYYMMDD.trim().slice(0, 10);
+export function getKstStartOfLocalDateMs(
+  isoDateYYYYMMDD: string | null | undefined,
+): number {
+  if (isoDateYYYYMMDD == null) {
+    return NaN;
+  }
+  const day = String(isoDateYYYYMMDD).trim().slice(0, 10);
   const ms = Date.parse(`${day}T00:00:00+09:00`);
   if (!Number.isFinite(ms)) {
     return NaN;
@@ -27,7 +32,7 @@ export function getWishCommentRevealAtMs(): number {
 
 /** 서버 `commentsRevealed` 없을 때(구 클라이언트) 보조 — KST 날짜만 비교 */
 export function inferWishBoardCommentsRevealed(d: {
-  targetDate: string;
+  targetDate: string | null;
   isCommentPublic?: boolean;
   commentsRevealed?: boolean;
 }): boolean {
