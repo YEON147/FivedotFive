@@ -145,10 +145,61 @@ function credentialsForApiRequest(input: RequestInfo | URL): RequestCredentials 
   }
 }
 
+/** dev 로그용 — 콘솔에 비밀번호·토큰이 찍히지 않게 마스킹 */
+const SENSITIVE_LOG_KEYS = new Set(
+  [
+    "password",
+    "guestPassword",
+    "newPassword",
+    "oldPassword",
+    "currentPassword",
+    "confirmPassword",
+    "refreshToken",
+    "accessToken",
+    "verifyToken",
+    "clientSecret",
+  ].map((k) => k.toLowerCase()),
+);
+
+function isSensitiveLogKey(key: string): boolean {
+  const lower = key.toLowerCase();
+  if (SENSITIVE_LOG_KEYS.has(lower)) return true;
+  if (lower.includes("password")) return true;
+  if (lower === "token" || lower.endsWith("token")) return true;
+  return false;
+}
+
+function redactUnknownForLog(value: unknown): unknown {
+  if (value == null) return value;
+  if (Array.isArray(value)) {
+    return value.map(redactUnknownForLog);
+  }
+  if (typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(o)) {
+      out[k] = isSensitiveLogKey(k) ? "[redacted]" : redactUnknownForLog(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 /** 콘솔 디버그용 — FormData 등은 직렬화되지 않아 `{}`로 보이므로 요약한다 */
 function describeRequestBodyForLog(body: RequestInit["body"]): unknown {
   if (body == null || body === undefined) return null;
   if (typeof body === "string") {
+    const trimmed = body.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        const parsed: unknown = JSON.parse(body);
+        const redacted = redactUnknownForLog(parsed);
+        const s = JSON.stringify(redacted);
+        return s.length > 800 ? `${s.slice(0, 800)}… (${s.length} chars)` : s;
+      } catch {
+        /* JSON 아님 — 아래에서 길이만 자름 */
+      }
+    }
     return body.length > 800 ? `${body.slice(0, 800)}… (${body.length} chars)` : body;
   }
   if (body instanceof FormData) {
@@ -156,7 +207,9 @@ function describeRequestBodyForLog(body: RequestInit["body"]): unknown {
     for (const [key, value] of body.entries()) {
       if (!out[key]) out[key] = [];
       const v: unknown = value;
-      if (v instanceof File) {
+      if (isSensitiveLogKey(key)) {
+        out[key].push("[redacted]");
+      } else if (v instanceof File) {
         out[key].push(`File(${v.name}, ${v.size}b)`);
       } else if (v instanceof Blob) {
         out[key].push(`Blob(${v.type || "?"}, ${v.size}b)`);
@@ -167,7 +220,11 @@ function describeRequestBodyForLog(body: RequestInit["body"]): unknown {
     return out;
   }
   if (body instanceof URLSearchParams) {
-    const s = body.toString();
+    const pairs: [string, string][] = [];
+    body.forEach((val, key) => {
+      pairs.push([key, isSensitiveLogKey(key) ? "[redacted]" : val]);
+    });
+    const s = new URLSearchParams(pairs).toString();
     return s.length > 800 ? `${s.slice(0, 800)}…` : s;
   }
   return Object.prototype.toString.call(body);
@@ -177,6 +234,49 @@ function summarizeResponseBodyForLog(rawText: string): string {
   if (!rawText) return "(empty)";
   if (rawText.length > 2000) return `${rawText.slice(0, 2000)}… (${rawText.length} chars)`;
   return rawText;
+}
+
+function truncateForLog(s: string, maxLen: number): string {
+  return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
+}
+
+function stringifyForLog(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/** Next dev overlay 등에서 객체 인자가 `{}`로만 보이는 것을 피하기 위해 한 줄로 남김 */
+function logHttpFailureDev(
+  label: string,
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  response: Response,
+  rawText: string,
+  extras?: Record<string, string | boolean | number>,
+): void {
+  const url = toPath(input);
+  const method =
+    init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET";
+  const requestBody = describeRequestBodyForLog(init?.body);
+  const responseBody = summarizeResponseBodyForLog(rawText);
+  const reqPart =
+    requestBody == null
+      ? ""
+      : ` | req ${truncateForLog(stringifyForLog(requestBody), 400)}`;
+  const extraPart =
+    extras && Object.keys(extras).length > 0
+      ? ` | ${Object.entries(extras)
+          .map(([k, v]) => `${k}=${String(v)}`)
+          .join(" ")}`
+      : "";
+  devError(
+    `${label}: ${method} ${url} → ${response.status} ${response.statusText}${reqPart}${extraPart} | res ${truncateForLog(responseBody, 800)}`,
+  );
 }
 
 async function parseResponseData(response: Response): Promise<unknown> {
@@ -360,14 +460,7 @@ export async function apiClient<T>(
 
   if (!response.ok) {
     if (!options?.silentFailure) {
-      devError("API 요청 실패", {
-        url: typeof input === "string" ? input : input.toString(),
-        method: init?.method ?? "GET",
-        status: response.status,
-        statusText: response.statusText,
-        requestBody: describeRequestBodyForLog(init?.body),
-        responseBody: summarizeResponseBodyForLog(rawText),
-      });
+      logHttpFailureDev("API 요청 실패", input, init, response, rawText);
     }
 
     const message =
@@ -409,14 +502,7 @@ export async function publicApiClient<T>(
   }
 
   if (!response.ok) {
-    devError("API 요청 실패 (public)", {
-      url: typeof input === "string" ? input : input.toString(),
-      method: init?.method ?? "GET",
-      status: response.status,
-      statusText: response.statusText,
-      requestBody: describeRequestBodyForLog(init?.body),
-      responseBody: summarizeResponseBodyForLog(rawText),
-    });
+    logHttpFailureDev("API 요청 실패 (public)", input, init, response, rawText);
 
     const message =
       (data as ApiMessage | null)?.message ??
@@ -455,12 +541,8 @@ export async function authApiClient<T>(
   }
 
   if (!response.ok) {
-    devError("인증 API 실패", {
-      url: input,
-      status: response.status,
-      statusText: response.statusText,
+    logHttpFailureDev("인증 API 실패", input, init, response, rawText, {
       hasAccessToken: Boolean(accessToken),
-      rawText,
     });
 
     const message =
