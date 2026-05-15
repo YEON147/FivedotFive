@@ -6,7 +6,6 @@ import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
-import com.ssafy.oh_jjeom_oh.domain.share.repository.ShareLinkRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Role;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.enums.Status;
@@ -37,7 +36,6 @@ class BoardSoftDeleteSchedulerTest {
     @Mock WishItemRepository wishItemRepository;
     @Mock BoardAssetRepository boardAssetRepository;
     @Mock RollingPaperRepository rollingPaperRepository;
-    @Mock ShareLinkRepository shareLinkRepository;
     @Mock Clock clock;
 
     private User buildUser() {

@@ -36,8 +36,7 @@ public class WishBoard {
     private Boolean isPublic = true;
 
     @Column(name = "target_date")
-    @Builder.Default
-    private LocalDate targetDate = LocalDate.of(2026, 5, 5);
+    private LocalDate targetDate;
 
     @Column(name = "is_comment_public", nullable = false)
     @Builder.Default

@@ -20,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,7 +105,6 @@ class ShareServiceTest {
             ShareLink link = ShareLink.builder()
                     .shortCode("abc1234567")
                     .originalUrl("https://fivedotfive.co.kr/wishlist/my-board?utm_source=user_share&utm_medium=referral&utm_campaign=wishlist_sharing")
-                    .expiresAt(LocalDateTime.now().plusDays(10))
                     .build();
 
             given(shareLinkRepository.findByShortCode("abc1234567")).willReturn(Optional.of(link));
@@ -122,23 +120,6 @@ class ShareServiceTest {
             given(shareLinkRepository.findByShortCode(any())).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> shareService.resolveShortCode("notexist"))
-                    .isInstanceOf(CustomException.class)
-                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                            .isEqualTo(ErrorCode.SHARE_LINK_NOT_FOUND));
-        }
-
-        @Test
-        @DisplayName("실패 - 만료된 링크")
-        void expired() {
-            ShareLink expiredLink = ShareLink.builder()
-                    .shortCode("expired123")
-                    .originalUrl("https://fivedotfive.co.kr/wishlist/old-board")
-                    .expiresAt(LocalDateTime.now().minusMinutes(1))
-                    .build();
-
-            given(shareLinkRepository.findByShortCode("expired123")).willReturn(Optional.of(expiredLink));
-
-            assertThatThrownBy(() -> shareService.resolveShortCode("expired123"))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                             .isEqualTo(ErrorCode.SHARE_LINK_NOT_FOUND));

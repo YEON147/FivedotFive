@@ -93,7 +93,7 @@ public class RollingPaperService {
         RollingPaper paper = findOriginal(slug);
         requireOwner(userId, paper);
         String shortUrl = shareService.generateRollingPaperShareLink(slug, paper.getCommentToken(), paper.getTargetDate());
-        return RollingPaperShareLinkResponse.of(shortUrl, shareService.rollingPaperExpiresAt(paper.getTargetDate()));
+        return RollingPaperShareLinkResponse.of(shortUrl);
     }
 
     // POST /api/rolling-papers/{slug}/share/view - 저장 전용 단축 링크 재생성 (소유자)
@@ -102,7 +102,7 @@ public class RollingPaperService {
         RollingPaper paper = findOriginal(slug);
         requireOwner(userId, paper);
         String shortUrl = shareService.generateRollingPaperShareLink(slug, paper.getViewToken(), paper.getTargetDate());
-        return RollingPaperShareLinkResponse.of(shortUrl, shareService.rollingPaperExpiresAt(paper.getTargetDate()));
+        return RollingPaperShareLinkResponse.of(shortUrl);
     }
 
     private RollingPaper findOriginal(String slug) {
