@@ -14,5 +14,5 @@ export const KBO_TEAM_WISHLIST_BOARDS = [
   { slug: "doosan", label: "두산 베어스" },
   { slug: "kia", label: "KIA 타이거즈" },
   { slug: "ssg", label: "SSG 랜더스" },
-  { slug: "wiz", label: "KT wiz" },
+  { slug: "wiz", label: "KT 위즈" },
 ] as const;
