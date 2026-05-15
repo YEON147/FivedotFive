@@ -681,7 +681,7 @@ export default function PublicWishlistPage({
 
   useEffect(() => {
     setStickerFoldersFetchDone(false);
-    void fetchStickerFolders(slug)
+    void fetchStickerFolders()
       .then((folders) => {
         setApiStickerFolders(orderStickerFoldersForTabs(folders));
         setStickerFoldersFetchDone(true);
@@ -719,7 +719,7 @@ export default function PublicWishlistPage({
       try {
         let list: StickerAssetDto[];
         if (apiStickerFolders.length === 0) {
-          list = await fetchStickerAssets(slug);
+          list = await fetchStickerAssets();
         } else {
           const folder =
             commentStickerFolderId !== "" &&
