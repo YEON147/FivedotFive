@@ -20,7 +20,6 @@ export type RollingPaperOwnerShareTabsConfig = {
   view: {
     absoluteUrl: string | null;
     linkHref: string | null;
-    expiresAt: string | null;
     error: string | null;
   };
 };
@@ -240,22 +239,6 @@ type BoardShareDialogProps = {
   secondaryPanelError?: string | null;
 };
 
-/**
- * 위시 보드 / 롤링페이퍼 공통 — `WishlistCenterDialog` + `ShareLinkModalPanel`
- */
-function rollingPaperViewExpiryHint(expiresAt: string | null): ReactNode {
-  const raw = expiresAt?.trim();
-  if (!raw) return null;
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return null;
-  const datePart = d.toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  return `공개일 당일 자정까지 유효해요 (${datePart})`;
-}
-
 export function BoardShareDialog({
   open,
   onClose,
@@ -301,12 +284,7 @@ export function BoardShareDialog({
         ? tabs.comment.error ?? null
         : tabs.view.error ?? null
       : sharePanelError ?? null;
-  const panelHint =
-    tabs != null && activeTab === "view"
-      ? tabs.view.absoluteUrl && !tabs.view.error
-        ? rollingPaperViewExpiryHint(tabs.view.expiresAt)
-        : null
-      : null;
+  const panelHint = null;
 
   const inner = (
     <WishlistCenterDialog

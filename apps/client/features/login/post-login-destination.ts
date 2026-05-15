@@ -43,6 +43,23 @@ export function sanitizeInternalReturnPath(raw: string | null | undefined): stri
 }
 
 /**
+ * 명시적 경로를 로그인 복귀 경로로 저장.
+ * 카카오 OAuth처럼 현재 URL을 직접 알고 있을 때 사용.
+ * 저장에 성공하면 `true`, 유효하지 않은 경로면 `false` 반환.
+ */
+export function stashLoginReturnPath(path: string | undefined): boolean {
+  if (!path) return false;
+  const safe = sanitizeInternalReturnPath(path);
+  if (!safe) return false;
+  try {
+    sessionStorage.setItem(RETURN_PATH_STORAGE_KEY, safe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 로그인 페이지 최초 진입 시 — 직전 페이지(`document.referrer`)를 같은 출처면 저장.
  * 카카오 OAuth 등 브라우저를 벗어났다 오는 경우 대비해 sessionStorage 사용.
  */
@@ -79,23 +96,6 @@ export function consumeStashedReturnPath(): string | null {
     /* ignore */
   }
   return v;
-}
-
-/**
- * OAuth 등 `next` 쿼리가 유실되기 쉬운 흐름 직전에 호출해 sessionStorage에 복귀 경로를 박아 둠.
- * `resolvePostLoginDestination`이 `next`가 없을 때 동일 키로 복구한다.
- */
-export function stashLoginReturnPath(path: string | null | undefined): boolean {
-  if (typeof sessionStorage === "undefined") return false;
-  const safe = sanitizeInternalReturnPath(path ?? null);
-  if (!safe) return false;
-  try {
-    sessionStorage.setItem(RETURN_PATH_STORAGE_KEY, safe);
-    return true;
-  } catch {
-    /* ignore */
-  }
-  return false;
 }
 
 /** 로그인 직후 시점의 referrer (동일 탭에서 비밀번호 로그인 시 간헐적으로 유효) */

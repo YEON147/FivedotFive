@@ -38,21 +38,12 @@ function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
   };
 }
 
-/** 동시에 여러 컴포넌트가 부를 때 `/api/users/me` 한 번만 나가도록 합침 */
-let inflightMyProfile: Promise<MyProfile> | null = null;
-
 export async function getMyProfile(): Promise<MyProfile> {
-  if (inflightMyProfile) {
-    return inflightMyProfile;
-  }
-  inflightMyProfile = authApiClient<MyProfileResponse>(MY_PROFILE_API_PATH, {
+  const response = await authApiClient<MyProfileResponse>(MY_PROFILE_API_PATH, {
     method: "GET",
-  })
-    .then(mapProfileResponseToProfile)
-    .finally(() => {
-      inflightMyProfile = null;
-    });
-  return inflightMyProfile;
+  });
+
+  return mapProfileResponseToProfile(response);
 }
 
 export async function updateMyProfile(
