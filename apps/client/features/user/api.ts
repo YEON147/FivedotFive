@@ -1,6 +1,7 @@
 import { authApiClient } from "@/lib/api/client";
 import { searchSchools, checkNickname } from "@/features/signup/api";
 import type {
+  AuthProviderType,
   ChangePasswordRequest,
   ChangePasswordResponse,
   DeleteAccountRequest,
@@ -15,6 +16,13 @@ import type { SchoolOption } from "@/features/signup/types";
 const MY_PROFILE_API_PATH = "/api/users/me";
 const MY_PASSWORD_API_PATH = "/api/users/me/password";
 
+function parseAuthProvider(raw: unknown): AuthProviderType | null {
+  if (raw === "LOCAL" || raw === "KAKAO") {
+    return raw;
+  }
+  return null;
+}
+
 function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
   return {
     hasWishBoard: response.data?.hasWishBoard ?? false,
@@ -26,6 +34,7 @@ function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
     schoolcode: response.data?.schoolcode ?? null,
     gender: response.data?.gender ?? null,
     grade: response.data?.grade ?? null,
+    provider: parseAuthProvider(response.data?.provider),
   };
 }
 

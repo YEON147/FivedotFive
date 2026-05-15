@@ -136,7 +136,7 @@ export type WishlistMyBoardScreenProps = {
    */
   embeddedPrefetchedProfile?: MyProfile | null;
   /**
-   * 부모가 `fetchStickerFolders(slug)` 결과를 넘김 — 임베드 시 동일 슬러그로 폴더 API 재호출 생략.
+   * 부모가 `fetchStickerFolders()` 결과를 넘김 — 임베드 시 동일 슬러그로 폴더 API 재호출 생략.
    * `undefined`면(비임베드·레거시) 기존처럼 자식에서 조회.
    */
   embeddedStickerFoldersFromParent?: string[];
@@ -430,7 +430,7 @@ export function WishlistMyBoardScreen({
     let cancelled = false;
     const load = async () => {
       try {
-        const folders = orderStickerFoldersForTabs(await fetchStickerFolders(boardSlug));
+        const folders = orderStickerFoldersForTabs(await fetchStickerFolders());
         if (cancelled) return;
         setStickerFolderIds(
           folders.length > 0 ? folders : [...FALLBACK_STICKER_FOLDER_IDS],
@@ -957,7 +957,7 @@ export function WishlistMyBoardScreen({
       setBackgroundsLoading(true);
       setBackgroundsError(null);
       try {
-        const list = await fetchBackgroundAssets(boardSlug);
+        const list = await fetchBackgroundAssets();
         if (!cancelled) {
           setBackgroundAssets(list);
         }

@@ -1,5 +1,7 @@
 import type { GradeBandType } from "@/features/signup/types";
 
+export type AuthProviderType = "LOCAL" | "KAKAO";
+
 export type GenderType = "MALE" | "FEMALE" | "OTHER" | "";
 export type GradeType =
   | "ELEM_1"
@@ -32,6 +34,8 @@ export type MyProfile = {
   /** 내정보 API `data.hasWishBoard` */
   hasWishBoard: boolean;
   role: "CHILD" | "PARENT" | "ADMIN" | null;
+  /** 로그인 방식 — 회원 탈퇴 시 비밀번호 필요 여부 등에 사용 */
+  provider: AuthProviderType | null;
 };
 
 export type MyProfileResponse = {
@@ -47,6 +51,7 @@ export type MyProfileResponse = {
     grade?: Exclude<GradeType, ""> | null;
     hasWishBoard?: boolean;
     role?: string | null;
+    provider?: string | null;
   };
 };
 
@@ -70,6 +75,15 @@ export type UpdateMyProfileResponse = {
     gender?: Exclude<GenderType, ""> | null;
     grade?: Exclude<GradeType, ""> | null;
   };
+};
+
+export type DeleteAccountRequest = {
+  password: string;
+};
+
+export type DeleteAccountResponse = {
+  success?: boolean;
+  message?: string;
 };
 
 export type ChangePasswordRequest = {
