@@ -91,15 +91,9 @@ function backgroundsListFromApiData(data: unknown): Record<string, unknown>[] | 
   );
 }
 
-/**
- * GET /api/assets/backgrounds?boardSlug= — 권한 anyone.
- * 구단 보드 slug면 야구 배경 포함: 파일명 `baseball-` 접두, 경로 `/baseball/`, 또는 서버에서 다루는 `wallpaper-26`~`34` 슬롯.
- */
-export async function fetchBackgroundAssets(
-  boardSlug?: string | null,
-): Promise<BackgroundAssetDto[]> {
-  const url = assetsPathWithBoardSlug("/api/assets/backgrounds", boardSlug);
-  const res = await apiClient<BackgroundsApiResponse>(url, {
+/** GET /api/assets/backgrounds — 권한 anyone */
+export async function fetchBackgroundAssets(): Promise<BackgroundAssetDto[]> {
+  const res = await apiClient<BackgroundsApiResponse>("/api/assets/backgrounds", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -144,26 +138,9 @@ type StickerFoldersApiResponse = {
   };
 };
 
-/** 구단 보드 등일 때 야구 에셋 폴더 포함 여부를 서버가 판별할 수 있도록 쿼리로 전달합니다. */
-function assetsPathWithBoardSlug(
-  path: string,
-  boardSlug?: string | null,
-): string {
-  const slug = boardSlug?.trim();
-  if (!slug) return path;
-  const sep = path.includes("?") ? "&" : "?";
-  return `${path}${sep}boardSlug=${encodeURIComponent(slug)}`;
-}
-
-/** GET /api/assets/stickers/folders?boardSlug= — 스티커 폴더 목록 (Anyone) */
-export async function fetchStickerFolders(
-  boardSlug?: string | null,
-): Promise<string[]> {
-  const url = assetsPathWithBoardSlug(
-    "/api/assets/stickers/folders",
-    boardSlug,
-  );
-  const res = await apiClient<StickerFoldersApiResponse>(url, {
+/** GET /api/assets/stickers/folders — 스티커 폴더 목록 (Anyone) */
+export async function fetchStickerFolders(): Promise<string[]> {
+  const res = await apiClient<StickerFoldersApiResponse>("/api/assets/stickers/folders", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -177,15 +154,9 @@ export async function fetchStickerFolders(
   return res.data.folders;
 }
 
-/**
- * GET /api/assets/stickers?boardSlug= — 권한 anyone.
- * `boardSlug` 없음·비구단이면 `stickers/baseball/` 제외. 구단 슬러그면 야구 스티커 포함.
- */
-export async function fetchStickerAssets(
-  boardSlug?: string | null,
-): Promise<StickerAssetDto[]> {
-  const url = assetsPathWithBoardSlug("/api/assets/stickers", boardSlug);
-  const res = await apiClient<StickersApiResponse>(url, {
+/** GET /api/assets/stickers — 권한 anyone */
+export async function fetchStickerAssets(): Promise<StickerAssetDto[]> {
+  const res = await apiClient<StickersApiResponse>("/api/assets/stickers", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -208,46 +179,25 @@ type StickerFolderApiResponse = {
   };
 };
 
-/**
- * 폴더 id → URL 경로.
- * - 일반: `balloon` → `.../folders/balloon` (한 세그먼트)
- * - 야구: `baseball/giants` → `.../folders/baseball/giants` (Spring 매핑 `baseball/{team}`; %2F 한 덩어리 금지)
- */
-export function stickerFolderToUrlPath(folder: string): string {
-  const parts = folder.trim().split("/").filter(Boolean);
-  if (parts.length >= 2 && parts[0].toLowerCase() === "baseball") {
-    const rest = parts
-      .slice(1)
-      .map((s) => encodeURIComponent(s))
-      .join("/");
-    return `baseball/${rest}`;
-  }
-  if (parts.length === 1) {
-    return encodeURIComponent(parts[0]!);
-  }
-  return parts.map((s) => encodeURIComponent(s)).join("/");
-}
-
-/**
- * GET /api/assets/stickers/folders/{folder}?boardSlug= — 권한 anyone.
- * `baseball/bears` → `.../folders/baseball/bears` (슬래시는 경로 구분자).
- * 비구단 보드 문맥에서는 `baseball` 폴더가 빈 목록으로 올 수 있습니다.
- */
+/** GET /api/assets/stickers/folders/{folder}?boardSlug={slug} — 권한 anyone */
 export async function fetchStickersByFolder(
   folder: string,
   boardSlug?: string | null,
 ): Promise<StickerAssetDto[]> {
-  const pathSeg = stickerFolderToUrlPath(folder);
-  const url = assetsPathWithBoardSlug(
-    `/api/assets/stickers/folders/${pathSeg}`,
-    boardSlug,
-  );
-  const res = await apiClient<StickerFolderApiResponse>(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
+  const encoded = encodeURIComponent(folder.trim());
+  const qs =
+    boardSlug && boardSlug.trim()
+      ? `?boardSlug=${encodeURIComponent(boardSlug.trim())}`
+      : "";
+  const res = await apiClient<StickerFolderApiResponse>(
+    `/api/assets/stickers/folders/${encoded}${qs}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
 
   if (!res.success || !Array.isArray(res.data?.stickers)) {
     return [];
@@ -261,26 +211,6 @@ export type GiftIconDto = {
   assetKey: string;
 };
 
-/** 빈 `assetKey` 등은 `next/image` 빈 `src` 런타임 오류로 이어지므로 카탈로그에서 제외합니다. */
-export function sanitizeGiftIconDtos(
-  list: readonly GiftIconDto[],
-): GiftIconDto[] {
-  const out: GiftIconDto[] = [];
-  for (const g of list) {
-    if (!g || typeof g !== "object") {
-      continue;
-    }
-    const id = Number(g.id);
-    const key =
-      typeof g.assetKey === "string" ? g.assetKey.trim() : "";
-    if (!Number.isFinite(id) || !key) {
-      continue;
-    }
-    out.push({ id, assetKey: key });
-  }
-  return out;
-}
-
 type GiftIconsApiResponse = {
   success: boolean;
   message: string;
@@ -290,25 +220,48 @@ type GiftIconsApiResponse = {
 };
 
 /**
- * 선물 아이콘 카탈로그 — 백 GET `/api/assets/gift-icons` (선택 `?boardSlug=`).
+ * 선물 아이콘 카탈로그 — 백 GET `/api/assets/gift-icons?boardSlug={slug}`.
  * 각 `assetKey`는 S3 기준 `icons/{카테고리}/{카테고리}-NNN.png` 등(예: `icons/food/food-001.png`) 형태입니다.
+ * `boardSlug`가 구단 보드이면 야구 아이콘도 포함됩니다.
  */
 export async function fetchGiftIcons(
   boardSlug?: string | null,
 ): Promise<GiftIconDto[]> {
-  const url = assetsPathWithBoardSlug("/api/assets/gift-icons", boardSlug);
-  const res = await apiClient<GiftIconsApiResponse>(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
+  const qs =
+    boardSlug && boardSlug.trim()
+      ? `?boardSlug=${encodeURIComponent(boardSlug.trim())}`
+      : "";
+  const res = await apiClient<GiftIconsApiResponse>(
+    `/api/assets/gift-icons${qs}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
 
   if (!res.success || !Array.isArray(res.data?.giftIcons)) {
     return [];
   }
 
-  return sanitizeGiftIconDtos(res.data.giftIcons);
+  return res.data.giftIcons;
+}
+
+/**
+ * `GiftIconDto[]` 에서 유효하지 않은 항목(id 비정수, assetKey 비문자열·공백) 을 제거합니다.
+ * sessionStorage 캐시에서 꺼낸 데이터의 무결성 검증에 사용합니다.
+ */
+export function sanitizeGiftIconDtos(list: GiftIconDto[]): GiftIconDto[] {
+  if (!Array.isArray(list)) return [];
+  return list.filter(
+    (item) =>
+      item != null &&
+      typeof item === "object" &&
+      Number.isFinite((item as GiftIconDto).id) &&
+      typeof (item as GiftIconDto).assetKey === "string" &&
+      (item as GiftIconDto).assetKey.trim().length > 0,
+  );
 }
 
 type AssetsSyncApiResponse = {

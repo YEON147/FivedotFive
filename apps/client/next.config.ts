@@ -1,8 +1,4 @@
 import type { NextConfig } from "next";
-import type {
-  LocalPattern,
-  RemotePattern,
-} from "next/dist/shared/lib/image-config";
 
 /**
  * API 프록시: 위에서부터 첫 매칭이 적용됩니다.
@@ -22,15 +18,11 @@ import type {
  * 정적 에셋(상대 /stickers 등 404 방지): ASSET_CDN_REWRITE_TARGET=CloudFront·S3 웹사이트 등 오리진(슬래시 없음).
  * 설정 후 `next dev` 재시작 필요.
  *
- * ngrok 등 외부 접속: `apps/client/.env.local` 에 NEXT_PUBLIC_NGROK_URL (또는 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS).
- *
- * `/_next/image` 원격 허용: **정적 `remotePatterns` 1줄**(동적 생성 없음). 필요 시 `domains`·패턴 확장.
- *
  * 프론트 코드 점검: `fetch`·apiClient 경로는 항상 `/api/...` 로 시작하는지 확인
  * (`/boards/me` 절대 경로만 쓰면 브라우저는 동일 오리진에 두고 /api 가 빠질 수 있음)
  *
- * 단축 공유 링크 `FRONTEND_URL/share/{code}` 는 Spring `GET /share/{code}`(302)에서 처리.
- * 동일 오리진으로 노출되므로 여기서 백엔드로 넘깁니다.
+ * 단축 공유 URL (`app.frontend-url` + `/share/{code}`)은 브라우저가 Next(3000)로 열므로,
+ * Spring의 `GET /share/{shortCode}` 리다이렉트까지 도달하도록 `/share` 를 백엔드로 넘깁니다.
  */
 const backendOrigin =
   process.env.BACKEND_REWRITE_TARGET?.replace(/\/$/, "") ||
@@ -43,89 +35,23 @@ const backendOrigin =
  */
 const assetCdnOrigin = process.env.ASSET_CDN_REWRITE_TARGET?.replace(/\/$/, "");
 
-/** `lib/asset-url.ts` 기본 S3 가상 호스트 — `/_next/image` 원격 허용(정적 패턴 1줄) */
-const DEFAULT_ASSET_S3_IMAGE_HOST =
-  "five-dot-five.s3.ap-northeast-2.amazonaws.com";
-
-/** 동적 생성 없이 S3 버킷 호스트만 허용 (디버그·최소 설정) */
-const STATIC_ASSET_S3_REMOTE_PATTERNS: RemotePattern[] = [
-  {
-    protocol: "https",
-    hostname: DEFAULT_ASSET_S3_IMAGE_HOST,
-    pathname: "/**",
-  },
-];
-
-/**
- * `.env.local` — NEXT_PUBLIC_NGROK_URL = 터널 전체 URL (예: https://xxxx.ngrok-free.app)
- * 추가 호스트는 NEXT_PUBLIC_ALLOWED_DEV_ORIGINS (쉼표, 호스트 또는 URL)
- */
-function devOriginHostFromEnvEntry(entry: string): string {
-  const t = entry.trim();
-  if (!t) return "";
-  if (/^https?:\/\//i.test(t)) {
-    try {
-      return new URL(t).hostname;
-    } catch {
-      return "";
-    }
-  }
-  return t;
-}
-
-function hostnameFromTunnelUrl(url: string | undefined): string {
-  const u = url?.trim();
-  if (!u) return "";
-  try {
-    return new URL(u).hostname;
-  } catch {
-    return "";
-  }
-}
-
-const tunnelHostsFromEnv = [
-  hostnameFromTunnelUrl(process.env.NEXT_PUBLIC_NGROK_URL),
-  ...(process.env.NEXT_PUBLIC_ALLOWED_DEV_ORIGINS ?? "")
-    .split(",")
-    .map(devOriginHostFromEnvEntry),
-].filter(Boolean);
-
-const extraAllowedDevOrigins = [...new Set(tunnelHostsFromEnv)];
-
-/** Next 16+ `/_next/image` 로컬 `src` 허용 — `images.localPatterns` 미설정 시 거절됨 */
-const imageLocalPatterns: LocalPattern[] = [
-  /** `public/default_icon.png` — 위시 기본 선물 썸네일(`next/image`) */
-  { pathname: "/default_icon.png" },
-  { pathname: "/icons/**" },
-  { pathname: "/stickers/**" },
-  { pathname: "/wallpapers/**" },
-  { pathname: "/rollingpaper/**" },
-  { pathname: "/main/**" },
-  { pathname: "/ranking/**" },
-];
-
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "five-dot-five.s3.ap-northeast-2.amazonaws.com",
+        pathname: "/**",
+      },
+    ],
+  },
   allowedDevOrigins: [
-    ...extraAllowedDevOrigins,
     "192.168.31.153",
     "172.24.245.200",
     "192.168.0.12",
     "172.26.208.1",
     "172.26.1.182",
   ],
-  images: {
-    /**
-     * 디버그: `/_next/image` "url parameter is not allowed" 원인 분리.
-     * `remotePatterns`는 S3 호스트 **정적 1줄**만 (빈 배열 대신). `domains`는 동일 호스트 유지.
-     * 통과 확인 후 ngrok·CloudFront 등 패턴을 단계적으로 복구할 것.
-     */
-    domains: [DEFAULT_ASSET_S3_IMAGE_HOST],
-    remotePatterns: STATIC_ASSET_S3_REMOTE_PATTERNS,
-    localPatterns: imageLocalPatterns,
-    ...(process.env.NODE_ENV === "development"
-      ? { minimumCacheTTL: 0 }
-      : {}),
-  },
   async rewrites() {
     const assetRewrites = assetCdnOrigin
       ? [
@@ -147,10 +73,6 @@ const nextConfig: NextConfig = {
     return [
       ...assetRewrites,
       {
-        source: "/share/:path*",
-        destination: `${backendOrigin}/share/:path*`,
-      },
-      {
         source: "/boards/:path*",
         destination: `${backendOrigin}/api/boards/:path*`,
       },
@@ -163,6 +85,10 @@ const nextConfig: NextConfig = {
         destination: `${backendOrigin}/api/rankings/:path*`,
       },
       {
+        source: "/share/:path*",
+        destination: `${backendOrigin}/share/:path*`,
+      },
+      {
         source: "/api/:path*",
         destination: `${backendOrigin}/api/:path*`,
       },
@@ -171,5 +97,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
-

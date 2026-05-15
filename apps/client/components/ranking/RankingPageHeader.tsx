@@ -2,6 +2,7 @@
 
 import { CaretLeft, TextAlignJustify } from "@phosphor-icons/react";
 import Image from "next/image";
+import Link from "next/link";
 
 import {
   PAGE_HEADER_BACK_BUTTON,
@@ -11,8 +12,7 @@ import {
 } from "@/lib/constants/page-header";
 
 type RankingPageHeaderProps = {
-  /** 좌상단 뒤로가기 — 보통 `navigateAppBack(router, "/")` */
-  onBack: () => void;
+  backHref?: string;
   /** `public/ranking/` 기준 랭킹 로고 경로 */
   logoSrc?: string;
   menuOpen?: boolean;
@@ -20,21 +20,22 @@ type RankingPageHeaderProps = {
 };
 
 export function RankingPageHeader({
-  onBack,
+  backHref = "/wishlist",
   logoSrc = "/ranking/ranking_logo.png",
   menuOpen = false,
   onMenuToggle,
 }: RankingPageHeaderProps) {
   return (
     <header className={PAGE_HEADER_ROW}>
-      <button
-        type="button"
-        onClick={onBack}
+      <Link
+        href={backHref}
+        scroll={false}
+        prefetch
         className={PAGE_HEADER_BACK_BUTTON}
-        aria-label="이전 페이지로"
+        aria-label="위시리스트로 이동"
       >
         <CaretLeft size={22} weight="bold" />
-      </button>
+      </Link>
 
       <div className="flex min-h-0 min-w-0 flex-1 justify-center px-2">
         <h1 className="flex max-h-10 w-full max-w-[min(100%,280px)] items-center justify-center">
@@ -45,6 +46,7 @@ export function RankingPageHeader({
             height={100}
             className="h-10 w-full max-w-full object-contain object-center"
             priority
+            unoptimized
           />
         </h1>
       </div>
