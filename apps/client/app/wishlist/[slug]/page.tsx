@@ -454,13 +454,15 @@ export default function PublicWishlistPage({
   const [embeddedBgDraftKey, setEmbeddedBgDraftKey] = useState<string | null>(null);
   const [ownerName, setOwnerName] = useState("");
   const [boardRevealMeta, setBoardRevealMeta] = useState<{
-    targetDate: string;
+    targetDate: string | null;
     commentsRevealed: boolean;
   } | null>(null);
 
   const wishCommentRevealAtMs = useMemo(() => {
     if (!boardRevealMeta || boardRevealMeta.commentsRevealed) return undefined;
-    const ms = getKstStartOfLocalDateMs(boardRevealMeta.targetDate);
+    const raw = boardRevealMeta.targetDate;
+    if (raw == null || String(raw).trim() === "") return undefined;
+    const ms = getKstStartOfLocalDateMs(raw);
     return Number.isFinite(ms) ? ms : undefined;
   }, [boardRevealMeta]);
 
@@ -634,21 +636,26 @@ export default function PublicWishlistPage({
   }, [selectedComment, visitorMenuLoggedIn, slug]);
 
   const loadPublicBoard = useCallback(() => {
-    return getPublicBoard(slug)
-      .then((data) => {
-        setBoardItems(data.data.items);
-        setBoardAssets(data.data.assets);
-        const display =
-          data.data.nickname?.trim() ||
-          data.data.username?.trim() ||
-          "회원";
-        setOwnerName(display);
-        setBoardRevealMeta({
-          targetDate: data.data.targetDate,
-          commentsRevealed: inferWishBoardCommentsRevealed(data.data),
-        });
-      })
-      .catch(() => {});
+    return getPublicBoard(slug).then((data) => {
+      if (!data) {
+        setBoardItems([]);
+        setBoardAssets([]);
+        setBoardRevealMeta(null);
+        setOwnerName("");
+        return;
+      }
+      setBoardItems(data.data.items);
+      setBoardAssets(data.data.assets);
+      const display =
+        data.data.nickname?.trim() ||
+        data.data.username?.trim() ||
+        "회원";
+      setOwnerName(display);
+      setBoardRevealMeta({
+        targetDate: data.data.targetDate,
+        commentsRevealed: inferWishBoardCommentsRevealed(data.data),
+      });
+    });
   }, [slug]);
 
   /** 내 보드 에디터가 GET /boards/me 반영 시 — 카드 배경 레이어는 부모 상태라 동기화 필요 */
@@ -681,7 +688,7 @@ export default function PublicWishlistPage({
 
   useEffect(() => {
     setStickerFoldersFetchDone(false);
-    void fetchStickerFolders()
+    void fetchStickerFolders(slug)
       .then((folders) => {
         setApiStickerFolders(orderStickerFoldersForTabs(folders));
         setStickerFoldersFetchDone(true);
@@ -719,7 +726,7 @@ export default function PublicWishlistPage({
       try {
         let list: StickerAssetDto[];
         if (apiStickerFolders.length === 0) {
-          list = await fetchStickerAssets();
+          list = await fetchStickerAssets(slug);
         } else {
           const folder =
             commentStickerFolderId !== "" &&
