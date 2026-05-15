@@ -42,7 +42,7 @@ export function inferWishBoardCommentsRevealed(d: {
   if (d.isCommentPublic === true) {
     return true;
   }
-  const td = d.targetDate?.trim().slice(0, 10);
+  const td = (d.targetDate ?? "").trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(td)) {
     return false;
   }
