@@ -33,10 +33,7 @@ export type SignupFormValues = {
   password: string;
   passwordConfirm: string;
   nickname: string;
-  /** @ 앞 아이디 */
-  emailLocal: string;
-  /** 선택 도메인 (예: naver.com) */
-  emailDomain: string;
+  email: string;
   schoolName: string;
   schoolCode: string;
   gender: GenderType;

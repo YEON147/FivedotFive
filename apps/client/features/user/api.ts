@@ -1,7 +1,6 @@
 import { authApiClient } from "@/lib/api/client";
 import { searchSchools, checkNickname } from "@/features/signup/api";
 import type {
-  AuthProviderType,
   ChangePasswordRequest,
   ChangePasswordResponse,
   DeleteAccountRequest,
@@ -16,13 +15,6 @@ import type { SchoolOption } from "@/features/signup/types";
 const MY_PROFILE_API_PATH = "/api/users/me";
 const MY_PASSWORD_API_PATH = "/api/users/me/password";
 
-function parseAuthProvider(raw: unknown): AuthProviderType | null {
-  if (raw === "LOCAL" || raw === "KAKAO") {
-    return raw;
-  }
-  return null;
-}
-
 function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
   return {
     hasWishBoard: response.data?.hasWishBoard ?? false,
@@ -34,25 +26,15 @@ function mapProfileResponseToProfile(response: MyProfileResponse): MyProfile {
     schoolcode: response.data?.schoolcode ?? null,
     gender: response.data?.gender ?? null,
     grade: response.data?.grade ?? null,
-    provider: parseAuthProvider(response.data?.provider),
   };
 }
 
-/** 동시에 여러 컴포넌트가 부를 때 `/api/users/me` 한 번만 나가도록 합침 */
-let inflightMyProfile: Promise<MyProfile> | null = null;
-
 export async function getMyProfile(): Promise<MyProfile> {
-  if (inflightMyProfile) {
-    return inflightMyProfile;
-  }
-  inflightMyProfile = authApiClient<MyProfileResponse>(MY_PROFILE_API_PATH, {
+  const response = await authApiClient<MyProfileResponse>(MY_PROFILE_API_PATH, {
     method: "GET",
-  })
-    .then(mapProfileResponseToProfile)
-    .finally(() => {
-      inflightMyProfile = null;
-    });
-  return inflightMyProfile;
+  });
+
+  return mapProfileResponseToProfile(response);
 }
 
 export async function updateMyProfile(

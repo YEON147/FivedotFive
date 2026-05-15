@@ -1,12 +1,9 @@
 /**
  * NEIS 학교 검색 — Next.js Route Handler에서만 처리 (Spring 백엔드로 프록시되지 않음).
- * 환경 변수(우선순위): NEXT_PUBLIC_NEIS_API_KEY → NEIS_API_KEY,
- * NEXT_PUBLIC_NEIS_API_BASE_URL → NEIS_API_BASE_URL (기본 https://open.neis.go.kr/hub)
+ * 환경 변수: NEIS_API_KEY, 선택 NEIS_API_BASE_URL (기본 https://open.neis.go.kr/hub)
  */
 
 import { NextRequest, NextResponse } from "next/server";
-
-import { devError } from "@/lib/dev-log";
 
 /** NEIS에 없는 삼성 첨단기술·SSAFY 캠퍼스 — 검색 시 API 결과와 병합 */
 const SSAFY_EXTRA_CAMPUSES: Array<{
@@ -82,19 +79,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const apiKey =
-      process.env.NEXT_PUBLIC_NEIS_API_KEY ?? process.env.NEIS_API_KEY;
+    const apiKey = process.env.NEIS_API_KEY;
     const baseUrl =
-      process.env.NEXT_PUBLIC_NEIS_API_BASE_URL ??
-      process.env.NEIS_API_BASE_URL ??
-      "https://open.neis.go.kr/hub";
+      process.env.NEIS_API_BASE_URL ?? "https://open.neis.go.kr/hub";
 
     if (!apiKey) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "NEXT_PUBLIC_NEIS_API_KEY(또는 NEIS_API_KEY)가 설정되지 않았습니다.",
+          message: "NEIS_API_KEY가 설정되지 않았습니다.",
         },
         { status: 500 }
       );
@@ -115,7 +108,7 @@ export async function GET(request: NextRequest) {
     const rawText = await response.text();
 
     if (!response.ok) {
-      devError("NEIS API HTTP 오류", {
+      console.error("NEIS API HTTP 오류", {
         status: response.status,
         statusText: response.statusText,
         rawText,
@@ -134,8 +127,8 @@ export async function GET(request: NextRequest) {
 
     try {
       json = JSON.parse(rawText) as NeisSchoolInfoResponse;
-    } catch {
-      devError("NEIS 응답 JSON 파싱 실패", rawText);
+    } catch (error) {
+      console.error("NEIS 응답 JSON 파싱 실패", rawText);
       return NextResponse.json(
         {
           success: false,
@@ -171,7 +164,7 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    devError("학교 검색 route 오류:", error);
+    console.error("학교 검색 route 오류:", error);
 
     return NextResponse.json(
       {

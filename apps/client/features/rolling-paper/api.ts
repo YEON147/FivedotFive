@@ -66,6 +66,8 @@ export type RollingPaperDetailPayload = {
   isCommentPublic: boolean;
   /** 서버 계산 — 타인 댓글 마스킹 해제 여부 */
   commentsRevealed?: boolean;
+  /** 전체 댓글 수 — 물방울 즉시 표시용 */
+  commentCount?: number;
   commentToken?: string | null;
   viewToken?: string | null;
 };
@@ -133,7 +135,6 @@ export type RollingPaperShareCommentLinkEnvelope = {
   message?: string;
   data?: {
     shortUrl?: string;
-    expiresAt?: string;
   };
 };
 
