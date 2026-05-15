@@ -2357,15 +2357,25 @@ export default function RollingPaperSlugPage({
     <>
       <main className="wishlist-page-root app-shell-viewport-floor flex min-h-0 flex-col overflow-visible px-3 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] sm:px-4">
       <div
-        className={`relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overscroll-contain transition-all duration-300 ease-out ${
-          pngExportBusy ? "overflow-x-visible" : "overflow-x-hidden"
-        } ${modalOpen ? "overflow-y-hidden" : "overflow-y-auto"}`}
+        className={`relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-x-hidden overscroll-contain transition-all duration-300 ease-out ${
+          modalOpen ? "overflow-y-hidden" : "overflow-y-auto"
+        }`}
       >
         <section className={`${ROLLING_PAPER_BOARD_WRAP} mx-auto min-h-0 w-full`}>
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-visible p-0">
-            <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-visible px-1 pb-1 pt-2 sm:px-2 sm:pb-2 sm:pt-3">
+          <div
+            className={`relative flex min-h-0 min-w-0 flex-1 flex-col p-0 ${
+              pngExportBusy ? "overflow-hidden" : "overflow-visible"
+            }`}
+          >
+            <div
+              className={`relative flex min-h-0 min-w-0 flex-1 items-center justify-center px-1 pb-1 pt-2 sm:px-2 sm:pb-2 sm:pt-3 ${
+                pngExportBusy ? "overflow-hidden" : "overflow-visible"
+              }`}
+            >
               <div
-                className={ROLLING_PAPER_BOARD_FRAME}
+                className={`${ROLLING_PAPER_BOARD_FRAME} ${
+                  pngExportBusy ? "overflow-hidden" : ""
+                }`}
                 style={{
                   aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}`,
                 }}
@@ -2383,11 +2393,7 @@ export default function RollingPaperSlugPage({
                   />
                 ) : null}
 
-                <div
-                  className={`absolute inset-0 z-10 flex min-h-0 flex-col rounded-[18px] ${
-                    pngExportBusy ? "overflow-visible" : "overflow-hidden"
-                  }`}
-                >
+                <div className="absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden rounded-[18px]">
                   <div
                     className={`${ROLLING_PAPER_BOARD_INNER} relative flex h-full min-h-0 flex-1 flex-col`}
                   >
@@ -2683,7 +2689,7 @@ export default function RollingPaperSlugPage({
                   </div>
                   {pngExportBusy ? (
                     <div
-                      className="pointer-events-none absolute inset-0 z-[60] flex flex-col items-center justify-center gap-3 rounded-[18px] bg-slate-900/30 text-white backdrop-blur-[2px]"
+                      className="pointer-events-none absolute inset-0 z-[60] flex flex-col items-center justify-center gap-3 overflow-hidden rounded-[18px] bg-slate-900/30 text-white backdrop-blur-[2px]"
                       role="status"
                       aria-live="polite"
                       aria-busy="true"
