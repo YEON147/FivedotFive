@@ -13,13 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 @Service
 @RequiredArgsConstructor
 public class ShareService {
-
-    private static final long TTL_DAYS = 30;
 
     private static final String UTM_PARAMS =
             "?utm_source=user_share&utm_medium=referral&utm_campaign=wishlist_sharing";
@@ -40,24 +37,11 @@ public class ShareService {
         }
 
         String originalUrl = frontendUrl + "/wishlist/" + slug + UTM_PARAMS;
-
-        ZoneId kst = ZoneId.of("Asia/Seoul");
-        LocalDateTime expiresAt;
-        if (board.getTargetDate() != null) {
-            expiresAt = board.getTargetDate().atStartOfDay(kst).toLocalDateTime();
-            if (!LocalDateTime.now(kst).isBefore(expiresAt)) {
-                expiresAt = LocalDateTime.now(kst).plusMinutes(1);
-            }
-        } else {
-            expiresAt = LocalDateTime.now(kst).plusDays(TTL_DAYS);
-        }
-
         String shortCode = generateUniqueShortCode();
 
         shareLinkRepository.save(ShareLink.builder()
                 .shortCode(shortCode)
                 .originalUrl(originalUrl)
-                .expiresAt(expiresAt)
                 .build());
 
         return frontendUrl + "/share/" + shortCode;
@@ -66,36 +50,24 @@ public class ShareService {
     @Transactional
     public String generateRollingPaperShareLink(String slug, String token, LocalDate targetDate) {
         String originalUrl = frontendUrl + "/rolling-papers/" + slug + "?token=" + token;
-
-        ZoneId kst = ZoneId.of("Asia/Seoul");
-        LocalDateTime expiresAt = targetDate.atStartOfDay(kst).toLocalDateTime();
-        if (!LocalDateTime.now(kst).isBefore(expiresAt)) {
-            expiresAt = LocalDateTime.now(kst).plusMinutes(1);
-        }
-
         String shortCode = generateUniqueShortCode();
 
         shareLinkRepository.save(ShareLink.builder()
                 .shortCode(shortCode)
                 .originalUrl(originalUrl)
-                .expiresAt(expiresAt)
                 .build());
 
         return frontendUrl + "/share/" + shortCode;
     }
 
     public LocalDateTime rollingPaperExpiresAt(LocalDate targetDate) {
-        return targetDate.atStartOfDay(ZoneId.of("Asia/Seoul")).toLocalDateTime();
+        return targetDate.atStartOfDay(java.time.ZoneId.of("Asia/Seoul")).toLocalDateTime();
     }
 
     @Transactional(readOnly = true)
     public String resolveShortCode(String shortCode) {
         ShareLink link = shareLinkRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.SHARE_LINK_NOT_FOUND));
-
-        if (link.isExpired()) {
-            throw new CustomException(ErrorCode.SHARE_LINK_NOT_FOUND);
-        }
 
         return link.getOriginalUrl();
     }
