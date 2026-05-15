@@ -259,6 +259,7 @@ public class AssetService {
         List<AssetItemResponse> items = assetRepository
                 .findByAssetTypeOrderByDisplayOrderAsc(AssetType.ROLLING_PAPER_PROFILE)
                 .stream()
+                .filter(a -> !a.getAssetKey().startsWith("rolling-papers/ssafy-profile/"))
                 .map(AssetItemResponse::of)
                 .toList();
         return RollingPaperProfileListResponse.of(items);
