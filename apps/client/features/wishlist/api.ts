@@ -696,17 +696,46 @@ export async function deleteMyWishItem(
   });
 }
 
-const inflightPublicBoard = new Map<string, Promise<PublicBoardData>>();
+const inflightPublicBoard = new Map<string, Promise<PublicBoardData | null>>();
 
-export async function getPublicBoard(slug: string): Promise<PublicBoardData> {
+/**
+ * 공개 보드 단건. 슬러그에 해당하는 보드가 없거나(404) 비공개 등이면 `null`.
+ * 로컬에 구단 시드가 없을 때도 UI가 깨지지 않게 한다.
+ */
+export async function getPublicBoard(slug: string): Promise<PublicBoardData | null> {
   const key = slug.trim();
   let p = inflightPublicBoard.get(key);
   if (p) return p;
-  p = apiClient<PublicBoardData>(`/api/boards/${encodeBoardSlug(key)}`).finally(() => {
+  p = (async () => {
+    try {
+      return await apiClient<PublicBoardData>(
+        `/api/boards/${encodeBoardSlug(key)}`,
+        undefined,
+        { silentFailure: true },
+      );
+    } catch {
+      return null;
+    }
+  })().finally(() => {
     inflightPublicBoard.delete(key);
   });
   inflightPublicBoard.set(key, p);
   return p;
+}
+
+/** 보드 없음·네트워크 실패 시 댓글 그리드용 빈 페이지 */
+function emptyCommentListData(page: number): CommentListData {
+  return {
+    success: true,
+    data: {
+      comments: [],
+      currentPage: page,
+      totalPages: 1,
+      totalCount: 0,
+      hasNext: false,
+      isLastPageFull: false,
+    },
+  };
 }
 
 /** Spring `page`는 0부터 — `commentPageIdx`와 동일 */
@@ -716,9 +745,17 @@ export async function getComments(slug: string, page: number): Promise<CommentLi
   const key = `${encodeBoardSlug(slug)}|${page}`;
   let p = inflightCommentsBySlugPage.get(key);
   if (p) return p;
-  p = apiClient<CommentListData>(
-    `/api/boards/${encodeBoardSlug(slug)}/comments?page=${page}&size=6`,
-  ).finally(() => {
+  p = (async () => {
+    try {
+      return await apiClient<CommentListData>(
+        `/api/boards/${encodeBoardSlug(slug)}/comments?page=${page}&size=6`,
+        undefined,
+        { silentFailure: true },
+      );
+    } catch {
+      return emptyCommentListData(page);
+    }
+  })().finally(() => {
     inflightCommentsBySlugPage.delete(key);
   });
   inflightCommentsBySlugPage.set(key, p);

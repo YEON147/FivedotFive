@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client";
+import { resolveBaseballStickerTeamApiSegment } from "@/lib/baseball-sticker-api-path";
 
 export type BackgroundAssetDto = {
   id: number;
@@ -91,14 +92,23 @@ function backgroundsListFromApiData(data: unknown): Record<string, unknown>[] | 
   );
 }
 
-/** GET /api/assets/backgrounds — 권한 anyone */
-export async function fetchBackgroundAssets(): Promise<BackgroundAssetDto[]> {
-  const res = await apiClient<BackgroundsApiResponse>("/api/assets/backgrounds", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
+/** GET /api/assets/backgrounds?boardSlug= — 구단 보드면 야구 전용 배경 포함 (Anyone) */
+export async function fetchBackgroundAssets(
+  boardSlug?: string | null,
+): Promise<BackgroundAssetDto[]> {
+  const qs =
+    boardSlug != null && String(boardSlug).trim() !== ""
+      ? `?boardSlug=${encodeURIComponent(String(boardSlug).trim())}`
+      : "";
+  const res = await apiClient<BackgroundsApiResponse>(
+    `/api/assets/backgrounds${qs}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
 
   const rows = backgroundsListFromApiData(res.data);
   if (!res.success || !rows) {
@@ -139,24 +149,45 @@ type StickerFoldersApiResponse = {
 };
 
 /** GET /api/assets/stickers/folders — 스티커 폴더 목록 (Anyone) */
-export async function fetchStickerFolders(): Promise<string[]> {
-  const res = await apiClient<StickerFoldersApiResponse>("/api/assets/stickers/folders", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+export async function fetchStickerFolders(
+  boardSlug?: string | null,
+): Promise<string[]> {
+  const qs =
+    boardSlug != null && String(boardSlug).trim() !== ""
+      ? `?boardSlug=${encodeURIComponent(String(boardSlug).trim())}`
+      : "";
+  try {
+    const res = await apiClient<StickerFoldersApiResponse>(
+      `/api/assets/stickers/folders${qs}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+      { silentFailure: true },
+    );
 
-  if (!res.success || !Array.isArray(res.data?.folders)) {
+    if (!res.success || !Array.isArray(res.data?.folders)) {
+      return [];
+    }
+
+    return res.data.folders;
+  } catch {
+    /** 500·HTML 에러 본문 등 — 호출부는 폴백 폴더로 계속 */
     return [];
   }
-
-  return res.data.folders;
 }
 
-/** GET /api/assets/stickers — 권한 anyone */
-export async function fetchStickerAssets(): Promise<StickerAssetDto[]> {
-  const res = await apiClient<StickersApiResponse>("/api/assets/stickers", {
+/** GET /api/assets/stickers?boardSlug= — 구단 보드면 야구 스티커 포함 (Anyone) */
+export async function fetchStickerAssets(
+  boardSlug?: string | null,
+): Promise<StickerAssetDto[]> {
+  const qs =
+    boardSlug != null && String(boardSlug).trim() !== ""
+      ? `?boardSlug=${encodeURIComponent(String(boardSlug).trim())}`
+      : "";
+  const res = await apiClient<StickersApiResponse>(`/api/assets/stickers${qs}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -179,25 +210,44 @@ type StickerFolderApiResponse = {
   };
 };
 
-/** GET /api/assets/stickers/folders/{folder}?boardSlug={slug} — 권한 anyone */
+/** GET /api/assets/stickers/folders/{folder}?boardSlug={slug} — 권한 anyone
+ * `baseball/{팀}` 폴더는 경로에 `/`가 있어 `.../folders/baseball%2Fgiants` 로내면 Tomcat 400이 나므로
+ * 서버 전용 매핑 `GET .../folders/baseball/{team}` 을 사용합니다.
+ */
 export async function fetchStickersByFolder(
   folder: string,
   boardSlug?: string | null,
 ): Promise<StickerAssetDto[]> {
-  const encoded = encodeURIComponent(folder.trim());
+  const trimmed = folder.trim();
   const qs =
     boardSlug && boardSlug.trim()
       ? `?boardSlug=${encodeURIComponent(boardSlug.trim())}`
       : "";
-  const res = await apiClient<StickerFolderApiResponse>(
-    `/api/assets/stickers/folders/${encoded}${qs}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+
+  let path: string;
+  const baseballLower = "baseball/";
+  if (trimmed.toLowerCase().startsWith(baseballLower)) {
+    const after = trimmed.slice(baseballLower.length).trim();
+    const teamSegRaw = after.split("/").filter(Boolean)[0] ?? "";
+    if (teamSegRaw) {
+      const teamSeg = resolveBaseballStickerTeamApiSegment(
+        teamSegRaw,
+        boardSlug,
+      );
+      path = `/api/assets/stickers/folders/baseball/${encodeURIComponent(teamSeg)}${qs}`;
+    } else {
+      path = `/api/assets/stickers/folders/${encodeURIComponent("baseball")}${qs}`;
+    }
+  } else {
+    path = `/api/assets/stickers/folders/${encodeURIComponent(trimmed)}${qs}`;
+  }
+
+  const res = await apiClient<StickerFolderApiResponse>(path, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+  });
 
   if (!res.success || !Array.isArray(res.data?.stickers)) {
     return [];
@@ -284,4 +334,41 @@ export async function postAdminAssetsResetSync(): Promise<AssetsSyncApiResponse>
   return apiClient<AssetsSyncApiResponse>("/api/admin/assets/reset-sync", {
     method: "POST",
   });
+}
+
+/** `WishlistMyBoardScreen` 등 — 브라우저 탭당 1회만 reset-sync 시도 */
+export const ADMIN_ASSETS_RESET_SYNC_SESSION_KEY =
+  "oh_jjeom_oh_admin_assets_reset_sync_once";
+
+let adminResetSyncSessionPromise: Promise<void> | null = null;
+
+/**
+ * ADMIN이 위시 보드 화면에 들어올 때 자동 호출용.
+ * - 성공 시 sessionStorage `"1"`, 실패 시 `"fail"`을 저장해 **실패 후에도** 같은 탭에서 POST를 반복하지 않음.
+ * - React Strict Mode 등으로 `load()`가 동시에 여러 번 돌아도 **요청은 1번**만 나가도록 in-flight 공유.
+ * 재시도하려면 개발자 도구에서 `ADMIN_ASSETS_RESET_SYNC_SESSION_KEY` 항목을 지우면 됩니다.
+ */
+export function ensureAdminAssetsResetSyncOnce(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+
+  const k = ADMIN_ASSETS_RESET_SYNC_SESSION_KEY;
+  const flag = sessionStorage.getItem(k);
+  if (flag === "1" || flag === "fail") {
+    return Promise.resolve();
+  }
+
+  if (!adminResetSyncSessionPromise) {
+    adminResetSyncSessionPromise = postAdminAssetsResetSync()
+      .then(() => {
+        sessionStorage.setItem(k, "1");
+      })
+      .catch(() => {
+        sessionStorage.setItem(k, "fail");
+      })
+      .finally(() => {
+        adminResetSyncSessionPromise = null;
+      });
+  }
+
+  return adminResetSyncSessionPromise;
 }
