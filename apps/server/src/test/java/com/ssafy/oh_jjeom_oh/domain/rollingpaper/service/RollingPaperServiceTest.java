@@ -87,7 +87,7 @@ class RollingPaperServiceTest {
             given(rollingPaperRepository.existsByCommentToken(any())).willReturn(false);
             given(rollingPaperRepository.existsByViewToken(any())).willReturn(false);
             given(rollingPaperRepository.save(any())).willReturn(paper);
-            given(shareService.generateRollingPaperShareLink(any(), any(), any()))
+            given(shareService.generateRollingPaperShareLink(any(), any()))
                     .willReturn("https://test.com/share/abc123");
 
             RollingPaperCreateRequest req = new RollingPaperCreateRequest(

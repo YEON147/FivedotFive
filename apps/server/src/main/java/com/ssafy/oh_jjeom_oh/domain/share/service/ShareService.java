@@ -11,9 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 public class ShareService {
@@ -37,31 +34,30 @@ public class ShareService {
         }
 
         String originalUrl = frontendUrl + "/wishlist/" + slug + UTM_PARAMS;
-        String shortCode = generateUniqueShortCode();
-
-        shareLinkRepository.save(ShareLink.builder()
-                .shortCode(shortCode)
-                .originalUrl(originalUrl)
-                .build());
-
-        return frontendUrl + "/share/" + shortCode;
+        return getOrCreateShareUrl(originalUrl);
     }
 
     @Transactional
-    public String generateRollingPaperShareLink(String slug, String token, LocalDate targetDate) {
+    public String generateRollingPaperShareLink(String slug, String token) {
         String originalUrl = frontendUrl + "/rolling-papers/" + slug + "?token=" + token;
-        String shortCode = generateUniqueShortCode();
-
-        shareLinkRepository.save(ShareLink.builder()
-                .shortCode(shortCode)
-                .originalUrl(originalUrl)
-                .build());
-
-        return frontendUrl + "/share/" + shortCode;
+        return getOrCreateShareUrl(originalUrl);
     }
 
-    public LocalDateTime rollingPaperExpiresAt(LocalDate targetDate) {
-        return targetDate.atStartOfDay(java.time.ZoneId.of("Asia/Seoul")).toLocalDateTime();
+    /**
+     * 동일 {@code originalUrl}에 이미 공유 링크가 있으면 기존 shortCode로 URL 반환.
+     * 없을 때만 새 레코드를 저장해 단축 slug가 매 요청마다 바뀌지 않도록 함.
+     */
+    private String getOrCreateShareUrl(String originalUrl) {
+        return shareLinkRepository.findFirstByOriginalUrlOrderByIdAsc(originalUrl)
+                .map(link -> frontendUrl + "/share/" + link.getShortCode())
+                .orElseGet(() -> {
+                    String shortCode = generateUniqueShortCode();
+                    shareLinkRepository.save(ShareLink.builder()
+                            .shortCode(shortCode)
+                            .originalUrl(originalUrl)
+                            .build());
+                    return frontendUrl + "/share/" + shortCode;
+                });
     }
 
     @Transactional(readOnly = true)
