@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,9 +61,11 @@ class ShareServiceTest {
     class GenerateShareLink {
 
         @Test
-        @DisplayName("성공 - 단축 URL 반환")
+        @DisplayName("성공 - 단축 URL 반환 (신규 저장)")
         void success() {
+            String originalUrl = "https://fivedotfive.co.kr/wishlist/my-board?utm_source=user_share&utm_medium=referral&utm_campaign=wishlist_sharing";
             given(wishBoardRepository.findByBoardSlug("my-board")).willReturn(Optional.of(board));
+            given(shareLinkRepository.findFirstByOriginalUrlOrderByIdAsc(originalUrl)).willReturn(Optional.empty());
             given(shareLinkRepository.existsByShortCode(any())).willReturn(false);
             given(shareLinkRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
@@ -70,6 +73,23 @@ class ShareServiceTest {
 
             assertThat(url).startsWith("https://fivedotfive.co.kr/share/");
             verify(shareLinkRepository).save(any(ShareLink.class));
+        }
+
+        @Test
+        @DisplayName("성공 - 기존 링크 재사용 (동일 originalUrl)")
+        void reuseExisting() {
+            String originalUrl = "https://fivedotfive.co.kr/wishlist/my-board?utm_source=user_share&utm_medium=referral&utm_campaign=wishlist_sharing";
+            ShareLink existing = ShareLink.builder()
+                    .shortCode("existingcode12")
+                    .originalUrl(originalUrl)
+                    .build();
+            given(wishBoardRepository.findByBoardSlug("my-board")).willReturn(Optional.of(board));
+            given(shareLinkRepository.findFirstByOriginalUrlOrderByIdAsc(originalUrl)).willReturn(Optional.of(existing));
+
+            String url = shareService.generateShareLink(1L, "my-board");
+
+            assertThat(url).isEqualTo("https://fivedotfive.co.kr/share/existingcode12");
+            verify(shareLinkRepository, never()).save(any());
         }
 
         @Test
@@ -131,16 +151,33 @@ class ShareServiceTest {
     class GenerateRollingPaperShareLink {
 
         @Test
-        @DisplayName("성공 - 단축 URL 반환")
+        @DisplayName("성공 - 단축 URL 반환 (신규 저장)")
         void success() {
+            String originalUrl = "https://fivedotfive.co.kr/rolling-papers/paper-slug?token=token123";
+            given(shareLinkRepository.findFirstByOriginalUrlOrderByIdAsc(originalUrl)).willReturn(Optional.empty());
             given(shareLinkRepository.existsByShortCode(any())).willReturn(false);
             given(shareLinkRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
-            String url = shareService.generateRollingPaperShareLink(
-                    "paper-slug", "token123", LocalDate.now().plusDays(10));
+            String url = shareService.generateRollingPaperShareLink("paper-slug", "token123");
 
             assertThat(url).startsWith("https://fivedotfive.co.kr/share/");
             verify(shareLinkRepository).save(any(ShareLink.class));
+        }
+
+        @Test
+        @DisplayName("성공 - 기존 링크 재사용")
+        void reuseExisting() {
+            String originalUrl = "https://fivedotfive.co.kr/rolling-papers/paper-slug?token=token123";
+            ShareLink existing = ShareLink.builder()
+                    .shortCode("rpoldcode123")
+                    .originalUrl(originalUrl)
+                    .build();
+            given(shareLinkRepository.findFirstByOriginalUrlOrderByIdAsc(originalUrl)).willReturn(Optional.of(existing));
+
+            String url = shareService.generateRollingPaperShareLink("paper-slug", "token123");
+
+            assertThat(url).isEqualTo("https://fivedotfive.co.kr/share/rpoldcode123");
+            verify(shareLinkRepository, never()).save(any());
         }
     }
 }
