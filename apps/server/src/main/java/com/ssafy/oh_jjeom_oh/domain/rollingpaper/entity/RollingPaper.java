@@ -95,6 +95,11 @@ public class RollingPaper {
         this.imageKey = imageKey;
     }
 
+    public void updateShareTokens(String commentToken, String viewToken) {
+        this.commentToken = commentToken;
+        this.viewToken = viewToken;
+    }
+
     public void updateIsCommentPublic(boolean isCommentPublic) {
         this.isCommentPublic = isCommentPublic;
     }
