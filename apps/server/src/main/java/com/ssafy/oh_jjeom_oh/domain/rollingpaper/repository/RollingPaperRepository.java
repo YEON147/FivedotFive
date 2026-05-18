@@ -32,6 +32,10 @@ public interface RollingPaperRepository extends JpaRepository<RollingPaper, Long
 
     boolean existsByViewToken(String viewToken);
 
+    boolean existsByCommentTokenAndIdNot(String commentToken, Long id);
+
+    boolean existsByViewTokenAndIdNot(String viewToken, Long id);
+
     Optional<RollingPaper> findByCommentToken(String commentToken);
 
     Optional<RollingPaper> findByViewToken(String viewToken);

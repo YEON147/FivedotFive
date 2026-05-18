@@ -1,6 +1,5 @@
 package com.ssafy.oh_jjeom_oh.common.init;
 
-import com.ssafy.oh_jjeom_oh.common.util.TokenGenerator;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.entity.RollingPaper;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
@@ -58,7 +57,7 @@ public class SsafyDataInitializer implements ApplicationRunner {
             new ClassInfo("sonjongmin",  "손종민프로",  "sonjongmin",  "son-jong-min",   "손종민 프로님",  "손종민 프로님"),
             new ClassInfo("jangnhyeon",  "장나현프로",  "jangnhyeon",  "jang-na-hyeon",  "장나현 프로님",  "장나현 프로님"),
             new ClassInfo("leejeonggi",  "이정길프로",  "leejeonggi",  "lee-jeong-gil",  "이정길 프로님",  "이정길 프로님"),
-            new ClassInfo("jeonhiyeon",  "전희연프로",  "jeonhiyeon",  "jeon-hui-yeon",  "전희연 프로님",  "전희연 프로님"),
+            new ClassInfo("hesumin",     "허수민프로",  "hesumin",     "heo-su-min",     "허수민 프로님",  "허수민 프로님"),
             new ClassInfo("hongeunhye",  "홍은혜프로",  "hongeunhye",  "hong-eun-hye",   "홍은혜 프로님",  "홍은혜 프로님"),
             new ClassInfo("ohyonghun",   "오용훈프로",  "ohyonghun",   "oh-yong-hun",    "오용훈 프로님",  "오용훈 프로님"),
             // 코치님
@@ -112,18 +111,33 @@ public class SsafyDataInitializer implements ApplicationRunner {
                         paper.updateTargetDate(TARGET_DATE);
                         updated = true;
                     }
+                    String expectedComment = SsafyRollingPaperTokens.commentTokenForSlug(info.slug());
+                    String expectedView = SsafyRollingPaperTokens.viewTokenForSlug(info.slug());
+                    boolean tokensOutOfSync = !expectedComment.equals(paper.getCommentToken())
+                            || !expectedView.equals(paper.getViewToken());
+                    if (tokensOutOfSync) {
+                        boolean conflict = rollingPaperRepository.existsByCommentTokenAndIdNot(expectedComment, paper.getId())
+                                || rollingPaperRepository.existsByViewTokenAndIdNot(expectedView, paper.getId());
+                        if (conflict) {
+                            log.warn("[SsafyInit] 롤링페이퍼 토큰 고정 스킵(다른 페이퍼와 충돌): slug={}", info.slug());
+                        } else {
+                            log.info("[SsafyInit] 롤링페이퍼 공유 토큰 보정: slug={}", info.slug());
+                            paper.updateShareTokens(expectedComment, expectedView);
+                            updated = true;
+                        }
+                    }
                     if (!updated) {
                         log.debug("[SsafyInit] 롤링페이퍼 이미 존재 (skip): slug={}", info.slug());
                     }
                 },
                 () -> {
-                    String commentToken;
-                    do { commentToken = TokenGenerator.generate(); }
-                    while (rollingPaperRepository.existsByCommentToken(commentToken));
-
-                    String viewToken;
-                    do { viewToken = TokenGenerator.generate(); }
-                    while (rollingPaperRepository.existsByViewToken(viewToken));
+                    String commentToken = SsafyRollingPaperTokens.commentTokenForSlug(info.slug());
+                    String viewToken = SsafyRollingPaperTokens.viewTokenForSlug(info.slug());
+                    if (rollingPaperRepository.existsByCommentToken(commentToken)
+                            || rollingPaperRepository.existsByViewToken(viewToken)) {
+                        throw new IllegalStateException(
+                                "[SsafyInit] SSAFY 고정 토큰 충돌: slug=" + info.slug() + " — DB를 확인하세요.");
+                    }
 
                     RollingPaper paper = RollingPaper.builder()
                             .user(user)
