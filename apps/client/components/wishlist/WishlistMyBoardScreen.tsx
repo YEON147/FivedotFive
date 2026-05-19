@@ -1913,10 +1913,10 @@ export function WishlistMyBoardScreen({
                   <button
                     type="button"
                     onClick={handleEmbeddedToolbarToggleDecorate}
-                    className={`pointer-events-auto flex size-[42px] items-center justify-center rounded-full text-body shadow-lg transition ${
+                    className={`pointer-events-auto flex size-[42px] items-center justify-center rounded-full text-body shadow-lg ring-1 transition ${
                       isDecorateMode
-                        ? "bg-[#7B61FF] text-white ring-2 ring-[#7B61FF]/40"
-                        : "bg-white text-[#7B61FF]"
+                        ? "bg-[#7B61FF] text-white ring-[#7B61FF]/40 ring-2"
+                        : "bg-white text-[#7B61FF] ring-black/[0.06]"
                     }`}
                     aria-label={isDecorateMode ? "보기 모드로 전환" : "꾸미기 모드로 전환"}
                     aria-pressed={isDecorateMode}
@@ -1927,6 +1927,7 @@ export function WishlistMyBoardScreen({
                   <BoardShareFabButton
                     onClick={() => setIsShareModalOpen(true)}
                     ariaLabel="위시리스트 공유"
+                    className="bg-white text-[#7B61FF] ring-1 ring-black/[0.06]"
                   />
                 </div>
               ) : null}
