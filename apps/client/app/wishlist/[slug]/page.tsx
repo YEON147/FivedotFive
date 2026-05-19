@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  BookmarkSimple,
   CaretLeftIcon,
   CaretRightIcon,
+  CircleNotch,
   TextAlignJustify,
 } from "@phosphor-icons/react";
 import Image from "next/image";
@@ -12,6 +14,7 @@ import {
   use,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -21,6 +24,7 @@ import {
 } from "react";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { RollingPaperSaveLoginModalBody } from "@/components/common/RollingPaperSaveLoginModalBody";
 import { WishlistMyBoardScreen } from "@/components/wishlist/WishlistMyBoardScreen";
 import {
   CommentPopup,
@@ -45,7 +49,10 @@ import {
   publicBoardAspectRatioStyle,
 } from "@/lib/constants/public-board-shell";
 import { logoutSession } from "@/features/login/api";
-import { loginUrlForPath } from "@/features/login/post-login-destination";
+import {
+  loginUrlForPath,
+  sanitizeInternalReturnPath,
+} from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
 import type { MyProfile } from "@/features/user/types";
 import {
@@ -53,6 +60,7 @@ import {
   deleteComment,
   getComments,
   getPublicBoard,
+  postWishBoardSave,
   updateComment,
   verifyGuestCommentPassword,
 } from "@/features/wishlist/api";
@@ -448,6 +456,16 @@ export default function PublicWishlistPage({
     return loginUrlForPath(`${pathname}${qs ? `?${qs}` : ""}`);
   }, [pathname, searchParams]);
 
+  const wishSaveLoginTitleId = useId();
+
+  /** 저장용 로그인 모달 — 로그인 페이지 `next`와 동일한 값 */
+  const wishLoginNextParam = useMemo(() => {
+    const qs = searchParams.toString();
+    return sanitizeInternalReturnPath(
+      `${pathname}${qs ? `?${qs}` : ""}`.trim(),
+    );
+  }, [pathname, searchParams]);
+
   const [boardItems, setBoardItems] = useState<WishItemData[]>([]);
   const [boardAssets, setBoardAssets] = useState<BoardAssetData[]>([]);
   /** 내 보드 + 배경 시트 열림 — 저장 전 미리보기 키(`null`이면 `boardAssets`만 사용) */
@@ -517,6 +535,8 @@ export default function PublicWishlistPage({
   const [myBoardSlug, setMyBoardSlug] = useState<string | null | undefined>(undefined);
   const [guestAuthModalOpen, setGuestAuthModalOpen] = useState(false);
   const [ownBoardWriteNoticeOpen, setOwnBoardWriteNoticeOpen] = useState(false);
+  const [wishSaveToBoardBusy, setWishSaveToBoardBusy] = useState(false);
+  const [wishSaveLoginModalOpen, setWishSaveLoginModalOpen] = useState(false);
 
   const [apiStickerFolders, setApiStickerFolders] = useState<string[]>([]);
   /** 폴더 API 완료 전엔 댓글 스티커를 `…/stickers`로 먼저 열었다가 첫 폴더로 다시 부르는 이중 호출이 남 */
@@ -602,6 +622,16 @@ export default function PublicWishlistPage({
     return myBoardSlug === slug.trim();
   }, [visitorMenuLoggedIn, myBoardSlug, slug]);
 
+  /**
+   * 내 보드에 저장 — 타인 공개 위시보드만(서버에서 소유·비공개·복사본 거름).
+   * 로그인 후 소유 여부 조회 중(`myBoardSlug === undefined`)에는 FAB를 숨겨 오판·깜빡임 방지.
+   */
+  const showWishBoardSaveToBoardFab = useMemo(() => {
+    if (isViewingOwnBoard) return false;
+    if (visitorMenuLoggedIn && myBoardSlug === undefined) return false;
+    return true;
+  }, [isViewingOwnBoard, visitorMenuLoggedIn, myBoardSlug]);
+
   useEffect(() => {
     if (!isViewingOwnBoard) {
       setEmbeddedBgDraftKey(null);
@@ -686,9 +716,40 @@ export default function PublicWishlistPage({
     router.push("/login");
   }, [router]);
 
+  const handleWishSaveLoginSuccess = useCallback(() => {
+    setWishSaveLoginModalOpen(false);
+    void syncVisitorSession();
+  }, [syncVisitorSession]);
+
+  const saveWishBoardToMyBoard = useCallback(async () => {
+    if (!slug.trim()) return;
+    if (!getAccessToken()?.trim()) {
+      setWishSaveLoginModalOpen(true);
+      return;
+    }
+    setWishSaveToBoardBusy(true);
+    try {
+      const res = await postWishBoardSave(slug);
+      const newSlug = res.data?.slug?.trim();
+      if (!newSlug) {
+        throw new Error(
+          res.message?.trim() || "저장 응답에 슬러그가 없습니다.",
+        );
+      }
+      clearWishlistPageSessionCache();
+      router.push(`/wishlist/${encodeURIComponent(newSlug)}`);
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message.trim() : "저장에 실패했습니다.";
+      window.alert(msg || "저장에 실패했습니다.");
+    } finally {
+      setWishSaveToBoardBusy(false);
+    }
+  }, [slug, router]);
+
   useEffect(() => {
     setStickerFoldersFetchDone(false);
-    void fetchStickerFolders()
+    void fetchStickerFolders(slug)
       .then((folders) => {
         setApiStickerFolders(orderStickerFoldersForTabs(folders));
         setStickerFoldersFetchDone(true);
@@ -726,7 +787,7 @@ export default function PublicWishlistPage({
       try {
         let list: StickerAssetDto[];
         if (apiStickerFolders.length === 0) {
-          list = await fetchStickerAssets();
+          list = await fetchStickerAssets(slug);
         } else {
           const folder =
             commentStickerFolderId !== "" &&
@@ -1144,6 +1205,18 @@ export default function PublicWishlistPage({
     return resolveBoardBackgroundAssetKey(boardAssets);
   }, [embeddedBgDraftKey, boardAssets]);
 
+  const showWishlistCarouselBottomChrome = useMemo(
+    () =>
+      totalVisualPages > 1 &&
+      !(editorCarouselLocked && currentVisualPage === 0),
+    [totalVisualPages, editorCarouselLocked, currentVisualPage],
+  );
+
+  const showWishlistBoardBottomChrome = useMemo(
+    () => showWishlistCarouselBottomChrome || showWishBoardSaveToBoardFab,
+    [showWishlistCarouselBottomChrome, showWishBoardSaveToBoardFab],
+  );
+
   return (
     <main className={PUBLIC_BOARD_PAGE_MAIN_CLASS}>
       {selectedSlot !== null ? (
@@ -1244,52 +1317,91 @@ export default function PublicWishlistPage({
                     ))}
                   </div>
 
-                  {totalVisualPages > 1 &&
-                  !(editorCarouselLocked && currentVisualPage === 0) ? (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex items-end justify-between px-[4%]">
-                      <div className="pointer-events-auto flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => navigateTo(currentVisualPage - 1)}
-                          disabled={currentVisualPage === 0}
-                          className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                          aria-label="이전 페이지"
-                        >
-                          <CaretLeftIcon size={23} weight="bold" />
-                        </button>
-                        <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
-                          {currentVisualPage + 1} / {totalVisualPages}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => navigateTo(currentVisualPage + 1)}
-                          disabled={
-                            currentVisualPage >= totalVisualPages - 1 ||
-                            (editorCarouselLocked && currentVisualPage === 0)
-                          }
-                          className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                          aria-label={
-                            currentVisualPage === 0 ? "댓글 페이지로" : "다음 페이지"
-                          }
-                          title={currentVisualPage === 0 ? "댓글 면으로 이동" : undefined}
-                        >
-                          <CaretRightIcon size={23} weight="bold" />
-                        </button>
-                      </div>
+                  {showWishlistBoardBottomChrome ? (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex items-end justify-between gap-2 px-[4%]">
+                      {showWishlistCarouselBottomChrome ? (
+                        <div className="pointer-events-auto flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => navigateTo(currentVisualPage - 1)}
+                            disabled={currentVisualPage === 0}
+                            className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                            aria-label="이전 페이지"
+                          >
+                            <CaretLeftIcon size={23} weight="bold" />
+                          </button>
+                          <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
+                            {currentVisualPage + 1} / {totalVisualPages}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => navigateTo(currentVisualPage + 1)}
+                            disabled={
+                              currentVisualPage >= totalVisualPages - 1 ||
+                              (editorCarouselLocked && currentVisualPage === 0)
+                            }
+                            className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
+                            aria-label={
+                              currentVisualPage === 0 ? "댓글 페이지로" : "다음 페이지"
+                            }
+                            title={currentVisualPage === 0 ? "댓글 면으로 이동" : undefined}
+                          >
+                            <CaretRightIcon size={23} weight="bold" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="w-0 shrink-0" aria-hidden />
+                      )}
 
-                      {currentVisualPage > 0 &&
-                      currentVisualPage < totalVisualPages - 1 ? (
-                        <button
-                          type="button"
-                          onClick={handleGoToLastCommentPage}
-                          className="pointer-events-auto flex max-w-[min(200px,calc(100vw-6rem))] shrink-0 items-center justify-center gap-2 rounded-full bg-[#7B61FF] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6b52e0] active:scale-[0.98]"
-                          aria-label="마지막 댓글 페이지로 이동"
-                          title="댓글 면 중 가장 마지막으로 이동합니다"
-                        >
-                          <CaretRightIcon size={20} weight="bold" className="shrink-0 opacity-95" aria-hidden />
-                          <span className="min-w-0 truncate">마지막 페이지로</span>
-                        </button>
-                      ) : null}
+                      <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+                        {showWishlistCarouselBottomChrome &&
+                        currentVisualPage > 0 &&
+                        currentVisualPage < totalVisualPages - 1 ? (
+                          <button
+                            type="button"
+                            onClick={handleGoToLastCommentPage}
+                            className="flex max-w-[min(200px,calc(100vw-6rem))] shrink-0 items-center justify-center gap-2 rounded-full bg-[#7B61FF] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6b52e0] active:scale-[0.98]"
+                            aria-label="마지막 댓글 페이지로 이동"
+                            title="댓글 면 중 가장 마지막으로 이동합니다"
+                          >
+                            <CaretRightIcon
+                              size={20}
+                              weight="bold"
+                              className="shrink-0 opacity-95"
+                              aria-hidden
+                            />
+                            <span className="min-w-0 truncate">마지막 페이지로</span>
+                          </button>
+                        ) : null}
+                        {showWishBoardSaveToBoardFab ? (
+                          <button
+                            type="button"
+                            disabled={wishSaveToBoardBusy}
+                            onClick={() => void saveWishBoardToMyBoard()}
+                            className="flex size-[42px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
+                            aria-label={
+                              wishSaveToBoardBusy
+                                ? "내 보드에 저장 중"
+                                : "내 보드에 위시리스트 저장"
+                            }
+                          >
+                            {wishSaveToBoardBusy ? (
+                              <CircleNotch
+                                className="animate-spin"
+                                size={23}
+                                weight="bold"
+                                aria-hidden
+                              />
+                            ) : (
+                              <BookmarkSimple
+                                size={23}
+                                weight="bold"
+                                aria-hidden
+                              />
+                            )}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -1328,6 +1440,28 @@ export default function PublicWishlistPage({
           >
             회원가입
           </Link>
+        </div>
+      </WishlistCenterDialog>
+
+      <WishlistCenterDialog
+        variant="static"
+        staticStack="aboveDialogs"
+        open={wishSaveLoginModalOpen}
+        onClose={() => setWishSaveLoginModalOpen(false)}
+        title="로그인"
+        titleId={wishSaveLoginTitleId}
+        closeLabel="닫기"
+        description={
+          <p className="text-left text-[13px] leading-snug text-slate-600">
+            내 보드에 위시리스트를 저장하려면 로그인해 주세요.
+          </p>
+        }
+      >
+        <div className="mt-1">
+          <RollingPaperSaveLoginModalBody
+            nextParam={wishLoginNextParam}
+            onLoginSuccess={handleWishSaveLoginSuccess}
+          />
         </div>
       </WishlistCenterDialog>
 
