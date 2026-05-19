@@ -1,10 +1,15 @@
 "use client";
 
 import { Gift, SignIn, SignOut, Trophy, User, UserPlus, X } from "@phosphor-icons/react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+
 import { KboTeamWishlistNavSection } from "@/components/common/KboTeamWishlistNavSection";
+import {
+  SideMenuLinkRow,
+  SideMenuLogoutRow,
+  SideMenuSection,
+} from "@/components/common/SideMenuPrimitives";
 
 type PublicWishlistVisitorMenuProps = {
   open: boolean;
@@ -15,15 +20,11 @@ type PublicWishlistVisitorMenuProps = {
   loginHref?: string;
 };
 
-const SIDE_MENU_ICON_WRAP_PRIMARY =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-[#7B61FF]/12 text-[#7B61FF]";
-
-const SIDE_MENU_ICON_WRAP_ROSE =
-  "flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600";
+const ICON_20 = { size: 20 as const, weight: "bold" as const };
 
 /**
- * 타인 공개 위시리스트(`/wishlist/[slug]`) 햄버거 메뉴.
- * 로그인: 내 위시 보러가기 · 랭킹 · 내 정보 · 로그아웃 / 비로그인: 로그인 · 회원가입 · 랭킹
+ * 타인 공개 위시리스트(`/wishlist/[slug]`) 등 — 비로그인·로그인 방문자 햄버거 메뉴.
+ * `AppSideMenu`와 동일한 `SideMenuPrimitives` 행·아이콘 래퍼를 사용합니다.
  */
 export function PublicWishlistVisitorMenu({
   open,
@@ -67,99 +68,84 @@ export function PublicWishlistVisitorMenu({
         }`}
         aria-hidden={!open}
       >
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-3">
           <span className="text-h3 text-[var(--color-text-primary)]">메뉴</span>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-800 transition hover:opacity-70 active:opacity-50"
             aria-label="메뉴 닫기"
           >
-            <X size={22} weight="bold" aria-hidden />
+            <X size={20} weight="bold" aria-hidden />
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 p-3">
+        <nav className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-2 pt-0">
           {loggedIn ? (
             <>
-              <Link
-                href="/wishlist"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <Gift size={22} weight="bold" />
-                </span>
-                내 위시리스트 보러가기
-              </Link>
-              <Link
-                href="/ranking"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <Trophy size={22} weight="bold" />
-                </span>
-                오쩜오 랭킹
-              </Link>
-              <Link
-                href="/mypage"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <User size={22} weight="bold" />
-                </span>
-                내 정보
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onLogout();
-                  onClose();
-                }}
-                className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-body font-medium text-rose-600 transition hover:bg-rose-50"
-              >
-                <span className={SIDE_MENU_ICON_WRAP_ROSE} aria-hidden>
-                  <SignOut size={22} weight="bold" />
-                </span>
-                로그아웃
-              </button>
+              <SideMenuSection title="나의 활동">
+                <SideMenuLinkRow
+                  href="/wishlist"
+                  onNavigate={onClose}
+                  icon={<Gift {...ICON_20} />}
+                >
+                  내 위시리스트 보러가기
+                </SideMenuLinkRow>
+                <SideMenuLinkRow
+                  href="/ranking"
+                  onNavigate={onClose}
+                  icon={<Trophy {...ICON_20} />}
+                >
+                  오쩜오 랭킹
+                </SideMenuLinkRow>
+              </SideMenuSection>
+              <SideMenuSection title="계정">
+                <SideMenuLinkRow
+                  href="/mypage"
+                  onNavigate={onClose}
+                  icon={<User {...ICON_20} />}
+                >
+                  내 정보
+                </SideMenuLinkRow>
+                <SideMenuLogoutRow
+                  onLogout={() => {
+                    onLogout();
+                    onClose();
+                  }}
+                  icon={<SignOut {...ICON_20} />}
+                >
+                  로그아웃
+                </SideMenuLogoutRow>
+              </SideMenuSection>
             </>
           ) : (
             <>
-              <Link
-                href={loginHref}
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <SignIn size={22} weight="bold" />
-                </span>
-                로그인
-              </Link>
-              <Link
-                href="/signup"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <UserPlus size={22} weight="bold" />
-                </span>
-                회원가입
-              </Link>
-              <KboTeamWishlistNavSection sideMenuOpen={open} onNavigate={onClose} />
-              <Link
-                href="/ranking"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-body font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
-              >
-                <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
-                  <Trophy size={22} weight="bold" />
-                </span>
-                오쩜오 랭킹
-              </Link>
+              <SideMenuSection title="계정">
+                <SideMenuLinkRow
+                  href={loginHref}
+                  onNavigate={onClose}
+                  icon={<SignIn {...ICON_20} />}
+                >
+                  로그인
+                </SideMenuLinkRow>
+                <SideMenuLinkRow
+                  href="/signup"
+                  onNavigate={onClose}
+                  icon={<UserPlus {...ICON_20} />}
+                >
+                  회원가입
+                </SideMenuLinkRow>
+              </SideMenuSection>
+              <SideMenuSection title="콘텐츠">
+                <KboTeamWishlistNavSection sideMenuOpen={open} onNavigate={onClose} />
+                <SideMenuLinkRow
+                  href="/ranking"
+                  onNavigate={onClose}
+                  icon={<Trophy {...ICON_20} />}
+                >
+                  오쩜오 랭킹
+                </SideMenuLinkRow>
+              </SideMenuSection>
             </>
           )}
         </nav>
