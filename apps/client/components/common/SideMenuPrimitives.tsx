@@ -75,12 +75,23 @@ type SideMenuButtonRowProps = {
   onClick: () => void;
   icon: ReactNode;
   children: ReactNode;
+  disabled?: boolean;
 };
 
 /** 링크 행과 동일 스타일의 일반 버튼(모달 열기 등) */
-export function SideMenuButtonRow({ onClick, icon, children }: SideMenuButtonRowProps) {
+export function SideMenuButtonRow({
+  onClick,
+  icon,
+  children,
+  disabled = false,
+}: SideMenuButtonRowProps) {
   return (
-    <button type="button" onClick={onClick} className={`${SIDE_MENU_ROW_CLASS} w-full text-left`}>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`${SIDE_MENU_ROW_CLASS} w-full text-left disabled:pointer-events-none disabled:opacity-45`}
+    >
       <span className={SIDE_MENU_ICON_WRAP_PRIMARY} aria-hidden>
         {icon}
       </span>

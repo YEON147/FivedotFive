@@ -358,8 +358,11 @@ export function BoardShareDialog({
   return inner;
 }
 
+const BOARD_SHARE_FAB_LAYOUT_CLASS =
+  "pointer-events-auto flex size-[42px] items-center justify-center rounded-full shadow-lg";
+
 const BOARD_SHARE_FAB_BUTTON_CLASS =
-  "pointer-events-auto flex size-[42px] items-center justify-center rounded-full bg-[#7B61FF] text-body text-white shadow-lg";
+  `${BOARD_SHARE_FAB_LAYOUT_CLASS} bg-[#7B61FF] text-body text-white`;
 
 export function BoardShareFabButton({
   onClick,
@@ -370,13 +373,14 @@ export function BoardShareFabButton({
   ariaLabel: string;
   className?: string;
 }) {
+  const trimmed = className.trim();
   return (
     <button
       type="button"
       onClick={onClick}
       className={
-        className
-          ? `${BOARD_SHARE_FAB_BUTTON_CLASS} ${className}`
+        trimmed
+          ? `${BOARD_SHARE_FAB_LAYOUT_CLASS} ${trimmed}`
           : BOARD_SHARE_FAB_BUTTON_CLASS
       }
       aria-label={ariaLabel}

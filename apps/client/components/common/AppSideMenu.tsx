@@ -1,6 +1,18 @@
 "use client";
 
-import { Archive, Bell, Gift, ListBullets, PlusCircle, SignOut, Trophy, User, X } from "@phosphor-icons/react";
+import {
+  Archive,
+  Bell,
+  BookmarkSimple,
+  CircleNotch,
+  Gift,
+  ListBullets,
+  PlusCircle,
+  SignOut,
+  Trophy,
+  User,
+  X,
+} from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -25,6 +37,11 @@ type AppSideMenuProps = {
   onLogout: () => void;
   /** 내 위시 꾸미기(`/wishlist`) 또는 내 공개 보드(`/wishlist/{내슬러그}`)처럼 단축 링크가 중복일 때 */
   hideMyWishlistShortcut?: boolean;
+  /** 타인 공개 위시 방문 시 — 「이 위시리스트 내 보드에 저장」 */
+  wishlistPublicSaveAction?: {
+    busy: boolean;
+    onSave: () => void;
+  };
 };
 
 const ICON_20 = { size: 20 as const, weight: "bold" as const };
@@ -46,6 +63,7 @@ export function AppSideMenu({
   onClose,
   onLogout,
   hideMyWishlistShortcut = false,
+  wishlistPublicSaveAction,
 }: AppSideMenuProps) {
   const router = useRouter();
   const mounted = useClientMounted();
@@ -117,6 +135,24 @@ export function AppSideMenu({
                 내 위시리스트 보러가기
               </button>
             ) : null}
+            {wishlistPublicSaveAction ? (
+              <SideMenuButtonRow
+                disabled={wishlistPublicSaveAction.busy}
+                onClick={() => {
+                  wishlistPublicSaveAction.onSave();
+                  onClose();
+                }}
+                icon={
+                  wishlistPublicSaveAction.busy ? (
+                    <CircleNotch {...ICON_20} className="animate-spin" />
+                  ) : (
+                    <BookmarkSimple {...ICON_20} />
+                  )
+                }
+              >
+                이 위시리스트 내 보드에 저장
+              </SideMenuButtonRow>
+            ) : null}
             <SideMenuButtonRow
               onClick={() => {
                 setListOpen(true);
@@ -133,7 +169,7 @@ export function AppSideMenu({
               }}
               icon={<Archive {...ICON_20} />}
             >
-              저장한 롤링페이퍼
+              저장한 보드
             </SideMenuButtonRow>
             <SideMenuButtonRow
               onClick={() => {
