@@ -402,6 +402,29 @@ export async function deleteWishBoard(slug: string): Promise<void> {
   });
 }
 
+/** POST /api/boards/{slug}/save — JWT 필수, 타인 공개 위시보드만 독립 복사본으로 저장 */
+export type WishBoardSavePayload = {
+  slug: string;
+  savedAt: string;
+};
+
+export type WishBoardSaveResponse = {
+  success?: boolean;
+  message?: string;
+  data: WishBoardSavePayload;
+};
+
+export async function postWishBoardSave(slug: string): Promise<WishBoardSaveResponse> {
+  const enc = encodeBoardSlug(slug);
+  return apiClient<WishBoardSaveResponse>(`/api/boards/${enc}/save`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+  });
+}
+
 /** DELETE /api/rolling-papers/{slug} — 소유자만 */
 export async function deleteRollingPaper(slug: string): Promise<void> {
   await apiClient(`/api/rolling-papers/${encodeBoardSlug(slug)}`, {
