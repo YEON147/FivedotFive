@@ -23,8 +23,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -78,6 +80,7 @@ import {
   PAGE_HEADER_MENU_BUTTON,
   PAGE_HEADER_ROW_COMPACT,
 } from "@/lib/constants/page-header";
+import { RollingPaperEmojiQuickPick } from "@/components/rolling-paper/RollingPaperEmojiQuickPick";
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import type { MyBoardListEntry } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
@@ -694,31 +697,33 @@ function RollingPaperPostitModalFrame({
 }
 
 function RollingPaperPostitModalTextarea({
+  textareaRef,
   value,
   onChange,
   placeholder,
   autoFocus,
 }: {
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
   placeholder: string;
   autoFocus?: boolean;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
     if (window.CSS?.supports?.("field-sizing", "content")) return;
-    const el = ref.current;
+    const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
     const sh = el.scrollHeight;
     const cap = el.parentElement?.clientHeight;
     const h = cap && cap > 0 ? Math.min(sh, cap) : sh;
     el.style.height = `${h}px`;
-  }, [value]);
+  }, [value, textareaRef]);
+
   return (
     <textarea
-      ref={ref}
+      ref={textareaRef}
       value={value}
       onChange={onChange}
       maxLength={CONTENT_MAX}
@@ -856,6 +861,10 @@ export default function RollingPaperSlugPage({
   const [viewModalStep, setViewModalStep] = useState<"read" | "edit">("read");
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [content, setContent] = useState("");
+  const rollingComposeTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const onRollingComposeValueChange = useCallback((next: string) => {
+    setContent(next);
+  }, []);
   const [guestNickname, setGuestNickname] = useState("");
   const [guestPassword, setGuestPassword] = useState("");
   const [guestNicknameLoading, setGuestNicknameLoading] = useState(false);
@@ -2242,9 +2251,15 @@ export default function RollingPaperSlugPage({
                 </>
               ) : (
                 <>
+                  <RollingPaperEmojiQuickPick
+                    value={content}
+                    textareaRef={rollingComposeTextareaRef}
+                    onValueChange={onRollingComposeValueChange}
+                  />
                   <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
                     <RollingPaperModalTextSlot>
                       <RollingPaperPostitModalTextarea
+                        textareaRef={rollingComposeTextareaRef}
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         placeholder="메시지를 수정해 보세요"
@@ -2388,15 +2403,15 @@ export default function RollingPaperSlugPage({
                 </>
               ) : (
                 <>
-                  {loggedInState ? (
-                    <p className="max-w-full shrink-0 text-center text-[11px] leading-snug text-white/85">
-                      작성 후에는 이 슬롯에 다른 메시지를 넣을 수 없습니다.
-                    </p>
-                  ) : null}
-
+                  <RollingPaperEmojiQuickPick
+                    value={content}
+                    textareaRef={rollingComposeTextareaRef}
+                    onValueChange={onRollingComposeValueChange}
+                  />
                   <RollingPaperPostitShell slotIndex={activeSlot} fullTextScroll>
                     <RollingPaperModalTextSlot>
                       <RollingPaperPostitModalTextarea
+                        textareaRef={rollingComposeTextareaRef}
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         placeholder="생일 축하해!"
