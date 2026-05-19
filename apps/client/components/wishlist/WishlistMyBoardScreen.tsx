@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type MutableRefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -107,6 +108,12 @@ import {
   type GiftIconTravelSubTabId,
 } from "@/lib/gift-icon-category";
 
+/** `/wishlist/[slug]` 부모 툴바에서 꾸미기·공유 트리거용 */
+export type WishlistEmbeddedToolbarActions = {
+  toggleDecorate: () => void;
+  openShare: () => void;
+};
+
 export type WishlistMyBoardScreenProps = {
   /** `[slug]` 경로의 보드 — `/api/boards/{slug}/…` 편집용 호출에 사용 */
   routeBoardSlug: string;
@@ -140,6 +147,14 @@ export type WishlistMyBoardScreenProps = {
    * `undefined`면(비임베드·레거시) 기존처럼 자식에서 조회.
    */
   embeddedStickerFoldersFromParent?: string[];
+  /**
+   * `/wishlist/[slug]` — 우하단 꾸미기·공유를 부모 하단 툴바로 옮길 때 내부 절대 FAB 숨김.
+   */
+  embeddedHideCornerFabStack?: boolean;
+  /** 부모가 저장·편집·공유 한 줄에 넣을 때 — 꾸미기 토글·공유 모달 오픈 */
+  embeddedToolbarActionsRef?: MutableRefObject<WishlistEmbeddedToolbarActions | null>;
+  /** 부모 편집 버튼 `aria-pressed`/스타일 동기화 */
+  onEmbeddedDecorateModeChange?: (isDecorateMode: boolean) => void;
 };
 
 type GiftModalSpecial = "present" | null;
@@ -285,6 +300,9 @@ export function WishlistMyBoardScreen({
   onEmbeddedBackgroundDraftKeyChange,
   embeddedPrefetchedProfile = null,
   embeddedStickerFoldersFromParent,
+  embeddedHideCornerFabStack = false,
+  embeddedToolbarActionsRef,
+  onEmbeddedDecorateModeChange,
 }: WishlistMyBoardScreenProps) {
   const router = useRouter();
   const [bigCircleCount, setBigCircleCount] = useState<GiftLayoutCount>(
@@ -1178,6 +1196,52 @@ export function WishlistMyBoardScreen({
     routeBoardSlug,
   ]);
 
+  const handleEmbeddedToolbarToggleDecorate = useCallback(() => {
+    if (isDecorateMode) {
+      void (async () => {
+        if (isCompactBackgroundOpen) {
+          const ok = await dismissCompactBackgroundSheet();
+          if (!ok) {
+            return;
+          }
+        }
+        setIsDecorateMode(false);
+        setIsBottomSheetOpen(false);
+        setIsCompactBackgroundOpen(false);
+        setStickerTargetSlotId(null);
+      })();
+      return;
+    }
+    if (viewerIsAdmin) {
+      void postAdminAssetsSync().catch(() => {
+        /* 동기화 실패해도 꾸미기 진입은 허용 */
+      });
+    }
+    setIsDecorateMode(true);
+  }, [
+    isDecorateMode,
+    isCompactBackgroundOpen,
+    dismissCompactBackgroundSheet,
+    viewerIsAdmin,
+  ]);
+
+  useEffect(() => {
+    onEmbeddedDecorateModeChange?.(isDecorateMode);
+  }, [isDecorateMode, onEmbeddedDecorateModeChange]);
+
+  useEffect(() => {
+    if (!embeddedToolbarActionsRef) {
+      return;
+    }
+    embeddedToolbarActionsRef.current = {
+      toggleDecorate: handleEmbeddedToolbarToggleDecorate,
+      openShare: () => setIsShareModalOpen(true),
+    };
+    return () => {
+      embeddedToolbarActionsRef.current = null;
+    };
+  }, [embeddedToolbarActionsRef, handleEmbeddedToolbarToggleDecorate]);
+
   const toggleSidebar = () => {
     void (async () => {
       if (isCompactBackgroundOpen) {
@@ -1834,58 +1898,38 @@ export function WishlistMyBoardScreen({
                 </div>
               ) : null}
 
-              <div
-                className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end gap-2.5 transition-[opacity,filter] duration-300 ease-out ${
-                  isBottomSheetOpen || isCompactBackgroundOpen
-                    ? "opacity-0"
-                    : embeddedInSlugCarousel &&
-                        typeof embeddedCarouselVisualPage === "number" &&
-                        embeddedCarouselVisualPage !== 0
-                      ? "opacity-[0.15] blur-[2px] saturate-[0.35] pointer-events-none"
-                      : "opacity-100"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isDecorateMode) {
-                      void (async () => {
-                        if (isCompactBackgroundOpen) {
-                          const ok = await dismissCompactBackgroundSheet();
-                          if (!ok) {
-                            return;
-                          }
-                        }
-                        setIsDecorateMode(false);
-                        setIsBottomSheetOpen(false);
-                        setIsCompactBackgroundOpen(false);
-                        setStickerTargetSlotId(null);
-                      })();
-                      return;
-                    }
-                    if (viewerIsAdmin) {
-                      void postAdminAssetsSync().catch(() => {
-                        /* 동기화 실패해도 꾸미기 진입은 허용 */
-                      });
-                    }
-                    setIsDecorateMode(true);
-                  }}
-                  className={`pointer-events-auto flex size-[42px] items-center justify-center rounded-full text-body shadow-lg transition ${
-                    isDecorateMode
-                      ? "bg-[#7B61FF] text-white ring-2 ring-[#7B61FF]/40"
-                      : "bg-white text-[#7B61FF]"
+              {!embeddedHideCornerFabStack ? (
+                <div
+                  className={`pointer-events-none absolute bottom-6 right-[4%] z-30 flex flex-col items-end gap-2.5 transition-[opacity,filter] duration-300 ease-out ${
+                    isBottomSheetOpen || isCompactBackgroundOpen
+                      ? "opacity-0"
+                      : embeddedInSlugCarousel &&
+                          typeof embeddedCarouselVisualPage === "number" &&
+                          embeddedCarouselVisualPage !== 0
+                        ? "opacity-[0.15] blur-[2px] saturate-[0.35] pointer-events-none"
+                        : "opacity-100"
                   }`}
-                  aria-label={isDecorateMode ? "보기 모드로 전환" : "꾸미기 모드로 전환"}
-                  aria-pressed={isDecorateMode}
                 >
-                  <PencilSimple size={23} weight="bold" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleEmbeddedToolbarToggleDecorate}
+                    className={`pointer-events-auto flex size-[42px] items-center justify-center rounded-full text-body shadow-lg transition ${
+                      isDecorateMode
+                        ? "bg-[#7B61FF] text-white ring-2 ring-[#7B61FF]/40"
+                        : "bg-white text-[#7B61FF]"
+                    }`}
+                    aria-label={isDecorateMode ? "보기 모드로 전환" : "꾸미기 모드로 전환"}
+                    aria-pressed={isDecorateMode}
+                  >
+                    <PencilSimple size={23} weight="bold" />
+                  </button>
 
-                <BoardShareFabButton
-                  onClick={() => setIsShareModalOpen(true)}
-                  ariaLabel="위시리스트 공유"
-                />
-              </div>
+                  <BoardShareFabButton
+                    onClick={() => setIsShareModalOpen(true)}
+                    ariaLabel="위시리스트 공유"
+                  />
+                </div>
+              ) : null}
                 </div>
               </div>
             </div>
