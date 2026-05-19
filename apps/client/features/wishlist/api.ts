@@ -425,6 +425,25 @@ export async function postWishBoardSave(slug: string): Promise<WishBoardSaveResp
   });
 }
 
+/** GET /api/boards/me/saved — 내가 저장한 위시보드 복사본 목록 (JWT 필수) */
+export type SavedWishBoardItem = {
+  slug: string;
+  title?: string | null;
+  savedAt?: string;
+};
+
+export type MySavedWishBoardsApiResponse = {
+  success?: boolean;
+  message?: string;
+  data?: {
+    saved?: SavedWishBoardItem[];
+  };
+};
+
+export async function getMySavedWishBoards(): Promise<MySavedWishBoardsApiResponse> {
+  return apiClient<MySavedWishBoardsApiResponse>("/api/boards/me/saved");
+}
+
 /** DELETE /api/rolling-papers/{slug} — 소유자만 */
 export async function deleteRollingPaper(slug: string): Promise<void> {
   await apiClient(`/api/rolling-papers/${encodeBoardSlug(slug)}`, {
