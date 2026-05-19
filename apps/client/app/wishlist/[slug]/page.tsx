@@ -1,9 +1,14 @@
 "use client";
 
 import {
+  CaretDoubleLeftIcon,
+  CaretDoubleRightIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  PencilSimple,
+  PlusIcon,
   TextAlignJustify,
+  X,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -21,7 +26,11 @@ import {
 } from "react";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
-import { WishlistMyBoardScreen } from "@/components/wishlist/WishlistMyBoardScreen";
+import { BoardShareFabButton } from "@/components/common/ShareBoardLink";
+import {
+  WishlistMyBoardScreen,
+  type WishlistEmbeddedToolbarActions,
+} from "@/components/wishlist/WishlistMyBoardScreen";
 import {
   CommentPopup,
   type CommentCreateGuestFields,
@@ -45,7 +54,9 @@ import {
   publicBoardAspectRatioStyle,
 } from "@/lib/constants/public-board-shell";
 import { logoutSession } from "@/features/login/api";
-import { loginUrlForPath } from "@/features/login/post-login-destination";
+import {
+  loginUrlForPath,
+} from "@/features/login/post-login-destination";
 import { getMyProfile } from "@/features/user/api";
 import type { MyProfile } from "@/features/user/types";
 import {
@@ -134,6 +145,10 @@ function isCarouselSwipeInteractiveTarget(target: EventTarget | null): boolean {
 
 const CAROUSEL_SWIPE_MIN_PX = 56;
 const CAROUSEL_SWIPE_HORIZONTAL_RATIO = 1.15;
+
+/** 캐러셀 페이지네이션 — 배경·테두리·그림자 없이 아이콘만(42px 터치 영역), 아이콘·포커스 보라 */
+const WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON =
+  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#7B61FF] shadow-none outline-none ring-0 transition-opacity hover:opacity-80 active:opacity-65 focus-visible:ring-2 focus-visible:ring-[#7B61FF]/30 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-35 disabled:hover:opacity-35 touch-manipulation";
 
 /** 서버·Jackson 필드명 차이 + `hasNext` 생략 시에도 `totalCount`로 마지막 면 꽉 참 판별 */
 function resolveIsLastPageFull(p: CommentListPayload): boolean {
@@ -497,7 +512,6 @@ export default function PublicWishlistPage({
   const [popupMode, setPopupMode] = useState<PopupMode>("view");
   const [selectedComment, setSelectedComment] = useState<CommentData | null>(null);
 
-  const isSliding = useRef(false);
   const carouselSwipeStartRef = useRef<{
     x: number;
     y: number;
@@ -517,6 +531,9 @@ export default function PublicWishlistPage({
   const [myBoardSlug, setMyBoardSlug] = useState<string | null | undefined>(undefined);
   const [guestAuthModalOpen, setGuestAuthModalOpen] = useState(false);
   const [ownBoardWriteNoticeOpen, setOwnBoardWriteNoticeOpen] = useState(false);
+  const embeddedWishToolbarActionsRef = useRef<WishlistEmbeddedToolbarActions | null>(null);
+  const [embeddedDecorateMode, setEmbeddedDecorateMode] = useState(false);
+  const [wishOwnerSpeedDialOpen, setWishOwnerSpeedDialOpen] = useState(false);
 
   const [apiStickerFolders, setApiStickerFolders] = useState<string[]>([]);
   /** 폴더 API 완료 전엔 댓글 스티커를 `…/stickers`로 먼저 열었다가 첫 폴더로 다시 부르는 이중 호출이 남 */
@@ -607,6 +624,17 @@ export default function PublicWishlistPage({
       setEmbeddedBgDraftKey(null);
     }
   }, [isViewingOwnBoard]);
+
+  /** 댓글 면으로 넘어가거나 꾸미기 모드 진입 시 스피드 다이얼·딤 닫기(FAB는 첫 슬라이드에만 있음) */
+  useEffect(() => {
+    if (!isViewingOwnBoard || currentVisualPage !== 0) {
+      setWishOwnerSpeedDialOpen(false);
+      return;
+    }
+    if (embeddedDecorateMode) {
+      setWishOwnerSpeedDialOpen(false);
+    }
+  }, [isViewingOwnBoard, currentVisualPage, embeddedDecorateMode]);
 
   /**
    * 타인 보드에서만 빈 댓글 칸 표시.
@@ -893,26 +921,38 @@ export default function PublicWishlistPage({
     }
   }, [currentVisualPage, isViewingOwnBoard, loadPublicBoard]);
 
-  /** `totalVisualPagesOverride`: 방금 갱신한 댓글 면 수 반영 전에도 이동할 때 사용 */
+  /**
+   * 절대 면 인덱스로 이동 — `isSliding` 잠금 없음(연속 버튼·빠른 탭 대응).
+   * `setCurrentVisualPage` 함수형으로 이전 면 기준 검증(클로저 stale 방지).
+   */
   const navigateTo = useCallback(
     (visualPage: number, totalVisualPagesOverride?: number) => {
-      const cap = totalVisualPagesOverride ?? totalVisualPages;
-      if (visualPage < 0 || visualPage >= cap || isSliding.current) return;
-      if (visualPage === currentVisualPage) return;
-      if (
-        editorCarouselLocked &&
-        currentVisualPage === 0 &&
-        visualPage !== 0
-      ) {
-        return;
-      }
-      isSliding.current = true;
-      setCurrentVisualPage(visualPage);
-      window.setTimeout(() => {
-        isSliding.current = false;
-      }, 350);
+      setCurrentVisualPage((prev) => {
+        const cap = totalVisualPagesOverride ?? totalVisualPages;
+        if (visualPage < 0 || visualPage >= cap) return prev;
+        if (visualPage === prev) return prev;
+        if (editorCarouselLocked && prev === 0 && visualPage !== 0) {
+          return prev;
+        }
+        return visualPage;
+      });
     },
-    [totalVisualPages, currentVisualPage, editorCarouselLocked],
+    [totalVisualPages, editorCarouselLocked],
+  );
+
+  /** 이전/다음 버튼·스와이프 — 항상 `prev ± 1`로 계산해 연속 클릭에도 면이 누적 이동 */
+  const navigateByDelta = useCallback(
+    (delta: number) => {
+      setCurrentVisualPage((prev) => {
+        const next = prev + delta;
+        if (next < 0 || next >= totalVisualPages) return prev;
+        if (editorCarouselLocked && prev === 0 && next !== 0) {
+          return prev;
+        }
+        return next;
+      });
+    },
+    [totalVisualPages, editorCarouselLocked],
   );
 
   /** 터치·마우스 공통 — 데스크톱에서도 좌우 드래그로 페이지 전환 */
@@ -960,28 +1000,17 @@ export default function PublicWishlistPage({
       if (Math.abs(dx) < CAROUSEL_SWIPE_MIN_PX) return;
       if (Math.abs(dx) < Math.abs(dy) * CAROUSEL_SWIPE_HORIZONTAL_RATIO) return;
       if (dx < 0) {
-        navigateTo(currentVisualPage + 1);
+        navigateByDelta(1);
       } else {
-        navigateTo(currentVisualPage - 1);
+        navigateByDelta(-1);
       }
     },
-    [currentVisualPage, editorCarouselLocked, navigateTo, selectedSlot],
+    [editorCarouselLocked, navigateByDelta, selectedSlot],
   );
 
   const onCarouselPointerCancel = useCallback(() => {
     carouselSwipeStartRef.current = null;
   }, []);
-
-  const handleGoToLastCommentPage = () => {
-    if (!visitorMenuLoggedIn) {
-      setGuestAuthModalOpen(true);
-      return;
-    }
-    if (editorCarouselLocked && currentVisualPage === 0) {
-      return;
-    }
-    navigateTo(totalVisualPages - 1);
-  };
 
   const handleSlotClick = (slotId: number, commentPageIdx: number) => {
     void (async () => {
@@ -1026,6 +1055,18 @@ export default function PublicWishlistPage({
     setSelectedSlot(null);
     setSelectedComment(null);
   };
+
+  useEffect(() => {
+    if (selectedSlot !== null) {
+      setWishOwnerSpeedDialOpen(false);
+    }
+  }, [selectedSlot]);
+
+  useEffect(() => {
+    if (currentVisualPage !== 0) {
+      setWishOwnerSpeedDialOpen(false);
+    }
+  }, [currentVisualPage]);
 
   const refreshCommentPage = async (commentPageIdx: number): Promise<CommentListPayload> => {
     setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
@@ -1144,6 +1185,80 @@ export default function PublicWishlistPage({
     return resolveBoardBackgroundAssetKey(boardAssets);
   }, [embeddedBgDraftKey, boardAssets]);
 
+  /** 소유자 첫 슬라이드 꾸미기 모드 — 하단 페이지네이션 숨김(캐러셀 조작 방지) */
+  const hideWishCarouselPagination =
+    embeddedDecorateMode && isViewingOwnBoard && currentVisualPage === 0;
+
+  /** 소유자·첫 슬라이드만: 편집·공유 스피드 다이얼. 「내 보드에 저장」은 타인 보드 복사용 API(`BOARD_CANNOT_SAVE_OWN`)라 본인 슬러그에는 두지 않음 */
+  const wishOwnerFabToolbar = useMemo(() => {
+    if (!isViewingOwnBoard || currentVisualPage !== 0) return null;
+    const closeDial = () => setWishOwnerSpeedDialOpen(false);
+
+    return (
+      <div className="pointer-events-auto relative z-[51] flex w-[42px] flex-col items-end">
+        {wishOwnerSpeedDialOpen && !embeddedDecorateMode ? (
+          <div className="absolute bottom-full right-0 mb-3 flex flex-col-reverse items-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                embeddedWishToolbarActionsRef.current?.toggleDecorate();
+                closeDial();
+              }}
+              className={`flex size-[42px] shrink-0 items-center justify-center rounded-full text-body shadow-lg ring-1 transition ${
+                embeddedDecorateMode
+                  ? "bg-[#7B61FF] text-white ring-[#7B61FF]/40 ring-2"
+                  : "bg-white text-[#7B61FF] ring-black/[0.06]"
+              }`}
+              aria-label={embeddedDecorateMode ? "보기 모드로 전환" : "꾸미기 모드로 전환"}
+              aria-pressed={embeddedDecorateMode}
+            >
+              <PencilSimple size={23} weight="bold" />
+            </button>
+            <BoardShareFabButton
+              onClick={() => {
+                closeDial();
+                embeddedWishToolbarActionsRef.current?.openShare();
+              }}
+              ariaLabel="위시리스트 공유"
+              className="bg-white text-[#7B61FF] ring-1 ring-black/[0.06]"
+            />
+          </div>
+        ) : null}
+        {embeddedDecorateMode ? (
+          <button
+            type="button"
+            onClick={() => {
+              embeddedWishToolbarActionsRef.current?.toggleDecorate();
+              closeDial();
+            }}
+            className="relative flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-[0_6px_20px_rgba(123,97,255,0.45)] ring-0 transition active:scale-[0.96] touch-manipulation"
+            aria-pressed={true}
+            aria-label="보기 모드로 전환"
+            title="꾸미기 종료"
+          >
+            <PencilSimple size={23} weight="bold" aria-hidden />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setWishOwnerSpeedDialOpen((open) => !open)}
+            className="relative flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-[0_6px_20px_rgba(123,97,255,0.45)] ring-0 transition active:scale-[0.96] touch-manipulation"
+            aria-expanded={wishOwnerSpeedDialOpen}
+            aria-label={
+              wishOwnerSpeedDialOpen ? "편집·공유 메뉴 닫기" : "편집·공유 메뉴 열기"
+            }
+          >
+            {wishOwnerSpeedDialOpen ? (
+              <X size={23} weight="bold" aria-hidden />
+            ) : (
+              <PlusIcon size={23} weight="bold" aria-hidden />
+            )}
+          </button>
+        )}
+      </div>
+    );
+  }, [isViewingOwnBoard, currentVisualPage, embeddedDecorateMode, wishOwnerSpeedDialOpen]);
+
   return (
     <main className={PUBLIC_BOARD_PAGE_MAIN_CLASS}>
       {selectedSlot !== null ? (
@@ -1201,6 +1316,9 @@ export default function PublicWishlistPage({
                         <WishlistMyBoardScreen
                           routeBoardSlug={slug}
                           embeddedInSlugCarousel
+                          embeddedHideCornerFabStack
+                          embeddedToolbarActionsRef={embeddedWishToolbarActionsRef}
+                          onEmbeddedDecorateModeChange={setEmbeddedDecorateMode}
                           omitInnerTitleHeader
                           onCarouselInteractionLockChange={setEditorCarouselLocked}
                           embeddedCarouselVisualPage={currentVisualPage}
@@ -1243,55 +1361,93 @@ export default function PublicWishlistPage({
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  {totalVisualPages > 1 &&
-                  !(editorCarouselLocked && currentVisualPage === 0) ? (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex items-end justify-between px-[4%]">
-                      <div className="pointer-events-auto flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => navigateTo(currentVisualPage - 1)}
-                          disabled={currentVisualPage === 0}
-                          className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                          aria-label="이전 페이지"
-                        >
-                          <CaretLeftIcon size={23} weight="bold" />
-                        </button>
-                        <span className="min-w-[44px] text-center text-[11px] font-bold tabular-nums text-slate-700">
+                {wishOwnerSpeedDialOpen &&
+                isViewingOwnBoard &&
+                currentVisualPage === 0 &&
+                !embeddedDecorateMode ? (
+                  <button
+                    type="button"
+                    className="absolute inset-0 z-40 cursor-default bg-black/20"
+                    aria-label="메뉴 닫기"
+                    onClick={() => setWishOwnerSpeedDialOpen(false)}
+                  />
+                ) : null}
+
+                {/** 캐러셀 `overflow-hidden` 밖 — 페이지네이션은 `left-1/2 -translate-x-1/2`로 카드 가로 중앙 고정, FAB은 `pr-[4%]`·z위에서 우측 정렬 */}
+                <div
+                  className={`pointer-events-none absolute inset-x-0 bottom-3 z-[50] transition-opacity duration-200 sm:bottom-4 ${
+                    selectedSlot !== null ? "opacity-0" : "opacity-100"
+                  }`}
+                >
+                  <div className="relative min-h-[42px] w-full min-w-0">
+                    {!hideWishCarouselPagination ? (
+                      <div className="pointer-events-auto absolute bottom-0 left-1/2 z-50 flex w-max -translate-x-1/2 items-center gap-2 sm:gap-2.5">
+                        <div className="-space-x-3 flex items-center gap-0">
+                          <button
+                            type="button"
+                            onClick={() => navigateTo(0)}
+                            disabled={currentVisualPage === 0}
+                            className={WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
+                            aria-label="맨 처음 페이지로"
+                            title="맨 처음"
+                          >
+                            <CaretDoubleLeftIcon size={23} weight="bold" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigateByDelta(-1)}
+                            disabled={currentVisualPage === 0}
+                            className={WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
+                            aria-label="이전 페이지"
+                          >
+                            <CaretLeftIcon size={23} weight="bold" />
+                          </button>
+                        </div>
+                        <span className="min-w-[3.25rem] shrink-0 text-center text-[11px] font-semibold tabular-nums text-black">
                           {currentVisualPage + 1} / {totalVisualPages}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => navigateTo(currentVisualPage + 1)}
-                          disabled={
-                            currentVisualPage >= totalVisualPages - 1 ||
-                            (editorCarouselLocked && currentVisualPage === 0)
-                          }
-                          className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg transition hover:bg-white/95 disabled:pointer-events-none disabled:opacity-30"
-                          aria-label={
-                            currentVisualPage === 0 ? "댓글 페이지로" : "다음 페이지"
-                          }
-                          title={currentVisualPage === 0 ? "댓글 면으로 이동" : undefined}
-                        >
-                          <CaretRightIcon size={23} weight="bold" />
-                        </button>
+                        <div className="-space-x-3 flex items-center gap-0">
+                          <button
+                            type="button"
+                            onClick={() => navigateByDelta(1)}
+                            disabled={
+                              currentVisualPage >= totalVisualPages - 1 ||
+                              (editorCarouselLocked && currentVisualPage === 0)
+                            }
+                            className={WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
+                            aria-label={
+                              currentVisualPage === 0 ? "댓글 페이지로" : "다음 페이지"
+                            }
+                            title={currentVisualPage === 0 ? "댓글 면으로 이동" : undefined}
+                          >
+                            <CaretRightIcon size={23} weight="bold" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigateTo(totalVisualPages - 1)}
+                            disabled={
+                              currentVisualPage >= totalVisualPages - 1 ||
+                              (editorCarouselLocked && currentVisualPage === 0)
+                            }
+                            className={WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
+                            aria-label="맨 끝 페이지로"
+                            title="맨 끝"
+                          >
+                            <CaretDoubleRightIcon size={23} weight="bold" />
+                          </button>
+                        </div>
                       </div>
-
-                      {currentVisualPage > 0 &&
-                      currentVisualPage < totalVisualPages - 1 ? (
-                        <button
-                          type="button"
-                          onClick={handleGoToLastCommentPage}
-                          className="pointer-events-auto flex max-w-[min(200px,calc(100vw-6rem))] shrink-0 items-center justify-center gap-2 rounded-full bg-[#7B61FF] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6b52e0] active:scale-[0.98]"
-                          aria-label="마지막 댓글 페이지로 이동"
-                          title="댓글 면 중 가장 마지막으로 이동합니다"
-                        >
-                          <CaretRightIcon size={20} weight="bold" className="shrink-0 opacity-95" aria-hidden />
-                          <span className="min-w-0 truncate">마지막 페이지로</span>
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
+                    ) : null}
+                    {wishOwnerFabToolbar ? (
+                      <div className="pointer-events-none absolute bottom-0 right-0 z-[51] pr-[4%]">
+                        <div className="pointer-events-auto relative min-w-[42px] shrink-0 overflow-visible">
+                          {wishOwnerFabToolbar}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <PublicBoardProfileHeader

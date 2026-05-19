@@ -402,6 +402,48 @@ export async function deleteWishBoard(slug: string): Promise<void> {
   });
 }
 
+/** POST /api/boards/{slug}/save — JWT 필수, 타인 공개 위시보드만 독립 복사본으로 저장 */
+export type WishBoardSavePayload = {
+  slug: string;
+  savedAt: string;
+};
+
+export type WishBoardSaveResponse = {
+  success?: boolean;
+  message?: string;
+  data: WishBoardSavePayload;
+};
+
+export async function postWishBoardSave(slug: string): Promise<WishBoardSaveResponse> {
+  const enc = encodeBoardSlug(slug);
+  return apiClient<WishBoardSaveResponse>(`/api/boards/${enc}/save`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+  });
+}
+
+/** GET /api/boards/me/saved — 내가 저장한 위시보드 복사본 목록 (JWT 필수) */
+export type SavedWishBoardItem = {
+  slug: string;
+  title?: string | null;
+  savedAt?: string;
+};
+
+export type MySavedWishBoardsApiResponse = {
+  success?: boolean;
+  message?: string;
+  data?: {
+    saved?: SavedWishBoardItem[];
+  };
+};
+
+export async function getMySavedWishBoards(): Promise<MySavedWishBoardsApiResponse> {
+  return apiClient<MySavedWishBoardsApiResponse>("/api/boards/me/saved");
+}
+
 /** DELETE /api/rolling-papers/{slug} — 소유자만 */
 export async function deleteRollingPaper(slug: string): Promise<void> {
   await apiClient(`/api/rolling-papers/${encodeBoardSlug(slug)}`, {

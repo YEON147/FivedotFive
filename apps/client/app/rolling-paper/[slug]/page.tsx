@@ -2,11 +2,15 @@
 
 import {
   BookmarkSimple,
+  CaretDoubleLeftIcon,
+  CaretDoubleRightIcon,
   CaretLeftIcon,
   CaretRightIcon,
   CircleNotch,
   GearSixIcon,
+  PlusIcon,
   TextAlignJustify,
+  X,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -95,6 +99,17 @@ const MAX_ROLLING_PNG_EXPORT_BOARDS = 20;
 
 /** 가로로 이어 붙인 최종 캔버스 한 변 상한(브라우저·GPU 한계 대비) */
 const MAX_ROLLING_EXPORT_CANVAS_EDGE = 16300;
+
+/**
+ * 공개 위시 보드(`/wishlist/[slug]`) 캐러셀과 동일 토큰 — 배경·테두리 없이 보라 아이콘만(42px 터치 영역).
+ * @see `WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON` in `app/wishlist/[slug]/page.tsx`
+ */
+const ROLLING_PAPER_BOARD_CAROUSEL_PAGER_ICON_BUTTON =
+  "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#7B61FF] shadow-none outline-none ring-0 transition-opacity hover:opacity-80 active:opacity-65 focus-visible:ring-2 focus-visible:ring-[#7B61FF]/30 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-35 disabled:hover:opacity-35 touch-manipulation";
+
+/** 공개 위시 보드 소유자 FAB 메인(＋/✕)과 동일 토큰 */
+const ROLLING_PAPER_FAB_SPEED_DIAL_MAIN_CLASS =
+  "relative flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-[0_6px_20px_rgba(123,97,255,0.45)] ring-0 transition active:scale-[0.96] touch-manipulation";
 
 /** `next/image`·CDN URL이 쿼리 없이 캐시 키에만 남으면 서로 덮어씌워져 모든 이미지가 동일해짐 → `includeQueryParams` 필수 */
 async function waitForRollingCollageImages(
@@ -874,6 +889,8 @@ export default function RollingPaperSlugPage({
   const [rollingSaveLoginModalOpen, setRollingSaveLoginModalOpen] =
     useState(false);
   const [pngExportBusy, setPngExportBusy] = useState(false);
+  /** 액션 2개 이상일 때 위시 공개 보드와 동일한 우측 스피드다이얼(＋/✕) */
+  const [rollingPaperFabDialOpen, setRollingPaperFabDialOpen] = useState(false);
   const [pngExportError, setPngExportError] = useState<string | null>(null);
   const collageCaptureRef = useRef<HTMLDivElement>(null);
   const [shareTab, setShareTab] = useState<RollingPaperOwnerShareTabId>("comment");
@@ -1068,6 +1085,23 @@ export default function RollingPaperSlugPage({
       body.style.overscrollBehavior = prevBodyOverscroll;
     };
   }, [modalOpen]);
+
+  useEffect(() => {
+    if (modalOpen || isShareModalOpen) {
+      setRollingPaperFabDialOpen(false);
+    }
+  }, [modalOpen, isShareModalOpen]);
+
+  useEffect(() => {
+    if (pngExportBusy) {
+      setRollingPaperFabDialOpen(false);
+    }
+  }, [pngExportBusy]);
+
+  /** 보드 면 전환 시 스피드 다이얼·딤 닫기 — 공개 위시 보드 캐러셀과 동일 */
+  useEffect(() => {
+    setRollingPaperFabDialOpen(false);
+  }, [visibleBoardPage]);
 
   const headerTitle = useMemo(() => {
     const n = detail?.recipientName?.trim();
@@ -1340,15 +1374,18 @@ export default function RollingPaperSlugPage({
     void loadCommentsPage(next);
   }, [boardsToRender, visibleBoardPage, loadCommentsPage]);
 
+  const goFirstBoard = useCallback(() => {
+    if (visibleBoardPage <= 0) return;
+    setVisibleBoardPage(0);
+    void loadCommentsPage(0);
+  }, [visibleBoardPage, loadCommentsPage]);
+
   const goLastBoard = useCallback(() => {
     const last = Math.max(0, boardsToRender - 1);
     if (visibleBoardPage >= last) return;
     setVisibleBoardPage(last);
     void loadCommentsPage(last);
   }, [boardsToRender, visibleBoardPage, loadCommentsPage]);
-
-  const showGoToLastBoard =
-    boardsToRender > 1 && visibleBoardPage < boardsToRender - 1;
 
   const canComment = detail?.canComment === true;
 
@@ -1405,6 +1442,18 @@ export default function RollingPaperSlugPage({
         showRollingPaperPngExportFab ||
         showRollingPaperSaveToBoardFab),
   );
+
+  const rollingPaperToolbarFabCount = useMemo(() => {
+    let n = 0;
+    if (showRollingPaperSaveToBoardFab) n += 1;
+    if (showRollingPaperShareEntry) n += 1;
+    if (showRollingPaperPngExportFab) n += 1;
+    return n;
+  }, [
+    showRollingPaperSaveToBoardFab,
+    showRollingPaperShareEntry,
+    showRollingPaperPngExportFab,
+  ]);
 
   const viewerSaveHintStorageKey = useMemo(
     () =>
@@ -2646,197 +2695,6 @@ export default function RollingPaperSlugPage({
                           );
                         })}
                         </div>
-
-                        <div
-                          className={`rolling-png-exclude pointer-events-none absolute inset-x-0 bottom-2 z-40 px-[4%] transition-opacity duration-200 sm:bottom-3 ${
-                            modalOpen ? "opacity-0" : "opacity-100"
-                          }`}
-                        >
-                          {showGoToLastBoard ? (
-                            <div className="flex w-full flex-col-reverse gap-2 sm:gap-2.5">
-                              <div className="flex w-full items-center justify-between">
-                                <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2">
-                                  <button
-                                    type="button"
-                                    disabled={loading || visibleBoardPage <= 0}
-                                    onClick={goPrevBoard}
-                                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white disabled:pointer-events-none disabled:opacity-35 sm:size-[42px]"
-                                    aria-label="이전 보드"
-                                  >
-                                    <CaretLeftIcon size={20} weight="bold" />
-                                  </button>
-                                  <span className="min-w-[3.25rem] text-center text-[11px] font-semibold tabular-nums text-slate-700">
-                                    {visibleBoardPage + 1} / {boardsToRender}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      loading ||
-                                      visibleBoardPage >= boardsToRender - 1
-                                    }
-                                    onClick={goNextBoard}
-                                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white disabled:pointer-events-none disabled:opacity-35 sm:size-[42px]"
-                                    aria-label="다음 보드"
-                                  >
-                                    <CaretRightIcon size={20} weight="bold" />
-                                  </button>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={goLastBoard}
-                                  disabled={loading}
-                                  className="pointer-events-auto flex max-w-[min(200px,calc(100vw-6rem))] shrink-0 items-center justify-center gap-2 rounded-full bg-[#7B61FF] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6b52e0] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
-                                  aria-label="마지막 댓글 페이지로 이동"
-                                  title="댓글 면 중 가장 마지막으로 이동합니다"
-                                >
-                                  <CaretRightIcon
-                                    size={20}
-                                    weight="bold"
-                                    className="shrink-0 opacity-95"
-                                    aria-hidden
-                                  />
-                                  <span className="min-w-0 truncate">
-                                    마지막 페이지로
-                                  </span>
-                                </button>
-                              </div>
-
-                              {showRollingPaperBottomToolbarFabs ? (
-                                <div className="flex w-full justify-end">
-                                  <div className="pointer-events-auto flex flex-row items-center gap-4">
-                                    {showRollingPaperSaveToBoardFab ? (
-                                      <button
-                                        type="button"
-                                        disabled={rollingSaveToBoardBusy}
-                                        onClick={() =>
-                                          void saveRollingPaperToMyBoard()
-                                        }
-                                        className="pointer-events-auto flex size-[42px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
-                                        aria-label={
-                                          rollingSaveToBoardBusy
-                                            ? "내 보드에 저장 중"
-                                            : "내 보드에 롤링페이퍼 저장"
-                                        }
-                                      >
-                                        {rollingSaveToBoardBusy ? (
-                                          <CircleNotch
-                                            className="animate-spin"
-                                            size={23}
-                                            weight="bold"
-                                            aria-hidden
-                                          />
-                                        ) : (
-                                          <BookmarkSimple
-                                            size={23}
-                                            weight="bold"
-                                            aria-hidden
-                                          />
-                                        )}
-                                      </button>
-                                    ) : null}
-                                    {showRollingPaperShareEntry ? (
-                                      <BoardShareFabButton
-                                        onClick={() =>
-                                          setIsShareModalOpen(true)
-                                        }
-                                        ariaLabel="롤링페이퍼 공유"
-                                      />
-                                    ) : null}
-                                    {showRollingPaperPngExportFab ? (
-                                      <RollingPaperPngSaveFabButton
-                                        busy={pngExportBusy}
-                                        onClick={exportRollingPaperFullPng}
-                                      />
-                                    ) : null}
-                                  </div>
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:gap-3">
-                              <div className="pointer-events-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
-                                <button
-                                  type="button"
-                                  disabled={loading || visibleBoardPage <= 0}
-                                  onClick={goPrevBoard}
-                                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white disabled:pointer-events-none disabled:opacity-35 sm:size-[42px]"
-                                  aria-label="이전 보드"
-                                >
-                                  <CaretLeftIcon size={20} weight="bold" />
-                                </button>
-                                <span className="min-w-[3.25rem] shrink-0 text-center text-[11px] font-semibold tabular-nums text-slate-700">
-                                  {visibleBoardPage + 1} / {boardsToRender}
-                                </span>
-                                <button
-                                  type="button"
-                                  disabled={
-                                    loading ||
-                                    visibleBoardPage >= boardsToRender - 1
-                                  }
-                                  onClick={goNextBoard}
-                                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-sm ring-1 ring-slate-200/90 transition hover:bg-white disabled:pointer-events-none disabled:opacity-35 sm:size-[42px]"
-                                  aria-label="다음 보드"
-                                >
-                                  <CaretRightIcon size={20} weight="bold" />
-                                </button>
-                              </div>
-
-                              {showRollingPaperBottomToolbarFabs ? (
-                                <div className="pointer-events-auto flex w-full shrink-0 justify-end">
-                                  <div className="flex flex-row items-center gap-4">
-                                    {showRollingPaperSaveToBoardFab ? (
-                                      <button
-                                        type="button"
-                                        disabled={rollingSaveToBoardBusy}
-                                        onClick={() =>
-                                          void saveRollingPaperToMyBoard()
-                                        }
-                                        className="flex size-[42px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
-                                        aria-label={
-                                          rollingSaveToBoardBusy
-                                            ? "내 보드에 저장 중"
-                                            : "내 보드에 롤링페이퍼 저장"
-                                        }
-                                      >
-                                        {rollingSaveToBoardBusy ? (
-                                          <CircleNotch
-                                            className="animate-spin"
-                                            size={23}
-                                            weight="bold"
-                                            aria-hidden
-                                          />
-                                        ) : (
-                                          <BookmarkSimple
-                                            size={23}
-                                            weight="bold"
-                                            aria-hidden
-                                          />
-                                        )}
-                                      </button>
-                                    ) : null}
-                                    {showRollingPaperShareEntry ? (
-                                      <BoardShareFabButton
-                                        onClick={() =>
-                                          setIsShareModalOpen(true)
-                                        }
-                                        ariaLabel="롤링페이퍼 공유"
-                                      />
-                                    ) : null}
-                                    {showRollingPaperPngExportFab ? (
-                                      <RollingPaperPngSaveFabButton
-                                        busy={pngExportBusy}
-                                        onClick={exportRollingPaperFullPng}
-                                      />
-                                    ) : null}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="w-0 shrink-0" aria-hidden />
-                              )}
-                            </div>
-                          )}
-                        </div>
                       </div>
                     </>
                   )}
@@ -2861,6 +2719,222 @@ export default function RollingPaperSlugPage({
                   ) : null}
 
                 </div>
+
+                {detail &&
+                !loading &&
+                !detailForbidden &&
+                !loadError &&
+                rollingPaperToolbarFabCount >= 2 &&
+                rollingPaperFabDialOpen &&
+                !modalOpen ? (
+                  <button
+                    type="button"
+                    className="absolute inset-0 z-40 cursor-default bg-black/20"
+                    aria-label="메뉴 닫기"
+                    onClick={() => setRollingPaperFabDialOpen(false)}
+                  />
+                ) : null}
+
+                {detail && !loading && !detailForbidden && !loadError ? (
+                  <div
+                    className={`pointer-events-none absolute inset-x-0 bottom-3 z-[50] transition-opacity duration-200 sm:bottom-4 ${
+                      modalOpen ? "opacity-0" : "opacity-100"
+                    }`}
+                  >
+                    <div className="relative min-h-[42px] w-full min-w-0">
+                      <div className="pointer-events-auto absolute bottom-0 left-1/2 z-50 flex w-max max-w-[calc(100%-4.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+                        <div className="-space-x-3 flex items-center gap-0">
+                          <button
+                            type="button"
+                            onClick={goFirstBoard}
+                            disabled={loading || visibleBoardPage <= 0}
+                            className={ROLLING_PAPER_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
+                            aria-label="맨 처음 보드로"
+                            title="맨 처음"
+                          >
+                            <CaretDoubleLeftIcon size={23} weight="bold" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={loading || visibleBoardPage <= 0}
+                            onClick={goPrevBoard}
+                            className={ROLLING_PAPER_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
+                            aria-label="이전 보드"
+                          >
+                            <CaretLeftIcon size={23} weight="bold" />
+                          </button>
+                        </div>
+                        <span className="min-w-[3.25rem] shrink-0 text-center text-[11px] font-semibold tabular-nums text-black">
+                          {visibleBoardPage + 1} / {boardsToRender}
+                        </span>
+                        <div className="-space-x-3 flex items-center gap-0">
+                          <button
+                            type="button"
+                            disabled={
+                              loading ||
+                              visibleBoardPage >= boardsToRender - 1
+                            }
+                            onClick={goNextBoard}
+                            className={ROLLING_PAPER_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
+                            aria-label="다음 보드"
+                          >
+                            <CaretRightIcon size={23} weight="bold" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={goLastBoard}
+                            disabled={
+                              loading ||
+                              visibleBoardPage >= boardsToRender - 1
+                            }
+                            className={ROLLING_PAPER_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
+                            aria-label="맨 끝 보드로"
+                            title="맨 끝"
+                          >
+                            <CaretDoubleRightIcon size={23} weight="bold" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {showRollingPaperBottomToolbarFabs ? (
+                        <div className="pointer-events-none absolute bottom-0 right-0 z-[51] pr-[4%]">
+                          <div className="pointer-events-auto relative min-w-[42px] shrink-0 overflow-visible">
+                            <div className="relative z-[51] flex w-[42px] flex-col items-end">
+                              {rollingPaperToolbarFabCount >= 2 &&
+                              rollingPaperFabDialOpen ? (
+                                <div className="absolute bottom-full right-0 mb-3 flex flex-col-reverse items-end gap-3">
+                                  {showRollingPaperSaveToBoardFab ? (
+                                    <button
+                                      type="button"
+                                      disabled={rollingSaveToBoardBusy}
+                                      onClick={() => {
+                                        setRollingPaperFabDialOpen(false);
+                                        void saveRollingPaperToMyBoard();
+                                      }}
+                                      className="flex size-[42px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
+                                      aria-label={
+                                        rollingSaveToBoardBusy
+                                          ? "내 보드에 저장 중"
+                                          : "내 보드에 롤링페이퍼 저장"
+                                      }
+                                    >
+                                      {rollingSaveToBoardBusy ? (
+                                        <CircleNotch
+                                          className="animate-spin"
+                                          size={23}
+                                          weight="bold"
+                                          aria-hidden
+                                        />
+                                      ) : (
+                                        <BookmarkSimple
+                                          size={23}
+                                          weight="bold"
+                                          aria-hidden
+                                        />
+                                      )}
+                                    </button>
+                                  ) : null}
+                                  {showRollingPaperShareEntry ? (
+                                    <BoardShareFabButton
+                                      onClick={() => {
+                                        setRollingPaperFabDialOpen(false);
+                                        setIsShareModalOpen(true);
+                                      }}
+                                      ariaLabel="롤링페이퍼 공유"
+                                      className="bg-white text-[#7B61FF] ring-1 ring-black/[0.06]"
+                                    />
+                                  ) : null}
+                                  {showRollingPaperPngExportFab ? (
+                                    <RollingPaperPngSaveFabButton
+                                      busy={pngExportBusy}
+                                      tone="speedDialSub"
+                                      onClick={() => {
+                                        setRollingPaperFabDialOpen(false);
+                                        void exportRollingPaperFullPng();
+                                      }}
+                                    />
+                                  ) : null}
+                                </div>
+                              ) : null}
+
+                              {rollingPaperToolbarFabCount >= 2 ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setRollingPaperFabDialOpen((open) => !open)
+                                  }
+                                  className={ROLLING_PAPER_FAB_SPEED_DIAL_MAIN_CLASS}
+                                  aria-expanded={rollingPaperFabDialOpen}
+                                  aria-label={
+                                    rollingPaperFabDialOpen
+                                      ? "액션 메뉴 닫기"
+                                      : "액션 메뉴 열기"
+                                  }
+                                >
+                                  {rollingPaperFabDialOpen ? (
+                                    <X size={23} weight="bold" aria-hidden />
+                                  ) : (
+                                    <PlusIcon size={23} weight="bold" aria-hidden />
+                                  )}
+                                </button>
+                              ) : rollingPaperToolbarFabCount === 1 ? (
+                                <>
+                                  {showRollingPaperSaveToBoardFab ? (
+                                    <button
+                                      type="button"
+                                      disabled={rollingSaveToBoardBusy}
+                                      onClick={() =>
+                                        void saveRollingPaperToMyBoard()
+                                      }
+                                      className="flex size-[42px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-lg ring-1 ring-black/[0.06] transition-[transform,filter] active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-70"
+                                      aria-label={
+                                        rollingSaveToBoardBusy
+                                          ? "내 보드에 저장 중"
+                                          : "내 보드에 롤링페이퍼 저장"
+                                      }
+                                    >
+                                      {rollingSaveToBoardBusy ? (
+                                        <CircleNotch
+                                          className="animate-spin"
+                                          size={23}
+                                          weight="bold"
+                                          aria-hidden
+                                        />
+                                      ) : (
+                                        <BookmarkSimple
+                                          size={23}
+                                          weight="bold"
+                                          aria-hidden
+                                        />
+                                      )}
+                                    </button>
+                                  ) : null}
+                                  {showRollingPaperShareEntry &&
+                                  !showRollingPaperSaveToBoardFab ? (
+                                    <BoardShareFabButton
+                                      onClick={() =>
+                                        setIsShareModalOpen(true)
+                                      }
+                                      ariaLabel="롤링페이퍼 공유"
+                                    />
+                                  ) : null}
+                                  {showRollingPaperPngExportFab &&
+                                  !showRollingPaperSaveToBoardFab &&
+                                  !showRollingPaperShareEntry ? (
+                                    <RollingPaperPngSaveFabButton
+                                      busy={pngExportBusy}
+                                      onClick={exportRollingPaperFullPng}
+                                    />
+                                  ) : null}
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
 
                 <RollingPaperProfileHeader
                   recipientName={headerTitle}

@@ -82,8 +82,8 @@ public class RollingPaperService {
                 .build();
         rollingPaperRepository.save(paper);
 
-        String commentShareUrl = shareService.generateRollingPaperShareLink(slug, commentToken, request.targetDate());
-        String viewShareUrl    = shareService.generateRollingPaperShareLink(slug, viewToken,    request.targetDate());
+        String commentShareUrl = shareService.generateRollingPaperShareLink(slug, commentToken);
+        String viewShareUrl    = shareService.generateRollingPaperShareLink(slug, viewToken);
         return RollingPaperCreateResponse.of(slug, commentShareUrl, viewShareUrl);
     }
 
@@ -92,7 +92,7 @@ public class RollingPaperService {
     public RollingPaperShareLinkResponse generateCommentShareLink(Long userId, String slug) {
         RollingPaper paper = findOriginal(slug);
         requireOwner(userId, paper);
-        String shortUrl = shareService.generateRollingPaperShareLink(slug, paper.getCommentToken(), paper.getTargetDate());
+        String shortUrl = shareService.generateRollingPaperShareLink(slug, paper.getCommentToken());
         return RollingPaperShareLinkResponse.of(shortUrl);
     }
 
@@ -101,7 +101,7 @@ public class RollingPaperService {
     public RollingPaperShareLinkResponse generateViewShareLink(Long userId, String slug) {
         RollingPaper paper = findOriginal(slug);
         requireOwner(userId, paper);
-        String shortUrl = shareService.generateRollingPaperShareLink(slug, paper.getViewToken(), paper.getTargetDate());
+        String shortUrl = shareService.generateRollingPaperShareLink(slug, paper.getViewToken());
         return RollingPaperShareLinkResponse.of(shortUrl);
     }
 
