@@ -31,6 +31,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { BoardFabSpeedDialSubmenu } from "@/components/common/BoardFabSpeedDialSubmenu";
 import { RollingPaperSaveLoginModalBody } from "@/components/common/RollingPaperSaveLoginModalBody";
 import { EditBoardOrRollingPaperModal } from "@/components/common/EditBoardOrRollingPaperModal";
 import {
@@ -1398,12 +1399,29 @@ export default function RollingPaperSlugPage({
 
   const canComment = detail?.canComment === true;
 
-  /** 링크 공유 FAB — 소유자·댓글 초대·선물(보기·저장) 링크 방문자 */
+  /**
+   * 내 보드에 저장한 롤링페이퍼 복사본 — JWT로만 조회, 읽기 전용(canComment·canSave false).
+   * viewToken·댓글 링크와 구분: 토큰 없이 로그인 + 위 플래그 조합.
+   */
+  const isViewingSavedRollingPaperCopy = Boolean(
+    detail &&
+      !loading &&
+      !loadError &&
+      !detailForbidden &&
+      getAccessToken()?.trim() &&
+      !rollingToken?.trim() &&
+      detail.isOwner !== true &&
+      !canComment &&
+      detail.canSave === false,
+  );
+
+  /** 링크 공유 FAB — 소유자·댓글 초대·선물(보기·저장) 링크 방문자 (저장 복사본 제외) */
   const showRollingPaperShareEntry = Boolean(
     detail &&
       !loading &&
       !loadError &&
       !detailForbidden &&
+      !isViewingSavedRollingPaperCopy &&
       (detail.isOwner === true ||
         canComment ||
         (!detail.isOwner && !canComment)),
@@ -1419,10 +1437,11 @@ export default function RollingPaperSlugPage({
       !loading &&
       !loadError &&
       !detailForbidden &&
+      !isViewingSavedRollingPaperCopy &&
       (detail.isOwner === true || (!detail.isOwner && !canComment)),
   );
 
-  /** 보기·저장 링크로 들어온 비소유자 — 최초 1회 안내 모달 대상 */
+  /** 보기·저장 링크로 들어온 비소유자 — 최초 1회 안내 모달 대상 (저장 복사본 제외) */
   const showRollingPaperViewerSaveHintTarget = Boolean(
     detail &&
       detail.isOwner !== true &&
@@ -1430,7 +1449,8 @@ export default function RollingPaperSlugPage({
       detail.canSave !== false &&
       !loading &&
       !loadError &&
-      !detailForbidden,
+      !detailForbidden &&
+      !isViewingSavedRollingPaperCopy,
   );
 
   /** 전체 PNG 저장 — 소유자 또는 선물(보기·저장) 링크. 댓글 초대 비소유자만 제외 */
@@ -2815,9 +2835,8 @@ export default function RollingPaperSlugPage({
                         <div className="pointer-events-none absolute bottom-0 right-0 z-[51] pr-[4%]">
                           <div className="pointer-events-auto relative min-w-[42px] shrink-0 overflow-visible">
                             <div className="relative z-[51] flex w-[42px] flex-col items-end">
-                              {rollingPaperToolbarFabCount >= 2 &&
-                              rollingPaperFabDialOpen ? (
-                                <div className="absolute bottom-full right-0 mb-3 flex flex-col-reverse items-end gap-3">
+                              {rollingPaperToolbarFabCount >= 2 ? (
+                                <BoardFabSpeedDialSubmenu open={rollingPaperFabDialOpen}>
                                   {showRollingPaperSaveToBoardFab ? (
                                     <button
                                       type="button"
@@ -2869,7 +2888,7 @@ export default function RollingPaperSlugPage({
                                       }}
                                     />
                                   ) : null}
-                                </div>
+                                </BoardFabSpeedDialSubmenu>
                               ) : null}
 
                               {rollingPaperToolbarFabCount >= 2 ? (
