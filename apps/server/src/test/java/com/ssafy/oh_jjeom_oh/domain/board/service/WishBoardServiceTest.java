@@ -65,6 +65,7 @@ class WishBoardServiceTest {
                 .role(Role.CHILD)
                 .status(Status.ACTIVE)
                 .build();
+        ReflectionTestUtils.setField(user, "id", 1L);
 
         board = WishBoard.builder()
                 .user(user)
@@ -154,7 +155,7 @@ class WishBoardServiceTest {
         ));
         given(boardAssetRepository.findByBoard(any())).willReturn(buildDefaultAssets());
 
-        WishBoardPublicResponse response = wishBoardService.getBoardBySlug("abc123def4");
+        WishBoardPublicResponse response = wishBoardService.getBoardBySlug(null, "abc123def4");
 
         assertThat(response.getBoardSlug()).isEqualTo("abc123def4");
         assertThat(response.getUsername()).isEqualTo("testuser");
@@ -169,7 +170,7 @@ class WishBoardServiceTest {
     void getBoardBySlug_notFound() {
         given(wishBoardRepository.findByBoardSlug(any())).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> wishBoardService.getBoardBySlug("notexist"))
+        assertThatThrownBy(() -> wishBoardService.getBoardBySlug(null, "notexist"))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                         .isEqualTo(ErrorCode.BOARD_SLUG_NOT_FOUND));
@@ -183,10 +184,69 @@ class WishBoardServiceTest {
 
         given(wishBoardRepository.findByBoardSlug(any())).willReturn(Optional.of(privateBoard));
 
-        assertThatThrownBy(() -> wishBoardService.getBoardBySlug("abc123def4"))
+        assertThatThrownBy(() -> wishBoardService.getBoardBySlug(null, "abc123def4"))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
                         .isEqualTo(ErrorCode.BOARD_PRIVATE));
+    }
+
+    @Test
+    @DisplayName("저장본 - savedByUser 조회 성공")
+    void getBoardBySlug_savedCopy_saver() {
+        User saver = User.builder()
+                .username("saver").nickname("저장자").passwordHash("h")
+                .role(Role.CHILD).status(Status.ACTIVE).build();
+        ReflectionTestUtils.setField(saver, "id", 2L);
+
+        WishBoard savedCopy = WishBoard.builder()
+                .user(user).boardSlug("savedslug1").title("복사본")
+                .isPublic(false).isSavedCopy(true).savedByUser(saver).build();
+
+        given(wishBoardRepository.findByBoardSlug("savedslug1")).willReturn(Optional.of(savedCopy));
+        given(wishItemRepository.findByBoardOrderBySlotIndex(any())).willReturn(List.of());
+        given(boardAssetRepository.findByBoard(any())).willReturn(List.of());
+
+        WishBoardPublicResponse response = wishBoardService.getBoardBySlug(2L, "savedslug1");
+
+        assertThat(response.getBoardSlug()).isEqualTo("savedslug1");
+        assertThat(response.isSavedCopy()).isTrue();
+        assertThat(response.isOwner()).isFalse();
+    }
+
+    @Test
+    @DisplayName("저장본 - 저장한 사람이 아니면 NOT_FOUND")
+    void getBoardBySlug_savedCopy_notSaver() {
+        User saver = User.builder()
+                .username("saver").nickname("저장자").passwordHash("h")
+                .role(Role.CHILD).status(Status.ACTIVE).build();
+        ReflectionTestUtils.setField(saver, "id", 2L);
+
+        WishBoard savedCopy = WishBoard.builder()
+                .user(user).boardSlug("savedslug1").isPublic(false)
+                .isSavedCopy(true).savedByUser(saver).build();
+
+        given(wishBoardRepository.findByBoardSlug("savedslug1")).willReturn(Optional.of(savedCopy));
+
+        assertThatThrownBy(() -> wishBoardService.getBoardBySlug(99L, "savedslug1"))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.BOARD_SLUG_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("비공개 원본 - 소유자 조회 성공")
+    void getBoardBySlug_private_owner() {
+        WishBoard privateBoard = WishBoard.builder()
+                .user(user).boardSlug("abc123def4").isPublic(false).build();
+        given(wishBoardRepository.findByBoardSlug("abc123def4")).willReturn(Optional.of(privateBoard));
+        given(wishItemRepository.findByBoardOrderBySlotIndex(any())).willReturn(List.of());
+        given(boardAssetRepository.findByBoard(any())).willReturn(List.of());
+
+        WishBoardPublicResponse response = wishBoardService.getBoardBySlug(1L, "abc123def4");
+
+        assertThat(response.getBoardSlug()).isEqualTo("abc123def4");
+        assertThat(response.isOwner()).isTrue();
+        assertThat(response.isSavedCopy()).isFalse();
     }
 
     // ===================== getLatestBoard =====================

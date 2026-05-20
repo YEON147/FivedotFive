@@ -108,12 +108,24 @@ public class WishBoardController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.SAVED_BOARDS_FOUND, data));
     }
 
-    // GET /api/boards/{slug} - slug로 위시보드 조회 (Anyone)
-    @GetMapping("/{slug}")
-    public ResponseEntity<ApiResponse<WishBoardPublicResponse>> getBoardBySlug(
+    // DELETE /api/boards/saved/{slug} - 저장된 복사본 삭제 (저장한 본인만)
+    @DeleteMapping("/saved/{slug}")
+    public ResponseEntity<ApiResponse<Void>> deleteSavedBoard(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable String slug) {
 
-        WishBoardPublicResponse data = wishBoardService.getBoardBySlug(slug);
+        wishBoardService.deleteSavedBoard(userPrincipal.getId(), slug);
+        return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_DELETED));
+    }
+
+    // GET /api/boards/{slug} - slug로 위시보드 조회 (공개·소유자 JWT·저장본 savedByUser)
+    @GetMapping("/{slug}")
+    public ResponseEntity<ApiResponse<WishBoardPublicResponse>> getBoardBySlug(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String slug) {
+
+        Long userId = userPrincipal != null ? userPrincipal.getId() : null;
+        WishBoardPublicResponse data = wishBoardService.getBoardBySlug(userId, slug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_FOUND, data));
     }
 }

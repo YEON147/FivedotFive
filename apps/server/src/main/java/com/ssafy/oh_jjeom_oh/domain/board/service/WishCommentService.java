@@ -13,6 +13,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentStickerResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.CommentVerifyResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
+import com.ssafy.oh_jjeom_oh.domain.board.support.WishBoardAccess;
 import com.ssafy.oh_jjeom_oh.domain.comment.entity.WishComment;
 import com.ssafy.oh_jjeom_oh.domain.comment.repository.WishCommentRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
@@ -61,6 +62,7 @@ public class WishCommentService {
     // GET /api/boards/{slug}/comments?page=0&size=6
     public CommentListResponse getComments(String slug, int page, int size, Long requestUserId) {
         WishBoard board = getBoardBySlug(slug);
+        WishBoardAccess.requireView(board, requestUserId);
 
         // 어드민/구단 보드이거나 isCommentPublic=true이거나 targetDate(기념일)가 지난 경우 댓글 마스킹 해제
         Role boardOwnerRole = board.getUser().getRole();
@@ -105,8 +107,10 @@ public class WishCommentService {
         }
 
         WishBoard board = getBoardBySlug(slug);
-
-        // 비공개 보드면 403
+        WishBoardAccess.requireView(board, userId);
+        if (Boolean.TRUE.equals(board.getIsSavedCopy())) {
+            throw new CustomException(ErrorCode.BOARD_FORBIDDEN);
+        }
         if (!board.getIsPublic()) {
             throw new CustomException(ErrorCode.BOARD_PRIVATE);
         }

@@ -133,6 +133,9 @@ export type PublicBoardData = {
     targetDate: string | null;
     /** GET 보드 응답 — 댓글 즉시 공개 설정 */
     isCommentPublic?: boolean;
+    /** 저장본·소유자 여부 (GET /api/boards/{slug}, JWT 시) */
+    isOwner?: boolean;
+    isSavedCopy?: boolean;
     /** 서버 계산 — 타인 댓글 마스킹 해제 여부 */
     commentsRevealed?: boolean;
     items: WishItemData[];

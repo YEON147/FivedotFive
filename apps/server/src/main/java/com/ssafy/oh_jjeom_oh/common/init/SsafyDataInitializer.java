@@ -98,7 +98,9 @@ public class SsafyDataInitializer implements ApplicationRunner {
     }
 
     private User ensureUser(ClassInfo info) {
-        return userRepository.findByUsername(info.username()).orElseGet(() -> {
+        return userRepository.findByUsername(info.username())
+                .or(() -> userRepository.findByNickname(info.nickname()))
+                .orElseGet(() -> {
             log.info("[SsafyInit] SSAFY 반 계정 생성: username={}", info.username());
             User user = User.builder()
                     .username(info.username())
