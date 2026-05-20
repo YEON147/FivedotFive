@@ -204,6 +204,7 @@ const GIFT_ICON_MODAL_TABS = [
   { id: "kpop", label: GIFT_ICON_CATEGORY_LABELS.kpop },
   { id: "hobby", label: GIFT_ICON_CATEGORY_LABELS.hobby },
   { id: "life", label: GIFT_ICON_CATEGORY_LABELS.life },
+  { id: "exam", label: GIFT_ICON_CATEGORY_LABELS.exam },
   { id: "baseball", label: GIFT_ICON_CATEGORY_LABELS.baseball },
 ] as const;
 
@@ -797,14 +798,15 @@ export function WishlistMyBoardScreen({
     }
   }, [isGiftModalOpen, giftIconTabStripScroll]);
 
-  /** 야구 아이콘이 없으면(비구단 등) 「야구」 탭 숨김 */
+  /** 카탈로그에 없는 카테고리 탭 숨김 — 야구(비구단), 시험(미동기화) 등 */
   const giftIconModalTabsForUi = useMemo(() => {
-    const hasBaseball = giftIcons.some(
-      (g) => giftIconCategoryFromAssetKey(g.assetKey) === "baseball",
-    );
-    return GIFT_ICON_MODAL_TABS.filter(
-      (tab) => tab.id !== "baseball" || hasBaseball,
-    );
+    const hasCategory = (id: GiftIconCategoryId) =>
+      giftIcons.some((g) => giftIconCategoryFromAssetKey(g.assetKey) === id);
+    return GIFT_ICON_MODAL_TABS.filter((tab) => {
+      if (tab.id === "baseball") return hasCategory("baseball");
+      if (tab.id === "exam") return hasCategory("exam");
+      return true;
+    });
   }, [giftIcons]);
 
   /** 숨겨진 야구 탭·불가능한 선택이 남아 있어도 목록·탭 하이라이스트와 일치 */
@@ -815,11 +817,11 @@ export function WishlistMyBoardScreen({
     if (!allowed.has(selected)) {
       return tabs[0]?.id ?? "travel";
     }
-    if (selected === "baseball") {
-      const hasBaseball = giftIcons.some(
-        (g) => giftIconCategoryFromAssetKey(g.assetKey) === "baseball",
+    if (selected === "baseball" || selected === "exam") {
+      const hasSelected = giftIcons.some(
+        (g) => giftIconCategoryFromAssetKey(g.assetKey) === selected,
       );
-      if (!hasBaseball) {
+      if (!hasSelected) {
         return tabs[0]?.id ?? "travel";
       }
     }
