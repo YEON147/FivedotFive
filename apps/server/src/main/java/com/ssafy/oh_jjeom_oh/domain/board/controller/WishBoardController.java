@@ -88,7 +88,7 @@ public class WishBoardController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_DELETED));
     }
 
-    // POST /api/boards/{slug}/save - 위시보드 독립 복사본 저장 (타인 보드)
+    // POST /api/boards/{slug}/save - 위시보드 독립 복사본 저장 (본인·타인 보드)
     @PostMapping("/{slug}/save")
     public ResponseEntity<ApiResponse<WishBoardSaveResponse>> saveBoard(
             @AuthenticationPrincipal UserPrincipal userPrincipal,

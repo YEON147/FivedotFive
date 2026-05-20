@@ -86,15 +86,25 @@ export function LoginForm({
         </Button>
       </div>
 
-      <div className="mt-3 text-center">
-        <p className="text-body-sm text-[#8b8b8b]">계정이 없으신가요 ?</p>
-        <Link
-          href="/signup"
-          className={`text-body-sm text-[#6e6e6e] inline-block rounded-sm focus:ring-offset-0 ${UI_FOCUS_RING}`}
-          onClick={() => trackSignupButtonClick({ signup_entry: "login" })}
-        >
-          회원가입
-        </Link>
+      <div className="mt-3 flex flex-col items-center gap-2 text-center">
+        <p className="text-body-sm text-[#8b8b8b]">
+          계정이 없으신가요?{" "}
+          <Link
+            href="/signup"
+            className={`text-[#6e6e6e] underline-offset-2 hover:underline rounded-sm ${UI_FOCUS_RING}`}
+            onClick={() => trackSignupButtonClick({ signup_entry: "login" })}
+          >
+            회원가입
+          </Link>
+        </p>
+        <p className="text-body-sm text-[#8b8b8b]">
+          <Link
+            href="/forgot-password"
+            className={`text-[#6e6e6e] underline-offset-2 hover:underline rounded-sm ${UI_FOCUS_RING}`}
+          >
+            비밀번호를 잊으셨나요?
+          </Link>
+        </p>
       </div>
     </form>
   );
