@@ -31,6 +31,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { BoardFabSpeedDialSubmenu } from "@/components/common/BoardFabSpeedDialSubmenu";
 import { RollingPaperSaveLoginModalBody } from "@/components/common/RollingPaperSaveLoginModalBody";
 import { EditBoardOrRollingPaperModal } from "@/components/common/EditBoardOrRollingPaperModal";
 import {
@@ -2834,9 +2835,8 @@ export default function RollingPaperSlugPage({
                         <div className="pointer-events-none absolute bottom-0 right-0 z-[51] pr-[4%]">
                           <div className="pointer-events-auto relative min-w-[42px] shrink-0 overflow-visible">
                             <div className="relative z-[51] flex w-[42px] flex-col items-end">
-                              {rollingPaperToolbarFabCount >= 2 &&
-                              rollingPaperFabDialOpen ? (
-                                <div className="absolute bottom-full right-0 mb-3 flex flex-col-reverse items-end gap-3">
+                              {rollingPaperToolbarFabCount >= 2 ? (
+                                <BoardFabSpeedDialSubmenu open={rollingPaperFabDialOpen}>
                                   {showRollingPaperSaveToBoardFab ? (
                                     <button
                                       type="button"
@@ -2888,7 +2888,7 @@ export default function RollingPaperSlugPage({
                                       }}
                                     />
                                   ) : null}
-                                </div>
+                                </BoardFabSpeedDialSubmenu>
                               ) : null}
 
                               {rollingPaperToolbarFabCount >= 2 ? (
