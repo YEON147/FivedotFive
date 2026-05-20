@@ -30,6 +30,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { CarouselAdSwipeOverlay } from "@/components/ads/CarouselAdSwipeOverlay";
+import { KakaoAdFitCarouselFace } from "@/components/ads/KakaoAdFit";
 import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { BoardFabSpeedDialSubmenu } from "@/components/common/BoardFabSpeedDialSubmenu";
 import { RollingPaperSaveLoginModalBody } from "@/components/common/RollingPaperSaveLoginModalBody";
@@ -85,6 +87,13 @@ import { RollingPaperEmojiQuickPick } from "@/components/rolling-paper/RollingPa
 import { clearWishlistPageSessionCache } from "@/features/wishlist/wishlist-session-cache";
 import type { MyBoardListEntry } from "@/features/wishlist/types";
 import { getAssetImageUrl } from "@/lib/asset-url";
+import {
+  buildCarouselSlidesWithRandomAd,
+  findVisualIndexForContent,
+  getContentIndexFromVisual,
+  getContentPagerLabel,
+} from "@/lib/ads/carousel-ad-slides";
+import { isKakaoAdFitCarouselEnabled } from "@/lib/constants/kakao-adfit";
 import { RollingPaperBubbleLayer } from "@/components/rolling-paper/RollingPaperBubbleLayer";
 import { RollingPaperPngSaveFabButton } from "@/components/rolling-paper/RollingPaperPngSaveFabButton";
 import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
@@ -1303,7 +1312,7 @@ export default function RollingPaperSlugPage({
     [slug, rollingToken],
   );
 
-  const boardsToRender = useMemo(
+  const contentBoardCount = useMemo(
     () =>
       rollingPaperBoardSheetCount({
         totalPages: commentsPaging.totalPages,
@@ -1311,6 +1320,36 @@ export default function RollingPaperSlugPage({
         totalCount: commentsPaging.totalCount,
       }),
     [commentsPaging],
+  );
+
+  const boardsToRender = contentBoardCount;
+
+  const carouselSlides = useMemo(() => {
+    if (!isKakaoAdFitCarouselEnabled()) {
+      return Array.from({ length: contentBoardCount }, (_, i) => ({
+        kind: "content" as const,
+        contentIndex: i,
+      }));
+    }
+    return buildCarouselSlidesWithRandomAd(
+      contentBoardCount,
+      `oh-jjeom-oh:rolling-carousel-ad:${slug}`,
+    );
+  }, [contentBoardCount, slug]);
+
+  const totalVisualPages = carouselSlides.length;
+
+  const activeContentBoardIndex = useMemo(() => {
+    return getContentIndexFromVisual(carouselSlides, visibleBoardPage) ?? 0;
+  }, [carouselSlides, visibleBoardPage]);
+
+  const onAdVisualPage = useMemo(() => {
+    return carouselSlides[visibleBoardPage]?.kind === "ad";
+  }, [carouselSlides, visibleBoardPage]);
+
+  const carouselPagerLabel = useMemo(
+    () => getContentPagerLabel(carouselSlides, visibleBoardPage),
+    [carouselSlides, visibleBoardPage],
   );
 
   const loadBoard = useCallback(
@@ -1365,37 +1404,53 @@ export default function RollingPaperSlugPage({
 
   useEffect(() => {
     setVisibleBoardPage((p) =>
-      Math.min(p, Math.max(0, boardsToRender - 1)),
+      Math.min(p, Math.max(0, totalVisualPages - 1)),
     );
-  }, [boardsToRender]);
+  }, [totalVisualPages]);
+
+  useEffect(() => {
+    const slide = carouselSlides[visibleBoardPage];
+    if (!slide || slide.kind !== "content") return;
+    void loadCommentsPage(slide.contentIndex);
+    if (slide.contentIndex > 0) {
+      void loadCommentsPage(slide.contentIndex - 1);
+    }
+    if (slide.contentIndex < contentBoardCount - 1) {
+      void loadCommentsPage(slide.contentIndex + 1);
+    }
+  }, [carouselSlides, visibleBoardPage, contentBoardCount, loadCommentsPage]);
 
   const goPrevBoard = useCallback(() => {
     const next = Math.max(0, visibleBoardPage - 1);
     if (next === visibleBoardPage) return;
     setVisibleBoardPage(next);
-    void loadCommentsPage(next);
-  }, [visibleBoardPage, loadCommentsPage]);
+  }, [visibleBoardPage]);
 
   const goNextBoard = useCallback(() => {
-    const max = Math.max(0, boardsToRender - 1);
+    const max = Math.max(0, totalVisualPages - 1);
     const next = Math.min(max, visibleBoardPage + 1);
     if (next === visibleBoardPage) return;
     setVisibleBoardPage(next);
-    void loadCommentsPage(next);
-  }, [boardsToRender, visibleBoardPage, loadCommentsPage]);
+  }, [totalVisualPages, visibleBoardPage]);
 
   const goFirstBoard = useCallback(() => {
     if (visibleBoardPage <= 0) return;
     setVisibleBoardPage(0);
-    void loadCommentsPage(0);
-  }, [visibleBoardPage, loadCommentsPage]);
+  }, [visibleBoardPage]);
 
   const goLastBoard = useCallback(() => {
-    const last = Math.max(0, boardsToRender - 1);
+    const last = Math.max(0, totalVisualPages - 1);
     if (visibleBoardPage >= last) return;
     setVisibleBoardPage(last);
-    void loadCommentsPage(last);
-  }, [boardsToRender, visibleBoardPage, loadCommentsPage]);
+  }, [totalVisualPages, visibleBoardPage]);
+
+  const navigateBoardByDelta = useCallback(
+    (delta: number) => {
+      if (delta < 0) goPrevBoard();
+      else if (delta > 0) goNextBoard();
+    },
+    [goPrevBoard, goNextBoard],
+  );
 
   const canComment = detail?.canComment === true;
 
@@ -1562,7 +1617,7 @@ export default function RollingPaperSlugPage({
       setPngExportError("화면을 불러온 뒤 다시 시도해 주세요.");
       return;
     }
-    const totalSheets = Math.max(1, boardsToRender);
+    const totalSheets = Math.max(1, contentBoardCount);
     const n = Math.min(totalSheets, MAX_ROLLING_PNG_EXPORT_BOARDS);
     if (totalSheets > MAX_ROLLING_PNG_EXPORT_BOARDS) {
       window.alert(
@@ -1586,9 +1641,10 @@ export default function RollingPaperSlugPage({
         typeof window !== "undefined"
           ? Math.min(2.5, Math.max(1, window.devicePixelRatio || 1))
           : 2;
-      for (let p = 0; p < n; p++) {
-        setVisibleBoardPage(p);
-        await loadCommentsPage(p);
+      for (let contentIdx = 0; contentIdx < n; contentIdx++) {
+        const visualIdx = findVisualIndexForContent(carouselSlides, contentIdx);
+        setVisibleBoardPage(visualIdx);
+        await loadCommentsPage(contentIdx);
         await new Promise<void>((resolve) => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => resolve());
@@ -1605,8 +1661,8 @@ export default function RollingPaperSlugPage({
               : messageFromUnknownCaptureError(cap);
           throw new Error(
             base
-              ? `면 ${p + 1}: ${base}`
-              : `면 ${p + 1}: 캡처에 실패했습니다.`,
+              ? `면 ${contentIdx + 1}: ${base}`
+              : `면 ${contentIdx + 1}: 캡처에 실패했습니다.`,
           );
         }
       }
@@ -1714,14 +1770,18 @@ export default function RollingPaperSlugPage({
       );
     } finally {
       setVisibleBoardPage(savedPage);
-      await loadCommentsPage(savedPage);
+      const savedContent = getContentIndexFromVisual(carouselSlides, savedPage);
+      if (savedContent !== null) {
+        await loadCommentsPage(savedContent);
+      }
       setPngExportBusy(false);
     }
   }, [
     showRollingPaperPngExportFab,
     pngExportBusy,
     slug,
-    boardsToRender,
+    contentBoardCount,
+    carouselSlides,
     visibleBoardPage,
     loadCommentsPage,
   ]);
@@ -1878,7 +1938,7 @@ export default function RollingPaperSlugPage({
     setSubmitting(true);
     try {
       const globalSlot =
-        visibleBoardPage * ROLLING_POSTIT_SLOT_COUNT + activeSlot;
+        activeContentBoardIndex * ROLLING_POSTIT_SLOT_COUNT + activeSlot;
       if (member) {
         await createRollingPaperComment(
           slug,
@@ -1907,7 +1967,7 @@ export default function RollingPaperSlugPage({
         }
       }
       closeModal();
-      await loadCommentsPage(visibleBoardPage);
+      await loadCommentsPage(activeContentBoardIndex);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "작성에 실패했습니다.";
@@ -1965,7 +2025,7 @@ export default function RollingPaperSlugPage({
       setViewModalStep("read");
       setGuestPassword("");
       setGuestEditVerifyToken(null);
-      await loadCommentsPage(visibleBoardPage);
+      await loadCommentsPage(activeContentBoardIndex);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "수정에 실패했습니다.";
@@ -2151,7 +2211,7 @@ export default function RollingPaperSlugPage({
   const rollingDialogTitle = useMemo(() => {
     const labelSlot =
       activeSlot !== null
-        ? visibleBoardPage * ROLLING_POSTIT_SLOT_COUNT + activeSlot + 1
+        ? activeContentBoardIndex * ROLLING_POSTIT_SLOT_COUNT + activeSlot + 1
         : null;
     if (modalMode === "view" && activeSlot !== null && labelSlot !== null) {
       if (viewModalStep === "edit") {
@@ -2163,7 +2223,7 @@ export default function RollingPaperSlugPage({
       return `메시지 작성 (${labelSlot}번 슬롯)`;
     }
     return "메시지 작성";
-  }, [activeSlot, modalMode, viewModalStep, visibleBoardPage]);
+  }, [activeSlot, modalMode, viewModalStep, activeContentBoardIndex]);
 
   if (!slug) {
     return (
@@ -2550,6 +2610,17 @@ export default function RollingPaperSlugPage({
                         다시 시도
                       </button>
                     </div>
+                  ) : onAdVisualPage ? (
+                    <div
+                      data-carousel-ad-slide
+                      className="relative flex min-h-0 flex-1 flex-col"
+                    >
+                      <KakaoAdFitCarouselFace isActive />
+                      <CarouselAdSwipeOverlay
+                        onNavigateByDelta={navigateBoardByDelta}
+                        disabled={modalOpen || pngExportBusy}
+                      />
+                    </div>
                   ) : (
                     <>
                       <div
@@ -2657,7 +2728,7 @@ export default function RollingPaperSlugPage({
 
                           const slotIdx = piece.slotIndex;
                           const globalPostitNo =
-                            visibleBoardPage * ROLLING_POSTIT_SLOT_COUNT +
+                            activeContentBoardIndex * ROLLING_POSTIT_SLOT_COUNT +
                             slotIdx +
                             1;
                           const row = slotComments[slotIdx];
@@ -2784,7 +2855,7 @@ export default function RollingPaperSlugPage({
                             onClick={goFirstBoard}
                             disabled={loading || visibleBoardPage <= 0}
                             className={ROLLING_PAPER_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
-                            aria-label="맨 처음 보드로"
+                            aria-label="맨 처음으로"
                             title="맨 처음"
                           >
                             <CaretDoubleLeftIcon size={23} weight="bold" />
@@ -2800,14 +2871,18 @@ export default function RollingPaperSlugPage({
                           </button>
                         </div>
                         <span className="min-w-[3.25rem] shrink-0 text-center text-[11px] font-semibold tabular-nums text-black">
-                          {visibleBoardPage + 1} / {boardsToRender}
+                          {carouselPagerLabel === "ad"
+                            ? "광고"
+                            : carouselPagerLabel
+                              ? `${carouselPagerLabel.current} / ${carouselPagerLabel.total}`
+                              : `${visibleBoardPage + 1} / ${totalVisualPages}`}
                         </span>
                         <div className="-space-x-3 flex items-center gap-0">
                           <button
                             type="button"
                             disabled={
                               loading ||
-                              visibleBoardPage >= boardsToRender - 1
+                              visibleBoardPage >= totalVisualPages - 1
                             }
                             onClick={goNextBoard}
                             className={ROLLING_PAPER_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
@@ -2820,10 +2895,10 @@ export default function RollingPaperSlugPage({
                             onClick={goLastBoard}
                             disabled={
                               loading ||
-                              visibleBoardPage >= boardsToRender - 1
+                              visibleBoardPage >= totalVisualPages - 1
                             }
                             className={ROLLING_PAPER_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
-                            aria-label="맨 끝 보드로"
+                            aria-label="맨 끝으로"
                             title="맨 끝"
                           >
                             <CaretDoubleRightIcon size={23} weight="bold" />
