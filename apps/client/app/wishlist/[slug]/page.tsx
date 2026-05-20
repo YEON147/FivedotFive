@@ -27,6 +27,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { CarouselAdSwipeOverlay } from "@/components/ads/CarouselAdSwipeOverlay";
+import { KakaoAdFitCarouselFace } from "@/components/ads/KakaoAdFit";
 import { AppSideMenu } from "@/components/common/AppSideMenu";
 import { BoardFabSpeedDialSubmenu } from "@/components/common/BoardFabSpeedDialSubmenu";
 import { BoardShareFabButton } from "@/components/common/ShareBoardLink";
@@ -80,6 +82,16 @@ import {
   resolveBoardBackgroundImageUrl,
 } from "@/features/wishlist/board-background";
 import { getAssetImageUrl } from "@/lib/asset-url";
+import {
+  buildCarouselSlidesWithRandomAd,
+  getContentPagerLabel,
+  type CarouselSlide,
+} from "@/lib/ads/carousel-ad-slides";
+import {
+  isCarouselSwipeInteractiveTarget,
+  readCarouselSwipeDelta,
+} from "@/lib/carousel-swipe";
+import { isKakaoAdFitCarouselEnabled } from "@/lib/constants/kakao-adfit";
 import {
   getKstStartOfLocalDateMs,
   inferWishBoardCommentsRevealed,
@@ -139,19 +151,6 @@ function stickerOptionLabelFromAssetKey(assetKey: string): string {
   const last = seg[seg.length - 1] ?? assetKey;
   return last.replace(/\.[^.]+$/, "") || assetKey;
 }
-
-/** 캐러셀 스와이프: 버튼·링크 등에서는 페이지 넘김 무시 */
-function isCarouselSwipeInteractiveTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-  return Boolean(
-    target.closest(
-      "button, a, [role='button'], input, textarea, select, label, [data-carousel-no-swipe]",
-    ),
-  );
-}
-
-const CAROUSEL_SWIPE_MIN_PX = 56;
-const CAROUSEL_SWIPE_HORIZONTAL_RATIO = 1.15;
 
 /** 캐러셀 페이지네이션 — 배경·테두리·그림자 없이 아이콘만(42px 터치 영역), 아이콘·포커스 보라 */
 const WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON =
@@ -519,7 +518,32 @@ export default function PublicWishlistPage({
     return 1;
   }, [commentTotalPages]);
 
-  const totalVisualPages = 1 + commentPagesSafe;
+  const wishContentPageCount = 1 + commentPagesSafe;
+
+  const carouselSlides = useMemo((): CarouselSlide[] => {
+    if (!isKakaoAdFitCarouselEnabled()) {
+      return Array.from({ length: wishContentPageCount }, (_, i) => ({
+        kind: "content" as const,
+        contentIndex: i,
+      }));
+    }
+    return buildCarouselSlidesWithRandomAd(
+      wishContentPageCount,
+      `oh-jjeom-oh:wish-carousel-ad:${slug}`,
+    );
+  }, [wishContentPageCount, slug]);
+
+  const totalVisualPages = carouselSlides.length;
+
+  const onWishVisualPage = useMemo(() => {
+    const slide = carouselSlides[currentVisualPage];
+    return slide?.kind === "content" && slide.contentIndex === 0;
+  }, [carouselSlides, currentVisualPage]);
+
+  const carouselPagerLabel = useMemo(
+    () => getContentPagerLabel(carouselSlides, currentVisualPage),
+    [carouselSlides, currentVisualPage],
+  );
 
   const [popupCommentPage, setPopupCommentPage] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
@@ -669,14 +693,14 @@ export default function PublicWishlistPage({
 
   /** 댓글 면으로 넘어가거나 꾸미기 모드 진입 시 스피드 다이얼·딤 닫기(FAB는 첫 슬라이드에만 있음) */
   useEffect(() => {
-    if (!isViewingOwnBoard || currentVisualPage !== 0) {
+    if (!isViewingOwnBoard || !onWishVisualPage) {
       setWishOwnerSpeedDialOpen(false);
       return;
     }
     if (embeddedDecorateMode) {
       setWishOwnerSpeedDialOpen(false);
     }
-  }, [isViewingOwnBoard, currentVisualPage, embeddedDecorateMode]);
+  }, [isViewingOwnBoard, onWishVisualPage, embeddedDecorateMode]);
 
   /**
    * 타인 보드에서만 빈 댓글 칸 표시.
@@ -944,12 +968,13 @@ export default function PublicWishlistPage({
   }, [loadPublicBoard, isViewingOwnBoard]);
 
   useEffect(() => {
-    if (currentVisualPage === 0) return;
-    const commentIdx = currentVisualPage - 1;
+    const slide = carouselSlides[currentVisualPage];
+    if (!slide || slide.kind !== "content" || slide.contentIndex === 0) return;
+    const commentIdx = slide.contentIndex - 1;
     fetchCommentPage(commentIdx);
     if (commentIdx > 0) fetchCommentPage(commentIdx - 1);
     if (commentIdx < commentTotalPages - 1) fetchCommentPage(commentIdx + 1);
-  }, [currentVisualPage, commentTotalPages]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [carouselSlides, currentVisualPage, commentTotalPages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** 소유자가 첫 슬라이드 → 댓글 면으로 넘어갈 때만 공개 보드 재조회(편집 반영) */
   useEffect(() => {
@@ -958,10 +983,17 @@ export default function PublicWishlistPage({
     if (!isViewingOwnBoard) {
       return;
     }
-    if (prev === 0 && currentVisualPage > 0) {
+    const prevSlide = carouselSlides[prev];
+    const currSlide = carouselSlides[currentVisualPage];
+    const leftWish =
+      prevSlide?.kind === "content" &&
+      prevSlide.contentIndex === 0 &&
+      currSlide?.kind === "content" &&
+      currSlide.contentIndex > 0;
+    if (leftWish) {
       void loadPublicBoard();
     }
-  }, [currentVisualPage, isViewingOwnBoard, loadPublicBoard]);
+  }, [carouselSlides, currentVisualPage, isViewingOwnBoard, loadPublicBoard]);
 
   /**
    * 절대 면 인덱스로 이동 — `isSliding` 잠금 없음(연속 버튼·빠른 탭 대응).
@@ -1035,17 +1067,10 @@ export default function PublicWishlistPage({
       const start = carouselSwipeStartRef.current;
       carouselSwipeStartRef.current = null;
       if (editorCarouselLocked) return;
-      if (selectedSlot !== null || !start?.swipeAllowed) return;
+      if (selectedSlot !== null || !start) return;
       if (!e.isPrimary) return;
-      const dx = e.clientX - start.x;
-      const dy = e.clientY - start.y;
-      if (Math.abs(dx) < CAROUSEL_SWIPE_MIN_PX) return;
-      if (Math.abs(dx) < Math.abs(dy) * CAROUSEL_SWIPE_HORIZONTAL_RATIO) return;
-      if (dx < 0) {
-        navigateByDelta(1);
-      } else {
-        navigateByDelta(-1);
-      }
+      const delta = readCarouselSwipeDelta(start, e.clientX, e.clientY);
+      if (delta !== 0) navigateByDelta(delta);
     },
     [editorCarouselLocked, navigateByDelta, selectedSlot],
   );
@@ -1105,10 +1130,12 @@ export default function PublicWishlistPage({
   }, [selectedSlot]);
 
   useEffect(() => {
-    if (currentVisualPage !== 0) {
+    const slide = carouselSlides[currentVisualPage];
+    const onWish = slide?.kind === "content" && slide.contentIndex === 0;
+    if (!onWish) {
       setWishOwnerSpeedDialOpen(false);
     }
-  }, [currentVisualPage]);
+  }, [carouselSlides, currentVisualPage]);
 
   const refreshCommentPage = async (commentPageIdx: number): Promise<CommentListPayload> => {
     setLoadingPages((prev) => new Set(prev).add(commentPageIdx));
@@ -1229,10 +1256,21 @@ export default function PublicWishlistPage({
 
   /** 소유자 첫 슬라이드 꾸미기 모드 — 하단 페이지네이션 숨김(캐러셀 조작 방지) */
   const hideWishCarouselPagination =
-    embeddedDecorateMode && isViewingOwnBoard && currentVisualPage === 0;
+    embeddedDecorateMode && isViewingOwnBoard && onWishVisualPage;
+
+  /** JWT + 내 공개 슬러그 — 타인 보드·비로그인에는 저장 UI/API 없음 */
+  const canSaveOwnWishBoard = useMemo(
+    () =>
+      visitorMenuLoggedIn &&
+      Boolean(getAccessToken()?.trim()) &&
+      isViewingOwnBoard &&
+      !isViewingSavedWishBoard,
+    [visitorMenuLoggedIn, isViewingOwnBoard, isViewingSavedWishBoard],
+  );
 
   const saveWishBoardToMyBoard = useCallback(async () => {
     if (!slug.trim()) return;
+    if (!canSaveOwnWishBoard) return;
     if (!getAccessToken()?.trim()) {
       setGuestAuthModalOpen(true);
       return;
@@ -1255,14 +1293,12 @@ export default function PublicWishlistPage({
     } finally {
       setWishSaveToBoardBusy(false);
     }
-  }, [slug, router]);
+  }, [slug, router, canSaveOwnWishBoard]);
 
-  const showWishVisitorSaveFab = useMemo(
-    () =>
-      !isViewingOwnBoard &&
-      !isViewingSavedWishBoard &&
-      boardRevealMeta !== null,
-    [isViewingOwnBoard, isViewingSavedWishBoard, boardRevealMeta],
+  /** 댓글·광고 면·꾸미기 중 — 첫 슬라이드 FAB에 저장이 없을 때 사이드 메뉴로 제공 */
+  const showWishSaveInSideMenu = useMemo(
+    () => canSaveOwnWishBoard && (!onWishVisualPage || embeddedDecorateMode),
+    [canSaveOwnWishBoard, onWishVisualPage, embeddedDecorateMode],
   );
 
   const exportWishBoardPng = useCallback(async () => {
@@ -1315,10 +1351,9 @@ export default function PublicWishlistPage({
     );
   }, [isViewingSavedWishBoard, wishPngExportBusy, exportWishBoardPng]);
 
-  /** 소유자·첫 슬라이드: 꾸미기·공유·내 보드에 저장 스피드 다이얼 */
+  /** 소유자·첫 슬라이드: 꾸미기·공유·복사본 저장 스피드 다이얼 (로그인·본인 보드만) */
   const wishOwnerFabToolbar = useMemo(() => {
-    if (isViewingSavedWishBoard) return null;
-    if (!isViewingOwnBoard || currentVisualPage !== 0) return null;
+    if (!canSaveOwnWishBoard || !onWishVisualPage) return null;
     const closeDial = () => setWishOwnerSpeedDialOpen(false);
 
     return (
@@ -1350,24 +1385,26 @@ export default function PublicWishlistPage({
               ariaLabel="위시리스트 공유"
               className="bg-white text-[#7B61FF] ring-1 ring-black/[0.06]"
             />
-            <button
-              type="button"
-              disabled={wishSaveToBoardBusy}
-              onClick={() => {
-                closeDial();
-                void saveWishBoardToMyBoard();
-              }}
-              className={WISH_SAVE_FAB_SUB_CLASS}
-              aria-label={
-                wishSaveToBoardBusy ? "내 보드에 저장 중" : "내 보드에 위시리스트 저장"
-              }
-            >
-              {wishSaveToBoardBusy ? (
-                <CircleNotch className="animate-spin" size={23} weight="bold" aria-hidden />
-              ) : (
-                <BookmarkSimple size={23} weight="bold" aria-hidden />
-              )}
-            </button>
+            {!embeddedDecorateMode ? (
+              <button
+                type="button"
+                disabled={wishSaveToBoardBusy}
+                onClick={() => {
+                  closeDial();
+                  void saveWishBoardToMyBoard();
+                }}
+                className={WISH_SAVE_FAB_SUB_CLASS}
+                aria-label={
+                  wishSaveToBoardBusy ? "저장 중" : "위시리스트 복사본 저장"
+                }
+              >
+                {wishSaveToBoardBusy ? (
+                  <CircleNotch className="animate-spin" size={23} weight="bold" aria-hidden />
+                ) : (
+                  <BookmarkSimple size={23} weight="bold" aria-hidden />
+                )}
+              </button>
+            ) : null}
         </BoardFabSpeedDialSubmenu>
         {embeddedDecorateMode ? (
           <button
@@ -1405,36 +1442,13 @@ export default function PublicWishlistPage({
       </div>
     );
   }, [
-    isViewingOwnBoard,
-    currentVisualPage,
+    canSaveOwnWishBoard,
+    onWishVisualPage,
     embeddedDecorateMode,
     wishOwnerSpeedDialOpen,
     wishSaveToBoardBusy,
     saveWishBoardToMyBoard,
   ]);
-
-  const wishVisitorSaveFab = useMemo(() => {
-    if (!showWishVisitorSaveFab) return null;
-    return (
-      <div className="pointer-events-auto relative z-[51] flex w-[42px] flex-col items-end">
-        <button
-          type="button"
-          disabled={wishSaveToBoardBusy}
-          onClick={() => void saveWishBoardToMyBoard()}
-          className="relative flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-[0_6px_20px_rgba(123,97,255,0.45)] ring-0 transition active:scale-[0.96] touch-manipulation disabled:pointer-events-none disabled:opacity-70"
-          aria-label={
-            wishSaveToBoardBusy ? "내 보드에 저장 중" : "내 보드에 위시리스트 저장"
-          }
-        >
-          {wishSaveToBoardBusy ? (
-            <CircleNotch className="animate-spin" size={23} weight="bold" aria-hidden />
-          ) : (
-            <BookmarkSimple size={23} weight="bold" aria-hidden />
-          )}
-        </button>
-      </div>
-    );
-  }, [showWishVisitorSaveFab, wishSaveToBoardBusy, saveWishBoardToMyBoard]);
 
   return (
     <main className={PUBLIC_BOARD_PAGE_MAIN_CLASS}>
@@ -1479,7 +1493,7 @@ export default function PublicWishlistPage({
 
                 {/** 가로 슬라이드만 여기서 — 높이·좌표는 보드 박스 전체(320×680 비율) = 내 위시와 동일 */}
                 <div
-                  className="absolute inset-0 z-10 select-none overflow-hidden rounded-[18px] [touch-action:pan-x_pan-y]"
+                  className="absolute inset-0 z-10 touch-none select-none overflow-hidden rounded-[18px]"
                   onPointerDown={onCarouselPointerDown}
                   onPointerUp={onCarouselPointerUp}
                   onPointerCancel={onCarouselPointerCancel}
@@ -1492,7 +1506,32 @@ export default function PublicWishlistPage({
                       transform: `translateX(-${(currentVisualPage * 100) / totalVisualPages}%)`,
                     }}
                   >
-                    <div className="relative flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center overflow-x-clip overflow-y-visible p-0">
+                    {carouselSlides.map((slide, visualIdx) => {
+                      if (slide.kind === "ad") {
+                        return (
+                          <div
+                            key={`ad-${visualIdx}`}
+                            data-carousel-ad-slide
+                            className="relative flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center overflow-x-clip overflow-y-visible p-0"
+                          >
+                            <KakaoAdFitCarouselFace
+                              isActive={currentVisualPage === visualIdx}
+                            />
+                            <CarouselAdSwipeOverlay
+                              onNavigateByDelta={navigateByDelta}
+                              disabled={
+                                editorCarouselLocked || selectedSlot !== null
+                              }
+                            />
+                          </div>
+                        );
+                      }
+                      if (slide.kind === "content" && slide.contentIndex === 0) {
+                        return (
+                          <div
+                            key="wish"
+                            className="relative flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center overflow-x-clip overflow-y-visible p-0"
+                          >
                       {isViewingOwnBoard ? (
                         <WishlistMyBoardScreen
                           routeBoardSlug={slug}
@@ -1502,7 +1541,7 @@ export default function PublicWishlistPage({
                           onEmbeddedDecorateModeChange={setEmbeddedDecorateMode}
                           omitInnerTitleHeader
                           onCarouselInteractionLockChange={setEditorCarouselLocked}
-                          embeddedCarouselVisualPage={currentVisualPage}
+                          embeddedCarouselVisualPage={0}
                           onEmbeddedBoardSynced={handleEmbeddedBoardSynced}
                           onEmbeddedBackgroundDraftKeyChange={
                             handleEmbeddedBackgroundDraftKeyChange
@@ -1520,11 +1559,13 @@ export default function PublicWishlistPage({
                           omitBackground
                         />
                       )}
-                    </div>
-
-                    {Array.from({ length: commentPagesSafe }, (_, commentIdx) => (
-                      <div
-                        key={commentIdx}
+                          </div>
+                        );
+                      }
+                      const commentIdx = slide.contentIndex - 1;
+                      return (
+                        <div
+                          key={`comment-${commentIdx}`}
                         className="relative flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center overflow-x-clip overflow-y-visible p-0"
                       >
                         <CommentBoardPage
@@ -1533,20 +1574,23 @@ export default function PublicWishlistPage({
                           boardItems={boardItems}
                           comments={commentCache[commentIdx] ?? []}
                           isLoading={loadingPages.has(commentIdx)}
-                          onSlotClick={(slotId) => handleSlotClick(slotId, commentIdx)}
+                          onSlotClick={(slotId) =>
+                            handleSlotClick(slotId, commentIdx)
+                          }
                           isSidebarOpen={isSidebarOpen}
                           onMenuClick={handleVisitorMenuClick}
                           omitBackground
                           showEmptyCommentSlots={showEmptyCommentSlots}
                         />
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {wishOwnerSpeedDialOpen &&
                 isViewingOwnBoard &&
-                currentVisualPage === 0 &&
+                onWishVisualPage &&
                 !embeddedDecorateMode ? (
                   <button
                     type="button"
@@ -1569,7 +1613,7 @@ export default function PublicWishlistPage({
                           <button
                             type="button"
                             onClick={() => navigateTo(0)}
-                            disabled={currentVisualPage === 0}
+                            disabled={currentVisualPage <= 0}
                             className={WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
                             aria-label="맨 처음 페이지로"
                             title="맨 처음"
@@ -1579,7 +1623,7 @@ export default function PublicWishlistPage({
                           <button
                             type="button"
                             onClick={() => navigateByDelta(-1)}
-                            disabled={currentVisualPage === 0}
+                            disabled={currentVisualPage <= 0}
                             className={WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
                             aria-label="이전 페이지"
                           >
@@ -1587,7 +1631,11 @@ export default function PublicWishlistPage({
                           </button>
                         </div>
                         <span className="min-w-[3.25rem] shrink-0 text-center text-[11px] font-semibold tabular-nums text-black">
-                          {currentVisualPage + 1} / {totalVisualPages}
+                          {carouselPagerLabel === "ad"
+                            ? "광고"
+                            : carouselPagerLabel
+                              ? `${carouselPagerLabel.current} / ${carouselPagerLabel.total}`
+                              : `${currentVisualPage + 1} / ${totalVisualPages}`}
                         </span>
                         <div className="-space-x-3 flex items-center gap-0">
                           <button
@@ -1595,13 +1643,13 @@ export default function PublicWishlistPage({
                             onClick={() => navigateByDelta(1)}
                             disabled={
                               currentVisualPage >= totalVisualPages - 1 ||
-                              (editorCarouselLocked && currentVisualPage === 0)
+                              (editorCarouselLocked && onWishVisualPage)
                             }
                             className={WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
                             aria-label={
-                              currentVisualPage === 0 ? "댓글 페이지로" : "다음 페이지"
+                              onWishVisualPage ? "댓글 페이지로" : "다음 페이지"
                             }
-                            title={currentVisualPage === 0 ? "댓글 면으로 이동" : undefined}
+                            title={onWishVisualPage ? "댓글 면으로 이동" : undefined}
                           >
                             <CaretRightIcon size={23} weight="bold" />
                           </button>
@@ -1610,7 +1658,7 @@ export default function PublicWishlistPage({
                             onClick={() => navigateTo(totalVisualPages - 1)}
                             disabled={
                               currentVisualPage >= totalVisualPages - 1 ||
-                              (editorCarouselLocked && currentVisualPage === 0)
+                              (editorCarouselLocked && onWishVisualPage)
                             }
                             className={WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON}
                             aria-label="맨 끝 페이지로"
@@ -1621,10 +1669,10 @@ export default function PublicWishlistPage({
                         </div>
                       </div>
                     ) : null}
-                    {wishOwnerFabToolbar || wishVisitorSaveFab || wishSavedCopyPngFab ? (
+                    {wishOwnerFabToolbar || wishSavedCopyPngFab ? (
                       <div className="pointer-events-none absolute bottom-0 right-0 z-[51] pr-[4%]">
                         <div className="pointer-events-auto relative min-w-[42px] shrink-0 overflow-visible">
-                          {wishOwnerFabToolbar ?? wishVisitorSaveFab ?? wishSavedCopyPngFab}
+                          {wishOwnerFabToolbar ?? wishSavedCopyPngFab}
                         </div>
                       </div>
                     ) : null}
@@ -1692,7 +1740,7 @@ export default function PublicWishlistPage({
           onLogout={handleVisitorLogout}
           hideMyWishlistShortcut={isViewingOwnBoard}
           wishlistPublicSaveAction={
-            showWishVisitorSaveFab && !isViewingSavedWishBoard
+            showWishSaveInSideMenu
               ? {
                   busy: wishSaveToBoardBusy,
                   onSave: () => void saveWishBoardToMyBoard(),
