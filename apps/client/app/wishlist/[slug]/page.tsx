@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  BookmarkSimple,
   CaretDoubleLeftIcon,
   CaretDoubleRightIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  CircleNotch,
   PencilSimple,
   PlusIcon,
   TextAlignJustify,
@@ -63,10 +65,14 @@ import {
   createComment,
   deleteComment,
   getComments,
+  getMySavedWishBoards,
   getPublicBoard,
+  postWishBoardSave,
   updateComment,
   verifyGuestCommentPassword,
 } from "@/features/wishlist/api";
+import { RollingPaperPngSaveFabButton } from "@/components/rolling-paper/RollingPaperPngSaveFabButton";
+import { toPng } from "html-to-image";
 import { isLoggedInOwnerOfBoardSlug } from "@/features/wishlist/resolve-logged-in-home";
 import {
   resolveBoardBackgroundAssetKey,
@@ -149,6 +155,13 @@ const CAROUSEL_SWIPE_HORIZONTAL_RATIO = 1.15;
 /** 캐러셀 페이지네이션 — 배경·테두리·그림자 없이 아이콘만(42px 터치 영역), 아이콘·포커스 보라 */
 const WISHLIST_BOARD_CAROUSEL_PAGER_ICON_BUTTON =
   "relative z-40 flex size-[42px] shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#7B61FF] shadow-none outline-none ring-0 transition-opacity hover:opacity-80 active:opacity-65 focus-visible:ring-2 focus-visible:ring-[#7B61FF]/30 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-35 disabled:hover:opacity-35 touch-manipulation";
+
+/** 롤링·공개 위시 하단 FAB 메인(＋/✕)과 동일 */
+const WISH_FAB_SPEED_DIAL_MAIN_CLASS =
+  "relative flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-[0_6px_20px_rgba(123,97,255,0.45)] ring-0 transition active:scale-[0.96] touch-manipulation";
+
+const WISH_SAVE_FAB_SUB_CLASS =
+  "flex size-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#7B61FF] shadow-lg ring-1 ring-black/[0.06] transition active:scale-[0.96] touch-manipulation disabled:pointer-events-none disabled:opacity-70";
 
 /** 서버·Jackson 필드명 차이 + `hasNext` 생략 시에도 `totalCount`로 마지막 면 꽉 참 판별 */
 function resolveIsLastPageFull(p: CommentListPayload): boolean {
@@ -534,6 +547,11 @@ export default function PublicWishlistPage({
   const embeddedWishToolbarActionsRef = useRef<WishlistEmbeddedToolbarActions | null>(null);
   const [embeddedDecorateMode, setEmbeddedDecorateMode] = useState(false);
   const [wishOwnerSpeedDialOpen, setWishOwnerSpeedDialOpen] = useState(false);
+  const [wishSaveToBoardBusy, setWishSaveToBoardBusy] = useState(false);
+  /** `GET /api/boards/me/saved` 목록에 포함된 슬러그 — 저장 복사본 보기(읽기 전용) */
+  const [isViewingSavedWishBoard, setIsViewingSavedWishBoard] = useState(false);
+  const [wishPngExportBusy, setWishPngExportBusy] = useState(false);
+  const wishBoardCaptureRef = useRef<HTMLDivElement>(null);
 
   const [apiStickerFolders, setApiStickerFolders] = useState<string[]>([]);
   /** 폴더 API 완료 전엔 댓글 스티커를 `…/stickers`로 먼저 열었다가 첫 폴더로 다시 부르는 이중 호출이 남 */
@@ -605,6 +623,29 @@ export default function PublicWishlistPage({
         }
       } catch {
         if (!cancelled) setMyBoardSlug(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visitorMenuLoggedIn, slug]);
+
+  useEffect(() => {
+    if (!visitorMenuLoggedIn) {
+      setIsViewingSavedWishBoard(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await getMySavedWishBoards();
+        const saved = res.data?.saved;
+        const hit =
+          Array.isArray(saved) &&
+          saved.some((row) => row.slug?.trim() === slug.trim());
+        if (!cancelled) setIsViewingSavedWishBoard(hit);
+      } catch {
+        if (!cancelled) setIsViewingSavedWishBoard(false);
       }
     })();
     return () => {
@@ -1189,8 +1230,93 @@ export default function PublicWishlistPage({
   const hideWishCarouselPagination =
     embeddedDecorateMode && isViewingOwnBoard && currentVisualPage === 0;
 
-  /** 소유자·첫 슬라이드만: 편집·공유 스피드 다이얼. 「내 보드에 저장」은 타인 보드 복사용 API(`BOARD_CANNOT_SAVE_OWN`)라 본인 슬러그에는 두지 않음 */
+  const saveWishBoardToMyBoard = useCallback(async () => {
+    if (!slug.trim()) return;
+    if (!getAccessToken()?.trim()) {
+      setGuestAuthModalOpen(true);
+      return;
+    }
+    setWishSaveToBoardBusy(true);
+    try {
+      const res = await postWishBoardSave(slug);
+      const newSlug = res.data?.slug?.trim();
+      if (!newSlug) {
+        throw new Error(
+          res.message?.trim() || "저장 응답에 슬러그가 없습니다.",
+        );
+      }
+      clearWishlistPageSessionCache();
+      router.push(`/wishlist/${encodeURIComponent(newSlug)}`);
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message.trim() : "저장에 실패했습니다.";
+      window.alert(msg || "저장에 실패했습니다.");
+    } finally {
+      setWishSaveToBoardBusy(false);
+    }
+  }, [slug, router]);
+
+  const showWishVisitorSaveFab = useMemo(
+    () =>
+      !isViewingOwnBoard &&
+      !isViewingSavedWishBoard &&
+      boardRevealMeta !== null,
+    [isViewingOwnBoard, isViewingSavedWishBoard, boardRevealMeta],
+  );
+
+  const exportWishBoardPng = useCallback(async () => {
+    const root = wishBoardCaptureRef.current;
+    if (!root || wishPngExportBusy) return;
+    setWishPngExportBusy(true);
+    try {
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      const dpr =
+        typeof window !== "undefined"
+          ? Math.min(2.5, Math.max(1, window.devicePixelRatio || 1))
+          : 2;
+      const dataUrl = await toPng(root, {
+        pixelRatio: dpr,
+        cacheBust: true,
+        includeQueryParams: true,
+        backgroundColor: "#f4f2ec",
+      });
+      const safeSlug = slug.replace(/[^\w.-]+/g, "_").slice(0, 48);
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `wishlist-${safeSlug || "board"}.png`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message.trim() : "이미지 저장에 실패했습니다.";
+      window.alert(msg || "이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setWishPngExportBusy(false);
+    }
+  }, [slug, wishPngExportBusy]);
+
+  /** 저장한 위시리스트 복사본 — 사진 저장만(스피드 다이얼·북마크 FAB 없음) */
+  const wishSavedCopyPngFab = useMemo(() => {
+    if (!isViewingSavedWishBoard) return null;
+    return (
+      <div className="pointer-events-auto relative z-[51] flex w-[42px] flex-col items-end">
+        <RollingPaperPngSaveFabButton
+          busy={wishPngExportBusy}
+          idleLabel="위시리스트 이미지 저장"
+          busyLabel="이미지 저장 중"
+          onClick={() => void exportWishBoardPng()}
+        />
+      </div>
+    );
+  }, [isViewingSavedWishBoard, wishPngExportBusy, exportWishBoardPng]);
+
+  /** 소유자·첫 슬라이드: 꾸미기·공유·내 보드에 저장 스피드 다이얼 */
   const wishOwnerFabToolbar = useMemo(() => {
+    if (isViewingSavedWishBoard) return null;
     if (!isViewingOwnBoard || currentVisualPage !== 0) return null;
     const closeDial = () => setWishOwnerSpeedDialOpen(false);
 
@@ -1222,6 +1348,24 @@ export default function PublicWishlistPage({
               ariaLabel="위시리스트 공유"
               className="bg-white text-[#7B61FF] ring-1 ring-black/[0.06]"
             />
+            <button
+              type="button"
+              disabled={wishSaveToBoardBusy}
+              onClick={() => {
+                closeDial();
+                void saveWishBoardToMyBoard();
+              }}
+              className={WISH_SAVE_FAB_SUB_CLASS}
+              aria-label={
+                wishSaveToBoardBusy ? "내 보드에 저장 중" : "내 보드에 위시리스트 저장"
+              }
+            >
+              {wishSaveToBoardBusy ? (
+                <CircleNotch className="animate-spin" size={23} weight="bold" aria-hidden />
+              ) : (
+                <BookmarkSimple size={23} weight="bold" aria-hidden />
+              )}
+            </button>
           </div>
         ) : null}
         {embeddedDecorateMode ? (
@@ -1245,7 +1389,9 @@ export default function PublicWishlistPage({
             className="relative flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-[0_6px_20px_rgba(123,97,255,0.45)] ring-0 transition active:scale-[0.96] touch-manipulation"
             aria-expanded={wishOwnerSpeedDialOpen}
             aria-label={
-              wishOwnerSpeedDialOpen ? "편집·공유 메뉴 닫기" : "편집·공유 메뉴 열기"
+              wishOwnerSpeedDialOpen
+                ? "꾸미기·공유·저장 메뉴 닫기"
+                : "꾸미기·공유·저장 메뉴 열기"
             }
           >
             {wishOwnerSpeedDialOpen ? (
@@ -1257,7 +1403,37 @@ export default function PublicWishlistPage({
         )}
       </div>
     );
-  }, [isViewingOwnBoard, currentVisualPage, embeddedDecorateMode, wishOwnerSpeedDialOpen]);
+  }, [
+    isViewingOwnBoard,
+    currentVisualPage,
+    embeddedDecorateMode,
+    wishOwnerSpeedDialOpen,
+    wishSaveToBoardBusy,
+    saveWishBoardToMyBoard,
+  ]);
+
+  const wishVisitorSaveFab = useMemo(() => {
+    if (!showWishVisitorSaveFab) return null;
+    return (
+      <div className="pointer-events-auto relative z-[51] flex w-[42px] flex-col items-end">
+        <button
+          type="button"
+          disabled={wishSaveToBoardBusy}
+          onClick={() => void saveWishBoardToMyBoard()}
+          className="relative flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-[0_6px_20px_rgba(123,97,255,0.45)] ring-0 transition active:scale-[0.96] touch-manipulation disabled:pointer-events-none disabled:opacity-70"
+          aria-label={
+            wishSaveToBoardBusy ? "내 보드에 저장 중" : "내 보드에 위시리스트 저장"
+          }
+        >
+          {wishSaveToBoardBusy ? (
+            <CircleNotch className="animate-spin" size={23} weight="bold" aria-hidden />
+          ) : (
+            <BookmarkSimple size={23} weight="bold" aria-hidden />
+          )}
+        </button>
+      </div>
+    );
+  }, [showWishVisitorSaveFab, wishSaveToBoardBusy, saveWishBoardToMyBoard]);
 
   return (
     <main className={PUBLIC_BOARD_PAGE_MAIN_CLASS}>
@@ -1271,7 +1447,11 @@ export default function PublicWishlistPage({
             {/** `app/wishlist/page.tsx` 꾸미기 보드 래퍼와 동일 패딩 */}
             {/** `app/wishlist/page.tsx` 꾸미기 보드 래퍼와 동일: 세로 가운데 + 가로 중앙 */}
             <div className={PUBLIC_BOARD_PAGE_CENTER_CLASS}>
-              <div className={PUBLIC_WISHLIST_BOARD_FRAME} style={publicBoardAspectRatioStyle()}>
+              <div
+                ref={wishBoardCaptureRef}
+                className={PUBLIC_WISHLIST_BOARD_FRAME}
+                style={publicBoardAspectRatioStyle()}
+              >
                 {boardBackgroundUrl ? (
                   <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
                     {shouldUseNativeImg(boardBackgroundUrl) ? (
@@ -1440,10 +1620,10 @@ export default function PublicWishlistPage({
                         </div>
                       </div>
                     ) : null}
-                    {wishOwnerFabToolbar ? (
+                    {wishOwnerFabToolbar || wishVisitorSaveFab || wishSavedCopyPngFab ? (
                       <div className="pointer-events-none absolute bottom-0 right-0 z-[51] pr-[4%]">
                         <div className="pointer-events-auto relative min-w-[42px] shrink-0 overflow-visible">
-                          {wishOwnerFabToolbar}
+                          {wishOwnerFabToolbar ?? wishVisitorSaveFab ?? wishSavedCopyPngFab}
                         </div>
                       </div>
                     ) : null}
@@ -1510,6 +1690,14 @@ export default function PublicWishlistPage({
           onClose={() => setIsSidebarOpen(false)}
           onLogout={handleVisitorLogout}
           hideMyWishlistShortcut={isViewingOwnBoard}
+          wishlistPublicSaveAction={
+            showWishVisitorSaveFab && !isViewingSavedWishBoard
+              ? {
+                  busy: wishSaveToBoardBusy,
+                  onSave: () => void saveWishBoardToMyBoard(),
+                }
+              : undefined
+          }
         />
       ) : (
         <PublicWishlistVisitorMenu

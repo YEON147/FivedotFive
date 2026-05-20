@@ -7,6 +7,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { SIDE_MENU_ICON_WRAP_ROSE } from "@/components/common/SideMenuPrimitives";
 import {
   deleteSavedRollingPaper,
+  deleteSavedWishBoard,
   getMySavedWishBoards,
   type SavedWishBoardItem,
 } from "@/features/wishlist/api";
@@ -24,6 +25,10 @@ export type SavedRollingPapersListModalProps = {
 
 type SavedRollingTabId = "all" | "CREATED" | "RECEIVED";
 type SavedPrimaryTabId = "rolling" | "wish";
+
+type PendingDelete =
+  | { kind: "rolling"; row: SavedRollingPaperItem }
+  | { kind: "wish"; row: SavedWishBoardItem };
 
 function sourceLabel(source: string): string {
   const s = source.trim().toUpperCase();

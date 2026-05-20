@@ -444,6 +444,16 @@ export async function getMySavedWishBoards(): Promise<MySavedWishBoardsApiRespon
   return apiClient<MySavedWishBoardsApiResponse>("/api/boards/me/saved");
 }
 
+/** DELETE /api/boards/saved/{slug} — 저장한 본인만 */
+export async function deleteSavedWishBoard(slug: string): Promise<void> {
+  await apiClient(`/api/boards/saved/${encodeBoardSlug(slug)}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 /** DELETE /api/rolling-papers/{slug} — 소유자만 */
 export async function deleteRollingPaper(slug: string): Promise<void> {
   await apiClient(`/api/rolling-papers/${encodeBoardSlug(slug)}`, {
