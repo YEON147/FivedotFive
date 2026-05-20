@@ -209,14 +209,24 @@ class WishBoardServiceStage3Test {
         }
 
         @Test
-        @DisplayName("실패 - 본인 보드 저장 시도")
+        @DisplayName("성공 - 본인 보드 저장 (비공개 보드 포함)")
         void saveBoard_ownBoard() {
-            given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
+            WishBoard privateBoard = WishBoard.builder()
+                    .user(owner).boardSlug("slug0000ab").isPublic(false).build();
+            given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(privateBoard));
+            given(wishBoardRepository.existsByBoardSlug(any())).willReturn(false);
+            given(userRepository.findById(1L)).willReturn(Optional.of(owner));
+            given(wishItemRepository.findByBoardOrderBySlotIndex(privateBoard)).willReturn(List.of());
+            given(boardAssetRepository.findByBoard(privateBoard)).willReturn(List.of());
 
-            assertThatThrownBy(() -> wishBoardService.saveBoard(1L, "slug0000ab"))
-                    .isInstanceOf(CustomException.class)
-                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                            .isEqualTo(ErrorCode.BOARD_CANNOT_SAVE_OWN));
+            WishBoard copy = WishBoard.builder().user(owner).boardSlug("newslug123")
+                    .isSavedCopy(true).savedByUser(owner).build();
+            given(wishBoardRepository.save(any())).willReturn(copy);
+
+            WishBoardSaveResponse res = wishBoardService.saveBoard(1L, "slug0000ab");
+
+            assertThat(res.getSlug()).isNotBlank();
+            verify(wishBoardRepository).save(any(WishBoard.class));
         }
 
         @Test
