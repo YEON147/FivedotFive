@@ -108,12 +108,14 @@ public class WishBoardController {
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.SAVED_BOARDS_FOUND, data));
     }
 
-    // GET /api/boards/{slug} - slug로 위시보드 조회 (Anyone)
+    // GET /api/boards/{slug} - slug로 위시보드 조회 (공개·소유자 JWT·저장본 savedByUser)
     @GetMapping("/{slug}")
     public ResponseEntity<ApiResponse<WishBoardPublicResponse>> getBoardBySlug(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable String slug) {
 
-        WishBoardPublicResponse data = wishBoardService.getBoardBySlug(slug);
+        Long userId = userPrincipal != null ? userPrincipal.getId() : null;
+        WishBoardPublicResponse data = wishBoardService.getBoardBySlug(userId, slug);
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.BOARD_FOUND, data));
     }
 }

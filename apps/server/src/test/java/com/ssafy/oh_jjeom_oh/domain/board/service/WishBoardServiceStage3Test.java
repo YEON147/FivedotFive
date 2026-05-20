@@ -173,7 +173,7 @@ class WishBoardServiceStage3Test {
             assertThatThrownBy(() -> wishBoardService.deleteBoard(2L, "slug0000ab"))
                     .isInstanceOf(CustomException.class)
                     .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                            .isEqualTo(ErrorCode.BOARD_DELETE_FORBIDDEN));
+                            .isEqualTo(ErrorCode.BOARD_FORBIDDEN));
 
             verify(wishBoardRepository, never()).delete(any());
         }
