@@ -2,7 +2,7 @@
 
 import { Baseball, CaretDown } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   SIDE_MENU_ICON_WRAP_PRIMARY,
@@ -16,6 +16,12 @@ type KboTeamWishlistNavSectionProps = {
   onNavigate: () => void;
 };
 
+const TEAM_LIST_PANEL_CLASS =
+  "grid transition-[grid-template-rows] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]";
+
+const TEAM_LIST_INNER_CLASS =
+  "ml-2 flex min-h-0 flex-col gap-0.5 overflow-hidden border-l border-[var(--color-border)] pl-3 pr-1 pb-1 transition-opacity duration-[380ms] ease-out";
+
 /**
  * 햄버거 메뉴 — 야구 구단별 공개 위시(`/wishlist/{slug}`) 링크 목록.
  */
@@ -24,9 +30,12 @@ export function KboTeamWishlistNavSection({
   onNavigate,
 }: KboTeamWishlistNavSectionProps) {
   const [expanded, setExpanded] = useState(false);
-  if (!sideMenuOpen && expanded) {
-    setExpanded(false);
-  }
+
+  useEffect(() => {
+    if (!sideMenuOpen) {
+      setExpanded(false);
+    }
+  }, [sideMenuOpen]);
 
   return (
     <div className="flex flex-col">
@@ -45,25 +54,33 @@ export function KboTeamWishlistNavSection({
         <CaretDown
           size={16}
           weight="bold"
-          className={`shrink-0 text-[var(--color-text-secondary)] transition-transform duration-200 ${
+          className={`shrink-0 text-[var(--color-text-secondary)] transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
             expanded ? "rotate-180" : ""
           }`}
           aria-hidden
         />
       </button>
 
-      {expanded ? (
+      <div
+        className={`${TEAM_LIST_PANEL_CLASS} ${
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
         <ul
           id="kbo-team-wishlist-list"
           role="region"
           aria-labelledby="kbo-team-wishlist-toggle"
-          className="ml-2 flex flex-col gap-0.5 border-l border-[var(--color-border)] pl-3 pr-1 pb-1"
+          aria-hidden={!expanded}
+          className={`${TEAM_LIST_INNER_CLASS} ${
+            expanded ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
         >
           {KBO_TEAM_WISHLIST_BOARDS.map(({ slug, label }) => (
             <li key={slug}>
               <Link
                 href={`/wishlist/${slug}`}
                 onClick={onNavigate}
+                tabIndex={expanded ? undefined : -1}
                 className="block rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium leading-snug text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-subtle)]"
               >
                 {label}
@@ -71,7 +88,7 @@ export function KboTeamWishlistNavSection({
             </li>
           ))}
         </ul>
-      ) : null}
+      </div>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 } from "react";
 
 import { AppSideMenu } from "@/components/common/AppSideMenu";
+import { BoardFabSpeedDialSubmenu } from "@/components/common/BoardFabSpeedDialSubmenu";
 import { BoardShareFabButton } from "@/components/common/ShareBoardLink";
 import {
   WishlistMyBoardScreen,
@@ -1322,8 +1323,9 @@ export default function PublicWishlistPage({
 
     return (
       <div className="pointer-events-auto relative z-[51] flex w-[42px] flex-col items-end">
-        {wishOwnerSpeedDialOpen && !embeddedDecorateMode ? (
-          <div className="absolute bottom-full right-0 mb-3 flex flex-col-reverse items-end gap-3">
+        <BoardFabSpeedDialSubmenu
+          open={wishOwnerSpeedDialOpen && !embeddedDecorateMode}
+        >
             <button
               type="button"
               onClick={() => {
@@ -1366,8 +1368,7 @@ export default function PublicWishlistPage({
                 <BookmarkSimple size={23} weight="bold" aria-hidden />
               )}
             </button>
-          </div>
-        ) : null}
+        </BoardFabSpeedDialSubmenu>
         {embeddedDecorateMode ? (
           <button
             type="button"
