@@ -43,9 +43,7 @@
       </div>
       <br/>
       <b>박서연</b>
-      <ul>
-        <li>프론트엔드</li>
-      </ul>
+      <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">프론트엔드</p>
     </td>
     <td align="center" width="200" style="vertical-align:bottom;">
       <div style="height:280px;display:flex;align-items:center;justify-content:center;">
@@ -53,9 +51,7 @@
       </div>
       <br/>
       <b>최연제</b>
-      <ul>
-        <li>백엔드</li>
-      </ul>
+      <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">백엔드<p>
     </td>
     <td align="center" width="200" style="vertical-align:bottom;">
       <div style="height:280px;display:flex;align-items:center;justify-content:center;">
@@ -63,9 +59,7 @@
       </div>
       <br/>
       <b>김민경</b>
-      <ul>
-        <li>프론트엔드</li>
-      </ul>
+      <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">프론트엔드</p>
     </td>
   </tr>
   <tr>
@@ -75,9 +69,7 @@
       </div>
       <br/>
       <b>김이</b>
-      <ul>
-        <li>백엔드 · 인프라</li>
-      </ul>
+      <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">백엔드 · 인프라<p>
     </td>
     <td align="center" width="200" style="vertical-align:bottom;">
       <div style="height:280px;display:flex;align-items:center;justify-content:center;">
@@ -85,9 +77,7 @@
       </div>
       <br/>
       <b>여이지</b>
-      <ul>
-        <li>프론트엔드</li>
-      </ul>
+      <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">프론트엔드</p>
     </td>
     <td align="center" width="200" style="vertical-align:bottom;">
       <div style="height:280px;display:flex;align-items:center;justify-content:center;">
@@ -95,9 +85,7 @@
       </div>
       <br/>
       <b>이다연</b>
-      <ul>
-        <li>프론트엔드</li>
-      </ul>
+      <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">프론트엔드</p>
     </td>
   </tr>
 </table>
