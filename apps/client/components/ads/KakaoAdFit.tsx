@@ -22,12 +22,11 @@ import {
   isKakaoAdFitCarouselEnabled,
   KAKAO_ADFIT_CAROUSEL_HEIGHT,
   KAKAO_ADFIT_CAROUSEL_WIDTH,
+  KAKAO_ADFIT_NO_AD_FALLBACK_MAX_WAIT_MS,
+  KAKAO_ADFIT_NO_AD_POLL_INTERVAL_MS,
   KAKAO_ADFIT_SDK_URL,
   KAKAO_ADFIT_UNIT_CAROUSEL,
 } from "@/lib/constants/kakao-adfit";
-
-const NO_AD_POLL_INTERVAL_MS = 80;
-const NO_AD_FALLBACK_MAX_WAIT_MS = 420;
 
 let sdkLoadRequested = false;
 
@@ -91,7 +90,10 @@ export function KakaoAdFitCarouselFace({
       setShowNoAdFallback(true);
     };
 
-    const timeoutId = window.setTimeout(showFallback, NO_AD_FALLBACK_MAX_WAIT_MS);
+    const timeoutId = window.setTimeout(
+      showFallback,
+      KAKAO_ADFIT_NO_AD_FALLBACK_MAX_WAIT_MS,
+    );
 
     const intervalId = window.setInterval(() => {
       if (done) return;
@@ -101,12 +103,12 @@ export function KakaoAdFitCarouselFace({
         window.clearInterval(intervalId);
         return;
       }
-      elapsed += NO_AD_POLL_INTERVAL_MS;
-      if (elapsed >= NO_AD_FALLBACK_MAX_WAIT_MS) {
+      elapsed += KAKAO_ADFIT_NO_AD_POLL_INTERVAL_MS;
+      if (elapsed >= KAKAO_ADFIT_NO_AD_FALLBACK_MAX_WAIT_MS) {
         showFallback();
         window.clearInterval(intervalId);
       }
-    }, NO_AD_POLL_INTERVAL_MS);
+    }, KAKAO_ADFIT_NO_AD_POLL_INTERVAL_MS);
 
     let observer: MutationObserver | null = null;
     if (typeof MutationObserver !== "undefined" && insRef.current) {

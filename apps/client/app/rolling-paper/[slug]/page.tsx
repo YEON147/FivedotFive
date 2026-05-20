@@ -56,6 +56,7 @@ import {
   updateRollingPaperComment,
   verifyRollingPaperGuestCommentPassword,
   type RollingPaperCommentRow,
+  type RollingPaperCommentsPayload,
   type RollingPaperDetailPayload,
 } from "@/features/rolling-paper/api";
 import {
@@ -90,6 +91,7 @@ import { getAssetImageUrl } from "@/lib/asset-url";
 import {
   buildCarouselSlidesWithRandomAd,
   findVisualIndexForContent,
+  findVisualIndexForRollingBoardSheetCount,
   getContentIndexFromVisual,
   getContentPagerLabel,
 } from "@/lib/ads/carousel-ad-slides";
@@ -848,9 +850,13 @@ export default function RollingPaperSlugPage({
 
   const [detail, setDetail] = useState<RollingPaperDetailPayload | null>(null);
   const [detailForbidden, setDetailForbidden] = useState(false);
-  const [slotComments, setSlotComments] = useState<
-    Partial<Record<number, RollingPaperCommentRow>>
+  /** 면(page)별 로컬 슬롯 0…5 — 전역 `slotComments` 덮어쓰기 방지(빠른 페이지 전환 레이스) */
+  const [commentsByPage, setCommentsByPage] = useState<
+    Partial<
+      Record<number, Partial<Record<number, RollingPaperCommentRow>>>
+    >
   >({});
+  const commentPageLoadInFlightRef = useRef(new Set<number>());
   /** 보드(면) 단위 페이지 — GET comments `page` 와 동일 (0부터) */
   const [visibleBoardPage, setVisibleBoardPage] = useState(0);
   const [commentsPaging, setCommentsPaging] = useState<{
@@ -1286,33 +1292,6 @@ export default function RollingPaperSlugPage({
     return ownerViewShareUrl?.trim() || null;
   }, [detail?.isOwner, ownerViewShareUrl]);
 
-  const loadCommentsPage = useCallback(
-    async (pageIdx: number) => {
-      if (!slug.trim()) return;
-      const commentsRes = await getRollingPaperComments(slug, {
-        rollingToken,
-        page: pageIdx,
-        size: ROLLING_POSTIT_SLOT_COUNT,
-      });
-      const payload = commentsRes.data;
-      const totalCount = payload.totalCount ?? 0;
-      const lastFull = rollingPaperLastPageFullFromPayload(payload);
-      setCommentsPaging({
-        totalPages: payload.totalPages,
-        lastPageFull: lastFull,
-        totalCount,
-      });
-      setSlotComments(
-        mapRollingCommentsToLocalSlots(
-          pageIdx,
-          payload.comments,
-          ROLLING_POSTIT_SLOT_COUNT,
-        ),
-      );
-    },
-    [slug, rollingToken],
-  );
-
   const contentBoardCount = useMemo(
     () =>
       rollingPaperBoardSheetCount({
@@ -1340,9 +1319,65 @@ export default function RollingPaperSlugPage({
 
   const totalVisualPages = carouselSlides.length;
 
+  const carouselSlidesRef = useRef(carouselSlides);
+  carouselSlidesRef.current = carouselSlides;
+
   const activeContentBoardIndex = useMemo(() => {
     return getContentIndexFromVisual(carouselSlides, visibleBoardPage) ?? 0;
   }, [carouselSlides, visibleBoardPage]);
+
+  const activeContentBoardIndexRef = useRef(activeContentBoardIndex);
+  activeContentBoardIndexRef.current = activeContentBoardIndex;
+
+  const slotComments = useMemo(
+    () => commentsByPage[activeContentBoardIndex] ?? {},
+    [commentsByPage, activeContentBoardIndex],
+  );
+
+  const loadCommentsPage = useCallback(
+    async (
+      pageIdx: number,
+      opts?: { force?: boolean },
+    ): Promise<RollingPaperCommentsPayload | null> => {
+      if (!slug.trim()) return null;
+      if (
+        !opts?.force &&
+        commentPageLoadInFlightRef.current.has(pageIdx)
+      ) {
+        return null;
+      }
+      commentPageLoadInFlightRef.current.add(pageIdx);
+      try {
+        const commentsRes = await getRollingPaperComments(slug, {
+          rollingToken,
+          page: pageIdx,
+          size: ROLLING_POSTIT_SLOT_COUNT,
+        });
+        const payload = commentsRes.data;
+        const totalCount = payload.totalCount ?? 0;
+        const lastFull = rollingPaperLastPageFullFromPayload(payload);
+        setCommentsByPage((prev) => ({
+          ...prev,
+          [pageIdx]: mapRollingCommentsToLocalSlots(
+            pageIdx,
+            payload.comments,
+            ROLLING_POSTIT_SLOT_COUNT,
+          ),
+        }));
+        if (pageIdx === activeContentBoardIndexRef.current) {
+          setCommentsPaging({
+            totalPages: payload.totalPages,
+            lastPageFull: lastFull,
+            totalCount,
+          });
+        }
+        return payload;
+      } finally {
+        commentPageLoadInFlightRef.current.delete(pageIdx);
+      }
+    },
+    [slug, rollingToken],
+  );
 
   const onAdVisualPage = useMemo(() => {
     return carouselSlides[visibleBoardPage]?.kind === "ad";
@@ -1368,6 +1403,8 @@ export default function RollingPaperSlugPage({
         setDetail(detailRes.data);
         if (!silent) {
           setLoading(false);
+          setCommentsByPage({});
+          commentPageLoadInFlightRef.current.clear();
           setVisibleBoardPage(0);
           await loadCommentsPage(0);
         }
@@ -1972,8 +2009,31 @@ export default function RollingPaperSlugPage({
           rememberRollingPaperGuestComment(slug, newId);
         }
       }
+      const wroteOnPage = activeContentBoardIndex;
       closeModal();
-      await loadCommentsPage(activeContentBoardIndex);
+      const payload = await loadCommentsPage(wroteOnPage, { force: true });
+      if (!payload) return;
+
+      const lastFull = rollingPaperLastPageFullFromPayload(payload);
+      const isLastSlotOnPage =
+        activeSlot === ROLLING_POSTIT_SLOT_COUNT - 1;
+      if (!lastFull || !isLastSlotOnPage) return;
+
+      const boardSheetCount = rollingPaperBoardSheetCount({
+        totalPages: payload.totalPages,
+        lastPageFull: lastFull,
+        totalCount: payload.totalCount ?? 0,
+      });
+      window.setTimeout(() => {
+        const slides = carouselSlidesRef.current;
+        const targetVisual = findVisualIndexForRollingBoardSheetCount(
+          slides,
+          boardSheetCount,
+        );
+        setVisibleBoardPage((prev) =>
+          prev === targetVisual ? prev : targetVisual,
+        );
+      }, 0);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "작성에 실패했습니다.";

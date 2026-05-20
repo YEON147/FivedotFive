@@ -103,6 +103,29 @@ export function findVisualIndexForContent(
   return idx >= 0 ? idx : contentIndex;
 }
 
+/**
+ * 위시보드 `computeCommentSheetCount` 결과 → 새 빈 댓글 면 visual 인덱스.
+ * (content 0=위시, 댓글 면 k → content k+1 이므로 contentIndex = commentSheetCount)
+ */
+export function findVisualIndexForCommentSheetCount(
+  slides: CarouselSlide[],
+  commentSheetCount: number,
+): number {
+  return findVisualIndexForContent(slides, commentSheetCount);
+}
+
+/**
+ * 롤링페이퍼 `rollingPaperBoardSheetCount` 결과 → 새 빈 보드 면 visual 인덱스.
+ * (contentIndex === API page, 광고 면은 content에 포함되지 않음)
+ */
+export function findVisualIndexForRollingBoardSheetCount(
+  slides: CarouselSlide[],
+  boardSheetCount: number,
+): number {
+  const contentIndex = Math.max(0, boardSheetCount - 1);
+  return findVisualIndexForContent(slides, contentIndex);
+}
+
 export function getContentPagerLabel(
   slides: CarouselSlide[],
   visualIndex: number,
