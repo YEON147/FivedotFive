@@ -1,24 +1,18 @@
 "use client";
 
-import { useCallback, useRef, type PointerEvent, type ReactElement } from "react";
+import { useCallback, useRef } from "react";
+import type { PointerEvent } from "react";
 
 import {
-  forwardTapThroughSwipeOverlay,
   isCarouselSwipeInteractiveTarget,
   readCarouselSwipeDelta,
   type CarouselSwipeStart,
 } from "@/lib/carousel-swipe";
 
-type CarouselAdSwipeOverlayProps = {
-  onNavigateByDelta: (delta: number) => void;
-  disabled?: boolean;
-};
-
-/** 카카오 광고 iframe이 포인터를 가로채도 좌우 스와이프·탭(폴백)이 동작하도록 투명 레이어 */
-export function CarouselAdSwipeOverlay({
-  onNavigateByDelta,
+export function useCarouselPointerSwipe(
+  onNavigateByDelta: (delta: number) => void,
   disabled = false,
-}: CarouselAdSwipeOverlayProps): ReactElement {
+) {
   const startRef = useRef<CarouselSwipeStart | null>(null);
 
   const onPointerDown = useCallback(
@@ -26,7 +20,6 @@ export function CarouselAdSwipeOverlay({
       if (disabled) return;
       if (!e.isPrimary) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      e.stopPropagation();
       const swipeAllowed = !isCarouselSwipeInteractiveTarget(e.target);
       startRef.current = { x: e.clientX, y: e.clientY, swipeAllowed };
       if (swipeAllowed) {
@@ -42,7 +35,6 @@ export function CarouselAdSwipeOverlay({
 
   const onPointerUp = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
-      e.stopPropagation();
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
@@ -52,13 +44,8 @@ export function CarouselAdSwipeOverlay({
       startRef.current = null;
       if (disabled || !start) return;
       if (!e.isPrimary) return;
-
       const delta = readCarouselSwipeDelta(start, e.clientX, e.clientY);
-      if (delta !== 0) {
-        onNavigateByDelta(delta);
-        return;
-      }
-      forwardTapThroughSwipeOverlay(e, start);
+      if (delta !== 0) onNavigateByDelta(delta);
     },
     [disabled, onNavigateByDelta],
   );
@@ -67,13 +54,5 @@ export function CarouselAdSwipeOverlay({
     startRef.current = null;
   }, []);
 
-  return (
-    <div
-      className="absolute inset-x-0 bottom-[4.5rem] top-[14%] z-[45] touch-none"
-      aria-hidden
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
-    />
-  );
+  return { onPointerDown, onPointerUp, onPointerCancel };
 }

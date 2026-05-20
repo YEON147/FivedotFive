@@ -133,7 +133,7 @@ export function KakaoAdFitCarouselFace({
 
   return (
     <div
-      className={`relative flex h-full min-h-0 w-full flex-col items-center justify-center px-2 ${className}`}
+      className={`pointer-events-none relative flex h-full min-h-0 w-full flex-col items-center justify-center px-2 ${className}`}
       aria-label={showNoAdFallback ? "야구 구단 응원" : "배너"}
     >
       <KakaoAdFitLoader />

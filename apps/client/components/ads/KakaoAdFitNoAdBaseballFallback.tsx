@@ -77,7 +77,7 @@ export function KakaoAdFitNoAdBaseballFallback({
     <button
       type="button"
       onClick={goRandomTeam}
-      className={`flex w-full max-w-[320px] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl px-3 py-4 transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF] ${className}`}
+      className={`pointer-events-auto flex w-full max-w-[320px] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl px-3 py-4 transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7B61FF] ${className}`}
       style={{
         width: KAKAO_ADFIT_CAROUSEL_WIDTH,
         height: KAKAO_ADFIT_CAROUSEL_HEIGHT,

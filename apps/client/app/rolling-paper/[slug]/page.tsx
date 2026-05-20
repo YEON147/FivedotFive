@@ -94,6 +94,7 @@ import {
   getContentPagerLabel,
 } from "@/lib/ads/carousel-ad-slides";
 import { isKakaoAdFitCarouselEnabled } from "@/lib/constants/kakao-adfit";
+import { useCarouselPointerSwipe } from "@/lib/use-carousel-pointer-swipe";
 import { RollingPaperBubbleLayer } from "@/components/rolling-paper/RollingPaperBubbleLayer";
 import { RollingPaperPngSaveFabButton } from "@/components/rolling-paper/RollingPaperPngSaveFabButton";
 import { CommentRevealCountdown } from "@/components/wishlist/CommentRevealCountdown";
@@ -1452,6 +1453,11 @@ export default function RollingPaperSlugPage({
     [goPrevBoard, goNextBoard],
   );
 
+  const rollingBoardSwipe = useCarouselPointerSwipe(
+    navigateBoardByDelta,
+    modalOpen || pngExportBusy || loading,
+  );
+
   const canComment = detail?.canComment === true;
 
   /**
@@ -2580,7 +2586,10 @@ export default function RollingPaperSlugPage({
                   />
                 ) : null}
 
-                <div className="absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden rounded-[18px]">
+                <div
+                  className="absolute inset-0 z-10 flex min-h-0 touch-none select-none flex-col overflow-hidden rounded-[18px]"
+                  {...rollingBoardSwipe}
+                >
                   <div
                     className={`${ROLLING_PAPER_BOARD_INNER} relative flex h-full min-h-0 flex-1 flex-col`}
                   >
