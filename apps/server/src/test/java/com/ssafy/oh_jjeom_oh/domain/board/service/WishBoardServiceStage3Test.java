@@ -288,4 +288,62 @@ class WishBoardServiceStage3Test {
             assertThat(result.getSaved()).isEmpty();
         }
     }
+
+    // ===================== deleteSavedBoard =====================
+
+    @Nested
+    @DisplayName("deleteSavedBoard()")
+    class DeleteSavedBoard {
+
+        @Test
+        @DisplayName("저장본 삭제 성공 - 저장한 본인")
+        void deleteSavedBoard_success() {
+            WishBoard savedCopy = WishBoard.builder()
+                    .user(owner).boardSlug("copy000001")
+                    .isSavedCopy(true).savedByUser(other).build();
+            given(wishBoardRepository.findByBoardSlug("copy000001")).willReturn(Optional.of(savedCopy));
+
+            wishBoardService.deleteSavedBoard(2L, "copy000001");
+
+            verify(wishItemRepository).deleteByBoard(savedCopy);
+            verify(boardAssetRepository).deleteByBoard(savedCopy);
+            verify(wishBoardRepository).delete(savedCopy);
+        }
+
+        @Test
+        @DisplayName("실패 - 원본 보드 slug")
+        void deleteSavedBoard_originalBoard() {
+            given(wishBoardRepository.findByBoardSlug("slug0000ab")).willReturn(Optional.of(board));
+
+            assertThatThrownBy(() -> wishBoardService.deleteSavedBoard(2L, "slug0000ab"))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.BOARD_SLUG_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("실패 - 다른 사용자가 저장한 복사본")
+        void deleteSavedBoard_notSaver() {
+            WishBoard savedCopy = WishBoard.builder()
+                    .user(owner).boardSlug("copy000001")
+                    .isSavedCopy(true).savedByUser(other).build();
+            given(wishBoardRepository.findByBoardSlug("copy000001")).willReturn(Optional.of(savedCopy));
+
+            assertThatThrownBy(() -> wishBoardService.deleteSavedBoard(1L, "copy000001"))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.BOARD_DELETE_FORBIDDEN));
+        }
+
+        @Test
+        @DisplayName("실패 - 존재하지 않는 slug")
+        void deleteSavedBoard_notFound() {
+            given(wishBoardRepository.findByBoardSlug("notexist12")).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> wishBoardService.deleteSavedBoard(2L, "notexist12"))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.BOARD_SLUG_NOT_FOUND));
+        }
+    }
 }

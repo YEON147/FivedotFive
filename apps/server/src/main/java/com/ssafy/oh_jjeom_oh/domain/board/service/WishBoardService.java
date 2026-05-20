@@ -238,6 +238,27 @@ public class WishBoardService {
         return WishBoardSavedListResponse.of(items);
     }
 
+    // DELETE /api/boards/saved/{slug} - 저장된 복사본 삭제 (저장한 본인만)
+    @Transactional
+    public void deleteSavedBoard(Long userId, String slug) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+
+        if (!Boolean.TRUE.equals(board.getIsSavedCopy())) {
+            throw new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND);
+        }
+
+        boolean isSaver = board.getSavedByUser() != null
+                && board.getSavedByUser().getId().equals(userId);
+        if (!isSaver) {
+            throw new CustomException(ErrorCode.BOARD_DELETE_FORBIDDEN);
+        }
+
+        wishItemRepository.deleteByBoard(board);
+        boardAssetRepository.deleteByBoard(board);
+        wishBoardRepository.delete(board);
+    }
+
     // PUT /api/admin/boards/{slug}/visibility - 관리자 보드 공개 여부 강제 변경
     @Transactional
     public void updateBoardVisibility(String slug, boolean isPublic) {
