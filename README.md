@@ -37,24 +37,30 @@
 
 <table align="center">
   <tr>
-    <td align="center" width="260">
-      <img src="./assets/member_01.png" alt="박서연" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
+    <td align="center" width="200" style="vertical-align:bottom;">
+      <div style="height:280px;display:flex;align-items:center;justify-content:center;">
+        <img src="./assets/member_01.png" alt="박서연" style="max-height:280px;width:auto;max-width:180px;display:block;" />
+      </div>
       <br/>
       <b>박서연</b>
       <ul>
         <li>프론트엔드</li>
       </ul>
     </td>
-    <td align="center" width="260">
-      <img src="./assets/member_02.jpg" alt="최연제" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
+    <td align="center" width="200" style="vertical-align:bottom;">
+      <div style="height:280px;display:flex;align-items:center;justify-content:center;">
+        <img src="./assets/member_02.jpg" alt="최연제" style="max-height:280px;width:auto;max-width:180px;display:block;" />
+      </div>
       <br/>
       <b>최연제</b>
       <ul>
         <li>백엔드</li>
       </ul>
     </td>
-    <td align="center" width="260">
-      <img src="./assets/member_03.png" alt="김민경" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
+    <td align="center" width="200" style="vertical-align:bottom;">
+      <div style="height:280px;display:flex;align-items:center;justify-content:center;">
+        <img src="./assets/member_03.png" alt="김민경" style="max-height:280px;width:auto;max-width:180px;display:block;" />
+      </div>
       <br/>
       <b>김민경</b>
       <ul>
@@ -63,24 +69,30 @@
     </td>
   </tr>
   <tr>
-    <td align="center" width="260">
-      <img src="./assets/member_04.png" alt="김이" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
+    <td align="center" width="200" style="vertical-align:bottom;">
+      <div style="height:280px;display:flex;align-items:center;justify-content:center;">
+        <img src="./assets/member_04.png" alt="김이" style="max-height:280px;width:auto;max-width:180px;display:block;" />
+      </div>
       <br/>
       <b>김이</b>
       <ul>
         <li>백엔드 · 인프라</li>
       </ul>
     </td>
-    <td align="center" width="260">
-      <img src="./assets/member_05.png" alt="여이지" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
+    <td align="center" width="200" style="vertical-align:bottom;">
+      <div style="height:280px;display:flex;align-items:center;justify-content:center;">
+        <img src="./assets/member_05.png" alt="여이지" style="max-height:280px;width:auto;max-width:180px;display:block;" />
+      </div>
       <br/>
       <b>여이지</b>
       <ul>
         <li>프론트엔드</li>
       </ul>
     </td>
-    <td align="center" width="260">
-      <img src="./assets/member_06.png" alt="이다연" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
+    <td align="center" width="200" style="vertical-align:bottom;">
+      <div style="height:280px;display:flex;align-items:center;justify-content:center;">
+        <img src="./assets/member_06.png" alt="이다연" style="max-height:280px;width:auto;max-width:180px;display:block;" />
+      </div>
       <br/>
       <b>이다연</b>
       <ul>
@@ -175,31 +187,35 @@
 
 ## 📲 기능 구성
 
-<p align="center"><em>← 좌우로 스크롤하여 화면을 확인하세요 →</em></p>
+<div align="center">
 
-<div align="center" style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100%;padding:8px 0 16px;border:1px solid #d0d7de;text-align:center;">
-  <div style="display:inline-flex;flex-wrap:nowrap;gap:20px;align-items:flex-start;justify-content:center;padding:12px 16px;margin:0 auto;">
-    <div style="flex:0 0 auto;text-align:center;">
-      <img src="./assets/homepage.png" alt="메인 랜딩" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
-      <br/><b>메인 랜딩</b>
-    </div>
-    <div style="flex:0 0 auto;text-align:center;">
-      <img src="./assets/wishlist.png" alt="위시보드" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
-      <br/><b>위시보드</b>
-    </div>
-    <div style="flex:0 0 auto;text-align:center;">
-      <img src="./assets/rolling-paper.png" alt="롤링페이퍼" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
-      <br/><b>롤링페이퍼</b>
-    </div>
-    <div style="flex:0 0 auto;text-align:center;">
-      <img src="./assets/ranking.png" alt="랭킹" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
-      <br/><b>랭킹</b>
-    </div>
-    <div style="flex:0 0 auto;text-align:center;">
-      <img src="./assets/mypage.png" alt="마이페이지" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
-      <br/><b>마이페이지</b>
-    </div>
-  </div>
+<table>
+  <tr>
+    <td align="center" width="20%"><b>메인 랜딩</b></td>
+    <td align="center" width="20%"><b>위시보드</b></td>
+    <td align="center" width="20%"><b>롤링페이퍼</b></td>
+    <td align="center" width="20%"><b>랭킹</b></td>
+    <td align="center" width="20%"><b>마이페이지</b></td>
+  </tr>
+  <tr>
+    <td align="center" style="vertical-align:top;padding:4px;">
+      <img src="./assets/homepage.png" alt="메인 랜딩" style="max-height:140px;max-width:100%;width:auto;height:auto;display:block;margin:0 auto;" />
+    </td>
+    <td align="center" style="vertical-align:top;padding:4px;">
+      <img src="./assets/wishlist.png" alt="위시보드" style="max-height:140px;max-width:100%;width:auto;height:auto;display:block;margin:0 auto;" />
+    </td>
+    <td align="center" style="vertical-align:top;padding:4px;">
+      <img src="./assets/rolling-paper.png" alt="롤링페이퍼" style="max-height:140px;max-width:100%;width:auto;height:auto;display:block;margin:0 auto;" />
+    </td>
+    <td align="center" style="vertical-align:top;padding:4px;">
+      <img src="./assets/ranking.png" alt="랭킹" style="max-height:140px;max-width:100%;width:auto;height:auto;display:block;margin:0 auto;" />
+    </td>
+    <td align="center" style="vertical-align:top;padding:4px;">
+      <img src="./assets/mypage.png" alt="마이페이지" style="max-height:140px;max-width:100%;width:auto;height:auto;display:block;margin:0 auto;" />
+    </td>
+  </tr>
+</table>
+
 </div>
 
 **주요 기능**
