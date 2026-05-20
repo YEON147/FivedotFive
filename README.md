@@ -1,5 +1,8 @@
 <div align="center">
-  <img src="./assets/og.png" alt="오쩜오 로고" width="120" />
+  <img src="./assets/og.png" alt="homepage" />
+</div>
+
+<div align="center">
   <h3>소중한 마음을 모으는 선물·응원 서비스, 오쩜오</h3>
   <h4>위시보드와 롤링페이퍼로 <b>생일·기념일 응원</b>을 나누는 웹 서비스입니다.</h4>
   <p><a href="https://fivedotfive.co.kr">https://fivedotfive.co.kr</a></p>
@@ -13,10 +16,6 @@
 - **기관** : 삼성 청년 SW · AI 아카데미 14기 (S14P31F205)
 
 <br/>
-
-<div align="center">
-  <img src="./assets/og.png" alt="homepage" />
-</div>
 
 ---
 
@@ -38,24 +37,24 @@
 
 <table align="center">
   <tr>
-    <td align="center">
-      <img src="./assets/member_01.png" width="240" height="280" alt="member_01" onerror="this.style.display='none'" />
+    <td align="center" width="260">
+      <img src="./assets/member_01.png" alt="박서연" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
       <br/>
       <b>박서연</b>
       <ul>
         <li>프론트엔드</li>
       </ul>
     </td>
-    <td align="center">
-      <img src="./assets/member_02.jpg" width="240" height="280" alt="member_02" onerror="this.style.display='none'" />
+    <td align="center" width="260">
+      <img src="./assets/member_02.jpg" alt="최연제" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
       <br/>
       <b>최연제</b>
       <ul>
         <li>백엔드</li>
       </ul>
     </td>
-    <td align="center">
-      <img src="./assets/member_03.jpg" width="240" height="280" alt="member_03" onerror="this.style.display='none'" />
+    <td align="center" width="260">
+      <img src="./assets/member_03.png" alt="김민경" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
       <br/>
       <b>김민경</b>
       <ul>
@@ -64,24 +63,24 @@
     </td>
   </tr>
   <tr>
-    <td align="center">
-      <img src="./assets/member_04.jpg" width="240" height="280" alt="member_04" onerror="this.style.display='none'" />
+    <td align="center" width="260">
+      <img src="./assets/member_04.png" alt="김이" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
       <br/>
       <b>김이</b>
       <ul>
         <li>백엔드 · 인프라</li>
       </ul>
     </td>
-    <td align="center">
-      <img src="./assets/member_05.jpg" width="240" height="280" alt="member_05" onerror="this.style.display='none'" />
+    <td align="center" width="260">
+      <img src="./assets/member_05.png" alt="여이지" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
       <br/>
       <b>여이지</b>
       <ul>
         <li>프론트엔드</li>
       </ul>
     </td>
-    <td align="center">
-      <img src="./assets/member_06.jpg" width="240" height="280" alt="member_06" onerror="this.style.display='none'" />
+    <td align="center" width="260">
+      <img src="./assets/member_06.png" alt="이다연" width="240" height="280" style="width:240px;height:280px;object-fit:cover;display:block;margin:0 auto;" />
       <br/>
       <b>이다연</b>
       <ul>
@@ -168,53 +167,39 @@
 
 ## 🛠️ 아키텍처
 
-```mermaid
-flowchart TB
-  subgraph Client
-    WEB[Next.js Client :3000]
-  end
-  subgraph EC2
-    CADDY[Caddy HTTPS]
-    API1[Spring Boot Blue :8081]
-    API2[Spring Boot Green :8082]
-    CADDY --> WEB
-    CADDY --> API1
-    CADDY -.-> API2
-  end
-  subgraph Data
-    PG[(PostgreSQL 16)]
-    RD[(Redis 7)]
-    S3[(AWS S3)]
-  end
-  API1 --> PG
-  API1 --> RD
-  API1 --> S3
-  API2 --> PG
-  API2 --> RD
-  API2 --> S3
-```
+![architecture](assets/architecture.png)
 
-> PNG 다이어그램은 `assets/architecture.png` 추가 시 상단에 배치할 수 있습니다.  
 > 상세 배포 구성은 [exec/01-porting-manual.md](./exec/01-porting-manual.md) 참고.
 
 ---
 
 ## 📲 기능 구성
 
-<div align="center">
+<p align="center"><em>← 좌우로 스크롤하여 화면을 확인하세요 →</em></p>
 
-|             메인 랜딩              |              위시보드              |
-| :--------------------------------: | :--------------------------------: |
-| ![homepage](./assets/homepage.png) | ![wishlist](./assets/wishlist.png) |
-
-|               롤링페이퍼               |               랭킹               |
-| :------------------------------------: | :------------------------------: |
-| ![rolling](./assets/rolling-paper.png) | ![ranking](./assets/ranking.png) |
-
-|           마이페이지           |
-| :----------------------------: |
-| ![mypage](./assets/mypage.png) |
-
+<div align="center" style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100%;padding:8px 0 16px;border:1px solid #d0d7de;text-align:center;">
+  <div style="display:inline-flex;flex-wrap:nowrap;gap:20px;align-items:flex-start;justify-content:center;padding:12px 16px;margin:0 auto;">
+    <div style="flex:0 0 auto;text-align:center;">
+      <img src="./assets/homepage.png" alt="메인 랜딩" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
+      <br/><b>메인 랜딩</b>
+    </div>
+    <div style="flex:0 0 auto;text-align:center;">
+      <img src="./assets/wishlist.png" alt="위시보드" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
+      <br/><b>위시보드</b>
+    </div>
+    <div style="flex:0 0 auto;text-align:center;">
+      <img src="./assets/rolling-paper.png" alt="롤링페이퍼" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
+      <br/><b>롤링페이퍼</b>
+    </div>
+    <div style="flex:0 0 auto;text-align:center;">
+      <img src="./assets/ranking.png" alt="랭킹" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
+      <br/><b>랭킹</b>
+    </div>
+    <div style="flex:0 0 auto;text-align:center;">
+      <img src="./assets/mypage.png" alt="마이페이지" style="max-width:280px;max-height:220px;width:auto;height:auto;display:block;margin:0 auto;" />
+      <br/><b>마이페이지</b>
+    </div>
+  </div>
 </div>
 
 **주요 기능**
@@ -305,13 +290,12 @@ exec/
 
 ## 📦 프로젝트 산출물
 
-| 산출물                     | 경로                                                     |
-| -------------------------- | -------------------------------------------------------- |
-| 포팅 매뉴얼                | [exec/01-porting-manual.md](./exec/01-porting-manual.md) |
-| 테스트·시연 시나리오       | [exec/02-demo-scenario.md](./exec/02-demo-scenario.md)   |
-| DB schema-only             | [exec/schema.sql](./exec/schema.sql)                     |
-| 시스템 아키텍처 다이어그램 | ![architecture](assets/architecture.png)                 |
-| ERD                        | ![ERD](assets/erd.png)                                   |
+| 산출물               | 경로                                                     |
+| -------------------- | -------------------------------------------------------- |
+| 포팅 매뉴얼          | [exec/01-porting-manual.md](./exec/01-porting-manual.md) |
+| 테스트·시연 시나리오 | [exec/02-demo-scenario.md](./exec/02-demo-scenario.md)   |
+| DB schema-only       | [exec/schema.sql](./exec/schema.sql)                     |
+| ERD                  | ![ERD](assets/erd.png)                                   |
 
 ---
 
