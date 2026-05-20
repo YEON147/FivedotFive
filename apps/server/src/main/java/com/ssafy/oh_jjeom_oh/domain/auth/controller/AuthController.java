@@ -188,19 +188,19 @@ public class AuthController {
 
     @PostMapping("/password/reset/otp/request")
     public ResponseEntity<?> requestOtp(@RequestBody Map<String, String> request) {
-        authService.sendResetOtp(request.get("email"));
+        authService.sendResetOtp(request.get("username"));
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.OTP_SENT));
     }
 
     @PostMapping("/password/reset/otp/verify")
     public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
-        authService.verifyOtp(request.get("email"), request.get("otp"));
+        authService.verifyOtp(request.get("username"), request.get("otp"));
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.OTP_VERIFIED));
     }
 
     @PostMapping("/password/reset/confirm")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
-        authService.resetPassword(request.get("email"), request.get("newPassword"));
+        authService.resetPassword(request.get("username"), request.get("newPassword"));
         return ResponseEntity.ok(ApiResponse.success(SuccessMessage.PASSWORD_RESET_SUCCESS));
     }
 }

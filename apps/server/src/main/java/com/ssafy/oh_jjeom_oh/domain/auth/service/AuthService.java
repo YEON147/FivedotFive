@@ -130,22 +130,26 @@ public class AuthService {
                 .build();
     }
 
-    public void sendResetOtp(String email) {
-        if (!userRepository.existsByEmail(email)) {
+    public void sendResetOtp(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        String email = user.getEmail();
+        if (email == null || email.isBlank()) {
             throw new CustomException(ErrorCode.EMAIL_NOT_FOUND);
         }
 
         String otp = String.valueOf((int)(Math.random() * 899999) + 100000);
 
-        redisTemplate.opsForValue().set("OTP:" + email, otp, 300, TimeUnit.SECONDS);
+        redisTemplate.opsForValue().set("OTP:" + username, otp, 300, TimeUnit.SECONDS);
 
         String title = "[오쩜오] 비밀번호 재설정 인증번호입니다.";
         String content = "인증번호는 [" + otp + "] 입니다. 5분 이내에 입력해주세요.";
         emailService.sendEmail(email, title, content);
     }
 
-    public void verifyOtp(String email, String otp) {
-        String savedOtp = redisTemplate.opsForValue().get("OTP:" + email);
+    public void verifyOtp(String username, String otp) {
+        String savedOtp = redisTemplate.opsForValue().get("OTP:" + username);
 
         if (savedOtp == null) {
             throw new CustomException(ErrorCode.OTP_EXPIRED);
@@ -154,22 +158,22 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_OTP);
         }
 
-        redisTemplate.opsForValue().set("VERIFIED:" + email, "true", 600, TimeUnit.SECONDS);
-        redisTemplate.delete("OTP:" + email);
+        redisTemplate.opsForValue().set("VERIFIED:" + username, "true", 600, TimeUnit.SECONDS);
+        redisTemplate.delete("OTP:" + username);
     }
 
     @Transactional
-    public void resetPassword(String email, String newPassword) {
-        String isVerified = redisTemplate.opsForValue().get("VERIFIED:" + email);
+    public void resetPassword(String username, String newPassword) {
+        String isVerified = redisTemplate.opsForValue().get("VERIFIED:" + username);
         if (isVerified == null) {
             throw new CustomException(ErrorCode.NOT_VERIFIED_EMAIL);
         }
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         user.updatePassword(passwordEncoder.encode(newPassword));
 
-        redisTemplate.delete("VERIFIED:" + email);
+        redisTemplate.delete("VERIFIED:" + username);
     }
 }
