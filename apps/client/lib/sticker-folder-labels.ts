@@ -9,6 +9,7 @@ const STICKER_FOLDER_LABELS: Record<string, string> = {
   dessert: "디저트",
   redpanda: "랫서판다",
   capybara: "카피바라",
+  cheerup: "응원",
 };
 
 /** 탭에서 숨길 스티커 폴더 id */

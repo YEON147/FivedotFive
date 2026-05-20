@@ -1067,17 +1067,10 @@ export default function PublicWishlistPage({
       const start = carouselSwipeStartRef.current;
       carouselSwipeStartRef.current = null;
       if (editorCarouselLocked) return;
-      if (selectedSlot !== null || !start?.swipeAllowed) return;
+      if (selectedSlot !== null || !start) return;
       if (!e.isPrimary) return;
-      const dx = e.clientX - start.x;
-      const dy = e.clientY - start.y;
-      if (Math.abs(dx) < CAROUSEL_SWIPE_MIN_PX) return;
-      if (Math.abs(dx) < Math.abs(dy) * CAROUSEL_SWIPE_HORIZONTAL_RATIO) return;
-      if (dx < 0) {
-        navigateByDelta(1);
-      } else {
-        navigateByDelta(-1);
-      }
+      const delta = readCarouselSwipeDelta(start, e.clientX, e.clientY);
+      if (delta !== 0) navigateByDelta(delta);
     },
     [editorCarouselLocked, navigateByDelta, selectedSlot],
   );
@@ -1265,8 +1258,19 @@ export default function PublicWishlistPage({
   const hideWishCarouselPagination =
     embeddedDecorateMode && isViewingOwnBoard && onWishVisualPage;
 
+  /** JWT + 내 공개 슬러그 — 타인 보드·비로그인에는 저장 UI/API 없음 */
+  const canSaveOwnWishBoard = useMemo(
+    () =>
+      visitorMenuLoggedIn &&
+      Boolean(getAccessToken()?.trim()) &&
+      isViewingOwnBoard &&
+      !isViewingSavedWishBoard,
+    [visitorMenuLoggedIn, isViewingOwnBoard, isViewingSavedWishBoard],
+  );
+
   const saveWishBoardToMyBoard = useCallback(async () => {
     if (!slug.trim()) return;
+    if (!canSaveOwnWishBoard) return;
     if (!getAccessToken()?.trim()) {
       setGuestAuthModalOpen(true);
       return;
@@ -1289,14 +1293,12 @@ export default function PublicWishlistPage({
     } finally {
       setWishSaveToBoardBusy(false);
     }
-  }, [slug, router]);
+  }, [slug, router, canSaveOwnWishBoard]);
 
-  const showWishVisitorSaveFab = useMemo(
-    () =>
-      !isViewingOwnBoard &&
-      !isViewingSavedWishBoard &&
-      boardRevealMeta !== null,
-    [isViewingOwnBoard, isViewingSavedWishBoard, boardRevealMeta],
+  /** 댓글·광고 면·꾸미기 중 — 첫 슬라이드 FAB에 저장이 없을 때 사이드 메뉴로 제공 */
+  const showWishSaveInSideMenu = useMemo(
+    () => canSaveOwnWishBoard && (!onWishVisualPage || embeddedDecorateMode),
+    [canSaveOwnWishBoard, onWishVisualPage, embeddedDecorateMode],
   );
 
   const exportWishBoardPng = useCallback(async () => {
@@ -1349,10 +1351,9 @@ export default function PublicWishlistPage({
     );
   }, [isViewingSavedWishBoard, wishPngExportBusy, exportWishBoardPng]);
 
-  /** 소유자·첫 슬라이드: 꾸미기·공유·내 보드에 저장 스피드 다이얼 */
+  /** 소유자·첫 슬라이드: 꾸미기·공유·복사본 저장 스피드 다이얼 (로그인·본인 보드만) */
   const wishOwnerFabToolbar = useMemo(() => {
-    if (isViewingSavedWishBoard) return null;
-    if (!isViewingOwnBoard || !onWishVisualPage) return null;
+    if (!canSaveOwnWishBoard || !onWishVisualPage) return null;
     const closeDial = () => setWishOwnerSpeedDialOpen(false);
 
     return (
@@ -1384,24 +1385,26 @@ export default function PublicWishlistPage({
               ariaLabel="위시리스트 공유"
               className="bg-white text-[#7B61FF] ring-1 ring-black/[0.06]"
             />
-            <button
-              type="button"
-              disabled={wishSaveToBoardBusy}
-              onClick={() => {
-                closeDial();
-                void saveWishBoardToMyBoard();
-              }}
-              className={WISH_SAVE_FAB_SUB_CLASS}
-              aria-label={
-                wishSaveToBoardBusy ? "내 보드에 저장 중" : "내 보드에 위시리스트 저장"
-              }
-            >
-              {wishSaveToBoardBusy ? (
-                <CircleNotch className="animate-spin" size={23} weight="bold" aria-hidden />
-              ) : (
-                <BookmarkSimple size={23} weight="bold" aria-hidden />
-              )}
-            </button>
+            {!embeddedDecorateMode ? (
+              <button
+                type="button"
+                disabled={wishSaveToBoardBusy}
+                onClick={() => {
+                  closeDial();
+                  void saveWishBoardToMyBoard();
+                }}
+                className={WISH_SAVE_FAB_SUB_CLASS}
+                aria-label={
+                  wishSaveToBoardBusy ? "저장 중" : "위시리스트 복사본 저장"
+                }
+              >
+                {wishSaveToBoardBusy ? (
+                  <CircleNotch className="animate-spin" size={23} weight="bold" aria-hidden />
+                ) : (
+                  <BookmarkSimple size={23} weight="bold" aria-hidden />
+                )}
+              </button>
+            ) : null}
         </BoardFabSpeedDialSubmenu>
         {embeddedDecorateMode ? (
           <button
@@ -1439,37 +1442,13 @@ export default function PublicWishlistPage({
       </div>
     );
   }, [
-    isViewingOwnBoard,
-    isViewingSavedWishBoard,
+    canSaveOwnWishBoard,
     onWishVisualPage,
     embeddedDecorateMode,
     wishOwnerSpeedDialOpen,
     wishSaveToBoardBusy,
     saveWishBoardToMyBoard,
   ]);
-
-  const wishVisitorSaveFab = useMemo(() => {
-    if (!showWishVisitorSaveFab) return null;
-    return (
-      <div className="pointer-events-auto relative z-[51] flex w-[42px] flex-col items-end">
-        <button
-          type="button"
-          disabled={wishSaveToBoardBusy}
-          onClick={() => void saveWishBoardToMyBoard()}
-          className="relative flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#7B61FF] text-white shadow-[0_6px_20px_rgba(123,97,255,0.45)] ring-0 transition active:scale-[0.96] touch-manipulation disabled:pointer-events-none disabled:opacity-70"
-          aria-label={
-            wishSaveToBoardBusy ? "내 보드에 저장 중" : "내 보드에 위시리스트 저장"
-          }
-        >
-          {wishSaveToBoardBusy ? (
-            <CircleNotch className="animate-spin" size={23} weight="bold" aria-hidden />
-          ) : (
-            <BookmarkSimple size={23} weight="bold" aria-hidden />
-          )}
-        </button>
-      </div>
-    );
-  }, [showWishVisitorSaveFab, wishSaveToBoardBusy, saveWishBoardToMyBoard]);
 
   return (
     <main className={PUBLIC_BOARD_PAGE_MAIN_CLASS}>
@@ -1514,7 +1493,7 @@ export default function PublicWishlistPage({
 
                 {/** 가로 슬라이드만 여기서 — 높이·좌표는 보드 박스 전체(320×680 비율) = 내 위시와 동일 */}
                 <div
-                  className="absolute inset-0 z-10 select-none overflow-hidden rounded-[18px] [touch-action:pan-x_pan-y]"
+                  className="absolute inset-0 z-10 touch-none select-none overflow-hidden rounded-[18px]"
                   onPointerDown={onCarouselPointerDown}
                   onPointerUp={onCarouselPointerUp}
                   onPointerCancel={onCarouselPointerCancel}
@@ -1690,10 +1669,10 @@ export default function PublicWishlistPage({
                         </div>
                       </div>
                     ) : null}
-                    {wishOwnerFabToolbar || wishVisitorSaveFab || wishSavedCopyPngFab ? (
+                    {wishOwnerFabToolbar || wishSavedCopyPngFab ? (
                       <div className="pointer-events-none absolute bottom-0 right-0 z-[51] pr-[4%]">
                         <div className="pointer-events-auto relative min-w-[42px] shrink-0 overflow-visible">
-                          {wishOwnerFabToolbar ?? wishVisitorSaveFab ?? wishSavedCopyPngFab}
+                          {wishOwnerFabToolbar ?? wishSavedCopyPngFab}
                         </div>
                       </div>
                     ) : null}
@@ -1761,7 +1740,7 @@ export default function PublicWishlistPage({
           onLogout={handleVisitorLogout}
           hideMyWishlistShortcut={isViewingOwnBoard}
           wishlistPublicSaveAction={
-            showWishVisitorSaveFab && !isViewingSavedWishBoard
+            showWishSaveInSideMenu
               ? {
                   busy: wishSaveToBoardBusy,
                   onSave: () => void saveWishBoardToMyBoard(),

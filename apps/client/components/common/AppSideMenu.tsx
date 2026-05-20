@@ -37,7 +37,7 @@ type AppSideMenuProps = {
   onLogout: () => void;
   /** 내 위시 꾸미기(`/wishlist`) 또는 내 공개 보드(`/wishlist/{내슬러그}`)처럼 단축 링크가 중복일 때 */
   hideMyWishlistShortcut?: boolean;
-  /** 타인 공개 위시 방문 시 — 「이 위시리스트 내 보드에 저장」 */
+  /** 내 위시 보드(로그인·본인) — 댓글/꾸미기 면 등 FAB에 저장이 없을 때 */
   wishlistPublicSaveAction?: {
     busy: boolean;
     onSave: () => void;
@@ -150,7 +150,7 @@ export function AppSideMenu({
                   )
                 }
               >
-                이 위시리스트 내 보드에 저장
+                위시리스트 복사본 저장
               </SideMenuButtonRow>
             ) : null}
             <SideMenuButtonRow
