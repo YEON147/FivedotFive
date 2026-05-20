@@ -13,6 +13,7 @@ function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextParam = searchParams.get("next");
+  const resetNotice = searchParams.get("reset");
 
   const {
     values,
@@ -24,6 +25,11 @@ function LoginPageInner() {
     onChange,
     onSubmit,
   } = useLoginForm(nextParam);
+
+  const bannerMessage = resetNotice?.trim() || submitMessage;
+  const bannerSuccess = resetNotice?.trim()
+    ? true
+    : submitSuccess;
 
   useEffect(() => {
     stashLoginReturnFromReferrer();
@@ -52,8 +58,8 @@ function LoginPageInner() {
           errors={errors}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}
-          submitMessage={submitMessage}
-          submitSuccess={submitSuccess}
+          submitMessage={bannerMessage}
+          submitSuccess={bannerSuccess}
           onChange={onChange}
           onSubmit={onSubmit}
           onKakaoLogin={handleKakaoLogin}
