@@ -84,6 +84,7 @@ import {
 import { getAssetImageUrl } from "@/lib/asset-url";
 import {
   buildCarouselSlidesWithRandomAd,
+  findVisualIndexForCommentSheetCount,
   getContentPagerLabel,
   type CarouselSlide,
 } from "@/lib/ads/carousel-ad-slides";
@@ -534,6 +535,9 @@ export default function PublicWishlistPage({
   }, [wishContentPageCount, slug]);
 
   const totalVisualPages = carouselSlides.length;
+
+  const carouselSlidesRef = useRef(carouselSlides);
+  carouselSlidesRef.current = carouselSlides;
 
   const onWishVisualPage = useMemo(() => {
     const slide = carouselSlides[currentVisualPage];
@@ -1200,10 +1204,13 @@ export default function PublicWishlistPage({
       return;
     }
     const sheetCount = safeCommentSheetCountFromPayload(payload);
-    const nextVisualCap = 1 + sheetCount;
-    const targetVisual = sheetCount;
     window.setTimeout(() => {
-      navigateTo(targetVisual, nextVisualCap);
+      const slides = carouselSlidesRef.current;
+      const targetVisual = findVisualIndexForCommentSheetCount(
+        slides,
+        sheetCount,
+      );
+      navigateTo(targetVisual, slides.length);
     }, 0);
   };
 
