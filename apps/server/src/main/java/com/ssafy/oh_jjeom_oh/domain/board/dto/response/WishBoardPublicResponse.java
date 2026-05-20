@@ -1,5 +1,6 @@
 package com.ssafy.oh_jjeom_oh.domain.board.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 
 import java.time.LocalDate;
@@ -20,9 +21,16 @@ public class WishBoardPublicResponse {
     private final List<WishItemResponse> items;
     private final List<BoardAssetResponse> assets;
 
+    @JsonProperty("isOwner")
+    private final boolean isOwner;
+
+    @JsonProperty("isSavedCopy")
+    private final boolean isSavedCopy;
+
     private WishBoardPublicResponse(String boardSlug, String title, String username, String nickname, String teamTag,
                                      LocalDate targetDate, LocalDateTime createdAt,
-                                     List<WishItemResponse> items, List<BoardAssetResponse> assets) {
+                                     List<WishItemResponse> items, List<BoardAssetResponse> assets,
+                                     boolean isOwner, boolean isSavedCopy) {
         this.boardSlug = boardSlug;
         this.title = title;
         this.username = username;
@@ -32,12 +40,15 @@ public class WishBoardPublicResponse {
         this.createdAt = createdAt;
         this.items = items;
         this.assets = assets;
+        this.isOwner = isOwner;
+        this.isSavedCopy = isSavedCopy;
     }
 
     public static WishBoardPublicResponse of(String boardSlug, String title, String username, String nickname,
                                               String teamTag, LocalDate targetDate, LocalDateTime createdAt,
-                                              List<WishItemResponse> items, List<BoardAssetResponse> assets) {
+                                              List<WishItemResponse> items, List<BoardAssetResponse> assets,
+                                              boolean isOwner, boolean isSavedCopy) {
         return new WishBoardPublicResponse(boardSlug, title, username, nickname, teamTag,
-                targetDate, createdAt, items, assets);
+                targetDate, createdAt, items, assets, isOwner, isSavedCopy);
     }
 }

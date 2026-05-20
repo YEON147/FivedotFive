@@ -93,14 +93,16 @@ class WishItemServiceTest {
     }
 
     @Test
-    @DisplayName("위시 아이템 슬롯 전체 조회 실패 - 다른 사용자 보드")
+    @DisplayName("위시 아이템 슬롯 전체 조회 실패 - 비공개 타인 보드")
     void getItems_forbidden() {
-        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(board));
+        WishBoard privateBoard = WishBoard.builder()
+                .user(owner).boardSlug(SLUG).isPublic(false).build();
+        given(wishBoardRepository.findByBoardSlug(SLUG)).willReturn(Optional.of(privateBoard));
 
         assertThatThrownBy(() -> wishItemService.getItems(SLUG, 2L))
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.BOARD_FORBIDDEN));
+                        .isEqualTo(ErrorCode.BOARD_PRIVATE));
     }
 
     // ===================== updateItem =====================

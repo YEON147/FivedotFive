@@ -45,12 +45,14 @@ class MeServiceTest {
 
         board = WishBoard.builder()
                 .user(user).boardSlug("board-slug").title("위시보드")
-                .isPublic(true).targetDate(LocalDate.of(2099, 12, 31)).build();
+                .isPublic(true).isCommentPublic(true)
+                .targetDate(LocalDate.of(2099, 12, 31)).build();
         ReflectionTestUtils.setField(board, "createdAt", LocalDateTime.of(2026, 1, 1, 0, 0));
 
         paper = RollingPaper.builder()
                 .user(user).slug("paper-slug").title("롤링페이퍼")
                 .recipientName("친구").targetDate(LocalDate.of(2099, 12, 31))
+                .isCommentPublic(false)
                 .commentToken("ct").viewToken("vt").build();
         ReflectionTestUtils.setField(paper, "createdAt", LocalDateTime.of(2026, 3, 1, 0, 0));
     }
@@ -70,9 +72,11 @@ class MeServiceTest {
         assertThat(result.get(0).getType()).isEqualTo("ROLLING_PAPER");
         assertThat(result.get(0).getSlug()).isEqualTo("paper-slug");
         assertThat(result.get(0).getRecipientName()).isEqualTo("친구");
+        assertThat(result.get(0).getIsCommentPublic()).isFalse();
         assertThat(result.get(1).getType()).isEqualTo("WISH_BOARD");
         assertThat(result.get(1).getSlug()).isEqualTo("board-slug");
         assertThat(result.get(1).getIsPublic()).isTrue();
+        assertThat(result.get(1).getIsCommentPublic()).isTrue();
     }
 
     @Test
@@ -99,5 +103,6 @@ class MeServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getType()).isEqualTo("WISH_BOARD");
         assertThat(result.get(0).getRecipientName()).isNull();
+        assertThat(result.get(0).getIsCommentPublic()).isTrue();
     }
 }
