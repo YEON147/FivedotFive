@@ -19,15 +19,18 @@ public class BoardSummaryResponse {
     private final LocalDate targetDate;
     private final LocalDateTime createdAt;
 
-    // WISHBOARD 전용
+    /** WISH_BOARD: 링크로 타인에게 보드 공개 여부 */
     private final Boolean isPublic;
 
-    // ROLLINGPAPER 전용
+    /** WISH_BOARD·ROLLING_PAPER: 기준일 전 타인 댓글 즉시 공개 여부 */
+    private final Boolean isCommentPublic;
+
+    /** ROLLING_PAPER 전용 */
     private final String recipientName;
     private final String imageKey;
 
     private BoardSummaryResponse(String type, String slug, String title, LocalDate targetDate,
-                                  LocalDateTime createdAt, Boolean isPublic,
+                                  LocalDateTime createdAt, Boolean isPublic, Boolean isCommentPublic,
                                   String recipientName, String imageKey) {
         this.type = type;
         this.slug = slug;
@@ -35,6 +38,7 @@ public class BoardSummaryResponse {
         this.targetDate = targetDate;
         this.createdAt = createdAt;
         this.isPublic = isPublic;
+        this.isCommentPublic = isCommentPublic;
         this.recipientName = recipientName;
         this.imageKey = imageKey;
     }
@@ -47,7 +51,9 @@ public class BoardSummaryResponse {
                 board.getTargetDate(),
                 board.getCreatedAt(),
                 board.getIsPublic(),
-                null, null
+                board.getIsCommentPublic(),
+                null,
+                null
         );
     }
 
@@ -59,6 +65,7 @@ public class BoardSummaryResponse {
                 paper.getTargetDate(),
                 paper.getCreatedAt(),
                 null,
+                paper.getIsCommentPublic(),
                 paper.getRecipientName(),
                 paper.getImageKey()
         );

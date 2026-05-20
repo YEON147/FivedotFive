@@ -13,6 +13,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItem;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
+import com.ssafy.oh_jjeom_oh.domain.board.support.WishBoardAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +37,7 @@ public class WishItemService {
 
     // GET /api/boards/{slug}/items - 슬롯 전체 조회
     public WishItemListResponse getItems(String slug, Long userId) {
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForView(slug, userId);
         return WishItemListResponse.of(buildItemResponses(board));
     }
 
@@ -45,7 +46,7 @@ public class WishItemService {
     public void updateItem(String slug, Long userId, int slotIndex, WishItemUpdateRequest request) {
         validateSlotIndex(slotIndex);
 
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForEdit(slug, userId);
 
         // WishItem upsert
         Optional<WishItem> existing = wishItemRepository.findByBoardAndSlotIndex(board, slotIndex);
@@ -74,7 +75,7 @@ public class WishItemService {
     public void clearItem(String slug, Long userId, int slotIndex) {
         validateSlotIndex(slotIndex);
 
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForEdit(slug, userId);
 
         WishItem item = wishItemRepository.findByBoardAndSlotIndex(board, slotIndex)
                 .orElseThrow(() -> new CustomException(ErrorCode.SLOT_NOT_FOUND));
@@ -103,12 +104,17 @@ public class WishItemService {
 
     // ===== private helpers =====
 
-    private WishBoard getBoard(String slug, Long userId) {
+    private WishBoard getBoardForView(String slug, Long userId) {
         WishBoard board = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
-        if (!board.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.BOARD_FORBIDDEN);
-        }
+        WishBoardAccess.requireView(board, userId);
+        return board;
+    }
+
+    private WishBoard getBoardForEdit(String slug, Long userId) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+        WishBoardAccess.requireEdit(board, userId);
         return board;
     }
 

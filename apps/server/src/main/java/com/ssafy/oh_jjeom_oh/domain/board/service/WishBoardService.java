@@ -22,6 +22,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishItem;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishItemRepository;
+import com.ssafy.oh_jjeom_oh.domain.board.support.WishBoardAccess;
 import com.ssafy.oh_jjeom_oh.domain.rollingpaper.repository.RollingPaperRepository;
 import com.ssafy.oh_jjeom_oh.domain.user.entity.User;
 import com.ssafy.oh_jjeom_oh.domain.user.repository.UserRepository;
@@ -124,16 +125,14 @@ public class WishBoardService {
                 .collect(Collectors.toList());
     }
 
-    // GET /api/boards/{slug} - slug로 위시보드 조회 (공개 여부 체크)
-    public WishBoardPublicResponse getBoardBySlug(String slug) {
+    // GET /api/boards/{slug} - slug로 위시보드 조회 (공개·소유자·저장본 savedByUser)
+    public WishBoardPublicResponse getBoardBySlug(Long userId, String slug) {
         WishBoard board = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
 
-        if (!board.getIsPublic()) {
-            throw new CustomException(ErrorCode.BOARD_PRIVATE);
-        }
+        WishBoardAccess.requireView(board, userId);
 
-        return buildWishBoardPublicResponse(board);
+        return buildWishBoardPublicResponse(board, userId);
     }
 
     // PATCH /api/boards/{slug} - 위시보드 수정 (소유자만)
@@ -142,9 +141,7 @@ public class WishBoardService {
         WishBoard board = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
 
-        if (!board.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.BOARD_FORBIDDEN);
-        }
+        WishBoardAccess.requireEdit(board, userId);
 
         if (request.title() != null) {
             board.updateTitle(request.title().isBlank() ? null : request.title());
@@ -166,9 +163,7 @@ public class WishBoardService {
         WishBoard board = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
 
-        if (!board.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.BOARD_DELETE_FORBIDDEN);
-        }
+        WishBoardAccess.requireEdit(board, userId);
 
         // wish_comments.wish_list_id FK가 ON DELETE SET NULL이므로 댓글을 직접 삭제하지 않음 (랭킹 집계 보존)
         wishItemRepository.deleteByBoard(board);
@@ -243,6 +238,27 @@ public class WishBoardService {
         return WishBoardSavedListResponse.of(items);
     }
 
+    // DELETE /api/boards/saved/{slug} - 저장된 복사본 삭제 (저장한 본인만)
+    @Transactional
+    public void deleteSavedBoard(Long userId, String slug) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+
+        if (!Boolean.TRUE.equals(board.getIsSavedCopy())) {
+            throw new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND);
+        }
+
+        boolean isSaver = board.getSavedByUser() != null
+                && board.getSavedByUser().getId().equals(userId);
+        if (!isSaver) {
+            throw new CustomException(ErrorCode.BOARD_DELETE_FORBIDDEN);
+        }
+
+        wishItemRepository.deleteByBoard(board);
+        boardAssetRepository.deleteByBoard(board);
+        wishBoardRepository.delete(board);
+    }
+
     // PUT /api/admin/boards/{slug}/visibility - 관리자 보드 공개 여부 강제 변경
     @Transactional
     public void updateBoardVisibility(String slug, boolean isPublic) {
@@ -253,7 +269,7 @@ public class WishBoardService {
 
     // ===== private helpers =====
 
-    private WishBoardPublicResponse buildWishBoardPublicResponse(WishBoard board) {
+    private WishBoardPublicResponse buildWishBoardPublicResponse(WishBoard board, Long userId) {
         List<WishItemResponse> itemResponses = buildItemResponses(board);
         List<BoardAssetResponse> assetResponses = buildAssetResponses(board);
         return WishBoardPublicResponse.of(
@@ -265,7 +281,9 @@ public class WishBoardService {
                 board.getTargetDate(),
                 board.getCreatedAt(),
                 itemResponses,
-                assetResponses
+                assetResponses,
+                WishBoardAccess.isOwnerForDetailResponse(board, userId),
+                Boolean.TRUE.equals(board.getIsSavedCopy())
         );
     }
 

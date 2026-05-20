@@ -11,6 +11,7 @@ import com.ssafy.oh_jjeom_oh.domain.board.dto.response.StickerListResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.dto.response.StickerResponse;
 import com.ssafy.oh_jjeom_oh.domain.board.entity.WishBoard;
 import com.ssafy.oh_jjeom_oh.domain.board.repository.WishBoardRepository;
+import com.ssafy.oh_jjeom_oh.domain.board.support.WishBoardAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +35,7 @@ public class BoardAssetService {
     // ===================== 배경 =====================
 
     public BackgroundResponse getBackground(String slug, Long userId) {
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForView(slug, userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.BACKGROUND);
         if (assets.isEmpty()) return BackgroundResponse.empty();
         BoardAsset asset = assets.get(0);
@@ -43,7 +44,7 @@ public class BoardAssetService {
 
     @Transactional
     public void updateBackground(String slug, Long userId, String assetKey) {
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForEdit(slug, userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.BACKGROUND);
 
         if (assets.isEmpty()) {
@@ -59,7 +60,7 @@ public class BoardAssetService {
 
     @Transactional
     public void deleteBackground(String slug, Long userId) {
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForEdit(slug, userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.BACKGROUND);
         if (assets.isEmpty()) {
             throw new CustomException(ErrorCode.ASSET_NOT_FOUND);
@@ -70,7 +71,7 @@ public class BoardAssetService {
     // ===================== 스티커 =====================
 
     public StickerListResponse getStickers(String slug, Long userId) {
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForView(slug, userId);
         List<BoardAsset> assets = boardAssetRepository.findByBoardAndAssetType(board, AssetType.STICKER);
 
         Map<Integer, String> stickerMap = assets.stream()
@@ -81,7 +82,7 @@ public class BoardAssetService {
 
     public StickerResponse getSticker(String slug, Long userId, int slotIndex) {
         validateStickerSlot(slotIndex);
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForView(slug, userId);
         Optional<BoardAsset> asset = boardAssetRepository
                 .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.STICKER, slotIndex);
         return asset.map(StickerResponse::of).orElse(StickerResponse.empty(slotIndex));
@@ -90,7 +91,7 @@ public class BoardAssetService {
     @Transactional
     public void updateSticker(String slug, Long userId, int slotIndex, String assetKey) {
         validateStickerSlot(slotIndex);
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForEdit(slug, userId);
         Optional<BoardAsset> existing = boardAssetRepository
                 .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.STICKER, slotIndex);
 
@@ -109,7 +110,7 @@ public class BoardAssetService {
     @Transactional
     public void deleteSticker(String slug, Long userId, int slotIndex) {
         validateStickerSlot(slotIndex);
-        WishBoard board = getBoard(slug, userId);
+        WishBoard board = getBoardForEdit(slug, userId);
         BoardAsset asset = boardAssetRepository
                 .findByBoardAndAssetTypeAndSlotIndex(board, AssetType.STICKER, slotIndex)
                 .orElseThrow(() -> new CustomException(ErrorCode.ASSET_NOT_FOUND));
@@ -118,12 +119,17 @@ public class BoardAssetService {
 
     // ===================== private helpers =====================
 
-    private WishBoard getBoard(String slug, Long userId) {
+    private WishBoard getBoardForView(String slug, Long userId) {
         WishBoard board = wishBoardRepository.findByBoardSlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
-        if (!board.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.BOARD_FORBIDDEN);
-        }
+        WishBoardAccess.requireView(board, userId);
+        return board;
+    }
+
+    private WishBoard getBoardForEdit(String slug, Long userId) {
+        WishBoard board = wishBoardRepository.findByBoardSlug(slug)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND));
+        WishBoardAccess.requireEdit(board, userId);
         return board;
     }
 
