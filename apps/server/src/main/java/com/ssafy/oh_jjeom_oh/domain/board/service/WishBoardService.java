@@ -176,7 +176,7 @@ public class WishBoardService {
         wishBoardRepository.delete(board);
     }
 
-    // POST /api/boards/{slug}/save - 위시보드 독립 복사본 저장 (타인 보드만)
+    // POST /api/boards/{slug}/save - 위시보드 독립 복사본 저장 (본인·타인 보드)
     @Transactional
     public WishBoardSaveResponse saveBoard(Long userId, String slug) {
         WishBoard original = wishBoardRepository.findByBoardSlug(slug)
@@ -185,11 +185,9 @@ public class WishBoardService {
         if (original.getIsSavedCopy()) {
             throw new CustomException(ErrorCode.BOARD_SLUG_NOT_FOUND);
         }
-        if (!original.getIsPublic()) {
+        boolean isOwner = original.getUser().getId().equals(userId);
+        if (!original.getIsPublic() && !isOwner) {
             throw new CustomException(ErrorCode.BOARD_PRIVATE);
-        }
-        if (original.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.BOARD_CANNOT_SAVE_OWN);
         }
 
         User saver = userRepository.findById(userId)
