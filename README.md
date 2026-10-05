@@ -39,7 +39,7 @@
   <tr>
     <td align="center" width="200" style="vertical-align:bottom;">
       <div style="height:280px;display:flex;align-items:center;justify-content:center;">
-        <img src="./assets/member_01.png" alt="박서연" style="max-height:280px;width:auto;max-width:180px;display:block;" />
+        <img src="./assets/member_01.jpg" alt="박서연" style="max-height:280px;width:auto;max-width:180px;display:block;" />
       </div>
       <br/>
       <b>박서연</b>
